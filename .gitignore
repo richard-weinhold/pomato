@@ -1,0 +1,8 @@
+/data_input
+/data_output
+/data_temp
+/logs
+*DEV*
+*/__pycache__
+*.sublime* 
+
