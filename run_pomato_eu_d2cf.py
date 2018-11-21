@@ -2,21 +2,35 @@ import sys
 from pathlib import Path
 code_py = Path.cwd().joinpath("code_py")
 sys.path.append(str(code_py))
+import matplotlib.pyplot as plt
 
 from market_tool import MarketTool
 
 import numpy as np
 import pandas as pd
-import json
+import tools
+import time
 
-mato = MarketTool(opt_file="profiles/d2cf.json", model_horizon=range(0,10))
+mato = MarketTool(opt_file="profiles/d2cf.json", model_horizon=range(0,168))
 
 mato.load_data('data_input/dataset_eu_d2cf.xlsx')
 
+#mato.data.visulize_inputdata(mato.wdir)
+
+#mato.data.availability *= 0.6
+#mato.data.lines.cb = True
 #tmp = mato.data.lines.cb[mato.data.lines.cb]
 #any(mato.data.nodes.slack)
 
 mato.grid.build_grid_model(mato.data.nodes, mato.data.lines)
+
+#mato.data.process_results(mato.wdir.joinpath("data_temp\\julia_files\\results\\1611_1501"), mato.opt_setup)
+
+#mato.data.results.grid = mato.grid
+
+#mato.data.results.grid = mato.grid
+#mato.data.results.n_1_flow(["t0001", "t0002"], list(mato.data.lines.index.values), list(mato.data.lines.index.values))
+#mato.data.results.n_0_flow(["t0001", "t0002"])
 
 # TODO Make new julia type Grid that has the grid information
 # Export the relevant data to csv instead of json
@@ -24,13 +38,24 @@ mato.grid.build_grid_model(mato.data.nodes, mato.data.lines)
 # to an explicit parameter which is either on the nodela or, better, on the zonal energy balance
 #t = mato.data.lines.cb
 
+#mato.data.lines.maxflow *= 1
+
+
 #mato.create_grid_representation()
 #t = mato.grid_representation
+
+#mato.data.lines.cb[e.index] = True
+#mato.data.lines.cb[mato.data.lines.cb]
 
 mato.init_market_model()
 mato.run_market_model()
 
-mato.data.results.default_plots()
+#e,f = mato.data.results.overloaded_lines_n_1()
+#g,h = mato.data.results.overloaded_lines_n_0()
+
+
+#t = mato.data.results.INFEAS_EL_N
+#mato.data.results.default_plots()
 
 #mato.data.process_results(mato.wdir.joinpath("julia-files\\results\\210_1249"), mato.opt_setup)
 #mato.data.results.default_plots()

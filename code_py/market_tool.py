@@ -8,6 +8,8 @@ from data_management import DataManagement
 from grid_model import GridModel
 from julia_interface import JuliaInterface
 import bokeh_plot_interface as bokeh
+import tools
+
 
 def _logging_setup(wdir):
     # Logging setup
@@ -20,6 +22,7 @@ def _logging_setup(wdir):
         file_handler = logging.FileHandler(wdir.joinpath("logs").joinpath('market_tool.log'))
         file_handler.setLevel(logging.DEBUG)
         # create console handler with a higher log level
+#        handler = logging.StreamHandler()
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
         # create formatter and add it to the handlers
@@ -45,6 +48,8 @@ class MarketTool(object):
         self.data = DataManagement()
         self.grid = GridModel(self.wdir)
 
+        tools.create_folder_structure(self.wdir, self.logger)
+
         ## TODO, [rom]
         ## Not sure what does do, but all objectes should be initalized and
         ## then filled when needed
@@ -58,12 +63,13 @@ class MarketTool(object):
     def load_data(self, filename):
         """init Data Model with loading the fata from file"""
         self.data.load_data(self.wdir, filename)
-        
-        # self.grid.build_grid_model(self.data.nodes, self.data.lines)
 
+        # self.grid.build_grid_model(self.data.nodes, self.data.lines)
 
     def init_market_model(self):
         """init market model"""
+        if not self.grid.is_empty:
+            self.grid.build_grid_model(self.data.nodes, self.data.lines)
         if not self.grid_representation:
             self.create_grid_representation()
 
@@ -74,15 +80,18 @@ class MarketTool(object):
         """ Run the model """
         self.market_model.run()
 
+        if self.data.results:
+            self.logger.info("Added Grid Model to Results Processing!")
+            self.data.results.grid = self.grid
+
     def clear_data(self):
         self.logger.info("Resetting Data Object")
         self.data = DataManagement()
 
     def _parse_kwargs(self, kwargs):
-        options = [
-                    'opt_file',  # define location of a .json options file
-                    'model_horizon' # restrict the amount of times that are solved
-                    ]
+        options = ['opt_file', # define location of a .json options file
+                   'model_horizon' # restrict the amount of times that are solved
+                   ]
         for ka in kwargs.keys():
             if not(ka in options):
                 self.logger.warn("Unknown keyword: {}".format(ka))
@@ -102,12 +111,10 @@ class MarketTool(object):
         self.bokeh_plot.start_server()
         # self.bokeh_plot.stop_server()
 
-
     def create_grid_representation(self, precalc_filename=None, add_cbco=None):
         """Grid Representation as property, get recalculated when accessed via dot"""
         self.grid_representation =  self.grid.grid_representation(self.opt_setup["opt"], self.data.ntc, self.data.reference_flows,
                                                                   precalc_filename=precalc_filename, add_cbco=add_cbco)
-
 
     def init_bokeh_plot(self, name="default"):
         """init boke plot (saves market result and grid object)"""

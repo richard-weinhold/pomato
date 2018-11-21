@@ -13,6 +13,8 @@ import threading
 import datetime as dt
 import pandas as pd
 import psutil
+import tools
+
 
 class BokehPlot(object):
     """interface market data and bokeh plot, init all data then run the server from cmd"""
@@ -22,8 +24,10 @@ class BokehPlot(object):
 
         self.wdir = wdir
         self.bokeh_dir = wdir.joinpath("data_temp/bokeh_files")
+        # Make sure all folders exist
+        tools.create_folder_structure(self.wdir, self.logger)
+        
         ## Store Base Data
-        self.create_folders()
         data.plants.to_csv(str(self.bokeh_dir.joinpath('data').joinpath('plants.csv')), index_label='index')
         data.nodes.to_csv(str(self.bokeh_dir.joinpath('data').joinpath('nodes.csv')), index_label='index')
         data.zones.to_csv(str(self.bokeh_dir.joinpath('data').joinpath('zones.csv')), index_label='index')
@@ -38,15 +42,6 @@ class BokehPlot(object):
         self.bokeh_server = None
         self.bokeh_thread = None
         self.bokeh_pid = None
-
-    def create_folders(self):
-        """ create folders for bokeh interface"""
-        if not self.wdir.joinpath("data_temp/bokeh_files").is_dir():
-            self.wdir.joinpath("data_temp/bokeh_files").mkdir()
-        if not self.bokeh_dir.joinpath("market_result").is_dir():
-            self.bokeh_dir.joinpath("market_result").mkdir()
-        if not self.bokeh_dir.joinpath("data").is_dir():
-            self.bokeh_dir.joinpath("data").mkdir()
 
     def add_market_result(self, market_result, grid_model, name):
         """create data set for bokeh plot from julia market_result-object with the associated grid model"""

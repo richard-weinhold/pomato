@@ -8,14 +8,16 @@
 # ----------------------------------
 # 
 # This file:
-# Julia type definitions for efficient data handling
+# Julia mutable struct definitions for efficient data handling
 # -------------------------------------------------------------------------------------------------
 
-type Zone
+mutable struct Zone
     index::Any
     demand::Dict
     # ntc_to::Dict
     nodes::Any
+    net_position::Dict
+    net_export::Dict
     function Zone(index, demand, nodes)
         z = new()
         z.index = index
@@ -25,7 +27,7 @@ type Zone
     end
 end
 
-type Heatarea
+mutable struct Heatarea
     index::Any
     name::String
     demand::Dict
@@ -37,13 +39,14 @@ type Heatarea
     end
 end
 
-type Node
+mutable struct Node
     index::Any
     zone::Zone   
     slack::Bool  
     name::String
     demand::Dict
-    function Node(index, zone, slack, name)
+    net_export::Dict
+        function Node(index, zone, slack, name)
         n = new()
         n.index = index
         n.zone = zone
@@ -53,7 +56,7 @@ type Node
     end
 end
 
-type Plant
+mutable struct Plant
     index::Any             
     efficiency::Float64 
     g_max::Float64   
@@ -75,7 +78,7 @@ type Plant
     end
 end
 
-type DC_Line
+mutable struct DC_Line
     index::Any
     node_i::Node
     node_j::Node
@@ -90,7 +93,7 @@ type DC_Line
     end
 end
 
-type Availability
+mutable struct Availability
     plant::Plant
     value::Dict
     function Availability(plant, value)

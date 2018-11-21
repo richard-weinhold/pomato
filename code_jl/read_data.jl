@@ -30,6 +30,10 @@ demand_el_mat = CSV.read(data_dir*"demand_el.csv")
 demand_h_mat = CSV.read(data_dir*"demand_h.csv")
 dc_lines_mat = CSV.read(data_dir*"dclines.csv")
 ntc_mat = CSV.read(data_dir*"ntc.csv")
+
+net_position_mat = CSV.read(data_dir*"net_position.csv") 
+net_export_nodes_mat = CSV.read(data_dir*"net_export_nodes.csv") 
+
 slack_zones = JSON.parsefile(data_dir*"slack_zones.json"; dicttype=Dict)
 opt_setup = JSON.parsefile(data_dir*"opt_setup.json"; dicttype=Dict)
 
@@ -40,12 +44,16 @@ zones = OrderedDict()
 for z in 1:nrow(zones_mat)
     index = zones_mat[z, :index]
     demand_sum = Dict()
+    net_export_sum = Dict()
     for t in 1:nrow(demand_el_mat)
-        dsum = sum(demand_el_mat[t, Symbol(n)] for n in nodes_mat[nodes_mat[:zone] .== index, :index])
-        demand_sum[demand_el_mat[t, :index]] = dsum
+        d_sum = sum(demand_el_mat[t, Symbol(n)] for n in nodes_mat[nodes_mat[:zone] .== index, :index])
+        nex_sum = sum(net_export_nodes_mat[t, Symbol(n)] for n in nodes_mat[nodes_mat[:zone] .== index, :index])
+        demand_sum[demand_el_mat[t, :index]] = d_sum
+        net_export_sum[demand_el_mat[t, :index]] = nex_sum
     end
     nodes = nodes_mat[nodes_mat[:zone] .== index, :index]
     newz = Zone(index, demand_sum, nodes)
+    newz.net_export = net_export_sum
     zones[newz.index] = newz
 end
 
@@ -54,7 +62,6 @@ nodes_in_zone = Dict()
 for z in collect(keys(zones))
     nodes_in_zone[z] = Dict()
 end
-
 
 nodes = OrderedDict()
 for n in 1:nrow(nodes_mat)
@@ -70,6 +77,11 @@ for n in 1:nrow(nodes_mat)
     demand_at_node = demand_el_mat[Symbol(newn.index)]
     demand_dict = Dict(zip(demand_time, demand_at_node))
     newn.demand = demand_dict
+
+    net_export_time = net_export_nodes_mat[:index]
+    net_export_at_node = net_export_nodes_mat[Symbol(newn.index)]
+    net_export_dict = Dict(zip(net_export_time, net_export_at_node))
+    newn.net_export = net_export_dict
 
     nodes[newn.index] = newn
     nodes_in_zone[newn.zone.index][newn.index] = newn
@@ -96,13 +108,16 @@ plants_in_ha = Dict()
 for h in collect(keys(heatareas))
     plants_in_ha[h] = Dict()
 end
+
 plants_at_node = Dict()
 for n in collect(keys(nodes))
     plants_at_node[n] = Dict()
 end
+
 p_with_avail = names(availability_mat)
 p_with_avail = setdiff(p_with_avail, [:index])
 p_with_avail = [String(p) for p in p_with_avail]
+
 for p in 1:nrow(plants_mat)
     index = string(plants_mat[p, :index])
     efficiency = plants_mat[p, :eta]
@@ -152,7 +167,6 @@ for l in 1:nrow(dc_lines_mat)
     capacity = dc_lines_mat[l, :capacity]
 
     newl = DC_Line(index, node_i, node_j, capacity)
-
     dc_lines[newl.index] = newl
 end
 
@@ -171,14 +185,17 @@ end
 if in(model_type,  ["cbco_nodal", "cbco_zonal", "nodal"])
     println("Loading CBCOs")
     cbco = JSON.parsefile(data_dir*"cbco.json")
+
 elseif in(model_type,  ["d2cf"])
     cbco = JSON.parsefile(data_dir*"cbco.json")
-    net_position = JSON.parsefile(data_dir*"net_position.json")
-    net_export = JSON.parsefile(data_dir*"net_export_nodes.json")
+    for z in collect(keys(zones))
+        net_position_time = net_position_mat[:index]
+        net_position_of_zone = net_position_mat[Symbol(z)]
+        net_position_dict = Dict(zip(net_position_time, net_position_of_zone))
+        zones[z].net_position = net_position_dict
+    end
 else
     cbco = Dict()
-    net_position = Dict()
-    net_export = Dict()
 end
 
 # Prepare model_horizon
@@ -191,5 +208,5 @@ println("Data Prepared")
 return model_horizon, opt_setup, 
        plants, plants_in_ha, plants_at_node, plants_in_zone, availabilities,
        nodes, zones, slack_zones, heatareas, nodes_in_zone,
-       ntc, dc_lines, cbco, net_position, net_export
+       ntc, dc_lines, cbco
 end # end of function

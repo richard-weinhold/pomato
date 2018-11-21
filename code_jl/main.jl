@@ -39,14 +39,14 @@ include("setdefinitions.jl")
 model_horizon, opt_setup, 
 plants, plants_in_ha, plants_at_node, plants_in_zone, availabilities,
 nodes, zones, slack_zones, heatareas, nodes_in_zone,
-ntc, dc_lines, cbco, net_position, net_export = read_model_data(WDIR*"/data_temp/julia_files/data/")
+ntc, dc_lines, cbco = read_model_data(WDIR*"/data_temp/julia_files/data/")
 
 
 #Run Dispatch Model
 out = build_and_run_model(model_horizon, opt_setup, 
                           plants, plants_in_ha, plants_at_node, plants_in_zone, availabilities,
                           nodes, zones, slack_zones, heatareas, nodes_in_zone,
-                          ntc, dc_lines, cbco, net_position, net_export)
+                          ntc, dc_lines, cbco)
 
 
 println("DONE")

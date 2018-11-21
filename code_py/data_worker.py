@@ -23,13 +23,13 @@ class DataWorker(object):
 	def __init__(self, data, file_path):
 		self.logger = logging.getLogger('Log.MarketModel.DataManagement.DataWorker')
 		self.data = data
-		
+
 		if ".xls" in str(file_path):
 			self.logger.info("Loading data from xls file")
 			print(file_path)
 			self.read_xls(file_path)
-		
-		elif ".mat" in file_path:
+
+		elif ".mat" in str(file_path):
 			self.logger.info("Loading data from matpower case-file")
 			self.read_matpower_case(file_path)
 		else:
@@ -51,27 +51,27 @@ class DataWorker(object):
 		self.logger.info("Reading MatPower Casefile")
 		self.data.data_attributes["source"] = "mpc_casefile"
 
-		MPCOLNAMES = {'bus_keys': np.array(['bus_i', 'b_type', 'Pd', 
+		MPCOLNAMES = {'bus_keys': np.array(['bus_i', 'b_type', 'Pd',
 											'Qd', 'Gs', 'Bs', 'area',
-											'Vm', 'Va', 'baseKV', 
+											'Vm', 'Va', 'baseKV',
 											'zone', 'Vmax', 'Vmin']),
 
-					  'gen_keys': np.array(['bus', 'Pg', 'Qg', 'Qmax', 
+					  'gen_keys': np.array(['bus', 'Pg', 'Qg', 'Qmax',
 					  						'Qmin', 'Vg', 'mBase',
-									  		'status', 'Pmax', 'Pmin', 
+									  		'status', 'Pmax', 'Pmin',
 									  		'Pc1', 'Pc2', 'Qc1min',
-									  		'Qc1max', 'Qc2min', 'Qc2max', 
+									  		'Qc1max', 'Qc2min', 'Qc2max',
 											'ramp_agc', 'ramp_10',
 											'ramp_30', 'ramp_q', 'apf']),
 
-						'branch_keys': np.array(['fbus', 'tbus', 'r', 'x', 
+						'branch_keys': np.array(['fbus', 'tbus', 'r', 'x',
 												 'b', 'rateA', 'rateB',
-										 		 'rateC', 'ratio', 'angle', 
+										 		 'rateC', 'ratio', 'angle',
 										 		 'status', 'angmin', 'angmax']),
-						
-						'gencost_keys': np.array(['model', 'startup', 
+
+						'gencost_keys': np.array(['model', 'startup',
 												  'shutdown', 'n'])}
-		
+
 		case_raw = sio.loadmat(casefile)
 		mpc = case_raw['mpc']
 		bus = mpc['bus'][0,0]
@@ -182,4 +182,3 @@ class DataWorker(object):
 		self.data.data_attributes["data"]["zones"] = True
 		self.data.data_attributes["data"]["demand_el"] = True
 
-		

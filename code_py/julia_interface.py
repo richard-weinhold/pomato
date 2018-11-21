@@ -16,6 +16,8 @@ import datetime
 import pandas as pd
 from pathlib import Path
 import shutil
+import tools
+
 
 class JuliaInterface(object):
     """ Class to interface the Julia model with the python Market and Grid Model"""
@@ -28,7 +30,8 @@ class JuliaInterface(object):
         # Create Folders
         self.wdir = wdir
         self.jl_data_dir = wdir.joinpath("data_temp/julia_files")
-        self.create_folders(self.wdir)
+        # Make sure all folders exist
+        tools.create_folder_structure(self.wdir, self.logger)
 
         # Init Datamangement, Grid Data and Model Set-up
         self.data = data
@@ -55,24 +58,13 @@ class JuliaInterface(object):
         # fbmc related parameters
         self.net_position = data.net_position
         self.net_export = data.net_export
-        self.net_export_nodes = data.net_export_nodes
-
+        
         self.data_to_csv()
         # self.data_to_json()
 
         self.status = 'ready_to_solve'
         self.results = {}
         self.logger.info("MarketModel Initialized!")
-
-    def create_folders(self, wdir):
-        """ create folders for julia interface"""
-        if not self.jl_data_dir.joinpath("data").is_dir():
-            self.jl_data_dir.joinpath("data").mkdir()
-        if not self.jl_data_dir.joinpath("results").is_dir():
-            self.jl_data_dir.joinpath("results").mkdir()
-        if not self.jl_data_dir.joinpath("data").joinpath("json").is_dir():
-            self.jl_data_dir.joinpath("data").joinpath("json").mkdir()
-
 
     def run(self):
         """Run the julia Programm via command Line"""
@@ -145,7 +137,8 @@ class JuliaInterface(object):
         self.availability.to_csv(str(csv_path.joinpath('availability.csv')), index_label='index')
         self.ntc.to_csv(str(csv_path.joinpath('ntc.csv')), index=False)
         self.dclines.to_csv(str(csv_path.joinpath('dclines.csv')), index_label='index')
-
+        self.net_export.to_csv(str(csv_path.joinpath('net_export_nodes.csv')), index_label='index')
+        self.net_position.to_csv(str(csv_path.joinpath('net_position.csv')), index_label='index')
         # Optional data
         try:
             with open(csv_path.joinpath('cbco.json'), 'w') as file:

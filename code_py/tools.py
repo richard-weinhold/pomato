@@ -1,5 +1,50 @@
 import matplotlib.pyplot as plt
 import pandas as pd
+from pathlib import Path
+
+def create_folder_structure(base_path, logger=None):
+    folder_structure = {
+        "code_jl": {},
+        "code_py": {},
+        "data_input": {},
+        "data_output": {},
+        "data_temp": {
+                "bokeh_files": {
+                        "data": {}, 
+                        "market_result": {}
+                        },
+                "julia_files": {
+                        "data": {},
+                        "results": {},
+                        },
+                "python_files": {
+                        "tmp_tables": {},
+                        },
+                    },
+      "logs": {},
+      "profiles": {},
+    }
+    
+    if logger:
+        logger.info("Creating Folder Structure")
+    try:
+        folder = folder_structure
+        while folder:
+            subfolder_dict = {}
+            for subfolder in folder:
+                if not Path.is_dir(base_path.joinpath(subfolder)):
+                    if logger:
+                        logger.info(f"creating folder {subfolder}")
+                    Path.mkdir(base_path.joinpath(subfolder))
+                if folder[subfolder]:
+                    for subsubfolder in folder[subfolder]:
+                        subfolder_dict[subfolder + "/" + subsubfolder] = folder[subfolder][subsubfolder]
+            folder = subfolder_dict.copy()
+    except:
+        if logger:
+            logger.error("Cound not create folder structure!")
+        else:
+            print("Cound not create folder structure!")
 
 def find_xy_limits(list_plots):
     try:
@@ -66,39 +111,5 @@ def array2latex(array):
 
         print(' & '.join(row) + ' \\\ ')
 
-def plot_chp_usage(gamsdb):
-    for u in gamsdb["chp"]:
-        G = []
-        H = []
-        for t in gamsdb["t"]:
-            G.append(gamsdb["G"].find_record(keys=[u.get_keys()[0],t.get_keys()[0]]).level)
-            H.append(gamsdb["H"].find_record(keys=[u.get_keys()[0],t.get_keys()[0]]).level)
-
-        plt.figure()
-        ax = plt.subplot()
-        ax.set_title(u.get_keys()[0])
-        ax.scatter(H,G)
-
-def plot_es_use(gamsdb):
-    # Beware ugly colors
-#    gamsdb = model.out_db
-    for u in gamsdb["es"]:
-        G = []
-        D = []
-        L = []
-        idx = []
-        for i,t in enumerate(gamsdb["t"]):
-            G.append(gamsdb["G"].find_record(keys=[u.get_keys()[0],t.get_keys()[0]]).level)
-            D.append(gamsdb["D_es"].find_record(keys=[u.get_keys()[0],t.get_keys()[0]]).level)
-            L.append(gamsdb["L_es"].find_record(keys=[u.get_keys()[0],t.get_keys()[0]]).level)
-            idx.append(i)
-        plt.figure()
-        ax = plt.subplot()
-        ax.set_title(u.get_keys()[0])
-        ax.plot(idx, G, c='k', label="Storage Generation")
-        ax.plot(idx, D, c='b', label="Storage Demand")
-        ax.plot(idx, L, c='r', label="Sorage Level")
-        handles, labels = ax.get_legend_handles_labels()
-        ax.legend(handles, labels)
 
 

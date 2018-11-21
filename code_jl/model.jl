@@ -14,7 +14,7 @@
 function build_and_run_model(model_horizon, opt_setup, 
                              plants, plants_in_ha, plants_at_node, plants_in_zone, availabilities,
                              nodes, zones, slack_zones, heatareas, nodes_in_zone,
-                             ntc, dc_lines, cbco, net_position, net_export)
+                             ntc, dc_lines, cbco)
 
 # Check for feasible model_type
 model_type = opt_setup["opt"]
@@ -66,7 +66,7 @@ end
 
 # Setup model
 # disp = Model(solver=ClpSolver(SolveType=5))
-disp = Model(solver=GurobiSolver(Threads=0))
+disp = Model(solver=GurobiSolver())
 # Variables
 @variable(disp, G[t_set, p_set] >= 0) # El. power generation per plant p
 @variable(disp, H[t_set, p_set] >= 0) # Heat generation per plant p
@@ -208,7 +208,7 @@ for t in t_set
     for z in z_set
         p_in_z_set = collect(keys(plants_in_zone[z]))
        
-        EB_zonal = @constraint(disp, zones[z].demand[model_horizon[t]] == 
+        EB_zonal = @constraint(disp, zones[z].demand[model_horizon[t]] + zones[z].net_export[model_horizon[t]] == 
                               sum(G[t, p] for p in intersect(p_in_z_set, co_set))
                             - sum(D_ph[t, p] for p in intersect(p_in_z_set, ph_set))
                             - sum(D_es[t, p] for p in intersect(p_in_z_set, es_set))
@@ -226,7 +226,7 @@ for t in t_set
     # Base Constraint
     for n in n_set
         p_in_n_set = collect(keys(plants_at_node[n]))
-        EB_nodal = @constraint(disp, nodes[n].demand[model_horizon[t]] == 
+        EB_nodal = @constraint(disp, nodes[n].demand[model_horizon[t]] + nodes[n].net_export[model_horizon[t]] == 
                               sum(G[t, p] for p in intersect(p_in_n_set, co_set))
                             - sum(D_ph[t, p] for p in intersect(p_in_n_set, ph_set))
                             - sum(D_es[t, p] for p in intersect(p_in_n_set, es_set))
@@ -262,8 +262,8 @@ for t in t_set
     # Applies to: ntc, nodal, cbco_nodal, cbco_zonal
     if in(model_type, ["ntc", "nodal", "cbco_nodal", "cbco_zonal", "d2cf"])
         for slack in slack_set
-            # INJ in slack has to be balanced with all other INJ within slack_zones (w/o slack itself)
-            @constraint(disp, INJ[t, slack] == -sum(INJ[t, n] for n in setdiff(slack_zones[slack], [slack])))
+            # INJ have to be balanced within a slack_zone
+            @constraint(disp, 0 == sum(INJ[t, n] for n in slack_zones[slack]))
         end
     end
 
@@ -288,8 +288,12 @@ for t in t_set
     if in(model_type, ["d2cf"])
         for z in ["DE", "NL", "BE", "FR", "LU"]
             ### net_position when positive -> export
-            @constraint(disp, sum(EX[t, z, zz] - EX[t, zz, z] for zz in z_set) <= net_position[model_horizon[t]][z] + 0.1*abs(net_position[model_horizon[t]][z]))
-            @constraint(disp, sum(EX[t, z, zz] - EX[t, zz, z] for zz in z_set) >= net_position[model_horizon[t]][z] - 0.1*abs(net_position[model_horizon[t]][z]))
+            @constraint(disp, sum(EX[t, z, zz] - EX[t, zz, z] for zz in z_set) <= 
+                              zones[z].net_position[model_horizon[t]] + 0.1*abs(zones[z].net_position[model_horizon[t]])
+                              )
+            @constraint(disp, sum(EX[t, z, zz] - EX[t, zz, z] for zz in z_set) >= 
+                              zones[z].net_position[model_horizon[t]] - 0.1*abs(zones[z].net_position[model_horizon[t]])
+                              )
         end
         # set reference flows in CNECS
         for cb in cb_set

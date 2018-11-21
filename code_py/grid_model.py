@@ -140,55 +140,6 @@ class GridModel(object):
                                  "\nCauses a security breach at lines: \n" +
                                  ", ".join(self.lines.index[abs(flow) > f_max]))
 
-    def check_n_1(self):
-        """Check N-1 security for injections in self.nodes"""
-        overloaded_lines = {}
-        n_1_flow = self.n_1_flows()
-        for outage in n_1_flow: # Outage
-            # compare n-1flow vector with maxflow vector -> bool vector of overloaded lines
-            for ov_line in self.lines.index[np.abs(n_1_flow[outage])>self.lines.maxflow.values*1.05]:
-                overloaded_lines[len(overloaded_lines)] = {'Line': ov_line, 'Outage': outage,
-                                                            'Flow': n_1_flow[outage][self.lines.index.get_loc(ov_line)],
-                                                            'maxflow': self.lines.maxflow[ov_line]}
-        return overloaded_lines
-
-    def check_n_1_for_marketresult(self, injections, timeslice=None, threshold=3):
-        """
-        Checks Market Result for N-1 Security, optional timeslice as str,
-        optional threshhold for overloaded lines from which further check is cancelled
-        injections dataframe from gms method gams_symbol_to_df
-        """
-        timeslice = timeslice or ['t'+ "{0:0>4}".format(x+1) \
-                                  for x in range(0, len(injections.t.unique()))]
-        self.logger.info(f"Run N-1 LoadFlow Check from {timeslice[0]} to {timeslice[-1]}")
-
-        all_overloaded_lines = {}
-        nr_overloaded_lines = 0
-        for i, time in enumerate(timeslice):
-            ## Generate Fancy Progressbar
-            sys.stdout.write("\r[%-35s] %d%%  - Overloaded Lines in %d Timesteps" % \
-                             ('='*int(i*35/len(timeslice)),
-                              int(i*101/len(timeslice)), nr_overloaded_lines))
-            sys.stdout.flush()
-            #Exit if more than 10 N-1 Breaches are detected
-            if nr_overloaded_lines > threshold:
-                break
-                print("\n")
-                self.logger.error(f"More than {threshold} N-1 breaches!")
-
-            net_injections = injections[injections.t == time]
-            # sort by the same order of nodes as self.nodes.index
-            net_injections = net_injections.set_index("n").reindex(self.nodes.index).reset_index()
-
-            self.update_net_injections(net_injections.INJ.values)
-            overloaded_lines = self.check_n_1()
-            if overloaded_lines != {}:
-                all_overloaded_lines[time] = overloaded_lines
-                nr_overloaded_lines += 1
-        self.logger.info(f"Check Done: {nr_overloaded_lines} Overloaded Lines")
-
-        return all_overloaded_lines
-
     def grid_representation(self, option, ntc, f_ref=None, precalc_filename=None, add_cbco=None):
         """Bundle all relevant grid information in one dict for the market model"""
         grid_rep = {}
@@ -252,106 +203,6 @@ class GridModel(object):
             tmp.append(slack)
             slack_zones[slack] = tmp
         return slack_zones
-
-    def check_n_0(self, flow):
-        """ Check N-0 Loadflow"""
-        self.logger.info("Run N-0 LoadFlow Check")
-        for l_idx, elem in enumerate(flow):
-            if elem > self.lines.maxflow[l_idx]*1.01:
-                self.logger.info(self.lines.index[l_idx] + ' is above max capacity')
-            elif elem < -self.lines.maxflow[l_idx]*1.01:
-                self.logger.info(self.lines.index[l_idx] + ' is below min capacity')
-
-    def max_n_1_flow_per_line(self):
-        """ returns the maximum n-1 flow per line, preserving flow direction"""
-        n_1_flows = self.n_1_flows(option="lines")
-        return [n_1_flows[l][np.argmax(np.abs(n_1_flows[l]))] for l in self.lines.index]
-
-    def n_1_flows(self, option="outage"):
-        """ returns N-1 Flows, either by outage or by line"""
-        # Outate Line -> resulting Flows on all other lines
-        injections = self.nodes.net_injection.values
-        n_1 = []
-        for i, _ in enumerate(self.lines.index):
-            n_1_ptdf = self.create_n_1_ptdf_outage(i)
-            n_1.append(np.dot(n_1_ptdf, injections))
-        n_1_stack = np.vstack(n_1)
-        n_1_flows = {}
-        if option == "outage":
-            for i, outage in enumerate(self.lines.index):
-                n_1_flows[outage] = n_1_stack[i, :]
-        else:
-            for i, line in enumerate(self.lines.index):
-                n_1_flows[line] = n_1_stack[:, i]
-        return n_1_flows
-
-#    def n_1_flows_multiprocess(list_inj_lines):
-#        obj = list_inj_lines[2]
-#        injections = list_inj_lines[0]
-#        line = list_inj_lines[1]
-#        flows_t = []
-#        n_1_ptdf = obj.create_n_1_ptdf_outage(line)
-#        for t in np.unique(injections.t.values):
-#            flows_t.append(np.dot(n_1_ptdf, injections.INJ[injections.t == t].values))
-#        return line, flows_t
-
-    def n_1_flows_timeseries(self, injections):
-        """ returns the n-1 flows for an injection timeseries (from the market model)
-        """
-#        injections = INJ
-#        injections = injections[injections.t.isin(["t0001", "t0002", "t0003"])]
-#        self = mato.grid
-
-#        %%timeit -r 1 -n 1
-        flows_t = {t: [] for t in np.unique(injections.t.values)}
-        for i in self.lines.index:
-            n_1_ptdf = self.create_n_1_ptdf_outage(i)
-#            print(i)
-            for t in np.unique(injections.t.values):
-                flows_t[t].append(np.dot(n_1_ptdf, injections.INJ[injections.t == t].values))
-
-
-        n_1_flows = pd.DataFrame(index=self.lines.index)
-        for t in np.unique(injections.t.values):
-#            print(t)
-            n_1_flows_tmp = np.vstack(flows_t[t])
-            max_values = np.argmax(np.abs(n_1_flows_tmp), axis=0)
-            n_1_flows[t] = [n_1_flows_tmp[column, row] for row, column in enumerate(max_values)]
-
-        return n_1_flows
-##
-#        from multiprocessing.pool import ThreadPool as Pool
-#        %%timeit -r 1 -n 1
-#        pool = Pool(8)
-#        input_par = [[INJ, line, self] for line in self.lines.index]
-#        for result in pool.imap_unordered(n_1_flows_multiprocess, input_par):
-#            print(result[0])
-
-
-
-    def update_flows(self):
-        """update flows in self.lines"""
-        flows = self.n_0_flows()
-        self.lines.flow = flows
-        return flows
-
-    def n_0_flows(self):
-        """ returns flows, based in the net injection in the nodes attribute"""
-        return np.dot(self.ptdf, self.nodes.net_injection.values)
-
-    def n_0_flows_timeseries(self, injections):
-        """ returns flows as a dataframe for the timesteps in the injections input"""
-        n_0_flows = pd.DataFrame(index=self.lines.index)
-        for t in np.unique(injections.t.values):
-            n_0_flows[t] = np.dot(self.ptdf, injections.INJ[injections.t == t].values)
-        return n_0_flows
-
-    def update_net_injections(self, net_inj):
-        """updates net injection in self.nodes from list"""
-        try:
-            self.nodes.net_injection = net_inj
-        except ValueError:
-            self.logger.exception("invalid net injections provided")
 
     def create_incedence_matrix(self):
         """Create incendence matrix"""
@@ -457,27 +308,50 @@ class GridModel(object):
             self.logger.exception("error in create_lodf_matrix ", sys.exc_info()[0])
             raise ZeroDivisionError('LODFError: Check Slacks, radial Lines/Nodes')
 
-    def create_n_1_ptdf_line(self, line_idx):
+    def create_n_1_ptdf_line(self, line):
+        """
+        Creates N-1 ptdf for one specific line - all outages
+        returns LxN Matrix, where ptdf*inj = flows on specified line with all outages
+        """
         try:
-            n_1_ptdf_line =  np.vstack([self.ptdf[line_idx, :]] + \
-                                       [self.ptdf[line_idx, :] + np.dot(self.lodf[line_idx, outage], self.ptdf[outage, :]) \
+            if not isinstance(line, int):
+                line = self.lines.index.get_loc(line)
+
+            n_1_ptdf_line =  np.vstack([self.ptdf[line, :]] + \
+                                       [self.ptdf[line, :] + np.dot(self.lodf[line, outage], self.ptdf[outage, :]) \
                                         for outage in range(0, len(self.lines))])
             return n_1_ptdf_line
         except:
-            self.logger.exception('error:create_n_1_ptdf')
+            self.logger.exception('error:create_n_1_ptdf_cb')
+    
+    def create_n_1_ptdf_cbco(self, line, outage):
+        """
+        Creates N-1 ptdf for one specific line and outage
+        returns LxN Matrix, where ptdf*inj = flow on specified line under specified outages
+        """
+        try:
+            if not isinstance(outage, int):
+                outage = self.lines.index.get_loc(outage)
+            if not isinstance(line, int):
+                line = self.lines.index.get_loc(line)
+            n_1_ptdf_cbco =  self.ptdf[line, :] + np.dot(self.lodf[line, outage], self.ptdf[outage, :])
+            return n_1_ptdf_cbco
+        except:
+            self.logger.exception('error:create_n_1_ptdf_cbco')
 
     def create_n_1_ptdf_outage(self, outage):
         """
-        Create N-1 ptdfs - For each line add the resulting ptdf to list contingency
-        first ptdf is N-0 ptdf
+        Create N-1 ptdf for one specific outage - all lines
+        returns LxN Matrix, where ptdf*inj = lineflows with specified outage
         """
         try:
             if not isinstance(outage, int):
                 outage = self.lines.index.get_loc(outage)
             n_1_ptdf = np.array(self.ptdf, dtype=np.float) + np.vstack([np.dot(self.lodf[lx, outage], self.ptdf[outage, :]) for lx in range(0, len(self.lines))])
             return n_1_ptdf
+            
         except:
-            self.logger.exception('error:create_n_1_ptdf')
+            self.logger.exception('error:create_n_1_ptdf_co')
 
 
     def create_and_store_n_1_ptdf(self):

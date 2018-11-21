@@ -12,6 +12,8 @@ class ResultProcessing(object):
         self.logger = logging.getLogger('Log.MarketModel.DataManagement.ResultData')
         self.data = data
 
+        self.grid = None
+
         self.result_folder = self.data.wdir.joinpath("data_output").joinpath(str(opt_folder).split("\\")[-1])
         if not self.result_folder.is_dir():
             self.result_folder.mkdir()
@@ -48,6 +50,9 @@ class ResultProcessing(object):
         with open(str(folder.joinpath("misc_result.json")), "r") as jsonfile:
             data = json.load(jsonfile)
         self.data.result_attributes["objective"] = data["Objective Value"]
+        self.data.result_attributes["model_horizon"] = list(self.INJ.t.unique())
+
+
 
     def commercial_exchange(self, t):
         exchange = self.EX[(self.EX.t == t)][["EX", "z", "zz"]]
@@ -74,9 +79,13 @@ class ResultProcessing(object):
                 if any(tmp[col] > 1e-3):
                     self.logger.warning(f"Infeasibilites in {col}")
 
+    # def courtailment(self):
+
+    #     res_fuels = ["sun", "wind", "water", "biomass"]
+
     def default_plots(self, show_plot=False):
         """Set of Standard Plots"""
-#        self = mato.data.results
+        # self = mato.data.results
         if show_plot:
             plt.ion()
 
@@ -84,7 +93,7 @@ class ResultProcessing(object):
                               how="left", left_on="p", right_index=True)
         generation = pd.merge(generation, self.data.nodes.zone.to_frame(),
                               how="left", left_on="node", right_index=True)
-        model_horizon = list(np.unique(generation.t.values))
+        model_horizon = self.data.result_attributes["model_horizon"]
 
         # By Fuel
         fig, ax = plt.subplots()
@@ -130,3 +139,107 @@ class ResultProcessing(object):
 
         # Close all Figures
         fig.clf()
+
+    ######
+    # Grid Analytics
+    # - Load Flows
+
+    def n_0_flow(self, timesteps):
+        if not self.grid:
+            self.logger.error("Grid Model not available!")
+            return None
+        n_0_flows = pd.DataFrame(index=self.data.lines.index)
+        for t in timesteps:
+            n_0_flows[t] = np.dot(self.grid.ptdf, self.INJ.INJ[self.INJ.t == t].values)
+        return n_0_flows
+
+    def n_1_flow(self, timesteps, lines, outages):
+        """Line flows on lines (cb) under outages (co)
+           input lines/outages list of line indices
+           timesteps list of timestepts
+           output DF[lines, outages, timesteps]
+        """
+
+        if not self.grid:
+            self.logger.error("Grid Model not available!")
+            return None
+        if not all([x in self.data.lines.index for x in lines + outages]):
+            self.logger.error("Not all CBs/COs are indices of lines!")
+            return None
+        n_1_flows = pd.DataFrame([[l, o] for l in lines for o in outages],
+                                 columns=["lines", "outages"])
+        ptdf = np.vstack([self.grid.create_n_1_ptdf_cbco(l,o) for l in lines for o in outages])
+        for t in timesteps:
+            n_1_flows[t] = np.dot(ptdf, self.INJ.INJ[self.INJ.t == t].values)
+        return n_1_flows
+
+    def overloaded_lines_n_0(self, timesteps=None):
+        """
+        Information about N-0 (over) Lineflows
+        returns a DataFrame with respective info
+        and timeseries of overloaded lines
+        """
+        if not timesteps:
+            # if not specifie use full model horizon
+            timesteps = self.data.result_attributes["model_horizon"]
+
+        flows = self.n_0_flow(timesteps)
+        relative_load = pd.DataFrame(index=flows.index, columns=flows.columns,
+                                     data=np.vstack([(abs(flows[t]))/self.data.lines.maxflow for t in timesteps]).T)
+
+        # Only those with over loadings
+        n_0_load = relative_load[np.any(relative_load.values>1, axis=1)]
+
+        return_df = pd.DataFrame(index=n_0_load.index)
+        return_df["# of overloads"] = np.sum(relative_load.values>1, axis=1)[np.any(relative_load.values>1, axis=1)]
+        return_df["avg load"] = n_0_load.mean(axis=1)
+  
+        return return_df, n_0_load
+
+    def overloaded_lines_n_1(self, timesteps=None):
+
+        if not timesteps:
+            # if not specifie use full model horizon
+            timesteps = self.data.result_attributes["model_horizon"]
+
+        n_1_load = pd.DataFrame(columns=["lines", "outages"] + timesteps)
+        for l, line in enumerate(self.data.lines.index):
+
+            ## Print Progress-Bar
+            sys.stdout.flush()
+            sys.stdout.write("\r[%-35s] %d%% done!" % \
+                            ('='*int(l*35/len(self.data.lines.index)),
+                             int(l*101/len(self.data.lines.index))))
+            
+            flow = self.n_1_flow(timesteps, [line], list(self.data.lines.index))
+
+            relative_load = pd.DataFrame(columns=timesteps, index=self.data.lines.index,
+                                         data=np.vstack([(abs(flow[t])/self.data.lines.maxflow[line]) for t in timesteps]).T)
+
+            if np.any(relative_load.values>1):
+                # overloaded_n_1_load = relative load on line with overloadings
+                overloaded_n_1_load = relative_load[np.any(relative_load.values>1, axis=1)]
+                overloaded_n_1_load["lines"] = line
+                n_1_load = n_1_load.append(overloaded_n_1_load.rename_axis('outages').reset_index(),
+                                           sort=True, ignore_index=True)
+
+            if sys.getsizeof(n_1_load)/(8*1E9) > 1:
+                # break if size of n_1_load is larger than 1GB
+                sys.stdout.write("\n")
+                sys.stdout.write("\n")
+                self.logger.warning("Return DF is too large!")
+                return pd.DataFrame(), n_1_load
+                break
+
+        tmp_df = n_1_load[["lines", "outages"]].copy()
+        tmp_df["# of overloads"] = np.sum(n_1_load[timesteps] > 1, axis=1)
+        tmp_df["# of COs"] = 1
+        tmp_df["avg load"] = n_1_load[timesteps].mean(axis=1)
+
+        return_df = tmp_df[["# of overloads", "# of COs", "lines"]].groupby("lines").sum()
+        return_df[["avg load"]] = tmp_df[["avg load", "lines"]].groupby("lines").mean()
+
+        sys.stdout.write("\n")
+        return return_df, n_1_load
+
+
