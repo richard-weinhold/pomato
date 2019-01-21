@@ -21,6 +21,8 @@
 function read_model_data(data_dir)
 println("Reading Model Data")
 
+# data_dir = "C:/Users/riw/tubCloud/Uni/Market_Tool/pomato/data_temp/julia_files/data/"
+
 nodes_mat = CSV.read(data_dir*"nodes.csv")
 zones_mat = CSV.read(data_dir*"zones.csv")
 heatareas_mat = CSV.read(data_dir*"heatareas.csv")
@@ -31,8 +33,11 @@ demand_h_mat = CSV.read(data_dir*"demand_h.csv")
 dc_lines_mat = CSV.read(data_dir*"dclines.csv")
 ntc_mat = CSV.read(data_dir*"ntc.csv")
 
-net_position_mat = CSV.read(data_dir*"net_position.csv") 
-net_export_nodes_mat = CSV.read(data_dir*"net_export_nodes.csv") 
+net_position_mat = CSV.read(data_dir*"net_position.csv")
+net_export_mat = CSV.read(data_dir*"net_export.csv")
+reference_flows_mat = CSV.read(data_dir*"reference_flows.csv");
+
+grid_mat = CSV.read(data_dir*"cbco.csv")
 
 slack_zones = JSON.parsefile(data_dir*"slack_zones.json"; dicttype=Dict)
 opt_setup = JSON.parsefile(data_dir*"opt_setup.json"; dicttype=Dict)
@@ -47,13 +52,17 @@ for z in 1:nrow(zones_mat)
     net_export_sum = Dict()
     for t in 1:nrow(demand_el_mat)
         d_sum = sum(demand_el_mat[t, Symbol(n)] for n in nodes_mat[nodes_mat[:zone] .== index, :index])
-        nex_sum = sum(net_export_nodes_mat[t, Symbol(n)] for n in nodes_mat[nodes_mat[:zone] .== index, :index])
+        nex_sum = sum(net_export_mat[t, Symbol(n)] for n in nodes_mat[nodes_mat[:zone] .== index, :index])
         demand_sum[demand_el_mat[t, :index]] = d_sum
         net_export_sum[demand_el_mat[t, :index]] = nex_sum
     end
     nodes = nodes_mat[nodes_mat[:zone] .== index, :index]
+
     newz = Zone(index, demand_sum, nodes)
     newz.net_export = net_export_sum
+    if in(model_type, ["d2cf"])
+        newz.net_position = Dict(zip(net_position_mat[:index],  net_position_mat[Symbol(newz.index)]))
+    end
     zones[newz.index] = newz
 end
 
@@ -78,8 +87,8 @@ for n in 1:nrow(nodes_mat)
     demand_dict = Dict(zip(demand_time, demand_at_node))
     newn.demand = demand_dict
 
-    net_export_time = net_export_nodes_mat[:index]
-    net_export_at_node = net_export_nodes_mat[Symbol(newn.index)]
+    net_export_time = net_export_mat[:index]
+    net_export_at_node = net_export_mat[Symbol(newn.index)]
     net_export_dict = Dict(zip(net_export_time, net_export_at_node))
     newn.net_export = net_export_dict
 
@@ -125,9 +134,7 @@ for p in 1:nrow(plants_mat)
     h_max = plants_mat[p, :h_max]
     mc = plants_mat[p, :mc]
     tech = plants_mat[p, :tech]
-
     newp = Plant(index, efficiency, g_max, h_max, tech, mc)
-
     try
         newp.node = nodes[plants_mat[p, :node]]
     catch
@@ -164,9 +171,9 @@ for l in 1:nrow(dc_lines_mat)
     index = dc_lines_mat[l, :index]
     node_i = nodes[dc_lines_mat[l, :node_i]]
     node_j = nodes[dc_lines_mat[l, :node_j]]
-    capacity = dc_lines_mat[l, :capacity]
+    maxflow = dc_lines_mat[l, :maxflow]
 
-    newl = DC_Line(index, node_i, node_j, capacity)
+    newl = DC_Line(index, node_i, node_j, maxflow)
     dc_lines[newl.index] = newl
 end
 
@@ -181,32 +188,35 @@ for z in collect(keys(zones))
     ntc[(z, z)] = 0
 end
 
-# Load CBCOs if available
-if in(model_type,  ["cbco_nodal", "cbco_zonal", "nodal"])
-    println("Loading CBCOs")
-    cbco = JSON.parsefile(data_dir*"cbco.json")
+# Prepare Grid Representation
+grid = Dict()
+for cbco in 1:nrow(grid_mat)
+    index = grid_mat[cbco, :index]
 
-elseif in(model_type,  ["d2cf"])
-    cbco = JSON.parsefile(data_dir*"cbco.json")
-    for z in collect(keys(zones))
-        net_position_time = net_position_mat[:index]
-        net_position_of_zone = net_position_mat[Symbol(z)]
-        net_position_dict = Dict(zip(net_position_time, net_position_of_zone))
-        zones[z].net_position = net_position_dict
+    if in(model_type, ["cbco_zonal"])
+        ptdf = [x for x in grid_mat[cbco, Symbol.(collect(keys(zones)))]]
+    else
+        ptdf = [x for x in grid_mat[cbco, Symbol.(collect(keys(nodes)))]]
+
     end
-else
-    cbco = Dict()
+    ram = grid_mat[cbco, :ram]
+    newcbco = Grid(index, ptdf, ram)
+    if in(model_type, ["d2cf"])
+        newcbco.reference_flow = Dict(collect(zip(reference_flows_mat[:, :index],
+                                                  reference_flows_mat[:, Symbol(index)])))
+    end
+    grid[newcbco.index] = newcbco
 end
 
 # Prepare model_horizon
 model_horizon = OrderedDict()
 for t in demand_el_mat[:index]
-    model_horizon[parse(t[2:5])] = t
+    model_horizon[Meta.parse(t[2:5])] = t
 end
 
 println("Data Prepared")
-return model_horizon, opt_setup, 
+return model_horizon, opt_setup,
        plants, plants_in_ha, plants_at_node, plants_in_zone, availabilities,
        nodes, zones, slack_zones, heatareas, nodes_in_zone,
-       ntc, dc_lines, cbco
+       ntc, dc_lines, grid
 end # end of function

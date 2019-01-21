@@ -18,7 +18,7 @@ import tools
 
 class BokehPlot(object):
     """interface market data and bokeh plot, init all data then run the server from cmd"""
-    def __init__(self, wdir, data):
+    def __init__(self, wdir):
         # Impoort Logger
         self.logger = logging.getLogger('Log.MarketModel.BokehPlot')
 
@@ -26,74 +26,93 @@ class BokehPlot(object):
         self.bokeh_dir = wdir.joinpath("data_temp/bokeh_files")
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)
-        
-        ## Store Base Data
-        data.plants.to_csv(str(self.bokeh_dir.joinpath('data').joinpath('plants.csv')), index_label='index')
-        data.nodes.to_csv(str(self.bokeh_dir.joinpath('data').joinpath('nodes.csv')), index_label='index')
-        data.zones.to_csv(str(self.bokeh_dir.joinpath('data').joinpath('zones.csv')), index_label='index')
-        data.tech.to_csv(str(self.bokeh_dir.joinpath('data').joinpath('tech.csv')))
-        data.fuel.to_csv(str(self.bokeh_dir.joinpath('data').joinpath('fuel.csv')), index_label='index')
-        data.dclines.to_csv(str(self.bokeh_dir.joinpath('data').joinpath('dclines.csv')), index_label='index')
-        
-        # Make data available to methods
-        self.plants = data.plants
 
         # predefine attributes
         self.bokeh_server = None
         self.bokeh_thread = None
         self.bokeh_pid = None
 
-    def add_market_result(self, market_result, grid_model, name):
+    def add_market_result(self, market_result, name):
         """create data set for bokeh plot from julia market_result-object with the associated grid model"""
-        generation = market_result.return_results("G")
+        if not market_result.grid:
+            self.logger.error("Grid Model not in Results Object!")
+            raise
 
-        demand = market_result.return_results("d_el")
-        demand_d = market_result.return_results("D_d")
-        demand_ph = market_result.return_results("D_ph")
-        demand_es = market_result.return_results("D_es")
-
-        t_first = market_result.model_horizon[0]
-        t_last = market_result.model_horizon[-1]
-        # convert to int, bc of the slider widget
-        t_dict = {"t_first": int(re.search(r'\d+', t_first).group()),
-                  "t_last": int(re.search(r'\d+', t_last).group())}
-
-        inj = market_result.return_results("INJ")
-        f_dc = market_result.return_results("F_DC")
+        self.logger.info("Processing market model data...")
 
         data_path = self.bokeh_dir.joinpath("market_result").joinpath(name)
         if not data_path.is_dir():
             data_path.mkdir()
 
-        self.process_market_data(generation, 
-                                 demand, demand_d, demand_ph, demand_es,
-                                 t_dict, inj, f_dc, data_path, name)
-
-        self.process_grid_data(grid_model, inj, data_path)
-
-    def process_grid_data(self, grid_model, inj, data_path):
-        """precalculatting the line flows for the bokeh plot"""
-        self.logger.info("Precalculatting line flows and saving them to file...")
-        n_1_flows = grid_model.n_1_flows_timeseries(inj)
-        n_0_flows = grid_model.n_0_flows_timeseries(inj)
+        # market_result.data.zones.to_csv(str(folder.joinpath('zones.csv')), index_label='index')
+        # market_result.data.tech.to_csv(str(folder.joinpath('tech.csv')))
+        market_result.data.fuel.to_csv(str(data_path.joinpath('fuel.csv')), index_label='index')
+        market_result.data.dclines.to_csv(str(data_path.joinpath('dclines.csv')), index_label='index')
+        market_result.grid.nodes.to_csv(str(data_path.joinpath('nodes.csv')), index_label='index')
+        market_result.grid.lines.to_csv(str(data_path.joinpath('lines.csv')))
+        market_result.F_DC.to_csv(str(data_path.joinpath('F_DC.csv')))
+        market_result.INJ.to_csv(str(data_path.joinpath('INJ.csv')))
+        
+        n_0_flows, n_1_flows = self.process_grid_data(market_result)
         n_1_flows.to_csv(str(data_path.joinpath('n_1_flows.csv')))
         n_0_flows.to_csv(str(data_path.joinpath('n_0_flows.csv')))
-        grid_model.lines.to_csv(str(data_path.joinpath('lines.csv')))
+
+        generation_by_fuel = self.process_generation_data(market_result)
+        generation_by_fuel.to_csv(str(data_path.joinpath('g_by_fuel.csv')), index_label='index')
+
+        demand = self.process_demand_data(market_result)
+        demand.to_csv(str(data_path.joinpath('demand.csv')), index_label='index')
+        
+
+        t_first = market_result.data.result_attributes["model_horizon"][0]
+        t_last = market_result.data.result_attributes["model_horizon"][-1]
+
+        # convert to int, bc of the slider widget
+        t_dict = {"t_first": int(re.search(r'\d+', t_first).group()),
+                  "t_last": int(re.search(r'\d+', t_last).group())}
+        with open(data_path.joinpath('t.json'), 'w') as time_frame:
+            json.dump(t_dict, time_frame)
+
+        self.logger.info(f"Market Results {name} successfully initialized!")
+
+    def process_grid_data(self, market_result):
+        """precalculatting the line flows for the bokeh plot"""
+        self.logger.info("Precalculatting line flows and saving them to file...")
+        n_0_flows = market_result.n_0_flow()
+        n_1_flows = market_result.n_1_flow()
+
+        # convert n_1 flows to the max of N-1 flows
+        time = market_result.data.result_attributes["model_horizon"]
+        n_1_max = n_1_flows.copy()
+        n_1_max[time] = n_1_max[time].abs()
+        n_1_max = n_1_max.groupby("cb").max().reset_index()
+        n_1_flows = pd.merge(n_1_max[["cb", "co"]],
+                             n_1_flows, on=["cb", "co"],
+                             how="left").drop("co", axis=1)
+
         self.logger.info("Done!")
+        return n_0_flows, n_1_flows.set_index("cb").reindex(market_result.grid.lines.index)
+    
+    def process_generation_data(self, market_result):
 
-    def process_market_data(self, generation, demand, demand_d, demand_ph, demand_es,
-                            t_dict, inj, f_dc, data_path, name):
-        """bring the data from julia/gams in the right format and store it"""
-        self.logger.info("Processing market model data...")
-
+        generation = market_result.G
         ## Save relevant variables from market result
-        generation = pd.merge(generation, self.plants[["node", "fuel"]],
+        generation = pd.merge(generation, market_result.data.plants[["node", "fuel"]],
                               how="left", left_on="p", right_index=True)
-        g_by_fuel = generation.groupby(["t", "fuel", "node"], as_index=False).sum()
-#        g_by_fuel = g_by_fuel.drop("p", axis=1)
+        generation_by_fuel = generation.groupby(["t", "fuel", "node"], as_index=False).sum()
+        return generation_by_fuel
 
-        map_pn = self.plants.node.reset_index()
+    def process_demand_data(self, market_result):
+        """bring the data from julia/gams in the right format and store it"""
+        
+        map_pn = market_result.data.plants.node.reset_index()
         map_pn.columns = ['p', 'n']
+
+        demand = market_result.data.demand_el.unstack().reset_index()
+        demand.columns = ["n", "t", "d_el"]
+        demand_d = market_result.D_d
+        demand_ph = market_result.D_ph
+        demand_es = market_result.D_es
 
         if not demand_d.empty:
             demand_d = pd.merge(demand_d, map_pn[["p", "n"]], how="left", left_on="d", right_on="p")
@@ -125,16 +144,8 @@ class BokehPlot(object):
         demand = pd.merge(demand, demand_es[["D_es", "n", "t"]], how="outer", on=["n", "t"])
         demand.fillna(value=0, inplace=True)
         demand["d_total"] = demand.d_el + demand.D_d + demand.D_ph + demand.D_es
-        demand = demand[["n", "t", "d_total"]]
-
-        demand.to_csv(str(data_path.joinpath('demand.csv')), index_label='index')
-        g_by_fuel.to_csv(str(data_path.joinpath('g_by_fuel.csv')), index_label='index')
-        f_dc.to_csv(str(data_path.joinpath('F_DC.csv')))
-        inj.to_csv(str(data_path.joinpath('INJ.csv')))
-
-        with open(data_path.joinpath('t.json'), 'w') as time_frame:
-            json.dump(t_dict, time_frame)
-        self.logger.info("Done!")
+        
+        return demand[["n", "t", "d_total"]]
 
     def output_reader(self, proc):
         """helper function to print stdout to console"""

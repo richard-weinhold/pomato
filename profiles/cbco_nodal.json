@@ -1,0 +1,7 @@
+{
+  "opt": "cbco_nodal",
+  "infeas_heat": true,
+  "infeas_el_nodal": true,
+  "infeas_el_zonal": true,
+  "infeas_lines": true
+}

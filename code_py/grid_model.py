@@ -18,8 +18,8 @@ class GridModel(object):
     def __init__(self, wdir):
         self.logger = logging.getLogger('Log.MarketModel.GridModel')
 #        self.logger.info("Initializing GridModel..")
-        self.is_empty = True
         self.wdir = wdir
+        self.is_empty = True
 
     def build_grid_model(self, nodes, lines):
         try:
@@ -57,26 +57,12 @@ class GridModel(object):
         except:
             self.logger.exception("Error in GridModel!")
 
-    def __getstate__(self):
-        """
-        Method to remove logger attribute from __dict__
-        needed when pickeled
-        """
-        d = dict(self.__dict__)
-        del d["logger"]
-        del d["cbco_module"]
-        return d
-
-    def __setstate__(self, d):
-        """
-        Method updates self with modified __dict__ without logger
-        needed when pickeled
-        """
-        self.__dict__.update(d) # I *think* this is a safe way to do it
-
     def check_grid_topology(self):
         """Checking grid topology for radial nodes and lines"""
         self.logger.info("Checking Grid Topology...")
+
+        self.nodes.slack[~(self.nodes.index.isin(self.lines.node_i) |\
+                           self.nodes.index.isin(self.lines.node_j))] = True
 
         radial_nodes = []
         for node in self.nodes.index:
@@ -112,46 +98,19 @@ class GridModel(object):
                                    (self.lines.contingency)] = False
             self.logger.info("Contingency of radial lines is set to False")
 
-    def loss_of_load(self, list_nodes):
-        """
-        see if loss of load breaches security domain
-        input in the form list_nodes = [ ["n1","n2"], ["n1"], ["n2","n5","n7"]]
-        """
-        # get slack zones, loss of load is distributed equally in slack zone
-        if self.mult_slack:
-            slack_zones = self.slack_zones()
-        else:
-            slack_zones = [list(self.nodes.index)]
-        # update injection vector
-        for nodes in list_nodes:
-            inj = self.nodes.net_injection.copy()
-            for node in nodes:
-                sz_idx = [x for x in range(0, len(slack_zones)) if node in slack_zones[x]][0]
-                inj[inj.index.isin(slack_zones[sz_idx])] += inj[node]/(len(slack_zones[sz_idx])-1)
-                inj[node] = 0
-            #calculate resulting line flows
-            flow = np.dot(self.ptdf, inj)
-            f_max = self.lines.maxflow.values
-            if self.lines.index[abs(flow) > f_max].empty:
-                self.logger.info("The loss of load at nodes: " + ", ".join(nodes) +
-                                 "\nDoes NOT cause a security breach!")
-            else:
-                self.logger.info("The loss of load at nodes: " + ", ".join(nodes) +
-                                 "\nCauses a security breach at lines: \n" +
-                                 ", ".join(self.lines.index[abs(flow) > f_max]))
-
-    def grid_representation(self, option, ntc, f_ref=None, precalc_filename=None, add_cbco=None):
+    def grid_representation(self, option, ntc, reference_flows=None, precalc_filename=None, add_cbco=None):
         """Bundle all relevant grid information in one dict for the market model"""
         grid_rep = {}
         grid_rep["option"] = option
         grid_rep["mult_slacks"] = self.mult_slack
         grid_rep["slack_zones"] = self.slack_zones()
+        grid_rep["cbco"] = pd.DataFrame()
+        
         if option == "nodal":
-            ptdf_dict = {}
-            for idx, line in enumerate(self.lines.index):
-                ptdf_dict[line + "_pos"] = {"ptdf": list(np.around(self.ptdf[idx,:], decimals=5)), "ram": self.lines.maxflow[line]}
-                ptdf_dict[line + "_neg"] = {"ptdf": list(-np.around(self.ptdf[idx,:], decimals=5)), "ram": self.lines.maxflow[line]}
-            grid_rep["cbco"] = ptdf_dict
+            ptdf_df = pd.DataFrame(index=self.lines.index, columns=self.nodes.index, data=self.ptdf)
+            ptdf_df["ram"] = self.lines.maxflow
+            grid_rep["cbco"] = ptdf_df
+
         elif option == "ntc":
             grid_rep["ntc"] = ntc
 
@@ -163,24 +122,21 @@ class GridModel(object):
             else:
                 self.cbco_module.main(only_convex_hull=True)
 
-            if add_cbco:
-                self.cbco_module.add_to_cbco_index(self.cbco_module.return_index_from_cbco(add_cbco))
-
-            info, cbco = self.cbco_module.return_cbco()
-            grid_rep["info"] = info
-            grid_rep["cbco"] = cbco
+            ## Chnage so that ptdf is just added based on (cb,co)
+            # if add_cbco:
+            #     self.cbco_module.add_to_cbco_index(self.cbco_module.return_index_from_cbco(add_cbco))
+            grid_rep["cbco"] = self.cbco_module.return_cbco()
 
         elif option == "d2cf":
-            ptdf_dict = {}
+            idx_of_cb = [self.lines.index.get_loc(line) for line in self.lines.index[self.lines.cb]]
+            ptdf_df = pd.DataFrame(index=self.lines.index[self.lines.cb], columns=self.nodes.index, data=self.ptdf[idx_of_cb, :])
+            ptdf_df["ram"] = self.lines.maxflow[self.lines.cb]
+            grid_rep["reference_flows"] = reference_flows
             for line in self.lines.index[self.lines.cb]:
-#            for line in self.lines.index:
-                idx = self.lines.index.get_loc(line)
-                ptdf_dict[line] = {}
-                ptdf_dict[line]["ptdf"] = list(np.around(self.ptdf[idx,:], decimals=5))
-                ptdf_dict[line]["f_max"] = int(self.lines.maxflow[line])
-                if self.lines.cnec[line]:
-                    ptdf_dict[line]["f_ref"] = f_ref[line].to_dict()
-            grid_rep["cbco"] = ptdf_dict
+                if not line in grid_rep["reference_flows"].columns:
+                    grid_rep["reference_flows"][line] = 0
+            grid_rep["cbco"] = ptdf_df
+
         return grid_rep
 
     def slack_zones(self):
@@ -195,13 +151,17 @@ class GridModel(object):
         slacks = self.nodes.index[self.nodes.slack]
         slack_zones = {}
         for slack in slacks:
-            slack_line = self.lines.index[(self.lines.node_i == slack) \
-                                          |(self.lines.node_j == slack)][0]
-            line_index = self.lines.index.get_loc(slack_line)
-            pos = self.ptdf[line_index, :] != 0
-            tmp = list(self.nodes.index[pos])
-            tmp.append(slack)
-            slack_zones[slack] = tmp
+            condition = (self.lines.node_i == slack)|(self.lines.node_j == slack)
+            if self.lines.index[condition].empty:     
+                slack_zones[slack] = [slack]            
+            else:
+                slack_line = self.lines.index[condition][0]
+                line_index = self.lines.index.get_loc(slack_line)
+                pos = self.ptdf[line_index, :] != 0
+                tmp = list(self.nodes.index[pos])
+                tmp.append(slack)
+                slack_zones[slack] = tmp
+                
         return slack_zones
 
     def create_incedence_matrix(self):
@@ -235,7 +195,7 @@ class GridModel(object):
 
             node_susceptance_wo_slack = node_susceptance[np.ix_(list_wo_slack, list_wo_slack)]
 #            inv = np.linalg.pinv(node_susceptance_wo_slack)
-            inv = np.linalg.inv(node_susceptance[np.ix_(list_wo_slack, list_wo_slack)])
+            inv = np.linalg.pinv(node_susceptance[np.ix_(list_wo_slack, list_wo_slack)])
             #sort slack back in to get nxn
             node_susc_inv = np.zeros((len(self.nodes), len(self.nodes)))
             node_susc_inv[np.ix_(list_wo_slack, list_wo_slack)] = inv
@@ -308,6 +268,18 @@ class GridModel(object):
             self.logger.exception("error in create_lodf_matrix ", sys.exc_info()[0])
             raise ZeroDivisionError('LODFError: Check Slacks, radial Lines/Nodes')
 
+    def lodf_filter(self, line, sensitivity=5e-2, as_index=False):
+        """return outages that have a sensitivity to a line > 5%"""
+        if not isinstance(line, int):
+            line = self.lines.index.get_loc(line)
+
+        cond = abs(self.lodf[line]) > sensitivity
+
+        if as_index:
+            return [self.lines.index.get_loc(line) for line in self.lines.index[cond]]
+        else:
+            return self.lines.index[cond]
+
     def create_n_1_ptdf_line(self, line):
         """
         Creates N-1 ptdf for one specific line - all outages
@@ -323,7 +295,7 @@ class GridModel(object):
             return n_1_ptdf_line
         except:
             self.logger.exception('error:create_n_1_ptdf_cb')
-    
+
     def create_n_1_ptdf_cbco(self, line, outage):
         """
         Creates N-1 ptdf for one specific line and outage
@@ -334,6 +306,7 @@ class GridModel(object):
                 outage = self.lines.index.get_loc(outage)
             if not isinstance(line, int):
                 line = self.lines.index.get_loc(line)
+
             n_1_ptdf_cbco =  self.ptdf[line, :] + np.dot(self.lodf[line, outage], self.ptdf[outage, :])
             return n_1_ptdf_cbco
         except:
@@ -349,49 +322,49 @@ class GridModel(object):
                 outage = self.lines.index.get_loc(outage)
             n_1_ptdf = np.array(self.ptdf, dtype=np.float) + np.vstack([np.dot(self.lodf[lx, outage], self.ptdf[outage, :]) for lx in range(0, len(self.lines))])
             return n_1_ptdf
-            
+
         except:
             self.logger.exception('error:create_n_1_ptdf_co')
 
 
-    def create_and_store_n_1_ptdf(self):
+    def create_filtered_n_1_ptdf(self, sensitivity=5e-2):
         """
-        Create and store N-1 ptdfs to save ram- For each line add the resulting ptdf to list contingency
-        first ptdf is N-0 ptdf
-        """
-        dtype = np.dtype("Float16")
-        shape = self.ptdf.shape[-1]
-        expectedrows = len(self.lines)*(len(self.lines)+1)
-
-        ## Init PyTables
-        hdf5_path = self.wdir.joinpath("temp_data/n_1_ptdf.hdf5")
-        hdf5_file = tables.open_file(str(hdf5_path), mode='w')
-        filters = tables.Filters(complevel=0, complib='zlib')
-        n_1_storgae = hdf5_file.create_earray(hdf5_file.root, 'n_1_ptdf',
-                                              tables.Atom.from_dtype(dtype),
-                                              shape=(0, shape),
-                                              filters=filters,
-                                              expectedrows=expectedrows)
-        for idx, line in enumerate(self.lines.index):
-            ptdf = self.create_n_1_ptdf_outage(idx)
-            n_1_storgae.append(ptdf)
-
-        hdf5_file.close()
-        ## To be clear
-        n_1_filepath = str(hdf5_path)
-        return n_1_filepath
-
-    def create_all_n_1_ptdf(self):
-        """
-        Create N-1 ptdfs - For each line add the resulting ptdf to list contingency
-        first ptdf is N-0 ptdf
+        Create all relevant N-1 ptdfs in the for of Ax<b (ptdf x < ram):
+        For each line as CB add basecase (N-0) 
+        and COs based on the senstitivity in LODF (default = 5%)
+        return ptdf, corresponding ram and df with the relevant info
         """
         try:
-            contingency = [np.array(self.ptdf, dtype=np.float)] +                                       \
-                          [self.ptdf + np.vstack([np.dot(self.lodf[lx, outage], self.ptdf[outage, :])   \
-                          for lx in range(0, len(self.lines))])                                         \
-                          for outage in range(0, len(self.lines))]
-            return contingency
+            A = [self.ptdf]
+            label_lines = list(self.lines.index)
+            label_outages = ["basecase" for i in range(0, len(self.lines.index))]
+
+            for idx, line in enumerate(self.lines.index[self.lines.contingency]):
+                outages = list(self.lodf_filter(line, sensitivity))
+                label_lines.extend([line for i in range(0, len(outages))])
+                label_outages.extend(outages)
+
+            # estimate size of array = nr_elements * bits per element (float32) / (8 * 1e6) MB
+            estimate_size = len(label_lines)*len(self.nodes.index)*32/(8*1e6)
+            self.logger.info(f"Estimated size in RAM for A is: {estimate_size} MB")
+            if estimate_size > 3000:
+                raise
+
+            for idx, line in enumerate(self.lines.index[self.lines.contingency]):
+                outages = list(self.lodf_filter(line, lodf_sensitivity))
+                tmp_ptdf = np.vstack([self.create_n_1_ptdf_cbco(line,o) for o in outages])
+                A.append(tmp_ptdf)
+
+            ### add x_i > 0 for i in I
+            A = np.concatenate(A).reshape(len(label_lines), len(list(self.nodes.index)))
+            b = self.lines.maxflow[label_lines].values.reshape(len(label_lines), 1)
+
+            df_info = pd.DataFrame(columns=list(self.nodes.index), data=A)
+            df_info["cb"] = label_lines
+            df_info["co"] = label_outages
+            df_info["ram"] = b
+            df_info = cbco_info[["cb", "co", "ram"] + list(list(self.nodes.index))]
+            return A, b, df_info
         except:
             self.logger.exception('error:create_n_1_ptdf')
 
@@ -417,37 +390,6 @@ class GridModel(object):
         except:
             self.logger.exception('error:create_n_1_ptdf')
 
-    def update_ram(self, ptdf, option="dict"):
-        """
-        Update ram based on Lineflows from netinjections
-        option to return either array or dict
-        (array used in cbco to make things faster)
-        """
-        injections = self.nodes.net_injection.values
-        ram = []
-        if option == "array":
-            for idx, line in enumerate(ptdf):
-                pos = self.lines.maxflow[idx] - np.dot(line, injections)
-                neg = -self.lines.maxflow[idx] - np.dot(line, injections)
-                if pos < 0:
-                    ram.append([0.1, neg])
-                elif neg > 0:
-                    ram.append([pos, 0.1])
-                else:
-                    ram.append([pos, neg])
-            ram = np.asarray(ram)
-        else:
-            for idx, line in enumerate(ptdf):
-                pos = self.lines.maxflow[idx] - np.dot(line, injections)
-                neg = -self.lines.maxflow[idx] - np.dot(line, injections)
-                if pos < 0:
-                    ram.append({'pos': 0.1, 'neg': neg})
-                elif neg > 0:
-                    ram.append({'pos': pos, 'neg': 0.1})
-                else:
-                    ram.append({'pos': pos, 'neg': neg})
-        return ram
-
     def slack_zones_index(self):
         """returns the indecies of nodes per slack_zones
         (aka control area/synchronious area) in the A matrix"""
@@ -459,62 +401,3 @@ class GridModel(object):
         slack_zones_idx.append([x for x in range(0, len(self.nodes))])
         return slack_zones_idx
 
-    def contingency_Ab(self, option, contingency=None):
-        """ Bring the N-1 PTDF list in the form of inequalities A x leq b
-            where A are the ptdfs, b the ram and x the net injections
-            returns lists
-        """
-        contingency = contingency or self.n_1_ptdf
-        if option == 'zonal':
-            zonal_contingency = self.create_zonal_ptdf(contingency)
-            A = []
-            b = []
-            for i, equation in enumerate(zonal_contingency):
-                ### Check if RAM > 0
-                if equation[-1] != 0:
-                    A.append(equation[:-1])
-                    b.append(equation[-1])
-                else:
-                    self.logger.debug('zonal:cbco not n-1 secure')
-                    A.append(equation[:-1])
-                    b.append(1)
-        else:
-            A = np.vstack((np.vstack([ptdf, -ptdf]) for ptdf in contingency))
-            ram_array = self.update_ram(contingency[0], option="array")
-            b = np.hstack(np.concatenate([ram_array[:, 0], -ram_array[:, 1]],
-                                         axis=0) for i in range(0,len(contingency)))
-
-        return np.array(A, dtype=np.float32), np.array(b, dtype=np.float32)
-
-    def lineloading_timeseries(self, injections, line):
-        """
-        Plots Line Loading (N-0; N-1) for all timeslices in inj dataframe
-        inj dataframe from gms method gams_symbol_to_df
-        """
-        sys.stdout.write("\n")
-        sys.stdout.flush()
-        line_loadings = {}
-
-        for i, time in enumerate(injections.t.unique()):
-            ## Generate Fancy Progressbar
-            sys.stdout.write("\r[%-35s] %d%%" % \
-                             ('='*int(i*35/len(injections.t.unique())),
-                              int(i*101/len(injections.t.unique()))))
-            sys.stdout.flush()
-            self.update_net_injections(injections.INJ[injections.t == time].values)
-            self.update_flows()
-            flow_n0 = abs(self.lines.flow[line])/self.lines.maxflow[line]
-            flow_n0_20 = abs(self.lines.flow[line])/self.lines.maxflow[line]*1.2
-            flow_n0_40 = abs(self.lines.flow[line])/self.lines.maxflow[line]*1.4
-            flow_n0_60 = abs(self.lines.flow[line])/self.lines.maxflow[line]*1.6
-            flow_n0_80 = abs(self.lines.flow[line])/self.lines.maxflow[line]*1.8
-            flow_n0_100 = abs(self.lines.flow[line])/self.lines.maxflow[line]*2
-            flow_n1 = self.n_1_flows(option="lines")
-            flow_max_n1 = max(abs(flow_n1[line]))/self.lines.maxflow[line]
-            line_loadings[time] = {"N-0": flow_n0, "N-1": flow_max_n1,
-#                                   "N-1 + 20%": flow_n0_20, "N-1 + 40%": flow_n0_40,
-#                                   "N-1 + 60%": flow_n0_60, "N-1 + 80%": flow_n0_80,
-#                                   "N-1 + 100%": flow_n0_100
-                                   }
-
-        return pd.DataFrame.from_dict(line_loadings, orient="index")

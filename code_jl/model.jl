@@ -1,25 +1,25 @@
 # -------------------------------------------------------------------------------------------------
 # POMATO - Power Market Tool (C) 2018
-# Current Version: Pre-Release-2018 
+# Current Version: Pre-Release-2018
 # Created by Robert Mieth and Richard Weinhold
 # Licensed under LGPL v3
 #
 # Language: Julia, v0.6.2 (required)
 # ----------------------------------
-# 
+#
 # This file:
 # Central optimization implemented in JuMP
 # -------------------------------------------------------------------------------------------------
 
-function build_and_run_model(model_horizon, opt_setup, 
+function build_and_run_model(model_horizon, opt_setup,
                              plants, plants_in_ha, plants_at_node, plants_in_zone, availabilities,
                              nodes, zones, slack_zones, heatareas, nodes_in_zone,
-                             ntc, dc_lines, cbco)
+                             ntc, dc_lines, grid)
 
 # Check for feasible model_type
 model_type = opt_setup["opt"]
 possible_types = ["base", "dispatch", "ntc", "nodal", "cbco_nodal", "cbco_zonal", "d2cf"]
-if !in(model_type, possible_types) 
+if !in(model_type, possible_types)
     println("Error: Model_Type $(model_type) unkown. Calculate Base Model")
     model_type = "base"
 end
@@ -29,7 +29,7 @@ println("Starting $(model_type) Model")
 
 # Timesteps
 # needs to be numeric in order to perform operations such as t-1
-t_set = keys(model_horizon) 
+t_set = keys(model_horizon)
 t_start = collect(keys(model_horizon))[1]
 t_end = collect(keys(model_horizon))[end]
 
@@ -50,7 +50,7 @@ ha_set = collect(keys(heatareas))
 z_set = collect(keys(zones))
 n_set = collect(keys(nodes))
 dc_set = collect(keys(dc_lines))
-cb_set = collect(keys(cbco))
+cb_set = collect(keys(grid))
 
 # Create incidence matrix for dc-lines
 dc_incidence = Dict()
@@ -73,7 +73,7 @@ disp = Model(solver=GurobiSolver())
 @variable(disp, D_es[t_set, es_set] >= 0) # El. demand of storage plants
 @variable(disp, D_hs[t_set, hs_set] >= 0) # El. demand of heat storage
 @variable(disp, D_ph[t_set, ph_set] >= 0) # El. demand of power to heat
-@variable(disp, D_d[t_set, d_set] >= 0) # Electricity Demand by Demand Units  
+@variable(disp, D_d[t_set, d_set] >= 0) # Electricity Demand by Demand Units
 @variable(disp, L_es[t_set, es_set] >= 0) # Level of electricity storage
 @variable(disp, L_hs[t_set, hs_set] >= 0) # Level of heat storage
 @variable(disp, EX[t_set, z_set, z_set] >= 0) # Commercial Exchanges between zones (row from, col to)
@@ -118,7 +118,7 @@ EB_zonal_dict = Dict()
 @objective(disp, Min, sum(sum(G[t, p]*plants[p].mc for p in p_set) for t in t_set)
                       + sum(sum(H[t, p]*plants[p].mc for p in p_set) for t in t_set)
                       + (sum(INFEAS_EL_Z_POS) + sum(INFEAS_EL_Z_NEG))*1e4
-                      + (sum(INFEAS_EL_N_POS) + sum(INFEAS_EL_N_NEG))*1e2 
+                      + (sum(INFEAS_EL_N_POS) + sum(INFEAS_EL_N_NEG))*1e2
                       + (sum(INFEAS_H_NEG) + sum(INFEAS_H_POS))*1e3
                       + (sum(INFEAS_LINES)*1e3)
                       + (sum(INFEAS_REF_FLOW)*1e1))
@@ -136,7 +136,7 @@ for t in t_set
     for p in setdiff(he_set, union(chp_set, ts_set))
         @constraint(disp, H[t, p] <= plants[p].h_max)
     end
-    
+
     # Applies to: Dispatch
     # Base Constraint
     for p in chp_set
@@ -163,7 +163,7 @@ for t in t_set
     # Base Constraint
     for p in d_set
         @constraint(disp, D_d[t, p] <= plants[p].g_max * availabilities[p].value[model_horizon[t]])
-        @constraint(disp, D_d[t, p] >=  plants[p].g_max * availabilities[p].value[model_horizon[t]] * 0.8)  
+        @constraint(disp, D_d[t, p] >=  plants[p].g_max * availabilities[p].value[model_horizon[t]] * 0.8)
     end
     for p in ph_set
         @constraint(disp, D_ph[t, p] == H[t, p] * plants[p].efficiency)
@@ -172,7 +172,7 @@ for t in t_set
     # Applies to: Dispatch
     # Base Constraint
     for p in es_set
-        # 
+        #
         @constraint(disp, L_es[t, p]  == (t>t_start ? L_es[t-1, p] : plants[p].g_max*2)
                                         - G[t, p]
                                         + plants[p].efficiency*D_es[t, p])
@@ -207,8 +207,8 @@ for t in t_set
     # Base Constraint
     for z in z_set
         p_in_z_set = collect(keys(plants_in_zone[z]))
-       
-        EB_zonal = @constraint(disp, zones[z].demand[model_horizon[t]] + zones[z].net_export[model_horizon[t]] == 
+
+        EB_zonal = @constraint(disp, zones[z].demand[model_horizon[t]] + zones[z].net_export[model_horizon[t]] ==
                               sum(G[t, p] for p in intersect(p_in_z_set, co_set))
                             - sum(D_ph[t, p] for p in intersect(p_in_z_set, ph_set))
                             - sum(D_es[t, p] for p in intersect(p_in_z_set, es_set))
@@ -226,7 +226,7 @@ for t in t_set
     # Base Constraint
     for n in n_set
         p_in_n_set = collect(keys(plants_at_node[n]))
-        EB_nodal = @constraint(disp, nodes[n].demand[model_horizon[t]] + nodes[n].net_export[model_horizon[t]] == 
+        EB_nodal = @constraint(disp, nodes[n].demand[model_horizon[t]] + nodes[n].net_export[model_horizon[t]] ==
                               sum(G[t, p] for p in intersect(p_in_n_set, co_set))
                             - sum(D_ph[t, p] for p in intersect(p_in_n_set, ph_set))
                             - sum(D_es[t, p] for p in intersect(p_in_n_set, es_set))
@@ -235,8 +235,8 @@ for t in t_set
                             - INJ[t, n]
                             + INFEAS_EL_N_POS[t, n] - INFEAS_EL_N_NEG[t, n]
                             )
-        EB_nodal_dict[length(EB_nodal_dict) + 1] = Dict("t" => model_horizon[t], 
-                                                        "n" => n, 
+        EB_nodal_dict[length(EB_nodal_dict) + 1] = Dict("t" => model_horizon[t],
+                                                        "n" => n,
                                                         "EB_nodal" => EB_nodal)
     end
 
@@ -244,8 +244,8 @@ for t in t_set
     # Applies to: Dispatch
     # Base Constraint
     for dc in dc_set
-        @constraint(disp, F_DC[t, dc] <= dc_lines[dc].capacity)
-        @constraint(disp, F_DC[t, dc] >= -dc_lines[dc].capacity)
+        @constraint(disp, F_DC[t, dc] <= dc_lines[dc].maxflow)
+        @constraint(disp, F_DC[t, dc] >= -dc_lines[dc].maxflow)
     end
 
     # NTC Constraints
@@ -267,47 +267,51 @@ for t in t_set
         end
     end
 
-    # Cbco Constraints 
+    # Cbco Constraints
     # Applies to: cbco_nodal, nodal
     if in(model_type, ["cbco_nodal", "nodal"])
         for cb in cb_set
-            @constraint(disp, sum(INJ[t, n]*cbco[cb]["ptdf"][i] for (i, n) in enumerate(n_set)) <= cbco[cb]["ram"] + INFEAS_LINES[t, cb])
+            @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set)) <= grid[cb].ram + INFEAS_LINES[t, cb])
+            @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set)) >= -(grid[cb].ram + INFEAS_LINES[t, cb]))
         end
     end
 
     # Applies to: cbco_zonal
     if in(model_type, ["cbco_zonal"])
         for cb in cb_set
-            @constraint(disp, sum( (sum(EX[t, zz, z] for zz in z_set) - sum(EX[t, z, zz] for zz in z_set))
-                                    *cbco[cb]["ptdf"][i] for (i, z) in enumerate(z_set)) <= cbco[cb]["ram"] + INFEAS_LINES[t, cb])
+            @constraint(disp, sum((sum(EX[t, zz, z] for zz in z_set) - sum(EX[t, z, zz] for zz in z_set))
+                                    *grid[cb].ptdf[i] for (i, z) in enumerate(z_set)) <= grid[cb].ram + INFEAS_LINES[t, cb])
+            @constraint(disp, sum((sum(EX[t, zz, z] for zz in z_set) - sum(EX[t, z, zz] for zz in z_set))
+                                    *grid[cb].ptdf[i] for (i, z) in enumerate(z_set)) >= -(grid[cb].ram + INFEAS_LINES[t, cb]))
         end
     end
 
     # Applies to d2cf model:
     # set net_position net_position:
     if in(model_type, ["d2cf"])
-        for z in ["DE", "NL", "BE", "FR", "LU"]
+        for z in ["DE", "NL", "BE", "FR"]
             ### net_position when positive -> export
-            @constraint(disp, sum(EX[t, z, zz] - EX[t, zz, z] for zz in z_set) <= 
-                              zones[z].net_position[model_horizon[t]] + 0.1*abs(zones[z].net_position[model_horizon[t]])
+            @constraint(disp, sum(EX[t, z, zz] - EX[t, zz, z] for zz in z_set) <=
+                              zones[z].net_position[model_horizon[t]] + 0.2*abs(zones[z].net_position[model_horizon[t]])
                               )
-            @constraint(disp, sum(EX[t, z, zz] - EX[t, zz, z] for zz in z_set) >= 
-                              zones[z].net_position[model_horizon[t]] - 0.1*abs(zones[z].net_position[model_horizon[t]])
+            @constraint(disp, sum(EX[t, z, zz] - EX[t, zz, z] for zz in z_set) >=
+                              zones[z].net_position[model_horizon[t]] - 0.2*abs(zones[z].net_position[model_horizon[t]])
                               )
         end
+
         # set reference flows in CNECS
         for cb in cb_set
-            if ("f_ref" in keys(cbco[cb])) && (cbco[cb]["f_ref"][model_horizon[t]] != 0)
-                @constraint(disp, sum(INJ[t, n]*cbco[cb]["ptdf"][i] for (i, n) in enumerate(n_set)) 
-                                  <= cbco[cb]["f_ref"][model_horizon[t]] + INFEAS_REF_FLOW[t, cb])
-                @constraint(disp, sum(INJ[t, n]*cbco[cb]["ptdf"][i] for (i, n) in enumerate(n_set)) 
-                                  >= cbco[cb]["f_ref"][model_horizon[t]]  - INFEAS_REF_FLOW[t, cb])
+            if grid[cb].reference_flow[model_horizon[t]] != 0
+                @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set))
+                                  <= grid[cb].reference_flow[model_horizon[t]] + INFEAS_REF_FLOW[t, cb])
+                @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set))
+                                  >= grid[cb].reference_flow[model_horizon[t]]  - INFEAS_REF_FLOW[t, cb])
             end
             # Upper/Lower Bound on CBs
-            @constraint(disp, sum(INJ[t, n]*cbco[cb]["ptdf"][i] for (i, n) in enumerate(n_set)) 
-                              <= cbco[cb]["f_max"]*1.0 + INFEAS_LINES[t, cb])
-            @constraint(disp, sum(INJ[t, n]*cbco[cb]["ptdf"][i] for (i, n) in enumerate(n_set)) 
-                              >= -cbco[cb]["f_max"]*1.0 - INFEAS_LINES[t, cb])
+            @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set))
+                              <= grid[cb].ram*0.75 + INFEAS_LINES[t, cb])
+            @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set))
+                              >= -grid[cb].ram*0.75 - INFEAS_LINES[t, cb])
         end
     end
 end
@@ -317,11 +321,13 @@ for p in es_set
 end
 
 println("Solving...")
-tic()
-println("Number of Linear Constraints in the Model: ", MathProgBase.numlinconstr(disp))
+t_start = time_ns()
+println()
+# println("Number of Linear Constraints in the Model: ", MathProgBase.numlinconstr(disp))
 solve(disp)
 println("Objective: $(getobjectivevalue(disp))")
-println("Solvetime: $(toq()) seconds")
+t_elapsed = time_ns() - t_start
+println("Solvetime: $(round(t_elapsed*1e-9, digits=2)) seconds")
 
 result_folder = WDIR*"\\data_temp\\julia_files\\results\\"*Dates.format(now(), "dmm_HHMM")
 if !isdir(result_folder)
@@ -347,7 +353,7 @@ INJ_dict = Dict()
 EX_dict = Dict()
 F_DC_dict = Dict()
 
-for t in t_set  
+for t in t_set
     t_ind =model_horizon[t]
     for p in p_set
         G_dict[length(G_dict) + 1] = Dict("t" => t_ind, "p" => p, "G" => getvalue(G[t, p]))
@@ -368,23 +374,22 @@ for t in t_set
         end
     end
     for ha in ha_set
-        INFEAS_H_dict[length(INFEAS_H_dict) + 1] = Dict("t" => t_ind, "ha" => ha, 
-                                                        "INFEAS_H_NEG" => getvalue(INFEAS_H_NEG[t, ha]), 
+        INFEAS_H_dict[length(INFEAS_H_dict) + 1] = Dict("t" => t_ind, "ha" => ha,
+                                                        "INFEAS_H_NEG" => getvalue(INFEAS_H_NEG[t, ha]),
                                                         "INFEAS_H_POS" => getvalue(INFEAS_H_POS[t, ha]))
     end
     for z in z_set
-        INFEAS_EL_Z_dict[length(INFEAS_EL_Z_dict) + 1] = Dict("t" => t_ind, "z" => z, 
-                                                          "INFEAS_EL_Z_NEG" => getvalue(INFEAS_EL_Z_NEG[t, z]), 
+        INFEAS_EL_Z_dict[length(INFEAS_EL_Z_dict) + 1] = Dict("t" => t_ind, "z" => z,
+                                                          "INFEAS_EL_Z_NEG" => getvalue(INFEAS_EL_Z_NEG[t, z]),
                                                           "INFEAS_EL_Z_POS" => getvalue(INFEAS_EL_Z_POS[t, z]))
     end
     for n in n_set
-        INFEAS_EL_N_dict[length(INFEAS_EL_N_dict) + 1] = Dict("t" => t_ind, "n" => n, 
-                                                          "INFEAS_EL_N_NEG" => getvalue(INFEAS_EL_N_NEG[t, n]), 
+        INFEAS_EL_N_dict[length(INFEAS_EL_N_dict) + 1] = Dict("t" => t_ind, "n" => n,
+                                                          "INFEAS_EL_N_NEG" => getvalue(INFEAS_EL_N_NEG[t, n]),
                                                           "INFEAS_EL_N_POS" => getvalue(INFEAS_EL_N_POS[t, n]))
 
         INJ_dict[length(INJ_dict) + 1] = Dict("t" => t_ind, "n" => n, "INJ" => getvalue(INJ[t, n]))
         d_el_dict[length(d_el_dict) + 1] = Dict("t" => t_ind, "n" => n, "d_el" => nodes[n].demand[model_horizon[t]])
-
     end
     for z_from in z_set
         for z_to in z_set

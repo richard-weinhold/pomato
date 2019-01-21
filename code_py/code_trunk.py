@@ -1,4 +1,88 @@
+######## 
 
+    def loss_of_load(self, list_nodes):
+        """
+        see if loss of load breaches security domain
+        input in the form list_nodes = [ ["n1","n2"], ["n1"], ["n2","n5","n7"]]
+        """
+        # get slack zones, loss of load is distributed equally in slack zone
+        if self.mult_slack:
+            slack_zones = self.slack_zones()
+        else:
+            slack_zones = [list(self.nodes.index)]
+        # update injection vector
+        for nodes in list_nodes:
+            inj = self.nodes.net_injection.copy()
+            for node in nodes:
+                sz_idx = [x for x in range(0, len(slack_zones)) if node in slack_zones[x]][0]
+                inj[inj.index.isin(slack_zones[sz_idx])] += inj[node]/(len(slack_zones[sz_idx])-1)
+                inj[node] = 0
+            #calculate resulting line flows
+            flow = np.dot(self.ptdf, inj)
+            f_max = self.lines.maxflow.values
+            if self.lines.index[abs(flow) > f_max].empty:
+                self.logger.info("The loss of load at nodes: " + ", ".join(nodes) +
+                                 "\nDoes NOT cause a security breach!")
+            else:
+                self.logger.info("The loss of load at nodes: " + ", ".join(nodes) +
+                                 "\nCauses a security breach at lines: \n" +
+                                 ", ".join(self.lines.index[abs(flow) > f_max]))
+
+#####################
+# CBCO OLD AB TO FILE
+ def create_Ab_file(self, grid_object):
+        """ Storing Matrix A and Vector b to disk to save memory"""
+        # set up for Ab file
+        # dtype = np.array(grid_object.ptdf, dtype=np.float16).dtype
+        dtype = np.dtype("Float16")
+        shape = grid_object.ptdf.shape[-1]
+        expectedrows = len(self.lines)*(len(self.lines)+1)*2
+
+        ## Init PyTables
+        hdf5_path = self.wdir.joinpath("temp_data/Ab_expandeble_compressed.hdf5")
+        hdf5_file = tables.open_file(str(hdf5_path), mode='w')
+        filters = tables.Filters(complevel=1, complib='zlib')
+        A_storage = hdf5_file.create_earray(hdf5_file.root, 'A',
+                                              tables.Atom.from_dtype(dtype),
+                                              shape=(0, shape),
+                                              filters=filters,
+                                              expectedrows=expectedrows)
+
+        b_storage = hdf5_file.create_earray(hdf5_file.root, 'b',
+                                                  tables.Atom.from_dtype(dtype),
+                                                  shape=(0,),
+                                                  filters=filters,
+                                                  expectedrows=expectedrows)
+
+        ## N-0 Matrix
+        ptdf = grid_object.ptdf
+        ram_array = grid_object.update_ram(grid_object.ptdf, option="array")
+        A_storage.append(np.vstack([grid_object.ptdf, -grid_object.ptdf]))
+        b_storage.append(np.concatenate([ram_array[:, 0], -ram_array[:, 1]], axis=0))
+
+        for idx, line in enumerate(grid_object.lines.index):
+            ptdf = grid_object.create_n_1_ptdf_outage(idx)
+            # ram_array = grid_object.update_ram(ptdf, option="array")
+            A_storage.append(np.vstack([ptdf, -ptdf]))
+            b_storage.append(np.concatenate([ram_array[:, 0], -ram_array[:, 1]], axis=0))
+
+        hdf5_file.close()
+        ## To be clear
+        Ab_file_path = str(hdf5_path)
+        return Ab_file_path
+
+    def retrieve_Ab(self, selection):
+        """getting the rows/values from A,b, input either array/list with indices, range or index"""
+        Ab_file = tables.open_file(self.Ab_file_path, mode='r')
+        A = Ab_file.root.A[selection, :]
+        b = Ab_file.root.b[selection]
+        Ab_file.close()
+
+        if isinstance(b, np.ndarray):
+            b = b.reshape(len(b), 1)
+        return A, b
+
+#######################################
     def alt_reduce(self, contingency):
         self = MT.grid
         from scipy.spatial import HalfspaceIntersection

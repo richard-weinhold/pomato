@@ -12,7 +12,7 @@ import tools as tools
 
 class FBMCDomain(object):
     """Class to store all relevant information of an FBMC Plot"""
-    def __init__(self, plot_information, plot_equations, hull_information, xmax, xmin, ymax, ymin):
+    def __init__(self, plot_information, plot_equations, hull_information, xy_limits, domain_data):
 
         self.gsk_strat = plot_information["gsk_strat"]
         self.timestep = plot_information["timestep"]
@@ -24,11 +24,12 @@ class FBMCDomain(object):
         self.plot_equations = plot_equations
         self.hull_information = hull_information
 
-        self.xmax = xmax
-        self.xmin = xmin
-        self.ymax = ymax
-        self.ymin = ymin
-        
+        self.x_max = xy_limits["x_max"]
+        self.x_min = xy_limits["x_min"]
+        self.y_max = xy_limits["y_max"]
+        self.y_min = xy_limits["y_min"]
+        self.domain_data = domain_data
+
         # set-up: dont show the graphs when created
         plt.ioff()
 
@@ -41,8 +42,8 @@ class FBMCDomain(object):
         fig = plt.figure()
         ax = plt.subplot()
         scale = 1.05
-        ax.set_xlim(self.xmin*scale, self.xmax*scale)
-        ax.set_ylim(self.ymin*scale, self.ymax*scale)
+        ax.set_xlim(self.x_min*scale, self.x_max*scale)
+        ax.set_ylim(self.y_min*scale, self.y_max*scale)
 
         title = 'FBMC Domain between: ' + "-".join(self.domain_x) + ' and ' + "-".join(self.domain_y) \
                 + '\n Number of CBCOs: ' + str(len(hull_plot_x)-1) \
@@ -56,7 +57,7 @@ class FBMCDomain(object):
         ax.scatter(hull_coord_x, hull_coord_y)
         fig.savefig(str(folder.joinpath(f"FBMC_{self.title}.png")))
         fig.clf()
-        
+
 
 class FBMCModule(object):
     """ Class to do all calculations in connection with cbco calculation"""
@@ -66,9 +67,8 @@ class FBMCModule(object):
         self.logger.info("Initializing the FBMCModule....")
 
         self.wdir = wdir
-        self.fbmcdir = wdir.joinpath("fbmc_files")
 
-        self.grid_object = grid_object
+        self.grid = grid_object
         self.nodes = grid_object.nodes
         self.lines = grid_object.lines
         self.injections = injections
@@ -79,53 +79,68 @@ class FBMCModule(object):
 
         self.fbmc_plots = {}
 
-        self.create_folders(wdir)
-        # self.zonal_Ab_file_path = self.create_zonal_Ab_file(grid_object)
+        self.fbmc_ptdf, self.domain_info = self.create_fbmc_ptdf()
 
+        # A, b saved, for recreation of multiple plots with the same
+        # configuration of gsk_strat and timestep
         self.A = None
         self.b = None
+
         # set-up: dont show the graphs when created
         plt.ioff()
         plt.close("all")
 
         self.logger.info("FBMCModule  Initialized!")
 
-    def create_folders(self, wdir):
-        """ create folders for julia cbco_analysis"""
-        if not wdir.joinpath("fbmc_files").is_dir():
-            wdir.joinpath("fbmc_files").mkdir()
-        if not wdir.joinpath("temp_data").is_dir():
-            wdir.joinpath("temp_data").mkdir()
+    def save_all_domain_plots(self, folder, set_xy_limits=True):
+
+        if set_xy_limits:
+            self.set_xy_limits_forall_plots()
+        for plot in self.fbmc_plots:
+            self.logger.info(f"Plotting Domain of {plot}")
+            self.fbmc_plots[plot].plot_fbmc_domain(folder)
+
+    def save_all_domain_info(self, folder):
+
+        domain_info = pd.concat([self.fbmc_plots[plot].domain_data for plot in self.fbmc_plots])
+        # oder the columns
+        columns = ["timestep", "gsk_strategy", "cb", "co"]
+        columns.extend(list(self.nodes.zone.unique()))
+        columns.extend(["ram", "in_domain"])
+
+        domain_info = domain_info[columns]
+        self.logger.info("Saving domain inof as csv")
+        domain_info.to_csv(folder.joinpath("domain_info.csv"))                 
 
     def update_plot_setup(self, timestep, gsk_strat):
         self.logger.info("Setting Net Injection and Updating Ab Matrix")
-        self.grid_object.nodes.net_injection = self.injections.INJ[self.injections.t == timestep].values
         self.gsk_strat, self.timestep = gsk_strat, timestep
         ## recalculating Ab
-        self.create_zonal_Ab()
+        if gsk_strat == "jao":
+            self.create_Ab_from_jao_data()
+        else:
+            self.create_zonal_Ab()
 
     def set_xy_limits_forall_plots(self):
+        """For each fbmc plot object, set x and y limits"""
 
-        xmin = min([self.fbmc_plots[plot].xmin for plot in self.fbmc_plots])
-        xmax = max([self.fbmc_plots[plot].xmax for plot in self.fbmc_plots])
-        ymin = min([self.fbmc_plots[plot].ymin for plot in self.fbmc_plots])
-        ymax = max([self.fbmc_plots[plot].ymax for plot in self.fbmc_plots])
+        x_min = min([self.fbmc_plots[plot].x_min for plot in self.fbmc_plots])
+        x_max = max([self.fbmc_plots[plot].x_max for plot in self.fbmc_plots])
+        y_min = min([self.fbmc_plots[plot].y_min for plot in self.fbmc_plots])
+        y_max = max([self.fbmc_plots[plot].y_max for plot in self.fbmc_plots])
 
         for plots in self.fbmc_plots:
             self.logger.info(f"Resetting x and y limits for {self.fbmc_plots[plots].title}")
-            self.fbmc_plots[plots].xmin = xmin
-            self.fbmc_plots[plots].xmax = xmax
-            self.fbmc_plots[plots].ymin = ymin
-            self.fbmc_plots[plots].ymax = ymax
+            self.fbmc_plots[plots].x_min = x_min
+            self.fbmc_plots[plots].x_max = x_max
+            self.fbmc_plots[plots].y_min = y_min
+            self.fbmc_plots[plots].y_max = y_max
 
     def load_gsk(self):
-#        self = fbmc
-#        self.gsk_strat = "g_max_G / flat"
-#        self.timestep = "t0001"
+        """Load GSK from Excel File"""
         self.logger.info(f"Creating GSKs with GSK Strategy: {self.gsk_strat} for timestep {self.timestep}")
 
-        gsk_raw = pd.read_csv(self.wdir.joinpath("data/gsk_3.csv"), sep=";")
-#        gsk_raw["zone"] = self.nodes.zone[gsk_raw.node].values
+        gsk_raw = pd.read_csv(self.wdir.joinpath("data_input/gsk_4.csv"), sep=";")
         gsk_raw = gsk_raw[["node",
                            "zone",
                             self.gsk_strat]][(gsk_raw.timestamp == self.timestep)]
@@ -139,7 +154,6 @@ class FBMCModule(object):
                 gsk[zone] = [0]*len(self.nodes)
                 gsk[zone][gsk.zone == zone] = 1/len(gsk[zone][gsk.zone == zone])
             else:
-#                gsk[zone] = [0]*len(self.nodes)
                 tmp = pd.merge(gsk, gsk_raw[gsk_raw.zone == zone],
                                how="left", left_index=True,
                                right_index=True).fillna(0)
@@ -147,88 +161,36 @@ class FBMCModule(object):
                 gsk[zone] = tmp[self.gsk_strat].values
                 gsk[zone] *= 1/gsk[zone].sum()
         gsk = gsk.drop(["zone"], axis=1)
-#        t = gsk.values
+
         return gsk.values
 
-    def update_gsk(self, option="dict"):
-            """
-            update generation shift keys based on value in nodes
-            option allow to return an array instead of dict for zonal ptdf calc
-            """
-            try:
-                nodes_in_zone = {}
-                for zone in self.nodes.zone.unique():
-                    nodes_in_zone[zone] = self.nodes.index[self.nodes.zone == zone]
-                gsk_dict = {}
-                for zone in list(self.nodes.zone.unique()):
-                    gsk_zone = {}
-                    sum_weight = 0
-                    for node in nodes_in_zone[zone]:
-                        sum_weight += self.nodes.gsk[node]
-                    for node in nodes_in_zone[zone]:
-                        if sum_weight == 0:
-                            gsk_zone[node] = 1
-                        else:
-                            gsk_zone[node] = self.nodes.gsk[node]/sum_weight
-                    gsk_dict[zone] = gsk_zone
-                ## Convert to GSK Array
-                gsk_array = np.zeros((len(self.nodes), len(self.nodes.zone.unique())))
-                gsk = self.nodes.zone.to_frame()
-                for zone in list(self.nodes.zone.unique()):
-                    gsk[zone] = [0]*len(self.nodes)
-                    gsk[zone][gsk.zone == zone] = list(gsk_dict[zone].values())
-                gsk = gsk.drop(["zone"], axis=1)
-                gsk_array = gsk.values
-                if option == "array":
-                    return gsk_array
-                else:
-                    return gsk_dict
-            except:
-                self.logger.exception('error:update_gsk')
-
-    def create_zonal_Ab_old(self):
+    def create_fbmc_ptdf(self, lodf_sensitivity=1e-2, by="cb"):
         """
-        Create Zonal ptdf -> creates both positive and negative line
-        restrictions or ram. Depending on flow != 0
         """
-        try:
-            self.logger.info("Creating zonal Ab")
-            gsk = self.update_gsk(option="array")
+        if by in self.lines.columns:
+            select_lines = self.lines.index[(self.lines[by])&(self.lines.contingency)]
+        else:
+            select_lines = self.lines.index[self.lines.contingency]
+            self.logger.warning(f"Selecting {len(select_lines)} lines as cb's.  \
+                                  Potentially too large matrix A.")
 
-            # Calculate zonal ptdf based on ram -> (if current flow is 0 the
-            # zonal ptdf is based on overall
-            # avalable line capacity (l_max)), ram is calculated for every n-1
-            # ptdf matrix to ensure n-1 security constrained FB Domain
-            # The right side of the equation has to be positive ,
-            # therefore the distingtion.
+        full_ptdf = []
+        label_lines, label_outages = [], []
 
-            ## create full matrix
-            length = len(self.lines)*(len(self.lines)+1)*2
-            width = len(self.nodes.zone.unique())
-            A_zonal = np.zeros((length, width), dtype=np.float64)
-            b_zonal = np.zeros((length,), dtype=np.float64)
+        for idx, line in enumerate(select_lines):
+            outages = list(self.grid.lodf_filter(line, lodf_sensitivity))
+            tmp_ptdf = np.vstack([self.grid.create_n_1_ptdf_cbco(line,o) for o in outages])
+            full_ptdf.extend([tmp_ptdf, -tmp_ptdf])
+            label_lines.extend([line for i in range(0, 2*len(outages))])
+            label_outages.extend(outages*2)
 
-            # N-0
-            ram_array  = self.grid_object.update_ram(self.grid_object.ptdf, option="array")
-            z_ptdf = np.dot(self.grid_object.ptdf, gsk)
-            r = range(0, 2*len(self.lines.index))
-            A_zonal[r, :] = np.vstack([z_ptdf, -z_ptdf])
-            b_zonal[r] = np.concatenate([ram_array[:, 0], -ram_array[:, 1]], axis=0)
-            # All other N-1 Matrices
-            for idx in range(1, len(self.lines.index)+1):
-                ptdf = self.grid_object.create_n_1_ptdf_outage(idx-1)
-                ram_array = self.grid_object.update_ram(ptdf, option="array")
-                z_ptdf = np.dot(ptdf, gsk)
-                r = range(idx*2*len(self.lines.index), (idx + 1)*2*len(self.lines.index))
-                A_zonal[r, :] = np.vstack([z_ptdf, -z_ptdf])
-                b_zonal[r] = np.concatenate([ram_array[:, 0], -ram_array[:, 1]], axis=0)
+        ptdf = np.concatenate(full_ptdf).reshape(len(label_lines), len(list(self.nodes.index)))
 
-            self.logger.info("Done!")
-            self.A = A_zonal
-            self.b = b_zonal
-            return A_zonal, b_zonal
-        except:
-                self.logger.exception('error:create_zonal_ptdf')
+        domain_info = pd.DataFrame(columns=list(self.nodes.zone.unique()))
+        domain_info["cb"] = label_lines
+        domain_info["co"] = label_outages
+
+        return ptdf, domain_info
 
     def create_zonal_Ab(self):
         """
@@ -241,103 +203,46 @@ class FBMCModule(object):
             # zonal ptdf is based on overall
             # avalable line capacity (l_max)), ram is calculated for every n-1
             # ptdf matrix to ensure n-1 security constrained FB Domain
-            # The right side of the equation has to be positive ,
-            # therefore the distingtion.
-
-            ## create full matrix
-#            if "cb" in self.lines.columns:
-#                select_lines = self.lines.index[self.lines.cb]
-            if "cnec" in self.lines.columns:
-                select_lines = self.lines.index[self.lines.cnec]
-            else:
-                select_lines = self.lines.index
-
-            lines_indecies = [self.lines.index.get_loc(line) for line in select_lines]
-
+            # The right side of the equation has to be positive
             gsk = self.load_gsk()
             frm_fav = []
-            for line in select_lines:
+            for line in self.domain_info.cb.unique():
                 if line in self.frm_fav.columns:
                     frm_fav.append(self.frm_fav[line][self.timestep])
                 else:
                     frm_fav.append(0)
 
-            length = (len(select_lines))*(len(self.lines.index) + 1)*2
-            width = len(self.nodes.zone.unique())
-            A_zonal = np.zeros((length, width), dtype=np.float64)
-            b_zonal = np.zeros((length,), dtype=np.float64)
+            frm_fav = pd.DataFrame(index=self.domain_info.cb.unique(), columns=["value"], data=frm_fav)
+            injection = self.injections.INJ[self.injections.t == self.timestep].values
+            flow = np.dot(self.fbmc_ptdf, injection)
+            A_zonal = np.dot(self.fbmc_ptdf, gsk)
+            b_zonal = np.subtract(self.lines.maxflow[self.domain_info.cb] - frm_fav.value[self.domain_info.cb],
+                                  flow).values
 
-            for idx, line_idx in enumerate(lines_indecies):
-                ptdf = self.grid_object.create_n_1_ptdf_line(line_idx)
-                flow = np.dot(ptdf, self.nodes.net_injection.values)
-                z_ptdf = np.dot(ptdf, gsk)
-                r = range(idx*2*(len(self.lines.index)+1), (idx + 1)*2*(len(self.lines.index)+1))
-                A_zonal[r, :] = np.vstack([z_ptdf, -z_ptdf])
-                b_zonal[r] = np.concatenate([np.subtract(self.lines.maxflow.iloc[line_idx] - frm_fav[idx], flow),
-                                             -np.subtract(-self.lines.maxflow.iloc[line_idx] + frm_fav[idx], flow)], axis=0)
+            b_zonal = b_zonal.reshape(len(b_zonal), 1)
+
+            self.domain_info[list(self.nodes.zone.unique())] = A_zonal
+            self.domain_info["ram"] = b_zonal
+            self.domain_info["timestep"] = self.timestep
+            self.domain_info["gsk_strategy"] = self.gsk_strat
+
             self.logger.info("Done!")
+
             self.A = A_zonal
             self.b = b_zonal
+
             return A_zonal, b_zonal
         except:
                 self.logger.exception('error:create_zonal_ptdf')
 
-    def create_zonal_Ab_file(self, grid_object):
-        """ Storing Matrix A and Vector b to disk to save memory"""
-        # set up for Ab file
-        # dtype = np.array(grid_object.ptdf, dtype=np.float16).dtype
-        dtype = np.dtype("Float64")
-        shape = len(list(self.nodes.zone.unique()))
-        expectedrows = len(self.lines)*(len(self.lines)+1)*2
 
-        ## Init PyTables
-        hdf5_path = self.wdir.joinpath("temp_data/zonal_Ab_expandeble_compressed.hdf5")
-        hdf5_file = tables.open_file(str(hdf5_path), mode='w')
-        filters = tables.Filters(complevel=1, complib='zlib')
-        zonal_A_storage = hdf5_file.create_earray(hdf5_file.root, 'A',
-                                                  tables.Atom.from_dtype(dtype),
-                                                  shape=(0, shape),
-                                                  filters=filters,
-                                                  expectedrows=expectedrows)
-
-        zonal_b_storage = hdf5_file.create_earray(hdf5_file.root, 'b',
-                                                  tables.Atom.from_dtype(dtype),
-                                                  shape=(0,),
-                                                  filters=filters,
-                                                  expectedrows=expectedrows)
-        gsk = self.update_gsk(option="array")
-        ## N-0 Matrix
-        ram_array = grid_object.update_ram(grid_object.ptdf, option="array")
-        z_ptdf = np.dot(grid_object.ptdf, gsk)
-        zonal_A_storage.append(np.vstack([z_ptdf, -z_ptdf]))
-        zonal_b_storage.append(np.concatenate([ram_array[:, 0], -ram_array[:, 1]], axis=0))
-
-        for idx, line in enumerate(grid_object.lines.index):
-            ptdf = grid_object.create_n_1_ptdf_outage(idx)
-            ram_array = grid_object.update_ram(ptdf, option="array")
-            z_ptdf = np.dot(ptdf, gsk)
-            zonal_A_storage.append(np.vstack([z_ptdf, -z_ptdf]))
-            zonal_b_storage.append(np.concatenate([ram_array[:, 0], -ram_array[:, 1]], axis=0))
-
-        hdf5_file.close()
-        ## To be clear
-        zonal_Ab_file_path = str(hdf5_path)
-        return zonal_Ab_file_path
-
-    def retrieve_zonal_Ab(self, selection):
-        """getting the rows/values from A,b, input either array/list with indices, range or index"""
-        Ab_file = tables.open_file(self.zonal_Ab_file_path, mode='r')
-        A = Ab_file.root.A[selection, :]
-        b = Ab_file.root.b[selection]
-        Ab_file.close()
-        if isinstance(b, np.ndarray):
-            b = b.reshape(len(b), 1)
-        return A, b
-
-    def create_Ab_from_jao_data(self, timestep="t0001"):
-#        self = fbmc
-        self.logger.info(f"Using Jao Data for timestep {timestep}")
-        jao_data_raw = pd.read_csv(self.wdir.joinpath("data/JAO_complete_CBCO.csv"), sep=",", encoding='ISO8859')
+    def create_Ab_from_jao_data(self):
+        """Using Jao Data for the FBMC Plot
+           Make sure to use the same date-range as in the model results!
+           Creates Empty Domain DataFrame
+        """
+        self.logger.info(f"Using Jao Data for timestep {self.timestep}")
+        jao_data_raw = pd.read_csv(self.wdir.joinpath("data_input/JAO_complete_CBCO.csv"), sep=",", encoding='ISO8859')
         jao_data_raw.CalendarDate = pd.DatetimeIndex(jao_data_raw.CalendarDate)
         jao_data_raw.CalendarHour = pd.to_timedelta(jao_data_raw.CalendarHour, unit="h")
         jao_data_raw["utc_timestamp"] = jao_data_raw.CalendarDate + jao_data_raw.CalendarHour
@@ -351,7 +256,7 @@ class FBMCModule(object):
             jao_data_raw.timestep[jao_data_raw.utc_timestamp == t] = timestep_dict[t]
 #        jao_data_raw.set_index("utc_timestamp", inplace=True)
 
-        cbco_df = jao_data_raw[jao_data_raw.timestep == timestep]
+        cbco_df = jao_data_raw[jao_data_raw.timestep == self.timestep]
         length = len(cbco_df.index)
         width = len(self.nodes.zone.unique())
         A_zonal = np.zeros((length, width), dtype=np.float64)
@@ -364,8 +269,7 @@ class FBMCModule(object):
 
         self.A = A_zonal
         self.b = b_zonal
-        self.gsk_strat = "jao"
-        self.timestep = timestep
+        self.domain_data = pd.DataFrame()
 
         return A_zonal, b_zonal
 
@@ -480,14 +384,14 @@ class FBMCModule(object):
         vertecies_full = np.take(A, relevant_subset, axis=0)/np.take(b, relevant_subset, axis=0)
         vertecies_reduces = np.take(A, cbco_index, axis=0)/np.take(b, cbco_index, axis=0)
 
-        x_max, x_min, y_max, y_min = tools.find_xy_limits([[vertecies_reduces[:,0], vertecies_reduces[:,1]]])
+        xy_limits = tools.find_xy_limits([[vertecies_reduces[:,0], vertecies_reduces[:,1]]])
 
         fig = plt.figure()
         ax = plt.subplot()
 
         scale = 1.2
-        ax.set_xlim(x_min*scale, x_max*scale)
-        ax.set_ylim(y_min*scale, y_max*scale)
+        ax.set_xlim(xy_limits["x_min"]*scale, xy_limits["x_max"]*scale)
+        ax.set_ylim(xy_limits["y_min"]*scale, xy_limits["y_max"]*scale)
 
         for point in vertecies_full:
             ax.scatter(point[0], point[1], c='lightgrey')
@@ -580,13 +484,17 @@ class FBMCModule(object):
         """
         try:
 #            self = fbmc
+#            domain_x = ["DE", "FR"]
+#            domain_y =  ["DE", "NL"]
+
             gsk_sink = gsk_sink or {}
-#            domain_x = ["DE"]
-#            domain_y = ["FR"]
-            # self.nodes.net_injection = 0
             A, b = self.create_fbmc_equations(domain_x, domain_y, gsk_sink)
             # Reduce
             cbco_index = self.reduce_ptdf(A, b)
+
+            if not self.gsk_strat == "jao":
+                self.domain_info["in_domain"] = False
+                self.domain_info["in_domain"][self.domain_info.index.isin(cbco_index)] = True
 
             full_indices = np.array([x for x in range(0,len(A))])
             if not reduce: # plot only the reduced set or more constraints
@@ -603,14 +511,15 @@ class FBMCModule(object):
 
             hull_plot_x, hull_plot_y, hull_coord_x, hull_coord_y = self.get_xy_hull(A, b, cbco_index)
 
-            xmax, xmin, ymax, ymin = tools.find_xy_limits([[hull_plot_x, hull_plot_y]])
+            xy_limits = tools.find_xy_limits([[hull_plot_x, hull_plot_y]])
 
             fbmc_plot = FBMCDomain({"gsk_strat": self.gsk_strat, "timestep": self.timestep,
                                    "domain_x": domain_x, "domain_y": domain_y},
                                    plot_equations,
                                    {"hull_plot_x": hull_plot_x, "hull_plot_y": hull_plot_y,
                                    "hull_coord_x": hull_coord_x, "hull_coord_y": hull_coord_y},
-                                   xmax, xmin, ymax, ymin)
+                                   xy_limits,
+                                   self.domain_info)
 
             self.fbmc_plots[fbmc_plot.title] = fbmc_plot
 

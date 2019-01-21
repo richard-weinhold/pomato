@@ -52,13 +52,14 @@ class JuliaInterface(object):
         self.demand_el = data.demand_el[data.demand_el.index.isin(self.model_horizon)]
         self.demand_h = data.demand_h[data.demand_h.index.isin(self.model_horizon)]
         self.availability = data.availability
-        self.dclines = data.dclines[["node_i", "node_j", "capacity"]]
+        self.dclines = data.dclines[["node_i", "node_j", "maxflow"]]
         self.ntc = data.ntc
 
         # fbmc related parameters
         self.net_position = data.net_position
         self.net_export = data.net_export
-        
+        self.reference_flows = data.reference_flows
+
         self.data_to_csv()
         # self.data_to_json()
 
@@ -107,24 +108,9 @@ class JuliaInterface(object):
             self.data.results.check_infeasibilities()
             self.status = 'solved'
         else:
-            self.logger.warning("Process not terminated sucesfully!")
-
-
-    def data_to_json(self):
-        """Export Data to json files in the jdir + json_path"""
-        json_path = self.jl_data_dir.joinpath('data').joinpath('json')
-        self.plants.to_json(str(json_path.joinpath('plants.json')), orient='index')
-        self.nodes.to_json(str(json_path.joinpath('nodes.json')), orient='index')
-        self.zones.to_json(str(json_path.joinpath('zones.json')), orient='index')
-        self.heatareas.to_json(str(json_path.joinpath('heatareas.json')), orient='index')
-        self.demand_el.to_json(str(json_path.joinpath('demand_el.json')), orient='index')
-        self.demand_h.to_json(str(json_path.joinpath('demand_h.json')), orient='index')
-        self.availability.to_json(str(json_path.joinpath('availability.json')), orient='index')
-        self.ntc.to_json(str(json_path.joinpath('ntc.json')), orient='split')
-        self.dclines.to_json(str(json_path.joinpath('dclines.json')), orient='index')
+            self.logger.warning("Process not terminated successfully!")
 
     def data_to_csv(self):
-#        self = mato.market_model
         """Export Data to csv files file in the jdir + \\data"""
         # Some legacy json also needs to be written here
         csv_path = self.jl_data_dir.joinpath('data')
@@ -137,14 +123,12 @@ class JuliaInterface(object):
         self.availability.to_csv(str(csv_path.joinpath('availability.csv')), index_label='index')
         self.ntc.to_csv(str(csv_path.joinpath('ntc.csv')), index=False)
         self.dclines.to_csv(str(csv_path.joinpath('dclines.csv')), index_label='index')
-        self.net_export.to_csv(str(csv_path.joinpath('net_export_nodes.csv')), index_label='index')
+        self.net_export.to_csv(str(csv_path.joinpath('net_export.csv')), index_label='index')
         self.net_position.to_csv(str(csv_path.joinpath('net_position.csv')), index_label='index')
+        self.reference_flows.to_csv(str(csv_path.joinpath('reference_flows.csv')), index_label='index')
+
         # Optional data
-        try:
-            with open(csv_path.joinpath('cbco.json'), 'w') as file:
-                    json.dump(self.grid_representation["cbco"], file, indent=2)
-        except:
-            self.logger.warning("CBCO.json not found - Check if relevant for the model")
+        self.grid_representation["cbco"].to_csv(str(csv_path.joinpath('cbco.csv')), index_label='index')
 
         try:
             with open(csv_path.joinpath('slack_zones.json'), 'w') as file:
@@ -157,21 +141,4 @@ class JuliaInterface(object):
                 json.dump(self.opt_setup, file, indent=2)
         except:
             self.logger.warning("opt_setup.json not found - Check if relevant for the model")
-
-        try:
-            with open(csv_path.joinpath('net_position.json'), 'w') as file:
-                json.dump(self.net_position.astype(float).to_dict(orient="index"), file, indent=2)
-
-            with open(csv_path.joinpath('net_export.json'), 'w') as file:
-                json.dump(self.net_export.astype(float).to_dict(orient="index"), file, indent=2)
-
-            with open(csv_path.joinpath('net_export_nodes.json'), 'w') as file:
-                json.dump(self.net_export_nodes.astype(float).to_dict(orient="index"), file, indent=2)
-        except:
-            self.logger.warning("net_positions or export at nodes not found in data object- Check if relevant for the model")
-
-
-
-
-
 

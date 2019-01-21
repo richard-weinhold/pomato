@@ -1,12 +1,12 @@
 # -------------------------------------------------------------------------------------------------
 # POMATO - Power Market Tool (C) 2018
-# Current Version: Pre-Release-2018 
+# Current Version: Pre-Release-2018
 # Created by Robert Mieth and Richard Weinhold
 # Licensed under LGPL v3
 #
 # Language: Julia, v0.6.2 (required)
 # ----------------------------------
-# 
+#
 # This file:
 # POMATO optimization kernel
 # Called by julia_interface.py, reads pre-processed data from /julia/data/
@@ -20,6 +20,7 @@ else
     println("No arguments passed, running as script in pwd()")
     WDIR = pwd()
 end
+# WDIR = "C:/Users/riw/tubCloud/Uni/Market_Tool/pomato"
 
 using DataFrames
 using CSV
@@ -28,7 +29,7 @@ using DataStructures
 using JuMP
 using Clp
 using Gurobi
-
+using Dates
 
 include("tools.jl")
 include("typedefinitions.jl")
@@ -36,17 +37,17 @@ include("read_data.jl")
 include("model.jl")
 include("setdefinitions.jl")
 
-model_horizon, opt_setup, 
+model_horizon, opt_setup,
 plants, plants_in_ha, plants_at_node, plants_in_zone, availabilities,
 nodes, zones, slack_zones, heatareas, nodes_in_zone,
-ntc, dc_lines, cbco = read_model_data(WDIR*"/data_temp/julia_files/data/")
+ntc, dc_lines, grid = read_model_data(WDIR*"/data_temp/julia_files/data/")
 
 
 #Run Dispatch Model
-out = build_and_run_model(model_horizon, opt_setup, 
+out = build_and_run_model(model_horizon, opt_setup,
                           plants, plants_in_ha, plants_at_node, plants_in_zone, availabilities,
                           nodes, zones, slack_zones, heatareas, nodes_in_zone,
-                          ntc, dc_lines, cbco)
+                          ntc, dc_lines, grid)
 
 
 println("DONE")

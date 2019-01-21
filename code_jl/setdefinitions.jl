@@ -15,7 +15,7 @@
 # Power-to-heat plants
 PH_TECH = ["heatpump", "elheat"]
 # Plants that use time-series for capacity of p
-TS_TECH = ["pv", "wind_off", "wind_on", "pvheat", "iheat", "wind onshore", "wind offshore", "solar"]
+TS_TECH = ["wind onshore", "wind offshore", "solar"]
 # El storgae technologies 
 EL_STORAGE_TECH = ["psp", "reservoir"]
 #Conventional Plants
@@ -118,8 +118,8 @@ function get_slack(nodes::OrderedDict)
 end
 
 # DC Lines
-function get_dclines(lines::Dict)
+function get_dclines(dclines::Dict)
     # Only DC lines are included as lines in the model
     # Rest of the network is represented by PTDF
-    return collect(keys(lines))
+    return collect(keys(dclines))
 end

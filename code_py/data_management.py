@@ -72,8 +72,12 @@ class DataManagement(object):
 	def process_input(self, set_up=None):
 		InputProcessing(self, set_up)
 
-	def process_results(self, opt_folder, opt_setup):
-		self.results = ResultProcessing(self, opt_folder, opt_setup)
+	def process_results(self, opt_folder, opt_setup, grid=None):
+		self.results = ResultProcessing(self, opt_folder, opt_setup, grid=grid)
+		
+		if not grid:
+			self.logger.warning("Grid not set in Results Processing! \
+								Manually set Grid as attribute to perform load flow analysis")
 
 	def return_results(self, symb):
 		"""interface method to allow access to results from ResultsProcessing class"""

@@ -16,6 +16,7 @@ def create_folder_structure(base_path, logger=None):
                 "julia_files": {
                         "data": {},
                         "results": {},
+                        "cbco_data": {},
                         },
                 "python_files": {
                         "tmp_tables": {},
@@ -63,7 +64,9 @@ def find_xy_limits(list_plots):
             x_min = min(x_coords)
             y_max = max(y_coords)
             y_min = min(y_coords)
-        return(x_max, x_min, y_max, y_min)
+
+        return {"x_max": x_max, "x_min": x_min,
+                "y_max": y_max, "y_min": y_min}
     except:
         print('error:find_xy_limits')
 
@@ -80,7 +83,7 @@ def split_length_in_ranges(step_size, length):
     return ranges
 
 
-def from_named_rage(wb, name):
+def from_named_range(wb, name):
     position_obj = wb.name_map[name]
     address = position_obj[0].__dict__['formula_text'].split('!')
     sheet = wb.sheet_by_name(address[0])

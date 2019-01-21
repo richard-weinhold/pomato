@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 
 class ResultProcessing(object):
     """Data Woker Class"""
-    def __init__(self, data, opt_folder, opt_setup):
+    def __init__(self, data, opt_folder, opt_setup, grid=None):
         self.logger = logging.getLogger('Log.MarketModel.DataManagement.ResultData')
         self.data = data
 
-        self.grid = None
+        self.grid = grid
 
         self.result_folder = self.data.wdir.joinpath("data_output").joinpath(str(opt_folder).split("\\")[-1])
         if not self.result_folder.is_dir():
@@ -79,9 +79,38 @@ class ResultProcessing(object):
                 if any(tmp[col] > 1e-3):
                     self.logger.warning(f"Infeasibilites in {col}")
 
-    # def courtailment(self):
+    def check_courtailment(self):
+        """ Amount Curtailed by Wind and Solar power"""
+        res_plants = self.data.plants[self.data.plants.tech.isin(["wind onshore",
+                                                                  "wind offshore",
+                                                                  "solar"])]
+        gen = self.G
+        av = self.data.availability.unstack().reset_index()
+        av.columns = ["p", "t", "ava"]
 
-    #     res_fuels = ["sun", "wind", "water", "biomass"]
+        gen = gen[gen.p.isin(res_plants.index)]
+        gen = pd.merge(gen, res_plants[["g_max"]], how="left", left_on="p", right_index=True)
+        gen = pd.merge(gen, av, how="left", on=["p", "t"])
+
+        gen.ava.fillna(1, inplace=True)
+
+        gen["ava_gen"] = gen.g_max*gen.ava
+        gen["curt"] = gen.ava_gen - gen.G
+        curtailment = gen["curt"].round(3).sum()
+        self.logger.info(f"{curtailment} MWh curtailed in market model results!")
+        return gen
+
+    def res_share(self):
+        """return res share in dispatch"""
+
+        res_plants = self.data.plants[self.data.plants.fuel.isin(["wind", 
+                                                                  "sun", "water", 
+                                                                  "biomass"])]
+        gen = self.G
+        gen_res = gen[gen.p.isin(res_plants.index)]
+        res_share = gen_res.G.sum()/gen_res.G.sum()
+        self.logger.info(f"Renewable share is {res_share}% in resulting dispatch!")
+        return res_share
 
     def default_plots(self, show_plot=False):
         """Set of Standard Plots"""
@@ -144,33 +173,72 @@ class ResultProcessing(object):
     # Grid Analytics
     # - Load Flows
 
-    def n_0_flow(self, timesteps):
-        if not self.grid:
-            self.logger.error("Grid Model not available!")
-            return None
+    def n_0_flow(self, timesteps=None):
+
+        if not timesteps:
+            self.logger.info(f"Calculateting N-0 Flows for the full model horizon")
+            timesteps = self.data.result_attributes["model_horizon"]
+
         n_0_flows = pd.DataFrame(index=self.data.lines.index)
         for t in timesteps:
             n_0_flows[t] = np.dot(self.grid.ptdf, self.INJ.INJ[self.INJ.t == t].values)
         return n_0_flows
 
-    def n_1_flow(self, timesteps, lines, outages):
+    def n_1_flow(self, timesteps=None, lines=None, outages=None, sensitivity=5e-2):
         """Line flows on lines (cb) under outages (co)
            input lines/outages list of line indices
            timesteps list of timestepts
            output DF[lines, outages, timesteps]
         """
-
         if not self.grid:
-            self.logger.error("Grid Model not available!")
+            self.logger.error("Grid not available in results object!")
             return None
-        if not all([x in self.data.lines.index for x in lines + outages]):
+
+        if (lines and not all([l in self.data.lines.index for l in lines])) \
+            or (outages and not all([o in self.data.lines.index for o in outages])):
             self.logger.error("Not all CBs/COs are indices of lines!")
             return None
-        n_1_flows = pd.DataFrame([[l, o] for l in lines for o in outages],
-                                 columns=["lines", "outages"])
-        ptdf = np.vstack([self.grid.create_n_1_ptdf_cbco(l,o) for l in lines for o in outages])
+
+        use_lodf = False
+        if not timesteps:
+            self.logger.info(f"Calculateting N-1 Flows for the full model horizon")
+            timesteps = self.data.result_attributes["model_horizon"]
+
+        if not lines:
+            self.logger.info(f"Using all lines from grid model as CBs")
+            lines = list(self.grid.lines.index)
+
+        use_lodf = False  
+        if not outages:
+            self.logger.info(f"Using COs with a sensitivity of >{int(sensitivity*100)}% to CBs")
+            use_lodf = True
+  
+
+        ptdf = [self.grid.ptdf]
+        label_lines = list(self.grid.lines.index)
+        label_outages = ["basecase" for i in range(0, len(self.grid.lines.index))]
+
+        for line in self.grid.lines.index[self.grid.lines.contingency]:
+            if use_lodf:
+                outages = list(self.grid.lodf_filter(line, sensitivity))
+            label_lines.extend([line for i in range(0, len(outages))])
+            label_outages.extend(outages)
+
+        for idx, line in enumerate(self.grid.lines.index[self.grid.lines.contingency]):
+            if use_lodf:
+                outages = list(self.grid.lodf_filter(line, sensitivity))
+            tmp_ptdf = np.vstack([self.grid.create_n_1_ptdf_cbco(line,o) for o in outages])
+            ptdf.append(tmp_ptdf)
+
+        n_1_flows = pd.DataFrame()
+        n_1_flows["cb"] = label_lines
+        n_1_flows["co"] = label_outages
+
+        ptdf = np.concatenate(ptdf).reshape(len(label_lines), 
+                                            len(list(self.grid.nodes.index)))
         for t in timesteps:
             n_1_flows[t] = np.dot(ptdf, self.INJ.INJ[self.INJ.t == t].values)
+
         return n_1_flows
 
     def overloaded_lines_n_0(self, timesteps=None):
@@ -193,53 +261,46 @@ class ResultProcessing(object):
         return_df = pd.DataFrame(index=n_0_load.index)
         return_df["# of overloads"] = np.sum(relative_load.values>1, axis=1)[np.any(relative_load.values>1, axis=1)]
         return_df["avg load"] = n_0_load.mean(axis=1)
-  
+
         return return_df, n_0_load
 
-    def overloaded_lines_n_1(self, timesteps=None):
+    def overloaded_lines_n_1(self, timesteps=None, sensitivity=5e-2):
 
         if not timesteps:
             # if not specifie use full model horizon
             timesteps = self.data.result_attributes["model_horizon"]
+       
+        n_1_flow = self.data.results.n_1_flow(sensitivity=sensitivity)
+        n_1_load = n_1_flow.copy()
 
-        n_1_load = pd.DataFrame(columns=["lines", "outages"] + timesteps)
-        for l, line in enumerate(self.data.lines.index):
+        timesteps = self.data.result_attributes["model_horizon"]
+        n_1_load.loc[:,timesteps] = n_1_flow.loc[:,timesteps].div(self.grid.lines.maxflow[n_1_load.cb].values, axis=0).abs()
 
-            ## Print Progress-Bar
-            sys.stdout.flush()
-            sys.stdout.write("\r[%-35s] %d%% done!" % \
-                            ('='*int(l*35/len(self.data.lines.index)),
-                             int(l*101/len(self.data.lines.index))))
-            
-            flow = self.n_1_flow(timesteps, [line], list(self.data.lines.index))
-
-            relative_load = pd.DataFrame(columns=timesteps, index=self.data.lines.index,
-                                         data=np.vstack([(abs(flow[t])/self.data.lines.maxflow[line]) for t in timesteps]).T)
-
-            if np.any(relative_load.values>1):
-                # overloaded_n_1_load = relative load on line with overloadings
-                overloaded_n_1_load = relative_load[np.any(relative_load.values>1, axis=1)]
-                overloaded_n_1_load["lines"] = line
-                n_1_load = n_1_load.append(overloaded_n_1_load.rename_axis('outages').reset_index(),
-                                           sort=True, ignore_index=True)
-
-            if sys.getsizeof(n_1_load)/(8*1E9) > 1:
-                # break if size of n_1_load is larger than 1GB
-                sys.stdout.write("\n")
-                sys.stdout.write("\n")
-                self.logger.warning("Return DF is too large!")
-                return pd.DataFrame(), n_1_load
-                break
-
-        tmp_df = n_1_load[["lines", "outages"]].copy()
-        tmp_df["# of overloads"] = np.sum(n_1_load[timesteps] > 1, axis=1)
-        tmp_df["# of COs"] = 1
-        tmp_df["avg load"] = n_1_load[timesteps].mean(axis=1)
-
-        return_df = tmp_df[["# of overloads", "# of COs", "lines"]].groupby("lines").sum()
-        return_df[["avg load"]] = tmp_df[["avg load", "lines"]].groupby("lines").mean()
+        # 2% overload as tolerance
+        n_1_overload = n_1_load[~(n_1_load[timesteps] <= 1.02).all(axis=1)]
+        return_df = n_1_overload[["cb", "co"]].copy()
+        return_df["nr overloads"] = np.sum(n_1_overload[timesteps] > 1, axis=1).values
+        return_df["# of COs"] = 1
+        return_df = return_df.groupby("cb").sum()
+        return_df["avg load"] = n_1_overload.groupby(by=["cb"]).mean().mean(axis=1).values
+        return_df["basecase overload"] = [line in n_1_overload.cb[n_1_overload.co == "basecase"].values for line in return_df.index]
 
         sys.stdout.write("\n")
-        return return_df, n_1_load
+        return return_df, n_1_overload
 
+    def price(self):
+        """returns nodal electricity price"""
+        eb_nodal = self.EB_nodal
+        eb_nodal = pd.merge(eb_nodal, self.nodes.zone.to_frame(),
+                            how="left", left_on="n", right_index=True)
+        eb_nodal.EB_nodal[abs(eb_nodal.EB_nodal) < 1E-3] = 0
 
+        eb_zonal = self.EB_zonal
+        eb_zonal.EB_zonal[abs(eb_zonal.EB_zonal) < 1E-3] = 0
+
+        price = pd.merge(eb_nodal, eb_zonal, how="left",
+                         left_on=["t", "zone"], right_on=["t", "z"])
+
+        price["marginal"] = -(price.EB_zonal + price.EB_nodal)
+
+        return price[["t", "n", "z", "marginal"]]

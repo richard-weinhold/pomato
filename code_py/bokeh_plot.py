@@ -15,7 +15,7 @@ from bokeh.models.widgets import RadioButtonGroup, Slider
 
 pd.options.mode.chained_assignment = None  # default='warn'
 wdir = Path(sys.argv[1])
-# wdir = Path.cwd().joinpath("bokeh")
+# wdir = Path("C:/Users/riw/tubCloud/Uni/Market_Tool/pomato/data_temp/bokeh_files")
 
 
 STAMEN_LITE = WMTSTileSource(
@@ -30,19 +30,20 @@ STAMEN_LITE = WMTSTileSource(
 def init_market_data(market_db):
     """load data from market_result/market_db forder"""
     data_dir = wdir.joinpath("market_result").joinpath(market_db)
-
+    nodes = pd.read_csv(data_dir.joinpath("nodes.csv"), index_col=0)
+    dclines = pd.read_csv(data_dir.joinpath("dclines.csv"), index_col=0)
+    fuel = pd.read_csv(data_dir.joinpath("fuel.csv"), index_col=0)
     g_by_fuel = pd.read_csv(data_dir.joinpath("g_by_fuel.csv"), index_col=0)
     demand = pd.read_csv(data_dir.joinpath("demand.csv"), index_col=0)
     inj = pd.read_csv(data_dir.joinpath("inj.csv"), index_col=0)
     f_dc = pd.read_csv(data_dir.joinpath("f_dc.csv"), index_col=0)
     t_dict = json.load(open(data_dir.joinpath("t.json")))
 
-    return g_by_fuel, demand, inj, f_dc, t_dict["t_first"], t_dict["t_last"]
+    return nodes, dclines, fuel, g_by_fuel, demand, inj, f_dc, t_dict["t_first"], t_dict["t_last"]
 
 def init_grid_data(market_db):
     """load data from market_result/market_db forder"""
     data_dir = wdir.joinpath("market_result").joinpath(market_db)
-
     lines = pd.read_csv(data_dir.joinpath("lines.csv"), index_col=0)
     n_1_flows = pd.read_csv(data_dir.joinpath("n_1_flows.csv"), index_col=0)
     n_0_flows = pd.read_csv(data_dir.joinpath("n_0_flows.csv"), index_col=0)
@@ -52,8 +53,9 @@ def init_grid_data(market_db):
 def update_market_data(attr, old, new):
     """update market data"""
     label.text = "Loading Market Data..."
+
     source_ind.data["color"] = ["red"]
-    g_by_fuel, demand, inj, f_dc, t_first, t_last = init_market_data(select_market_db.value)
+    _, _, _, g_by_fuel, demand, inj, f_dc, t_first, t_last = init_market_data(select_market_db.value)
 
     source_g_fuel.data = ColumnDataSource.from_df(g_by_fuel)
     source_d.data = ColumnDataSource.from_df(demand)
@@ -94,18 +96,6 @@ def available_files_by_ext(folder, ext):
     for file in folder.rglob(f"*.{ext}"):
         list_files.append(file.name)
     return(list_files)
-
-def load_data_from_csv(wdir):
-    """load base data"""
-    data_dir = wdir.joinpath("data")
-    nodes = pd.read_csv(data_dir.joinpath("nodes.csv"), index_col=0)
-    zones = pd.read_csv(data_dir.joinpath("zones.csv"), index_col=0)
-    plants = pd.read_csv(data_dir.joinpath("plants.csv"), index_col=0)
-    tech = pd.read_csv(data_dir.joinpath("tech.csv"), index_col=0)
-    fuel = pd.read_csv(data_dir.joinpath("fuel.csv"), index_col=0)
-    dclines = pd.read_csv(data_dir.joinpath("dclines.csv"), index_col=0)
-
-    return nodes, zones, plants, tech, fuel, dclines
 
 def update_line_colors(option=0):
     """Line colors in 10 shades of RedYellowGreeen palette"""
@@ -181,7 +171,6 @@ def update_line_loadings(attrname, old, new):
 
 def update_stacked_bars(attrname, old, new):
     nodes = []
-    print("HERE")
     for i in n.data_source.selected['1d']['indices']:
         nodes.append(source_nodes.data["node"][i])
 
@@ -206,26 +195,25 @@ def gen_fuel(t,nodes):
     """Generate source for Generation/Demand in Bar-Plot"""
     ## Plot consists of all gen fuels and demand
     ## - first column only gen - second column only demand
-    gms_g_fuel = source_g_fuel.to_df()
-    gms_d = source_d.to_df()
-    gms_d = gms_d.drop("index", axis=1)
-    gms_g_fuel = gms_g_fuel.drop("index", axis=1)
+    gen_fuel = source_g_fuel.to_df()
+    demand = source_d.to_df()
+    demand = demand.drop("index", axis=1)
+    gen_fuel = gen_fuel.drop("index", axis=1)
 
     t = 't'+ "{0:0>4}".format(int(t))
-    tmp = gms_g_fuel[(gms_g_fuel.t==t)&(gms_g_fuel.node.isin(nodes))].groupby("fuel").sum()
+    tmp = gen_fuel[(gen_fuel.t==t)&(gen_fuel.node.isin(nodes))].groupby("fuel").sum()
     gen_max = tmp.values.sum()
     tmp["D"] = 0
     fuel_dict = {}
     for i in fuel.fuel:
         if i in tmp.index:
-            print(tmp.loc[i].tolist())
             custom_list = tmp.loc[i].tolist()
             fuel_dict[i] = custom_list
         else:
             fuel_dict[i] = [0,0]
     fuel_dict["type"] = ["gen", "dem"]
-    dem_max = gms_d.d_total[(gms_d.n.isin(nodes))&(gms_d.t == t)].sum()
-    print(dem_max)
+    dem_max = demand.d_total[(demand.n.isin(nodes))&(demand.t == t)].sum()
+
     fuel_dict["dem"] = [0, dem_max]
     return fuel_dict, max(dem_max, gen_max)
 
@@ -288,7 +276,8 @@ def create_line_source(lines):
                  "max_flow": list(lines.maxflow),
                  "flow": n_0_flow(slider.value),
                  "n_1_flow": n_1_flow(slider.value),
-                 "name": list(lines.name),
+                 "node_i": list(lines.node_i),
+                 "node_j": list(lines.node_j),
                  "contingency": list(lines.contingency),
                  "color": color,
                  "line_alpha": line_alpha}
@@ -296,14 +285,11 @@ def create_line_source(lines):
     return line_dict
 
 
-### Data from Excel file - except lines which will be loaded from grid data
-nodes, zones, plants, tech, fuel, dclines = load_data_from_csv(wdir)
-
 # Init Data and Widgets
 option_market_db = [path for path in os.listdir(wdir.joinpath("market_result")) if "." not in path]
 select_market_db = Select(title="Model Run:", value=option_market_db[0], options=option_market_db)
 
-g_by_fuel, demand, inj, f_dc, t_first, t_last = init_market_data(select_market_db.value)
+nodes, dclines, fuel, g_by_fuel, demand, inj, f_dc, t_first, t_last = init_market_data(select_market_db.value)
 lines, n_0_flows, n_1_flows = init_grid_data(select_market_db.value)
 
 #Market Data
@@ -336,11 +322,9 @@ select_market_db.on_change('value', update_line_loadings)
 select_market_db.on_change('value', update_node_injections)
 select_market_db.on_change('value', update_grid_data)
 
-
 ## Init plot things from either data or function
 line_dict = create_line_source(lines)
 source_lines = ColumnDataSource(line_dict)
-
 
 x,y,lat,lon = [],[],[],[]
 for i in nodes.index:
@@ -373,11 +357,24 @@ source_dclines = ColumnDataSource(data=dict(
                 ly=ly_dc,
                 line=list(dclines.index),
                 flow=dclines_flow(slider.value),
-                name=list(dclines.name)))
+                node_i = list(dclines.node_i),
+                node_j = list(dclines.node_j)))
 
 hover_line =[#("index", "$index"),
             ("Line", "@line"),
-            ("Name", "@name"),
+            # ("Name", "@name"),
+            ("Node_i", "@node_i"),
+            ("Node_j", "@node_j"),
+            ("Capacity", "@max_flow"),
+            ("Flow", "@flow"),
+            ("N-1 Flow", "@n_1_flow"),
+            ("Contingency", "@contingency")]
+
+hover_dcline =[#("index", "$index"),
+            ("Line", "@line"),
+            # ("Name", "@name"),
+            ("Node_i", "@node_i"),
+            ("Node_j", "@node_j"),
             ("Capacity", "@max_flow"),
             ("Flow", "@flow"),
             ("N-1 Flow", "@n_1_flow"),

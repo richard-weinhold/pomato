@@ -20,7 +20,6 @@ class InputProcessing(object):
                            "default_mc": 200,
                            "co2_price": 20,
                            "all_lines_cb": False,
-                           "efficiency_estimate": True,
                            }
         else:
             self.set_up = set_up
@@ -28,11 +27,16 @@ class InputProcessing(object):
         self.logger.info("Processing Input Data...")
 
         ### Custm Rule :(
-        self.data.zones.set_index("country", inplace=True)
-        self.process_availability()
+        if self.data.data_attributes["source"] == "mpc_casefile":
+            pass
 
-        self.efficiency()
-        self.marginal_costs()
+        elif self.data.data_attributes["source"] == "xls":
+
+            self.data.zones.set_index("country", inplace=True)
+
+            self.efficiency()
+            self.marginal_costs()
+
         self.process_availability()
         self.process_net_export()
 
@@ -42,11 +46,14 @@ class InputProcessing(object):
         if all([self.data.data_attributes["data"][d2cf_data] \
                 for d2cf_data in ["net_export", "reference_flows", "frm_fav", "net_position"]]):
             self.process_d2cf_data()
+        
+        if not self.data.data_attributes["data"]["dclines"]:
+            self.data.dclines = pd.DataFrame(columns=['node_i', 'node_j', 'name_i', 'name_j', 'maxflow'])
+        
         if self.set_up["all_lines_cb"]:
             self.data.lines.cb = True
 
         self._check_data()
-        self._check_netinjections()
 
 
     def process_net_export(self):
@@ -66,12 +73,23 @@ class InputProcessing(object):
 
             for zones in set([(from_zone,to_zone) for (from_zone,to_zone) in zip(net_export_raw.from_zone, net_export_raw.to_zone)]):
                 nodes = []
-                nodes += list(self.data.lines.node_i[(self.data.lines.node_i.isin(self.data.nodes.index[self.data.nodes.zone == zones[0]]))&(self.data.lines.node_j.isin(self.data.nodes.index[self.data.nodes.zone == zones[1]])) ])
-                nodes += list(self.data.lines.node_j[(self.data.lines.node_i.isin(self.data.nodes.index[self.data.nodes.zone == zones[1]]))&(self.data.lines.node_j.isin(self.data.nodes.index[self.data.nodes.zone == zones[0]]))])
+                nodes.extend(list(self.data.lines.node_i[(self.data.lines.node_i.isin(self.data.nodes.index[self.data.nodes.zone == zones[0]]))& \
+                                                         (self.data.lines.node_j.isin(self.data.nodes.index[self.data.nodes.zone == zones[1]]))]))
+
+                nodes.extend(list(self.data.lines.node_j[(self.data.lines.node_i.isin(self.data.nodes.index[self.data.nodes.zone == zones[1]]))& \
+                                                         (self.data.lines.node_j.isin(self.data.nodes.index[self.data.nodes.zone == zones[0]]))]))
+
+                nodes.extend(list(self.data.dclines.node_i[(self.data.dclines.node_i.isin(self.data.nodes.index[self.data.nodes.zone == zones[0]]))& \
+                                                           (self.data.dclines.node_j.isin(self.data.nodes.index[self.data.nodes.zone == zones[1]]))]))
+
+                nodes.extend(list(self.data.dclines.node_j[(self.data.dclines.node_i.isin(self.data.nodes.index[self.data.nodes.zone == zones[1]]))& \
+                                                           (self.data.dclines.node_j.isin(self.data.nodes.index[self.data.nodes.zone == zones[0]]))]))
                 nodes = list(set(nodes))
+
                 for n in nodes:
                     self.data.net_export[n] = net_export_raw.export[(net_export_raw["from_zone"] == zones[0]) & \
-                                                                 (net_export_raw["to_zone"] == zones[1])].values/len(nodes)
+                                                                    (net_export_raw["to_zone"] == zones[1])].values/len(nodes)
+
             for n in list(set(self.data.nodes.index) - set(self.data.net_export.columns)):
                 self.data.net_export[n] = 0
 
@@ -188,12 +206,6 @@ class InputProcessing(object):
         tmp = self.lines[['length', 'type', 'b']][self.lines.b.isnull()]
         tmp.b = self.lines.length/(self.lines.type)
         self.lines.b[self.lines.b.isnull()] = tmp.b
-
-    def _check_netinjections(self):
-        """make net injections if there are imported ones, warning"""
-        if not self.data.nodes[self.data.nodes.net_injection != 0].empty:
-            self.data.nodes.net_injection = 0
-            self.logger.warning("Reset Net Injections to zero!")
 
     def _check_data(self):
         """ checks if dataset contaisn NaNs"""

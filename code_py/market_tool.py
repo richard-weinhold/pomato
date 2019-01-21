@@ -63,8 +63,8 @@ class MarketTool(object):
     def load_data(self, filename):
         """init Data Model with loading the fata from file"""
         self.data.load_data(self.wdir, filename)
-
-        # self.grid.build_grid_model(self.data.nodes, self.data.lines)
+        if self.grid.is_empty:
+            self.grid.build_grid_model(self.data.nodes, self.data.lines)
 
     def init_market_model(self):
         """init market model"""
@@ -118,13 +118,13 @@ class MarketTool(object):
 
     def init_bokeh_plot(self, name="default"):
         """init boke plot (saves market result and grid object)"""
-        self.bokeh_plot = bokeh.BokehPlot(self.wdir, self.data)
-        self.bokeh_plot.add_market_result(self.market_model, self.grid, name)
+        self.bokeh_plot = bokeh.BokehPlot(self.wdir)
 
-    def check_n_1_for_marketresult(self):
-        """Interface with grid model check n-1 method"""
-        overloaded_lines = \
-        self.grid.check_n_1_for_marketresult(self.market_model.return_results("INJ"),
-                                             self.market_model.model_horizon,
-                                             threshold=1000)
-        return overloaded_lines
+        if not self.data.results:
+            self.logger.info("No result available form market model!")
+
+        else:
+            folder = self.data.result_attributes["source"]
+            self.logger.info(f"initializing bokeh plot with from folder: {str(folder)}")
+            self.bokeh_plot.add_market_result(self.data.results, name)
+
