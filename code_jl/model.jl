@@ -29,7 +29,7 @@ println("Starting $(model_type) Model")
 
 # Timesteps
 # needs to be numeric in order to perform operations such as t-1
-t_set = keys(model_horizon)
+t_set = collect(keys(model_horizon))
 t_start = collect(keys(model_horizon))[1]
 t_end = collect(keys(model_horizon))[end]
 
@@ -66,7 +66,7 @@ end
 
 # Setup model
 # disp = Model(solver=ClpSolver(SolveType=5))
-disp = Model(solver=GurobiSolver())
+disp = Model(solver=GurobiSolver(Method=1))
 # Variables
 @variable(disp, G[t_set, p_set] >= 0) # El. power generation per plant p
 @variable(disp, H[t_set, p_set] >= 0) # Heat generation per plant p
@@ -111,9 +111,11 @@ else
     @variable(disp, INFEAS_REF_FLOW[t_set, cb_set] == 0)
 end
 
-## Dicts to store EB constraints for duals
-EB_nodal_dict = Dict()
-EB_zonal_dict = Dict()
+## Make Constraint references to get the duals after solve
+@constraintref EB_nodal[t_set, n_set]
+JuMP.registercon(disp, :EB_nodal, EB_nodal)
+@constraintref EB_zonal[t_set, z_set]
+JuMP.registercon(disp, :EB_zonal, EB_zonal)
 
 @objective(disp, Min, sum(sum(G[t, p]*plants[p].mc for p in p_set) for t in t_set)
                       + sum(sum(H[t, p]*plants[p].mc for p in p_set) for t in t_set)
@@ -207,18 +209,16 @@ for t in t_set
     # Base Constraint
     for z in z_set
         p_in_z_set = collect(keys(plants_in_zone[z]))
-
-        EB_zonal = @constraint(disp, zones[z].demand[model_horizon[t]] + zones[z].net_export[model_horizon[t]] ==
-                              sum(G[t, p] for p in intersect(p_in_z_set, co_set))
-                            - sum(D_ph[t, p] for p in intersect(p_in_z_set, ph_set))
-                            - sum(D_es[t, p] for p in intersect(p_in_z_set, es_set))
-                            - sum(D_d[t, p] for p in intersect(p_in_z_set, d_set))
-                            - sum(EX[t, z, zz] for zz in z_set)
-                            + sum(EX[t, zz, z] for zz in z_set)
-                            + sum(INFEAS_EL_N_POS[t, n] - INFEAS_EL_N_NEG[t, n] for n in collect(keys(nodes_in_zone[z])))
-                            # + INFEAS_EL_Z_POS[t, z] - INFEAS_EL_Z_NEG[t, z]
-                            )
-        EB_zonal_dict[length(EB_zonal_dict) + 1] = Dict("t" => model_horizon[t], "z" => z, "EB_zonal" => EB_zonal)
+        EB_zonal[t,z] = @constraint(disp, zones[z].demand[model_horizon[t]] + zones[z].net_export[model_horizon[t]] ==
+                                  sum(G[t, p] for p in intersect(p_in_z_set, co_set))
+                                - sum(D_ph[t, p] for p in intersect(p_in_z_set, ph_set))
+                                - sum(D_es[t, p] for p in intersect(p_in_z_set, es_set))
+                                - sum(D_d[t, p] for p in intersect(p_in_z_set, d_set))
+                                - sum(EX[t, z, zz] for zz in z_set)
+                                + sum(EX[t, zz, z] for zz in z_set)
+                                + sum(INFEAS_EL_N_POS[t, n] - INFEAS_EL_N_NEG[t, n] for n in collect(keys(nodes_in_zone[z])))
+                                # + INFEAS_EL_Z_POS[t, z] - INFEAS_EL_Z_NEG[t, z]
+                                )
     end
 
     # Nodal Energy Balance
@@ -226,18 +226,15 @@ for t in t_set
     # Base Constraint
     for n in n_set
         p_in_n_set = collect(keys(plants_at_node[n]))
-        EB_nodal = @constraint(disp, nodes[n].demand[model_horizon[t]] + nodes[n].net_export[model_horizon[t]] ==
-                              sum(G[t, p] for p in intersect(p_in_n_set, co_set))
-                            - sum(D_ph[t, p] for p in intersect(p_in_n_set, ph_set))
-                            - sum(D_es[t, p] for p in intersect(p_in_n_set, es_set))
-                            - sum(D_d[t, p] for p in intersect(p_in_n_set, d_set))
-                            - sum((F_DC[t, dc]*dc_incidence[dc][n]) for dc in dc_set)
-                            - INJ[t, n]
-                            + INFEAS_EL_N_POS[t, n] - INFEAS_EL_N_NEG[t, n]
-                            )
-        EB_nodal_dict[length(EB_nodal_dict) + 1] = Dict("t" => model_horizon[t],
-                                                        "n" => n,
-                                                        "EB_nodal" => EB_nodal)
+        EB_nodal[t,n] = @constraint(disp, nodes[n].demand[model_horizon[t]] + nodes[n].net_export[model_horizon[t]] ==
+                                  sum(G[t, p] for p in intersect(p_in_n_set, co_set))
+                                - sum(D_ph[t, p] for p in intersect(p_in_n_set, ph_set))
+                                - sum(D_es[t, p] for p in intersect(p_in_n_set, es_set))
+                                - sum(D_d[t, p] for p in intersect(p_in_n_set, d_set))
+                                - sum((F_DC[t, dc]*dc_incidence[dc][n]) for dc in dc_set)
+                                - INJ[t, n]
+                                + INFEAS_EL_N_POS[t, n] - INFEAS_EL_N_NEG[t, n]
+                                )
     end
 
     # DC Lines Constraints
@@ -334,141 +331,31 @@ if !isdir(result_folder)
     mkdir(result_folder)
 end
 
-# Prepare Output
-G_dict = Dict()
-H_dict = Dict()
-d_el_dict = Dict()
-D_es_dict = Dict()
-L_es_dict = Dict()
-D_hs_dict = Dict()
-L_hs_dict = Dict()
-D_ph_dict = Dict()
-D_d_dict = Dict()
-INFEAS_H_dict = Dict()
-INFEAS_EL_Z_dict = Dict()
-INFEAS_EL_N_dict = Dict()
-INFEAS_LINES_dict = Dict()
-INFEAS_REF_FLOW_dict = Dict()
-INJ_dict = Dict()
-EX_dict = Dict()
-F_DC_dict = Dict()
+results_parameter = [[:G, [:t, :p], false],
+					 [:H, [:t, :p], false],
+					 [:D_es, [:t, :p], false],
+					 [:D_hs, [:t, :p], false],
+					 [:D_ph, [:t, :p], false],
+					 [:D_d, [:t, :p], false],
+					 [:L_es, [:t, :p], false],
+					 [:L_hs, [:t, :p], false],
+					 [:EX, [:t, :z, :zz], false],
+					 [:INJ, [:t, :n], false],
+					 [:F_DC, [:t, :dc], false],
+					 [:INFEAS_H_NEG, [:t, :ha], false],
+					 [:INFEAS_H_POS, [:t, :ha], false],
+					 [:INFEAS_EL_N_NEG, [:t, :n], false],
+					 [:INFEAS_EL_N_POS, [:t, :n], false],
+					 [:INFEAS_EL_Z_NEG, [:t, :z], false],
+					 [:INFEAS_EL_Z_POS, [:t, :z], false],
+					 [:INFEAS_LINES, [:t, :cb], false],
+					 [:INFEAS_REF_FLOW, [:t, :cb], false],
+					 [:EB_nodal, [:t, :n], true],
+					 [:EB_zonal, [:t, :z], true],
+					]
 
-for t in t_set
-    t_ind =model_horizon[t]
-    for p in p_set
-        G_dict[length(G_dict) + 1] = Dict("t" => t_ind, "p" => p, "G" => getvalue(G[t, p]))
-        H_dict[length(H_dict) + 1] = Dict("t" => t_ind, "p" => p, "H" => getvalue(H[t, p]))
-        if p in es_set
-            D_es_dict[length(D_es_dict) + 1] = Dict("t" => t_ind, "es" => p, "D_es" => getvalue(D_es[t, p]))
-            L_es_dict[length(L_es_dict) + 1] = Dict("t" => t_ind, "es" => p, "L_es" => getvalue(L_es[t, p]))
-        end
-        if p in hs_set
-            D_hs_dict[length(D_hs_dict) + 1] = Dict("t" => t_ind, "hs" => p, "D_hs" => getvalue(D_hs[t, p]))
-            L_hs_dict[length(L_hs_dict) + 1] = Dict("t" => t_ind, "hs" => p, "L_hs" => getvalue(L_hs[t, p]))
-        end
-        if p in ph_set
-            D_ph_dict[length(D_ph_dict) + 1] = Dict("t" => t_ind, "ph" => p, "D_ph" => getvalue(D_ph[t, p]))
-        end
-        if p in d_set
-            D_d_dict[length(D_d_dict) + 1] = Dict("t" => t_ind, "d" => p, "D_d" => getvalue(D_d[t, p]))
-        end
-    end
-    for ha in ha_set
-        INFEAS_H_dict[length(INFEAS_H_dict) + 1] = Dict("t" => t_ind, "ha" => ha,
-                                                        "INFEAS_H_NEG" => getvalue(INFEAS_H_NEG[t, ha]),
-                                                        "INFEAS_H_POS" => getvalue(INFEAS_H_POS[t, ha]))
-    end
-    for z in z_set
-        INFEAS_EL_Z_dict[length(INFEAS_EL_Z_dict) + 1] = Dict("t" => t_ind, "z" => z,
-                                                          "INFEAS_EL_Z_NEG" => getvalue(INFEAS_EL_Z_NEG[t, z]),
-                                                          "INFEAS_EL_Z_POS" => getvalue(INFEAS_EL_Z_POS[t, z]))
-    end
-    for n in n_set
-        INFEAS_EL_N_dict[length(INFEAS_EL_N_dict) + 1] = Dict("t" => t_ind, "n" => n,
-                                                          "INFEAS_EL_N_NEG" => getvalue(INFEAS_EL_N_NEG[t, n]),
-                                                          "INFEAS_EL_N_POS" => getvalue(INFEAS_EL_N_POS[t, n]))
-
-        INJ_dict[length(INJ_dict) + 1] = Dict("t" => t_ind, "n" => n, "INJ" => getvalue(INJ[t, n]))
-        d_el_dict[length(d_el_dict) + 1] = Dict("t" => t_ind, "n" => n, "d_el" => nodes[n].demand[model_horizon[t]])
-    end
-    for z_from in z_set
-        for z_to in z_set
-            EX_dict[length(EX_dict) + 1] = Dict("t" => t_ind, "z" => z_from, "zz" => z_to, "EX" => getvalue(EX[t, z_from, z_to]))
-        end
-    end
-    for dc in dc_set
-        F_DC_dict[length(F_DC_dict) + 1] = Dict("t" => t_ind, "dc" => dc, "F_DC" => getvalue(F_DC[t, dc]))
-    end
-    for cb in cb_set
-        INFEAS_LINES_dict[length(INFEAS_LINES_dict) + 1] = Dict("t" => t_ind, "cb" => cb, "INFEAS_LINES" => getvalue(INFEAS_LINES[t, cb]))
-        INFEAS_REF_FLOW_dict[length(INFEAS_REF_FLOW_dict) + 1] = Dict("t" => t_ind, "cb" => cb, "INFEAS_REF_FLOW" => getvalue(INFEAS_REF_FLOW[t, cb]))
-    end
-
-end
-for i in keys(EB_nodal_dict)
-   EB_nodal_dict[i]["EB_nodal"] = getdual(EB_nodal_dict[i]["EB_nodal"])
-end
-for i in keys(EB_zonal_dict)
-   EB_zonal_dict[i]["EB_zonal"] = getdual(EB_zonal_dict[i]["EB_zonal"])
-end
-
-# Save results
-open(result_folder*"\\G.json", "w") do f
-        write(f, JSON.json(G_dict))
-end
-open(result_folder*"\\H.json", "w") do f
-        write(f, JSON.json(H_dict))
-end
-open(result_folder*"\\D_es.json", "w") do f
-        write(f, JSON.json(D_es_dict))
-end
-open(result_folder*"\\d_el.json", "w") do f
-        write(f, JSON.json(d_el_dict))
-end
-open(result_folder*"\\L_es.json", "w") do f
-        write(f, JSON.json(L_es_dict))
-end
-open(result_folder*"\\D_hs.json", "w") do f
-        write(f, JSON.json(D_hs_dict))
-end
-open(result_folder*"\\L_hs.json", "w") do f
-        write(f, JSON.json(L_hs_dict))
-end
-open(result_folder*"\\D_ph.json", "w") do f
-        write(f, JSON.json(D_ph_dict))
-end
-open(result_folder*"\\D_d.json", "w") do f
-        write(f, JSON.json(D_d_dict))
-end
-open(result_folder*"\\INFEAS_H.json", "w") do f
-        write(f, JSON.json(INFEAS_H_dict))
-end
-open(result_folder*"\\INFEAS_EL_Z.json", "w") do f
-        write(f, JSON.json(INFEAS_EL_Z_dict))
-end
-open(result_folder*"\\INFEAS_EL_N.json", "w") do f
-        write(f, JSON.json(INFEAS_EL_N_dict))
-end
-open(result_folder*"\\INJ.json", "w") do f
-        write(f, JSON.json(INJ_dict))
-end
-open(result_folder*"\\EX.json", "w") do f
-        write(f, JSON.json(EX_dict))
-end
-open(result_folder*"\\F_DC.json", "w") do f
-        write(f, JSON.json(F_DC_dict))
-end
-open(result_folder*"\\INFEAS_LINES.json", "w") do f
-        write(f, JSON.json(INFEAS_LINES_dict))
-end
-open(result_folder*"\\INFEAS_REF_FLOW.json", "w") do f
-        write(f, JSON.json(INFEAS_REF_FLOW_dict))
-end
-open(result_folder*"\\EB_nodal.json", "w") do f
-        write(f, JSON.json(EB_nodal_dict))
-end
-open(result_folder*"\\EB_zonal.json", "w") do f
-        write(f, JSON.json(EB_zonal_dict))
+for par in results_parameter
+	jump_to_df(disp, par[1], par[2], par[3], result_folder)
 end
 
 # Misc Results or Data
@@ -478,5 +365,4 @@ misc_result["Objective Value"] = getobjectivevalue(disp)
 open(result_folder*"\\misc_result.json", "w") do f
         write(f, JSON.json(misc_result))
 end
-
 end

@@ -111,10 +111,10 @@ class MarketTool(object):
         self.bokeh_plot.start_server()
         # self.bokeh_plot.stop_server()
 
-    def create_grid_representation(self, precalc_filename=None, add_cbco=None):
+    def create_grid_representation(self, precalc_filename=None, cbco_option=None):
         """Grid Representation as property, get recalculated when accessed via dot"""
         self.grid_representation =  self.grid.grid_representation(self.opt_setup["opt"], self.data.ntc, self.data.reference_flows,
-                                                                  precalc_filename=precalc_filename, add_cbco=add_cbco)
+                                                                  precalc_filename=precalc_filename, cbco_option=cbco_option)
 
     def init_bokeh_plot(self, name="default"):
         """init boke plot (saves market result and grid object)"""

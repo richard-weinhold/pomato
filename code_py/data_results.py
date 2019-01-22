@@ -40,8 +40,7 @@ class ResultProcessing(object):
         for variable_type in ["variables", "dual_variables", "infeasibility_variables"]:
             for var in self.data.result_attributes[variable_type]:
                 try:
-                    setattr(self, var, pd.read_json(str(folder.joinpath(f"{var}.json")),
-                                                    orient="index").sort_index())
+                    setattr(self, var, pd.read_csv(str(folder.joinpath(f"{var}.csv"))))
                     self.data.result_attributes[variable_type][var] = True
                 except:
                     self.logger.warning(f"{var} not in results folder {folder_name}")

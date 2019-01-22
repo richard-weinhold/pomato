@@ -35,9 +35,11 @@ class DataManagement(object):
 
 			dual_variables = {variable: False for variable in ["EB_nodal", "EB_zonal"]}
 
-			infeasibility_variables = {variable: False for variable in ["INFEAS_H", "INFEAS_EL_N",
-                            											"INFEAS_EL_Z", "INFEAS_LINES",
-                            											"INFEAS_REF_FLOW"]}
+			infeasibility_variables = {variable: False for variable in ["INFEAS_H_POS", "INFEAS_H_NEG",
+																		"INFEAS_EL_N_POS", "INFEAS_EL_N_NEG",
+                            											"INFEAS_EL_Z_POS", "INFEAS_EL_Z_NEG",
+                            											"INFEAS_LINES", "INFEAS_REF_FLOW"]}
+
 
 			self.data_attributes = {"data": data, "source": None}
 

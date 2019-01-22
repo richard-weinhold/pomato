@@ -98,7 +98,7 @@ class GridModel(object):
                                    (self.lines.contingency)] = False
             self.logger.info("Contingency of radial lines is set to False")
 
-    def grid_representation(self, option, ntc, reference_flows=None, precalc_filename=None, add_cbco=None):
+    def grid_representation(self, option, ntc, reference_flows=None, precalc_filename=None, cbco_option=None):
         """Bundle all relevant grid information in one dict for the market model"""
         grid_rep = {}
         grid_rep["option"] = option
@@ -117,14 +117,14 @@ class GridModel(object):
         elif "cbco" in option.split("_"):
             if not self.cbco_module:
                 self.cbco_module = CBCOModule(self.wdir, self)
+                
             if precalc_filename:
                 self.cbco_module.main(use_precalc=precalc_filename, only_convex_hull=False)
+            elif cbco_option == "full_cbco":
+                self.cbco_module.cbco_index = [i for i in range(0, len(self.cbco_module.b))]
             else:
                 self.cbco_module.main(only_convex_hull=True)
 
-            ## Chnage so that ptdf is just added based on (cb,co)
-            # if add_cbco:
-            #     self.cbco_module.add_to_cbco_index(self.cbco_module.return_index_from_cbco(add_cbco))
             grid_rep["cbco"] = self.cbco_module.return_cbco()
 
         elif option == "d2cf":

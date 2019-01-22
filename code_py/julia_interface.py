@@ -18,7 +18,6 @@ from pathlib import Path
 import shutil
 import tools
 
-
 class JuliaInterface(object):
     """ Class to interface the Julia model with the python Market and Grid Model"""
     def __init__(self, wdir, data, opt_setup, grid_representation, model_horizon):
@@ -69,8 +68,8 @@ class JuliaInterface(object):
 
     def run(self):
         """Run the julia Programm via command Line"""
-        args = ["julia", str(self.wdir.joinpath("code_jl/main.jl")), str(self.wdir)]
-
+        args = ["julia", "--project=project_files/pomato", 
+                str(self.wdir.joinpath("code_jl/main.jl")), str(self.wdir)]
         t_start = datetime.datetime.now()
         self.logger.info("Start-Time: " + t_start.strftime("%H:%M:%S"))
         with open(self.wdir.joinpath("logs").joinpath('julia.log'), 'w') as log:
@@ -79,7 +78,7 @@ class JuliaInterface(object):
                 for line in programm.stdout:
                     log.write(line.decode())
                     self.logger.info(line.decode().strip())
-#                    self.logger.info(line.decode())
+    #                    self.logger.info(line.decode())
 
         # if programm.returncode == 1:
             ## have to rerun it to catch the error message :(
