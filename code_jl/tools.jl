@@ -4,7 +4,7 @@
 # Created by Robert Mieth and Richard Weinhold
 # Licensed under LGPL v3
 #
-# Language: Julia, v0.6.2 (required)
+# Language: Julia, v1.0 (required)
 # ----------------------------------
 #
 # This file:
@@ -59,11 +59,11 @@ function progress(t, max_t)
 end
 
 function jump_to_df(m::JuMP.Model,
-	 				    jump_ref::Symbol,
-					    dim_names::Array{Symbol, 1},
-						dual::Bool,
-						result_folder::String="",
-					   )
+ 				    jump_ref::Symbol,
+				    dim_names::Array{Symbol, 1},
+					dual::Bool,
+					result_folder::String="",
+					)
 	if dual
 		arr = getdual(getindex(m, jump_ref)).innerArray
 		dim_arr = getdual(getindex(m, jump_ref)).indexsets
@@ -89,6 +89,6 @@ function jump_to_df(m::JuMP.Model,
 	if result_folder == ""
 		return df
 	else
-		CSV.write(result_folder*"\\"*String(jump_ref)*".csv", df)
+		CSV.write(result_folder*"/"*String(jump_ref)*".csv", df)
 	end
 end

@@ -18,10 +18,8 @@
 # Input: Pre-Processed data from /julia/data/
 # Output: Ordered Dicts of Plants, Node, Heatareas, Lines etc.,
 #         as well as PTDF matrix, potential cbcos and necessary mappings
-function read_model_data(data_dir)
-println("Reading Model Data")
-
-# data_dir = "C:/Users/riw/tubCloud/Uni/Market_Tool/pomato/data_temp/julia_files/data/"
+function read_model_data(data_dir::String)
+println("Reading Model Data from: ", data_dir)
 
 nodes_mat = CSV.read(data_dir*"nodes.csv")
 zones_mat = CSV.read(data_dir*"zones.csv")
@@ -40,12 +38,12 @@ reference_flows_mat = CSV.read(data_dir*"reference_flows.csv");
 grid_mat = CSV.read(data_dir*"cbco.csv")
 
 slack_zones = JSON.parsefile(data_dir*"slack_zones.json"; dicttype=Dict)
-opt_setup = JSON.parsefile(data_dir*"opt_setup.json"; dicttype=Dict)
+options = JSON.parsefile(data_dir*"options.json"; dicttype=Dict)
+model_type = options["type"]
 
-model_type = opt_setup["opt"]
-
+println("Model Type: ", model_type)
 # Prepare Zones
-zones = OrderedDict()
+zones = OrderedDict{String, Zone}()
 for z in 1:nrow(zones_mat)
     index = zones_mat[z, :index]
     demand_sum = Dict()
@@ -67,12 +65,12 @@ for z in 1:nrow(zones_mat)
 end
 
 # Prapare Nodes
-nodes_in_zone = Dict()
+nodes_in_zone = Dict{String, Dict{String, Node}}()
 for z in collect(keys(zones))
     nodes_in_zone[z] = Dict()
 end
 
-nodes = OrderedDict()
+nodes = OrderedDict{String, Node}()
 for n in 1:nrow(nodes_mat)
     index = nodes_mat[n, :index]
     slack = uppercase(nodes_mat[n, :slack]) == "TRUE"
@@ -97,7 +95,7 @@ for n in 1:nrow(nodes_mat)
 end
 
 #Prepare Heatareas
-heatareas = Dict()
+heatareas = Dict{String, Heatarea}()
 for h in 1:nrow(heatareas_mat)
     index = heatareas_mat[h, :index]
     demand_time = demand_h_mat[:index]
@@ -108,17 +106,17 @@ for h in 1:nrow(heatareas_mat)
 end
 
 # Prepare Plants
-plants = Dict()
-plants_in_zone = Dict()
+plants = Dict{String, Plant}()
+plants_in_zone = Dict{String, Dict{String, Plant}}()
 for z in collect(keys(zones))
     plants_in_zone[z] = Dict()
 end
-plants_in_ha = Dict()
+plants_in_ha = Dict{String, Dict{String, Plant}}()
 for h in collect(keys(heatareas))
     plants_in_ha[h] = Dict()
 end
 
-plants_at_node = Dict()
+plants_at_node = Dict{String, Dict{String, Plant}}()
 for n in collect(keys(nodes))
     plants_at_node[n] = Dict()
 end
@@ -156,7 +154,7 @@ for p in 1:nrow(plants_mat)
 end
 
 # Prepare Availability
-availabilities = Dict()
+availabilities = Dict{String, Availability}()
 time_data = availability_mat[:index]
 for p in setdiff(names(availability_mat), [:index])
     plant = plants[String(p)]
@@ -166,7 +164,7 @@ for p in setdiff(names(availability_mat), [:index])
 end
 
 # Prepare dc_lines
-dc_lines = Dict()
+dc_lines = Dict{String, DC_Line}()
 for l in 1:nrow(dc_lines_mat)
     index = dc_lines_mat[l, :index]
     node_i = nodes[dc_lines_mat[l, :node_i]]
@@ -178,7 +176,7 @@ for l in 1:nrow(dc_lines_mat)
 end
 
 # Build NTC Matrix
-ntc = Dict()
+ntc = Dict{Tuple, Number}()
 for n in 1:nrow(ntc_mat)
     i = ntc_mat[n, :zone_i]
     j = ntc_mat[n, :zone_j]
@@ -189,7 +187,7 @@ for z in collect(keys(zones))
 end
 
 # Prepare Grid Representation
-grid = Dict()
+grid = Dict{String, Grid}()
 for cbco in 1:nrow(grid_mat)
     index = grid_mat[cbco, :index]
 
@@ -209,13 +207,13 @@ for cbco in 1:nrow(grid_mat)
 end
 
 # Prepare model_horizon
-model_horizon = OrderedDict()
+model_horizon = OrderedDict{Int, String}()
 for t in demand_el_mat[:index]
     model_horizon[Meta.parse(t[2:5])] = t
 end
 
 println("Data Prepared")
-return model_horizon, opt_setup,
+return model_horizon, options,
        plants, plants_in_ha, plants_at_node, plants_in_zone, availabilities,
        nodes, zones, slack_zones, heatareas, nodes_in_zone,
        ntc, dc_lines, grid

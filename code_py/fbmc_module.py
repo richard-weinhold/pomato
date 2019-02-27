@@ -5,10 +5,19 @@ import numpy as np
 import pandas as pd
 import tables
 
+import threading
 import matplotlib.pyplot as plt
 from scipy.spatial import ConvexHull
 import tools as tools
 
+
+# kriterien für cb auswahl
+# # n-0 last
+# # lodf filter vll die ersten 10
+# #
+# # häufigkeit als teil der domain
+# #
+# # 3d plot
 
 class FBMCDomain(object):
     """Class to store all relevant information of an FBMC Plot"""
@@ -61,12 +70,13 @@ class FBMCDomain(object):
 
 class FBMCModule(object):
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, grid_object, injections, frm_fav):
+    def __init__(self, wdir, grid_object, injections, frm_fav, gsk_path):
         # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
 
         self.wdir = wdir
+        self.gsk_path = gsk_path
 
         self.grid = grid_object
         self.nodes = grid_object.nodes
@@ -89,28 +99,41 @@ class FBMCModule(object):
         # set-up: dont show the graphs when created
         plt.ioff()
         plt.close("all")
-
         self.logger.info("FBMCModule  Initialized!")
 
-    def save_all_domain_plots(self, folder, set_xy_limits=True):
 
+    def save_worker(self, arg):
+        """ arg[0] = plot, arg[1] = folder"""
+        # self.logger.info(f"Plotting Domain of {arg[0]}")
+        print(f"Plotting Domain of {arg[0]} in folder {arg[1]}")
+        self.fbmc_plots[arg[0]].plot_fbmc_domain(arg[1])
+        print(f"Done {arg[0]}")
+
+    def save_all_domain_plots(self, folder, set_xy_limits=True):
         if set_xy_limits:
             self.set_xy_limits_forall_plots()
+        plt.close("all")
         for plot in self.fbmc_plots:
-            self.logger.info(f"Plotting Domain of {plot}")
-            self.fbmc_plots[plot].plot_fbmc_domain(folder)
+            arg = [plot, folder]
+            self.save_worker(arg)
 
-    def save_all_domain_info(self, folder):
+    def save_all_domain_info(self, folder, name_suffix=""):
 
         domain_info = pd.concat([self.fbmc_plots[plot].domain_data for plot in self.fbmc_plots])
         # oder the columns
         columns = ["timestep", "gsk_strategy", "cb", "co"]
         columns.extend(list(self.nodes.zone.unique()))
         columns.extend(["ram", "in_domain"])
-
         domain_info = domain_info[columns]
-        self.logger.info("Saving domain inof as csv")
-        domain_info.to_csv(folder.joinpath("domain_info.csv"))                 
+
+        mask = domain_info[['cb','co']].isin({'cb': domain_info[domain_info.in_domain].cb.unique(), 
+                                              'co': domain_info[domain_info.in_domain].co.unique()}).all(axis=1)
+
+        self.logger.info("Saving domain info as csv")
+        domain_info[domain_info.in_domain].to_csv(folder.joinpath("domain_info" + name_suffix + ".csv"))
+        domain_info[mask].to_csv(folder.joinpath("domain_info_full" + name_suffix + ".csv"))
+        # domain_info[domain_info.in_domain].to_csv(folder.joinpath("domain_info_domain" + name_suffix + ".csv"))
+        return domain_info
 
     def update_plot_setup(self, timestep, gsk_strat):
         self.logger.info("Setting Net Injection and Updating Ab Matrix")
@@ -139,8 +162,7 @@ class FBMCModule(object):
     def load_gsk(self):
         """Load GSK from Excel File"""
         self.logger.info(f"Creating GSKs with GSK Strategy: {self.gsk_strat} for timestep {self.timestep}")
-
-        gsk_raw = pd.read_csv(self.wdir.joinpath("data_input/gsk_4.csv"), sep=";")
+        gsk_raw = pd.read_csv(self.wdir.joinpath(self.gsk_path), sep=";", low_memory=False)
         gsk_raw = gsk_raw[["node",
                            "zone",
                             self.gsk_strat]][(gsk_raw.timestamp == self.timestep)]
@@ -152,7 +174,7 @@ class FBMCModule(object):
             # zone = "FR"
             if gsk_raw[gsk_raw.zone == zone].empty:
                 gsk[zone] = [0]*len(self.nodes)
-                gsk[zone][gsk.zone == zone] = 1/len(gsk[zone][gsk.zone == zone])
+                gsk.loc[gsk.zone == zone, "zone"] = 1/len(gsk[zone][gsk.zone == zone])
             else:
                 tmp = pd.merge(gsk, gsk_raw[gsk_raw.zone == zone],
                                how="left", left_index=True,
@@ -288,9 +310,11 @@ class FBMCModule(object):
                     A, b = self.create_zonal_Ab()
                 else:
                     self.logger.info("Using previous Ab")
+
                 A = self.A
                 b = self.b
                 self.logger.info("Creating fbmc equations...")
+
                 if len(domain_x) == 1:
                     domain_idx = [list_zones.index(z) for z in domain_x + domain_y]
                     sink_idx = [list_zones.index(z) for z in gsk_sink.keys()]
@@ -483,10 +507,6 @@ class FBMCModule(object):
         hull
         """
         try:
-#            self = fbmc
-#            domain_x = ["DE", "FR"]
-#            domain_y =  ["DE", "NL"]
-
             gsk_sink = gsk_sink or {}
             A, b = self.create_fbmc_equations(domain_x, domain_y, gsk_sink)
             # Reduce
@@ -494,18 +514,17 @@ class FBMCModule(object):
 
             if not self.gsk_strat == "jao":
                 self.domain_info["in_domain"] = False
-                self.domain_info["in_domain"][self.domain_info.index.isin(cbco_index)] = True
+                self.domain_info.loc[self.domain_info.index.isin(cbco_index), "in_domain"] = True
 
             full_indices = np.array([x for x in range(0,len(A))])
-            if not reduce: # plot only the reduced set or more constraints
-                # Limit the number of constraints to 3*number of lines (pos and neg)
-                if len(A) > 5e3:
-                    cbco_plot_indices = np.append(cbco_index,
-                                                  np.random.choice(full_indices,
-                                                                   size=int(5e3),
-                                                                   replace=False))
-                else:
-                    cbco_plot_indices = full_indices
+            # Limit the number of constraints to 5000
+            if len(A) > 5e3:
+                cbco_plot_indices = np.append(cbco_index,
+                                              np.random.choice(full_indices,
+                                                               size=int(5e3),
+                                                               replace=False))
+            else:
+                cbco_plot_indices = full_indices
 
             plot_equations = self.create_domain_plot(A, b, cbco_plot_indices)
 
@@ -519,7 +538,7 @@ class FBMCModule(object):
                                    {"hull_plot_x": hull_plot_x, "hull_plot_y": hull_plot_y,
                                    "hull_coord_x": hull_coord_x, "hull_coord_y": hull_coord_y},
                                    xy_limits,
-                                   self.domain_info)
+                                   self.domain_info.copy())
 
             self.fbmc_plots[fbmc_plot.title] = fbmc_plot
 

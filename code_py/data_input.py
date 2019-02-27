@@ -20,20 +20,17 @@ class InputProcessing(object):
                            "default_mc": 200,
                            "co2_price": 20,
                            "all_lines_cb": False,
+                           "d2cf_data": False
                            }
         else:
             self.set_up = set_up
-
         self.logger.info("Processing Input Data...")
 
-        ### Custm Rule :(
         if self.data.data_attributes["source"] == "mpc_casefile":
             pass
 
         elif self.data.data_attributes["source"] == "xls":
-
-            self.data.zones.set_index("country", inplace=True)
-
+            self.data.zones.set_index("zone", inplace=True)
             self.efficiency()
             self.marginal_costs()
 
@@ -43,13 +40,12 @@ class InputProcessing(object):
         if self.set_up["unique_mc"]:
             self.unique_mc()
 
-        if all([self.data.data_attributes["data"][d2cf_data] \
-                for d2cf_data in ["net_export", "reference_flows", "frm_fav", "net_position"]]):
+        if self.set_up["d2cf_data"]:
             self.process_d2cf_data()
-        
+
         if not self.data.data_attributes["data"]["dclines"]:
             self.data.dclines = pd.DataFrame(columns=['node_i', 'node_j', 'name_i', 'name_j', 'maxflow'])
-        
+
         if self.set_up["all_lines_cb"]:
             self.data.lines.cb = True
 
@@ -98,7 +94,7 @@ class InputProcessing(object):
 
         self.data.availability = pd.DataFrame(index=self.data.demand_el.index)
         """Calculate the availability for generation that relies on timeseries"""
-        ts_tech = ["wind onshore", "wind offshore", "solar"]
+        ts_tech = ["wind onshore", "wind offshore", "solar", "solarheat", "iheat"]
         for elm in self.data.plants.index[self.data.plants.tech.isin(ts_tech)]:
             ts_zone = self.data.timeseries.zone == self.data.nodes.zone[self.data.plants.node[elm]]
             self.data.availability[elm] = self.data.timeseries[self.data.plants.tech[elm]][ts_zone].values
@@ -108,9 +104,9 @@ class InputProcessing(object):
         tmp = self.data.plants[['tech', 'fuel']][self.data.plants.eta.isnull()]
         tmp = pd.merge(tmp, self.data.tech[['tech', 'fuel', 'eta']],
                        how='left', on=['tech', 'fuel']).set_index(tmp.index)
-        self.data.plants.eta[self.data.plants.eta.isnull()] = tmp.eta
+        self.data.plants.loc[self.data.plants.eta.isnull(), "eta"] = tmp.eta
         ## If there are still data.plants without efficiency
-        self.data.plants.eta[self.data.plants.eta.isnull()] = self.set_up["default_efficiency"]
+        self.data.plants.loc[self.data.plants.eta.isnull(), "eta"] = self.set_up["default_efficiency"]
 
     def marginal_costs(self):
         """Calculate the marginal costs for plants that don't have it manually set"""
@@ -123,17 +119,20 @@ class InputProcessing(object):
 
         tmp_plants = pd.merge(tmp_plants, tmp_costs, how='left', on=['tech', 'fuel'])
         tmp_plants.mc = tmp_plants.fuel_price / tmp_plants.eta + tmp_plants.variable_om + tmp_plants.co2 * co2_price
-
-        self.data.plants.mc[self.data.plants.mc.isnull()] = tmp_plants.mc.values
+        
+        self.data.plants.loc[self.data.plants.mc.isnull(), "mc"] = tmp_plants.mc.values
 
         if len(self.data.plants.mc[self.data.plants.mc.isnull()]) > 0:
-            self.data.logger.info(f"Number of Plants without marginal costs: {len(self.data.plants.mc[self.data.plants.mc.isnull()])} -> set to 200")
-            self.data.plants.mc[self.data.plants.mc.isnull()] = self.set_up["default_mc"]
+            default_value = self.set_up["default_mc"]
+            self.data.logger.info(f"Number of Plants without marginal costs: \
+                                  {len(self.data.plants.mc[self.data.plants.mc.isnull()])} \
+                                  -> set to: {default_value}")
+            self.data.plants.loc[self.data.plants.mc.isnull(), "mc"] = default_value
 
     def unique_mc(self):
         """make mc's unique by adding a small amount - this helps the solver"""
         for marginal_cost in self.data.plants.mc:
-            self.data.plants.mc[self.data.plants.mc == marginal_cost] = \
+            self.data.plants.loc[self.data.plants.mc == marginal_cost, "mc"] = \
             self.data.plants.mc[self.data.plants.mc == marginal_cost] + \
             [int(x)*1E-4 for x in range(0, len(self.data.plants.mc[self.data.plants.mc == marginal_cost]))]
 
@@ -153,17 +152,27 @@ class InputProcessing(object):
                self.logger.warning(f"Reference Flow on line {line} larger than maxflow")
 
         #custom rules
-        # self.data.reference_flows.l1686 = -self.data.reference_flows.l1686
-        # self.data.reference_flows.l2333 = -self.data.reference_flows.l2333
+        self.data.reference_flows.l969 = -self.data.reference_flows.l969
+        self.data.reference_flows.l1693 = -self.data.reference_flows.l1693
+        self.data.reference_flows.l1685 = -self.data.reference_flows.l1685
+        self.data.reference_flows.l402 = -self.data.reference_flows.l402
 
         self.data.frm_fav.fillna(0, inplace=True)
         self.data.lines["cnec"] = False
         self.data.lines["cb"] = False
-        self.data.lines["cnec"][self.data.lines.index.isin(self.data.reference_flows.columns)] = True
-        self.data.lines["cb"][self.data.lines.index.isin(self.data.reference_flows.columns)] = True
-        condition = self.data.nodes.zone[self.data.lines.node_i].values != \
-                         self.data.nodes.zone[self.data.lines.node_j].values
-        self.data.lines["cb"][condition] = True
+        condition = self.data.lines.index.isin(self.data.reference_flows.columns)
+        self.data.lines.loc[condition, "cnec"]= True
+        self.data.lines.loc[condition, "cb"]= True
+
+        condition_cross_border = self.data.nodes.zone[self.data.lines.node_i].values != \
+                                    self.data.nodes.zone[self.data.lines.node_j].values
+
+        cwe = ["DE", "FR", "BE", "NL", "LU"]
+        condition_cwe = self.data.nodes.zone[self.data.lines.node_i].isin(cwe).values & \
+                        self.data.nodes.zone[self.data.lines.node_j].isin(cwe).values
+
+        # self.data.lines["cb"][condition_cross_border] = True
+        self.data.lines.loc[condition_cross_border & condition_cwe, "cb"] = True
 
         self.data.logger.info(f"Number of CNECs in Dataset: {len(self.data.lines[self.data.lines.cnec])}")
         self.data.logger.info(f"Number of CBs in Dataset: {len(self.data.lines[self.data.lines.cb])}")

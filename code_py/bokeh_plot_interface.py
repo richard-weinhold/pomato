@@ -46,13 +46,17 @@ class BokehPlot(object):
 
         # market_result.data.zones.to_csv(str(folder.joinpath('zones.csv')), index_label='index')
         # market_result.data.tech.to_csv(str(folder.joinpath('tech.csv')))
+        pd.DataFrame(index=market_result.grid.lines.index, 
+                     columns=market_result.grid.lines.index, 
+                     data=market_result.grid.lodf).to_csv(str(data_path.joinpath('lodf.csv')), 
+                                                          index_label='index')
         market_result.data.fuel.to_csv(str(data_path.joinpath('fuel.csv')), index_label='index')
         market_result.data.dclines.to_csv(str(data_path.joinpath('dclines.csv')), index_label='index')
         market_result.grid.nodes.to_csv(str(data_path.joinpath('nodes.csv')), index_label='index')
         market_result.grid.lines.to_csv(str(data_path.joinpath('lines.csv')))
         market_result.F_DC.to_csv(str(data_path.joinpath('F_DC.csv')))
         market_result.INJ.to_csv(str(data_path.joinpath('INJ.csv')))
-        
+
         n_0_flows, n_1_flows = self.process_grid_data(market_result)
         n_1_flows.to_csv(str(data_path.joinpath('n_1_flows.csv')))
         n_0_flows.to_csv(str(data_path.joinpath('n_0_flows.csv')))
@@ -62,7 +66,7 @@ class BokehPlot(object):
 
         demand = self.process_demand_data(market_result)
         demand.to_csv(str(data_path.joinpath('demand.csv')), index_label='index')
-        
+
 
         t_first = market_result.data.result_attributes["model_horizon"][0]
         t_last = market_result.data.result_attributes["model_horizon"][-1]
@@ -83,16 +87,13 @@ class BokehPlot(object):
 
         # convert n_1 flows to the max of N-1 flows
         time = market_result.data.result_attributes["model_horizon"]
-        n_1_max = n_1_flows.copy()
-        n_1_max[time] = n_1_max[time].abs()
-        n_1_max = n_1_max.groupby("cb").max().reset_index()
-        n_1_flows = pd.merge(n_1_max[["cb", "co"]],
-                             n_1_flows, on=["cb", "co"],
-                             how="left").drop("co", axis=1)
+        n_1_flows = n_1_flows.drop("co", axis=1)
+        n_1_flows[time] = n_1_flows[time].abs()
+        n_1_flows = n_1_flows.groupby("cb").max().reset_index()
 
         self.logger.info("Done!")
         return n_0_flows, n_1_flows.set_index("cb").reindex(market_result.grid.lines.index)
-    
+
     def process_generation_data(self, market_result):
 
         generation = market_result.G
@@ -104,7 +105,7 @@ class BokehPlot(object):
 
     def process_demand_data(self, market_result):
         """bring the data from julia/gams in the right format and store it"""
-        
+
         map_pn = market_result.data.plants.node.reset_index()
         map_pn.columns = ['p', 'n']
 
@@ -122,29 +123,25 @@ class BokehPlot(object):
             demand_d = pd.merge(demand_d, map_pn[["p", "n"]], how="left", left_on="d", right_on="p")
 
         if not demand_ph.empty:
-            demand_ph = pd.merge(demand_ph, map_pn[["p", "n"]], how="left", left_on="ph",
-                                 right_on="p")
+            demand_ph = pd.merge(demand_ph, map_pn[["p", "n"]], how="left", on="p")
             demand_ph = demand_ph.groupby(["n", "t"], as_index=False).sum()
         else:
-            demand_ph = pd.DataFrame(columns=["ph", "t", "D_ph"])
-            demand_ph = pd.merge(demand_ph, map_pn[["p", "n"]], how="left", left_on="ph",
-                                 right_on="p")
+            demand_ph = pd.DataFrame(columns=["p", "t", "D_ph"])
+            demand_ph = pd.merge(demand_ph, map_pn[["p", "n"]], how="left", on="p")
 
         if not demand_es.empty:
-            demand_es = pd.merge(demand_es, map_pn[["p", "n"]], how="left", left_on="es",
-                                 right_on="p")
+            demand_es = pd.merge(demand_es, map_pn[["p", "n"]], how="left", on="p")
             demand_es = demand_es.groupby(["n", "t"], as_index=False).sum()
         else:
-            demand_es = pd.DataFrame(columns=["es", "t", "D_es"])
-            demand_es = pd.merge(demand_es, map_pn[["p", "n"]], how="left", left_on="es",
-                                 right_on="p")
+            demand_es = pd.DataFrame(columns=["p", "t", "D_es"])
+            demand_es = pd.merge(demand_es, map_pn[["p", "n"]], how="left", on="p")
 
         demand = pd.merge(demand, demand_d[["D_d", "n", "t"]], how="outer", on=["n", "t"])
         demand = pd.merge(demand, demand_ph[["D_ph", "n", "t"]], how="outer", on=["n", "t"])
         demand = pd.merge(demand, demand_es[["D_es", "n", "t"]], how="outer", on=["n", "t"])
         demand.fillna(value=0, inplace=True)
         demand["d_total"] = demand.d_el + demand.D_d + demand.D_ph + demand.D_es
-        
+
         return demand[["n", "t", "d_total"]]
 
     def output_reader(self, proc):

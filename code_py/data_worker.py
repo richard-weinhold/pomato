@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import scipy.io as sio
 import logging
+import pyproj
 
 
 def _mpc_data_pu_to_real(lines,  base_kv, base_mva):
@@ -214,6 +215,9 @@ class DataWorker(object):
 		# if len(gencost_df.index) == 2*ng:
 		# 	mpc_generators['mc_Q'] = gencost_df['c1'][list(range(ng,2*ng))].tolist
 
+		# add coordinates from CSV with X and Y columns for the grid coordinates
+
+
 		self.data.lines = pd.DataFrame(mpc_lines).set_index('idx')
 		self.data.nodes = pd.DataFrame(mpc_buses).set_index('idx')
 		self.data.plants = pd.DataFrame(mpc_generators).set_index('idx')
@@ -227,15 +231,37 @@ class DataWorker(object):
 		self.data.lines.node_j = ["n" + str(int(idx)) for idx in self.data.lines.node_j]
 		self.data.zones = pd.DataFrame(index=set(self.data.nodes.zone.values))
 		self.data.plants.node = ["n" + str(int(idx)) for idx in self.data.plants.node]
-		self.data.demand_el = pd.DataFrame(index=["t0001"], data=self.data.nodes.Pd.to_dict())
+		self.data.demand_el = pd.DataFrame(index=["t0001", "t0002"], data=self.data.nodes.Pd.to_dict())
 
 		self.data.plants = self.data.plants[["g_max", "mc", "node"]]
 
 		self.data.plants["tech"] = self.data.plants.index
 		self.data.plants["eta"] = 1
+		self.data.plants["fuel"] = "default"
 		self.data.plants["h_max"] = 0
 		self.data.plants["heatarea"] = ""
 
+		self.data.fuel = pd.DataFrame.from_dict({1: {"fuel": "default", "year":2018, 
+													 "co2": 0, "fuel_price":10}}, 
+												orient="index")
+		# try:
+		filepath = str(casefile).split(".")[0] + "_coordinates.csv"
+		xy = pd.read_csv(filepath, sep=";", index_col=0)
+
+		lat0 = 25
+		lon0 = 82.5
+		projection = pyproj.Proj(f"+proj=stere +lat_0={str(lat0)} +lon_0={str(lon0)} \
+					      	       +k=1 +x_0=0 +y_0=0 +a=6371200 +b=6371200 +units=m +no_defs")
+#		outProj = pyproj.Proj(init='epsg:4326')
+
+		coord = pd.DataFrame(columns=["lon", "lat"], index=self.data.nodes.index,
+							data = [projection(x*4000,y*4000, inverse=True) for x,y in zip(xy.X, xy.Y)])
+		coord = coord[["lat", "lon"]]
+		# except:
+		# 	self.logger.warning("No coordinates found!")
+		# 	coord = pd.DataFrame(columns=["lon", "lat"], index=self.data.nodes.index)
+
+		self.data.nodes[["lat", "lon"]] = coord
 
 		# mark read data as true in datamanagement attributes
 		self.data.data_attributes["data"]["lines"] = True

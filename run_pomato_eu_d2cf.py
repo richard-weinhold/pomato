@@ -2,6 +2,7 @@ import sys
 from pathlib import Path
 code_py = Path.cwd().joinpath("code_py")
 sys.path.append(str(code_py))
+
 import matplotlib.pyplot as plt
 
 from market_tool import MarketTool
@@ -9,110 +10,110 @@ from market_tool import MarketTool
 import numpy as np
 import pandas as pd
 import tools
-import time
+import datetime
 
-mato = MarketTool(opt_file="profiles/cbco_nodal.json",
-                  model_horizon=range(0,10))
-mato.load_data('data_input\dataset_de.xlsx')
-#mato.load_data('data_input\pglib_casedata\pglib_opf_case118_ieee.m')
-##mato.load_data('case118')
+mato = MarketTool(options_file="profiles/d2cf.json")
+mato.load_data('data_input\dataset_eu_d2cf.xlsx')
 
-#mato.data.lines.maxflow = 0.2
-mato.grid.build_grid_model(mato.data.nodes, mato.data.lines)
-mato.create_grid_representation(precalc_filename="cbco_01_gurobide_pre_1601_0018") ### 400s
-mato.create_grid_representation(cbco_option="full_cbco")
+n = mato.data.nodes
+p = mato.data.plants
+l = mato.grid.lines
+dc = mato.data.dclines
+f = mato.data.fuel
 
-#t = mato.grid_representation
-#mato.data.visulize_inputdata(mato.wdir)
-#mato.data.lines.cb = True
-#tmp = mato.data.lines.cb[mato.data.lines.cb]
-#mato.data.process_results(mato.wdir.joinpath("data_temp\\julia_files\\results\\2201_1607"),
-#                          mato.opt_setup, grid=mato.grid)
+d = mato.data.demand_el
+o = mato.options
+a = mato.data.availability
+mato.create_grid_representation()
+#gr = mato.grid_representation["cbco"]
 
-mato.init_market_model()
-mato.run_market_model()
-#t = mato.data.results.INFEAS_EL_N_POS
+#mato.data.visulize_inputdata(mato.data.results.result_folder)
 
-df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
-df3 = mato.data.results.n_1_flow()
-#mato.data.results.default_plots()
+mato.data.process_results(mato.wdir.joinpath("data_temp\\julia_files\\results\\1402_1953"),
+                          mato.options, grid=mato.grid)
 
-#mato.data.results.INJ[mato.data.results.INJ.INJ > 1e4]
-
-#mato.data.results.default_plots()
-
+#mato.init_market_model()
+#mato.run_market_model()
+#t = mato.data.results.check_courtailment()
 #from bokeh_plot_interface import BokehPlot
-#mato.init_bokeh_plot(name="n168")
-#mato.bokeh_plot.start_server()
-#mato.bokeh_plot.stop_server()
-#
-#overloaded_lines = mato.check_n_1_for_marketresult()
-##add_cbco = []
-##for t in overloaded_lines:
-##    for nr in overloaded_lines[t]:
-##        cbco = [overloaded_lines[t][nr]["Line"], overloaded_lines[t][nr]["Outage"]]
-##        if not cbco in add_cbco:
-##            add_cbco.append(cbco)
-#
-##print("OK")
+#mato.init_bokeh_plot(name="FBMC")
+print("OK")
+# ##  bokeh serve --show .\code_py\bokeh_plot.py --args=data_temp/bokeh_files
+
 
 #%%
-#from scipy.spatial import ConvexHull
-#from sklearn.decomposition import PCA
-####
-######%%
-#from cbco_module import CBCOModule
-#cbco_module = CBCOModule(mato.wdir, mato.grid)
-#
-#df = cbco_module.return_cbco()
-#
-#cbco_module.A
-
-#cbco_module.cbco_algorithm(False)
-
-#path = mato.wdir.joinpath("data_temp/julia_files/cbco_data/")
-#A, b, info = cbco_module.create_Ab(preprocess=True)
-#idx = pd.read_csv(path.joinpath("cbco_01_ieee118_2101_1648.csv"), delimiter=',').constraints.values
-#vertices = np.array(cbco_module.reduce_Ab_convex_hull())
-#D = A[vertices]/b[vertices]
-#np.savetxt(mato.wdir.joinpath("data_temp/julia_files/cbco_data").joinpath("A_ieee118.csv"), np.asarray(A), delimiter=",")
-#np.savetxt(mato.wdir.joinpath("data_temp/julia_files/cbco_data").joinpath("b_ieee118.csv"), np.asarray(b), delimiter=",")
-##
-
-#model = PCA(n_components=8).fit(D)
-#D_t = model.transform(D)
-#k = ConvexHull(D_t, qhull_options="Qx")
+#plt.close("all")
+###mato.grid.lines.cb = False
+##mato.grid.lines.cb[mato.grid.lines.index == "l0"] = True
 ###
-#convex_hull = vertices[k.vertices]
-##
-#t = [i for i in vertices if i not in idx]
-
-
-
-#np.savetxt(mato.wdir.joinpath("data_temp/julia_files/cbco_data").joinpath("I_nl.csv"), convex_hull, fmt='%i', delimiter=",")
+#mato.grid.lines.loc["l2340", "cb"] = False
+#mato.grid.lines.loc["l2340", "cnec"] = False
 #
-#gurobi = pd.read_csv(path.joinpath("cbco_01_nl_pre_1001_1535.csv"), delimiter=',').constraints.values
-#glpk = pd.read_csv(path.joinpath("cbco_01_nl_pre_1001_1534.csv"), delimiter=',').constraints.values
-
-#%%
-#mato.data.nodes["gsk"] = 1
+#mato.grid.lines.loc["l1693", "cb"] = False
+#mato.grid.lines.loc["l1693", "cnec"] = False
+#
 #from fbmc_module import FBMCModule
-#fbmc = FBMCModule(mato.wdir, mato.grid, mato.data.results.INJ, mato.data.frm_fav)
-####
-#
+#fbmc = FBMCModule(mato.wdir, mato.grid, mato.data.results.INJ, mato.data.frm_fav,
+#                  "data_input\gsk\GSKs_1402_1953_1955\GSK_results_selected_technologies_by_zone_2019_1402_1953_including_G_equal_0.csv")
+#######
+###
 ###gsk_sink = {key: 0 for key in mato.data.zones.index}
 ###for key in ["NL"]:
 ###    gsk_sink[key] = 1
-##
-##for timestep in injection.t.unique():
-#for timestep in ["t0001", "t0002", "t0003"]:
+#
+#for timestep in mato.data.results.INJ.t.unique():
+##for timestep in ["t0001", "t0002", "t0003"]:
 ##for timestep in ["t0001"]:
-#    for gsk_strat in ["jao", "flat", "G", "g_max", "g_max_G_flat"]:
+#    for gsk_strat in ["flat", "G", "g_max", "g_max_G_flat", "g_max_G"]:
 ##    for gsk_strat in ["flat"]:
 #        fbmc.update_plot_setup(timestep, gsk_strat)
 #        fbmc.plot_fbmc(["DE", "FR"], ["DE", "NL"])
 ##        plot = fbmc.plot_fbmc(["DE"], ["FR"], gsk_sink)
+##
+#fbmc.save_all_domain_plots(mato.data.results.result_folder)
+#t = fbmc.save_all_domain_info(mato.data.results.result_folder, name_suffix="_including_G_equal_0")
+
+#fbmc.gsk_strat = "flat"
+#gsk = fbmc.load_gsk()
+
+#self = fbmc
+#domain_info = pd.concat([self.fbmc_plots[plot].domain_data for plot in self.fbmc_plots])
+## oder the columns
+#columns = ["timestep", "gsk_strategy", "cb", "co"]
+#columns.extend(list(self.nodes.zone.unique()))
+#columns.extend(["ram", "in_domain"])
+#domain_info = domain_info[columns]
+#mask = domain_info[['cb','co']].isin({'cb': domain_info[domain_info.in_domain].cb.unique(), 'co': domain_info[domain_info.in_domain].co.unique()}).all(axis=1)
 #
-##fbmc.save_all_domain_plots(mato.data.results.result_folder)
-#fbmc.save_all_domain_info(mato.data.results.result_folder)
+#t = domain_info[mask]
+#countries = ["DE", "FR", "BE", "NL", "LU"]
+#tmp = domain_info[mask][["timestep", "gsk_strategy", "cb", "co", "ram", "in_domain"]].copy()
+#for ref_c in countries:
+#    other_c = list(countries)
+#    other_c.remove(ref_c)
+#    for c in other_c:
+#        tmp[ref_c + "-" + c] = domain_info[mask][ref_c] - domain_info[mask][c]
+#
+#tmp.to_csv(mato.wdir.joinpath("domain_info_full_all.csv"))
+
+#
+
+
+
+#%%
+
+#tech = mato.data.tech
+#has_conv = []
+#conv_fuel = ["lignite", "hard coal", "gas", "oil", "waste", "waste", "mixed fossil fuels", "biomass"]
+#for node in n.index:
+#    condition_fuel = p.index[(p.node == node)&(p.fuel.isin(conv_fuel))].empty
+#    condition_psp = p.index[(p.node == node)&(p.tech == "psp")].empty
+#    if condition_fuel and condition_psp:
+#        has_conv.append(False)
+#    else:
+#        has_conv.append(True)
+#n["has_conv"] = has_conv
+#
+#n.to_csv(str(mato.wdir.joinpath('nodes_with_conv.csv')), index_label='index')
+#n[n.has_conv]
 

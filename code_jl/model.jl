@@ -11,13 +11,27 @@
 # Central optimization implemented in JuMP
 # -------------------------------------------------------------------------------------------------
 
-function build_and_run_model(model_horizon, opt_setup,
-                             plants, plants_in_ha, plants_at_node, plants_in_zone, availabilities,
-                             nodes, zones, slack_zones, heatareas, nodes_in_zone,
-                             ntc, dc_lines, grid)
+function build_and_run_model(model_horizon::OrderedDict, 
+                             options::Dict,
+                             plants::Dict{String, Plant}, 
+                             plants_in_ha::Dict{String, Dict{String, Plant}}, 
+                             plants_at_node::Dict{String, Dict{String, Plant}},
+                             plants_in_zone::Dict{String, Dict{String, Plant}}, 
+
+                             availabilities::Dict{String, Availability},
+                             nodes::OrderedDict{String, Node}, 
+                             zones::OrderedDict{String, Zone}, 
+                             heatareas::Dict{String, Heatarea},
+                             nodes_in_zone::Dict{String, Dict{String, Node}},
+                             
+                             dc_lines::Dict{String, DC_Line}, 
+                             grid::Dict{String, Grid},
+                             ntc::Dict{Tuple, Number}, 
+                             slack_zones::Dict
+                             )
 
 # Check for feasible model_type
-model_type = opt_setup["opt"]
+model_type = options["type"]
 possible_types = ["base", "dispatch", "ntc", "nodal", "cbco_nodal", "cbco_zonal", "d2cf"]
 if !in(model_type, possible_types)
     println("Error: Model_Type $(model_type) unkown. Calculate Base Model")
@@ -66,7 +80,9 @@ end
 
 # Setup model
 # disp = Model(solver=ClpSolver(SolveType=5))
-disp = Model(solver=GurobiSolver(Method=1))
+# disp = Model(solver=GurobiSolver(Presolve=2, PreDual=2, Threads=8))
+# disp = Model(solver=GurobiSolver(Method=0,Threads=1))
+disp = Model(solver=GurobiSolver(Method=2))
 # Variables
 @variable(disp, G[t_set, p_set] >= 0) # El. power generation per plant p
 @variable(disp, H[t_set, p_set] >= 0) # Heat generation per plant p
@@ -80,34 +96,39 @@ disp = Model(solver=GurobiSolver(Method=1))
 @variable(disp, INJ[t_set, n_set]) # Net Injection at Node n
 @variable(disp, F_DC[t_set, dc_set]) # Flow in DC Line dc
 
-if opt_setup["infeas_heat"]
-    @variable(disp, INFEAS_H_NEG[t_set, ha_set] >= 0) # Relaxing at high costs to avoid infeasibility in heat EB
-    @variable(disp, INFEAS_H_POS[t_set, ha_set] >= 0) # - " -
+if options["infeas_heat"]
+    # Relaxing at high costs to avoid infeasibility in heat EB
+    @variable(disp, 0 <= INFEAS_H_NEG[t_set, ha_set] <= options["infeasibility_bound"]) 
+    @variable(disp, 0 <= INFEAS_H_POS[t_set, ha_set] <= options["infeasibility_bound"])
 else
     @variable(disp, INFEAS_H_NEG[t_set, ha_set] == 0)
     @variable(disp, INFEAS_H_POS[t_set, ha_set] == 0)
 end
 
-if opt_setup["infeas_el_nodal"]
-    @variable(disp, INFEAS_EL_N_NEG[t_set, n_set] >= 0)
-    @variable(disp, INFEAS_EL_N_POS[t_set, n_set] >= 0)
+if options["infeas_el_nodal"]
+    @variable(disp, 0 <= INFEAS_EL_N_NEG[t_set, n_set] <= options["infeasibility_bound"])
+    @variable(disp, 0 <= INFEAS_EL_N_POS[t_set, n_set] <= options["infeasibility_bound"])
 else
     @variable(disp, INFEAS_EL_N_NEG[t_set, n_set] == 0)
     @variable(disp, INFEAS_EL_N_POS[t_set, n_set] == 0)
 end
-if opt_setup["infeas_el_zonal"]
-    @variable(disp, INFEAS_EL_Z_NEG[t_set, z_set] >= 0)
-    @variable(disp, INFEAS_EL_Z_POS[t_set, z_set] >= 0)
+if options["infeas_el_zonal"]
+    @variable(disp, 0 <= INFEAS_EL_Z_NEG[t_set, z_set] <= options["infeasibility_bound"])
+    @variable(disp, 0 <= INFEAS_EL_Z_POS[t_set, z_set] <= options["infeasibility_bound"])
 else
     @variable(disp, INFEAS_EL_Z_NEG[t_set, z_set] == 0)
     @variable(disp, INFEAS_EL_Z_POS[t_set, z_set] == 0)
 end
 
-if opt_setup["infeas_lines"]
-    @variable(disp, INFEAS_LINES[t_set, cb_set] >= 0)
-    @variable(disp, INFEAS_REF_FLOW[t_set, cb_set] >= 0)
+if options["infeas_lines"]
+    @variable(disp, 0 <= INFEAS_LINES[t_set, cb_set] <= options["infeasibility_bound"])
 else
     @variable(disp, INFEAS_LINES[t_set, cb_set] == 0)
+end
+
+if options["infeas_lines_ref"]
+    @variable(disp, 0 <= INFEAS_REF_FLOW[t_set, cb_set] <= options["infeasibility_bound"])
+else
     @variable(disp, INFEAS_REF_FLOW[t_set, cb_set] == 0)
 end
 
@@ -151,14 +172,15 @@ for t in t_set
     for p in intersect(ts_set, co_set)
         # WARNING this formulation requires the availabilty df to be correctly sorted by times
         @constraint(disp, G[t, p] <= plants[p].g_max * availabilities[p].value[model_horizon[t]])
-        @constraint(disp, G[t, p] >= plants[p].g_max * availabilities[p].value[model_horizon[t]] * 0)
+        @constraint(disp, G[t, p] >= plants[p].g_max * availabilities[p].value[model_horizon[t]] * 0.8)
     end
 
     # Applies to: Dispatch
     # Base Constraint
     for p in intersect(ts_set, he_set)
+        # println(availabilities[p].value[model_horizon[t]], p, t)
         @constraint(disp, H[t, p] <= plants[p].h_max * availabilities[p].value[model_horizon[t]])
-        @constraint(disp, H[t, p] >= plants[p].h_max * availabilities[p].value[model_horizon[t]] * 0.2)
+        @constraint(disp, H[t, p] >= plants[p].h_max * availabilities[p].value[model_horizon[t]] * 0.8)
     end
 
     # Applies to: Dispatch
@@ -268,8 +290,8 @@ for t in t_set
     # Applies to: cbco_nodal, nodal
     if in(model_type, ["cbco_nodal", "nodal"])
         for cb in cb_set
-            @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set)) <= grid[cb].ram + INFEAS_LINES[t, cb])
-            @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set)) >= -(grid[cb].ram + INFEAS_LINES[t, cb]))
+            @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set)) <= grid[cb].ram ) #+ INFEAS_LINES[t, cb])
+            @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set)) >= -(grid[cb].ram)) #+ INFEAS_LINES[t, cb]))
         end
     end
 
@@ -306,9 +328,9 @@ for t in t_set
             end
             # Upper/Lower Bound on CBs
             @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set))
-                              <= grid[cb].ram*0.75 + INFEAS_LINES[t, cb])
+                              <= grid[cb].ram) # + INFEAS_LINES[t, cb])
             @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set))
-                              >= -grid[cb].ram*0.75 - INFEAS_LINES[t, cb])
+                              >= -grid[cb].ram) # - INFEAS_LINES[t, cb])
         end
     end
 end
@@ -326,8 +348,9 @@ println("Objective: $(getobjectivevalue(disp))")
 t_elapsed = time_ns() - t_start
 println("Solvetime: $(round(t_elapsed*1e-9, digits=2)) seconds")
 
-result_folder = WDIR*"\\data_temp\\julia_files\\results\\"*Dates.format(now(), "dmm_HHMM")
+result_folder = WDIR*"/data_temp/julia_files/results/"*Dates.format(now(), "dmm_HHMM")
 if !isdir(result_folder)
+    println("Creating Results Folder: ", result_folder)
     mkdir(result_folder)
 end
 
@@ -362,7 +385,7 @@ end
 misc_result = Dict()
 misc_result["Objective Value"] = getobjectivevalue(disp)
 # write the file with the stringdata variable information
-open(result_folder*"\\misc_result.json", "w") do f
+open(result_folder*"/misc_result.json", "w") do f
         write(f, JSON.json(misc_result))
 end
 end

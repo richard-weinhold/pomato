@@ -1,20 +1,20 @@
 {
     "optimization": {
-        "type": "d2cf",
-        "model_horizon": [0,168], 
+        "type": "cbco_nodal",
+        "model_horizon": [0,2], 
         "infeas_heat": true,
         "infeas_el_nodal": true,
-        "infeas_el_zonal": false,
-        "infeas_lines": true,
-        "infeas_lines_ref": true,
-        "infeasibility_bound": 10000
+        "infeas_el_zonal": true,
+        "infeas_lines": false,
+        "infeas_lines_ref": false,
+        "infeasibility_bound": 20
     },
     "grid": {
-        "capacity_multiplier": 0.75,
-        "reference_flows": true,
+        "capacity_multiplier": 1,
+        "reference_flows": false,
         "precalc_filename": "",
         "senstitivity": 5e-2,
-        "cbco_option": "cbco",
+        "cbco_option": "clarkson_base",
         "preprocess": true
     },
     "data": {
@@ -22,8 +22,8 @@
         "round_demand": true,
         "default_efficiency": 0.5,
         "default_mc": 200,
-        "co2_price": 30,
+        "co2_price": 20,
         "all_lines_cb": false,
-        "d2cf_data": true
+        "d2cf_data": false
     }
 }

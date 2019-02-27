@@ -1,6 +1,6 @@
 {
     "optimization": {
-        "type": "cbco_nodal",
+        "type": "nodal",
         "model_horizon": [0,10], 
         "infeas_heat": true,
         "infeas_el_nodal": true,
@@ -12,7 +12,7 @@
     "grid": {
         "capacity_multiplier": 1,
         "reference_flows": false,
-        "precalc_filename": "cbco_01_py_2202_1148",
+        "precalc_filename": "cbco_01_py_1402_1753",
         "senstitivity": 5e-2,
         "cbco_option": "clarkson",
         "preprocess": true

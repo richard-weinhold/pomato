@@ -12,8 +12,6 @@ from sklearn.decomposition import PCA
 
 from pathlib import Path
 import tools
-#import gams_cbco_reduction as cbco_reduction
-# from pomato.resources import JULIA_PATH
 
 def split_length_in_ranges(step_size, length):
     ranges = []
@@ -29,27 +27,130 @@ def split_length_in_ranges(step_size, length):
 
 class CBCOModule(object):
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, grid_object):
+    def __init__(self, wdir, grid, data, option):
         # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.CBCOModule')
         self.logger.info("Initializing the CBCOModule....")
 
         self.wdir = wdir
         self.jdir = wdir.joinpath("data_temp/julia_files")
-        self.nodes = grid_object.nodes
-        self.lines = grid_object.lines
-        self.grid = grid_object
-        ### Prepare Matrix A and vector b
-        ## potentially as file
-        # self.Ab_file_path = self.create_Ab()
-        self.A, self.b, self.cbco_info = self.create_Ab()
         tools.create_folder_structure(self.wdir, self.logger)
-        self.cbco_index = []
+
+        self.grid = grid
+        self.data = data
+        self.options = option
+
+        # Attributes 
+        self.grid_representation = {}
+        self.cbco_info = None
+        self.cbco_index = None
+        self.A, self.b = None, None
+        self.A_base, self.b_base = None, None
 
         self.logger.info("CBCOModule Initialized!")
+    
+    def create_grid_representation(self):
 
-    def create_Ab(self, lodf_sensitivity=5e-2, preprocess=True):
-    # def create_Ab(self, lodf_sensitivity=0, preprocess=False):
+        # determining what grid represenation is wanted
+        # options are: dispacth (default), ntc, nodal, cbco_nodal, 
+        # cbco_zonal (tbd), d2cf
+        grid_option = self.options["grid"]
+        optimization_option = self.options["optimization"]
+        
+        # Data Structure of grid_representation
+        self.grid_representation["option"] = optimization_option["type"]
+        self.grid_representation["mult_slacks"] = self.grid.mult_slack
+        self.grid_representation["slack_zones"] = self.grid.slack_zones()
+        self.grid_representation["cbco"] = pd.DataFrame()
+
+        if optimization_option["type"] == "ntc":
+            self.process_ntc()
+        elif optimization_option["type"] == "nodal":
+            self.process_nodal()
+        elif optimization_option["type"] == "cbco_nodal":
+            self.process_cbco_nodal()
+        elif optimization_option["type"] == "d2cf":
+           self.process_d2cf()
+        else: 
+            self.logger.info("No grid represenation needed for dispatch model")
+
+    def process_ntc(self):
+        """process grid information for NTC representation in market model"""
+        self.grid_representation["ntc"] = self.data.ntc
+
+    def process_nodal(self):
+        """process grid information for nodal N-0 representation in market model"""
+        ptdf_df = pd.DataFrame(index=self.grid.lines.index,
+                       columns=self.grid.nodes.index,
+                       data=np.round(self.grid.ptdf, decimals=4))
+        ptdf_df["ram"] = self.grid.lines.maxflow
+        self.grid_representation["cbco"] = ptdf_df
+
+    def process_cbco_nodal(self):
+        """process grid information for cbco nodal representation in market model"""
+        grid_option = self.options["grid"]
+        self.A, self.b, self.cbco_info = self.create_Ab(grid_option["senstitivity"], grid_option["preprocess"])
+       
+        if grid_option["precalc_filename"]:
+            try:
+                filename = grid_option["precalc_filename"]
+                self.logger.info(f"Using cbco indices from pre-calc: {filename}")
+                precalc_cbco = pd.read_csv(self.jdir.joinpath(f"cbco_data/{filename}.csv"), 
+                                           delimiter=',')
+                self.cbco_index = list(precalc_cbco.constraints.values)
+                self.logger.info("Number of CBCOs from pre-calc: " + str(len(self.cbco_index)))
+            except FileNotFoundError:
+                self.logger.warning("FileNotFound: No Precalc available")
+                self.logger.warning("Running nomal CBCO Algorithm - ConvexHull only")
+        else:
+            # 3 valid args supported for cbco_option:
+            # clarkson, clarkson_base, convex_hull, full_cbco (default) 
+            if grid_option["cbco_option"] == "full_cbco":
+                self.cbco_index = [i for i in range(0, len(self.b))]
+
+            elif grid_option["cbco_option"] == "convex_hull":
+                self.cbco_index = self.reduce_Ab_convex_hull()
+            elif grid_option["cbco_option"] == "clarkson_base":
+                # self.cbco_index = self.reduce_Ab_convex_hull()
+                self.A_base, self.b_base = self.base_constraints()
+                self.cbco_index = self.clarkson_algorithm()
+            elif grid_option["cbco_option"] == "clarkson":
+                # self.cbco_index = self.reduce_Ab_convex_hull()
+                self.A_base, self.b_base = np.array([]), np.array([])
+                self.cbco_index = self.clarkson_algorithm()
+
+        self.grid_representation["cbco"] = self.return_cbco()
+
+    def process_d2cf(self):
+        """process grid information for d2cf representation in market model"""
+        grid_option = self.options["grid"]
+        self.A, self.b, self.cbco_info = self.create_Ab(grid_option["senstitivity"])
+        self.cbco_index = [i for i in range(0, len(self.b))]
+        ptdf = self.return_cbco()
+
+        cbs = self.grid.lines.index[self.grid.lines.cb]
+        if grid_option["cbco_option"] == "co as cb":
+            cos = ptdf.co[ptdf.cb.isin(cbs)].unique()
+            ptdf = ptdf[(ptdf.cb.isin(cbs)|ptdf.cb.isin(cos))&(ptdf.co == "basecase")]
+        elif grid_option["cbco_option"] == "cbco":
+            ptdf = ptdf[ptdf.cb.isin(cbs)]
+        else:
+            ptdf = ptdf[ptdf.cb.isin(cbs)&(ptdf.co == "basecase")]
+
+        ptdf.ram *= grid_option["capacity_multiplier"]
+        self.grid_representation["cbco"] = ptdf
+
+        if grid_option["reference_flows"]:
+            self.grid_representation["reference_flows"] = self.data.reference_flows
+            self.grid_representation["reference_flows"].columns = [x + "_basecase" for x in self.data.reference_flows.columns]
+        else:
+            self.grid_representation["reference_flows"] = pd.DataFrame(index=self.data.demand_el.index)
+
+        for line in ptdf.index:
+            if not line in self.grid_representation["reference_flows"].columns:
+                self.grid_representation["reference_flows"][line] = 0
+
+    def create_Ab(self, lodf_sensitivity=0, preprocess=True):
         """
         Create all relevant N-1 ptdfs in the for of Ax<b (ptdf x < ram):
         For each line as CB add basecase (N-0) 
@@ -60,86 +161,128 @@ class CBCOModule(object):
         label_lines = list(self.grid.lines.index)
         label_outages = ["basecase" for i in range(0, len(self.grid.lines.index))]
 
-        for idx, line in enumerate( self.lines.index[self.lines.contingency]):
+        for idx, line in enumerate(self.grid.lines.index[self.grid.lines.contingency]):
             outages = list(self.grid.lodf_filter(line, lodf_sensitivity))
             label_lines.extend([line for i in range(0, len(outages))])
             label_outages.extend(outages)
 
         # estimate size of array = nr_elements * bits per element (float32) / (8 * 1e6) MB
-        estimate_size = len(label_lines)*len(self.nodes.index)*32/(8*1e6)
+        estimate_size = len(label_lines)*len(self.grid.nodes.index)*32/(8*1e6)
         self.logger.info(f"Estimated size in RAM for A is: {estimate_size} MB")
         if estimate_size > 3000:
             raise
 
-        for idx, line in enumerate( self.lines.index[self.lines.contingency]):
+        for idx, line in enumerate(self.grid.lines.index[self.grid.lines.contingency]):
             outages = list(self.grid.lodf_filter(line, lodf_sensitivity))
-            tmp_ptdf = np.vstack([self.grid.create_n_1_ptdf_cbco(line,o) for o in outages])
+            tmp_ptdf = np.vstack([self.grid.create_n_1_ptdf_cbco(line, o) for o in outages])
             A.append(tmp_ptdf)
 
-        A = np.concatenate(A).reshape(len(label_lines), len(list(self.nodes.index)))
-        b = self.lines.maxflow[label_lines].values.reshape(len(label_lines), 1)
+        A = np.concatenate(A).reshape(len(label_lines), len(list(self.grid.nodes.index)))
+        b = self.grid.lines.maxflow[label_lines].values.reshape(len(label_lines), 1)
 
         # Processing: Rounding, remove duplicates and 0...0 rows
         if preprocess:
-            self.logger.info("Preprocessing Ab...")
             A = np.round(A, decimals=6)
+            self.logger.info("Preprocessing Ab...")
             _, idx = np.unique(np.hstack((A,b)), axis=0, return_index=True)
             idx = np.sort(idx)
             A = A[idx]
             b = b[idx]
             label_lines = [label_lines[x] for x in idx]
             label_outages = [label_outages[x] for x in idx]
-        
-        df_info = pd.DataFrame(columns=list(self.nodes.index), data=A)
+       
+        df_info = pd.DataFrame(columns=list(self.grid.nodes.index), data=A)
         df_info["cb"] = label_lines
         df_info["co"] = label_outages
         df_info["ram"] = b
-        df_info = df_info[["cb", "co", "ram"] + list(list(self.nodes.index))]
-        
+        df_info = df_info[["cb", "co", "ram"] + list(list(self.grid.nodes.index))]
         return A, b, df_info
 
-    def main(self, use_precalc=None, only_convex_hull=True):
+    def write_Ab(self, folder, suffix):
 
-        self.logger.info("CBCO Main Function...")
-        if use_precalc:
-            try:
-                self.logger.info(f"Using cbco indices from pre-calc {use_precalc}")
-                precalc_cbco = pd.read_csv(self.jdir.joinpath(f"cbco_data/{use_precalc}.csv"), delimiter=',')
-                self.cbco_index = list(precalc_cbco.constraints.values)
-                self.logger.info("Number of CBCOs from pre-calc: " + str(len(self.cbco_index)))
-            except FileNotFoundError:
-                self.logger.warning("FileNotFound: No Precalc available")
-                self.logger.warning("Running nomal CBCO Algorithm - ConvexHull only")
-                use_precalc = False
-                only_convex_hull=True
-        if not use_precalc:
-            self.cbco_algorithm(only_convex_hull)
+        if isinstance(self.A, np.ndarray) and isinstance(self.b, np.ndarray):
+            self.logger.info("Saving A, b...")
+            np.savetxt(folder.joinpath(f"A_{suffix}.csv"), 
+                       np.asarray(self.A), delimiter=",")
 
-    def add_to_cbco_index(self, add_cbco):
-        """adds the indecies of the manulally added cbco to cbco_index"""
-        # make sure its np.array
-        if not isinstance(add_cbco, list):
-            add_cbco = list(add_cbco)
-        self.cbco_index = list(set(self.cbco_index + add_cbco))
+            np.savetxt(folder.joinpath(f"b_{suffix}.csv"), 
+                       np.asarray(self.b), delimiter=",")
 
-    def julia_cbco_interface(self, A, b, cbco_index):
+        if isinstance(self.cbco_index, list):
+            self.logger.info(f"Saving I...")
+            np.savetxt(folder.joinpath(f"I_{suffix}.csv"), 
+                       np.array(self.cbco_index).astype(int),
+                       fmt='%i', delimiter=",")
+
+        if isinstance(self.A_base, np.ndarray) and isinstance(self.b_base, np.ndarray):
+            self.logger.info(f"Saving A_base, b_base...")
+            np.savetxt(folder.joinpath(f"A_base_{suffix}.csv"), 
+                       np.asarray(self.A_base), delimiter=",")
+            
+            np.savetxt(folder.joinpath(f"b_base_{suffix}.csv"), 
+                       np.asarray(self.b_base), delimiter=",")
+
+        self.logger.info(f"Saved everything to folder \n {str(folder)}")
+
+    def base_constraints(self):
+        """ Create Base Constraints for Clarkson algorithm"""
+        infeas_upperbound = self.options["optimization"]["infeasibility_bound"] 
+        base_constraints = []
+        base_rhs = []
+
+        for node in self.data.nodes.index:
+            condition_storage = (self.data.plants.node==node)& \
+                                (self.data.plants.tech.isin(["psp", "reservoir"]))
+            condition_el_heat = (self.data.plants.node==node)& \
+                                (self.data.plants.tech.isin(["heatpump", "elheat"]))
+
+            max_dc_inj = self.data.dclines.maxflow[(self.data.dclines.node_i == node)| \
+                                                   (self.data.dclines.node_j == node)].sum()
+
+            upper = max(self.data.plants.g_max[self.data.plants.node == node].sum() \
+                        - self.data.demand_el[node].min() \
+                        + max_dc_inj \
+                        + infeas_upperbound, 0)
+
+            lower = max(self.data.demand_el[node].max() \
+                        + self.data.plants.g_max[condition_storage].sum() \
+                        + self.data.plants.g_max[condition_el_heat].sum() \
+                        + max_dc_inj \
+                        + infeas_upperbound, 0)
+
+            row = np.zeros(len(self.data.nodes.index))
+            row[self.data.nodes.index.get_loc(node)] = 1
+            base_constraints.extend([row, -row])
+            base_rhs.extend([max(upper, lower), max(upper, lower)])
+
+        # base_constraints.append(np.ones(len(self.data.nodes.index)))
+        # base_rhs.append(0)
+
+        A_base = np.vstack(base_constraints)
+        b_base = np.array(base_rhs).reshape(len(base_rhs), 1)
+
+        return A_base, b_base
+
+
+    def clarkson_algorithm(self):
         ## save A,b to csv
-        ## save cbco_index for starting set A', and b' as csv
-        np.savetxt(self.jdir.joinpath("cbco_data").joinpath("A_py.csv"), np.asarray(A), delimiter=",")
-        np.savetxt(self.jdir.joinpath("cbco_data").joinpath("b_py.csv"), np.asarray(b), delimiter=",")
-        ## fmt='%i' is needed to save as integer
-        np.savetxt(self.jdir.joinpath("cbco_data").joinpath("I_py.csv"), np.array(cbco_index).astype(int),
-                   fmt='%i', delimiter=",")
+        self.write_Ab(self.jdir.joinpath("cbco_data"), "py")
 
-        args = ["julia", "--project=project_files/cbco", str(self.wdir.joinpath("code_jl/cbco_model.jl")), "py"]
+        args = ["julia", "--project=project_files/cbco", 
+                str(self.wdir.joinpath("code_jl/cbco_model.jl")), 
+                "py", str(self.wdir)]
+               
         t_start = dt.datetime.now()
         self.logger.info("Start-Time: " + t_start.strftime("%H:%M:%S"))
         # with open(self.wdir.joinpath("logs").joinpath('cbco_reduction.log'), 'w') as log:
-            # shell=false needed for mac (and for Unix in general I guess)
+        # shell=false needed for mac (and for Unix in general I guess)
         with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE) as programm:
             for line in programm.stdout:
-                # log.write(line.decode())
-                self.logger.info(line.decode().split(":")[1].strip())
+                self.logger.info(line.decode().strip())
+
+        t_end = dt.datetime.now()
+        self.logger.info("End-Time: " + t_end.strftime("%H:%M:%S"))
+        self.logger.info("Total Time: " + str((t_end-t_start).total_seconds()) + " sec")
 
         if programm.returncode == 0:
             df = pd.DataFrame()
@@ -152,29 +295,6 @@ class CBCOModule(object):
             return list(cbco)
         else:
             self.logger.critical("Error in Julia code")
-
-    def cbco_algorithm(self, only_convex_hull=True):
-        """
-        Creating Ax = b Based on the list of N-1 ptdfs and ram
-        Reduce it by:
-        1) using the convex hull method to get a subset A' from A, where A'x<=b'
-           is a non rendundant system of inequalities
-        2) Using the julia algorithm to check all linear inequalities of A
-           against A' and add those which are non-redundant but missed bc of
-           the low dim of the convexhull problem
-        """
-        try:
-            self.add_to_cbco_index(self.reduce_Ab_convex_hull())
-            self.logger.info("Number of CBCOs from ConvexHull Method: " + str(len(self.cbco_index)))
-
-            if not only_convex_hull:
-                self.logger.info("Running Julia CBCO-Algorithm...")
-                cbco_index = self.julia_cbco_interface(self.A, self.b, self.cbco_index)
-                self.add_to_cbco_index(cbco_index)
-                self.logger.info("Number of CBCOs after Julia CBCO-Algorithm: " + str(len(self.cbco_index)))
-
-        except:
-            self.logger.exception('e:cbco')
 
     def return_range_of_Ab(self, r):
         """return range of A and b"""
@@ -199,6 +319,7 @@ class CBCOModule(object):
                 k = ConvexHull(D_t, qhull_options="Qx")
                 vertices.extend(k.vertices + r[0])
                 self.logger.info("BeepBeepBoopBoop")
+
             return vertices #np.array(cbco_rows)
 
         except:
@@ -206,10 +327,8 @@ class CBCOModule(object):
 
     def return_cbco(self):
         """returns cbco dataframe with A and b"""
-        return_df = self.cbco_info.iloc[self.cbco_index]
-        return_df["index"] = return_df.cb + "_" + return_df.co
+        return_df = self.cbco_info.iloc[self.cbco_index].copy()
+        return_df.loc[:, "index"] = return_df.cb + "_" + return_df.co
         return_df = return_df.set_index("index")
-
         return return_df
-
 

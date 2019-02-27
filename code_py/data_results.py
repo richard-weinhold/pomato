@@ -107,8 +107,8 @@ class ResultProcessing(object):
                                                                   "biomass"])]
         gen = self.G
         gen_res = gen[gen.p.isin(res_plants.index)]
-        res_share = gen_res.G.sum()/gen_res.G.sum()
-        self.logger.info(f"Renewable share is {res_share}% in resulting dispatch!")
+        res_share = gen_res.G.sum()/gen.G.sum()
+        self.logger.info(f"Renewable share is {round(res_share*100, 2)}% in resulting dispatch!")
         return res_share
 
     def default_plots(self, show_plot=False):
@@ -200,7 +200,7 @@ class ResultProcessing(object):
 
         use_lodf = False
         if not timesteps:
-            self.logger.info(f"Calculateting N-1 Flows for the full model horizon")
+            self.logger.info(f"Calculating N-1 Flows for the full model horizon")
             timesteps = self.data.result_attributes["model_horizon"]
 
         if not lines:
@@ -209,9 +209,8 @@ class ResultProcessing(object):
 
         use_lodf = False  
         if not outages:
-            self.logger.info(f"Using COs with a sensitivity of >{int(sensitivity*100)}% to CBs")
+            self.logger.info(f"Using COs with a sensitivity of >{round(sensitivity*100, 2)}% to CBs")
             use_lodf = True
-  
 
         ptdf = [self.grid.ptdf]
         label_lines = list(self.grid.lines.index)

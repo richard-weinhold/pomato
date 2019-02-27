@@ -15,7 +15,7 @@
 # Power-to-heat plants
 PH_TECH = ["heatpump", "elheat"]
 # Plants that use time-series for capacity of p
-TS_TECH = ["wind onshore", "wind offshore", "solar"]
+TS_TECH = ["wind onshore", "wind offshore", "solar", "solarheat", "iheat"]
 # El storgae technologies 
 EL_STORAGE_TECH = ["psp", "reservoir"]
 #Conventional Plants
