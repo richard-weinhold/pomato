@@ -6,8 +6,7 @@ const MOI = JuMP.MathOptInterface
 
 global suppress_csv_write = Dict("backup" => true,
 								 "final" => false)
-
-global debug = false
+global debug = true
 
 if length(ARGS) == 0
     global wdir = pwd()
@@ -169,7 +168,6 @@ function read_data(file_suffix::String)
 					  delim=',', header=false, types=Dict(1=>Float64))
 
 	A =  hcat([A_data[i] for i in 1:size(A_data, 2)]...)
-	println(size(b_data, 2))
 	if size(b_data, 2) > 0
 		b = b_data[1]
 	else 
@@ -210,7 +208,7 @@ function run(file_suffix::String)
 	I_result = [cbco for cbco in I_full if cbco in index_loadflow]
 
 	println("Number of non-redundant constraints: $(length(I_result))" )
-	save_to_file(I_result, "cbco_01_"*file_suffix*"_"*Dates.format(now(), "ddmm_HHMM"), 
+	save_to_file(I_result, "cbco_"*file_suffix*"_"*Dates.format(now(), "ddmm_HHMM"), 
 		         suppress_csv_write["final"])
 end
 
@@ -244,7 +242,7 @@ function run_with_I(file_suffix::String, I_file::String, start_index::Int=1)
 	I_result = @time main(A, b, m, I, z)
 
 	println("Number of non-redundant constraints: $(length(I_result))")
-	save_to_file(I_result, "cbco_01_I_"*file_suffix*"_"*Dates.format(now(), "ddmm_HHMM"), 
+	save_to_file(I_result, "cbco_I_"*file_suffix*"_"*Dates.format(now(), "ddmm_HHMM"), 
 				 suppress_csv_write["final"])
 end
 
@@ -254,30 +252,4 @@ if length(ARGS) > 0
 	global wdir = ARGS[2]
 	global debug = false
     @time run(file_suffix)
-    # run(file_suffix)
 end
-
-#### 624
-######################## Code Cemetery #########################
-# inj_constraints = Diagonal(ones(size(A_data, 2)))
-# upper_inj = ones(size(A_data, 2))*1e4
-# A = vcat(inj_constraints, -inj_constraints, A)
-# b = vcat(upper_inj, upper_inj, b)
-# tmp = I_result[I_result.>(size(A_data, 2)*2)].-(size(A_data, 2)*2)
-
-# I = [2]
-# m = collect(range(1, length(b)))
-# z = zeros(2)
-# alpha, x_opt = is_redundant(A, b, I, 1)
-# j = RayShoot2(A, b, m, z, x_opt-z)
-
-
-# Minimum BSP
-# A = [
-# 	 1 1;
-# 	 1 0;
-# 	 0 1;
-# 	 0 1;
-# 	 1 1;
-# 	 ]
-# b = [2.2 1 1 2 1.4]'

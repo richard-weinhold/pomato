@@ -32,13 +32,12 @@ gr = mato.grid_representation["cbco"]
 
 ##mato.data.process_results(mato.wdir.joinpath("data_temp\\julia_files\\results\\2102_1516"),
 ##                          mato.options, grid=mato.grid)
-#
-#mato.init_market_model()
-#mato.run_market_model()
+mato.init_market_model()
+mato.run_market_model()
 ##
-#df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
-#df3 = mato.data.results.n_1_flow()
-#df4 = mato.data.results.n_0_flow()
+df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
+df3 = mato.data.results.n_1_flow()
+df4 = mato.data.results.n_0_flow()
 
 #from bokeh_plot_interface import BokehPlot
 #mato.init_bokeh_plot(name="IEEE")

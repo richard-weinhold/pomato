@@ -284,7 +284,7 @@ class CBCOModule(object):
         ## save A,b to csv
         self.write_Ab(self.jdir.joinpath("cbco_data"), "py")
 
-        args = ["julia", "--project=project_files/cbco",
+        args = ["julia", "--project=project_files/pomato",
                 str(self.wdir.joinpath("code_jl/cbco_model.jl")),
                 "py", str(self.wdir)]
 

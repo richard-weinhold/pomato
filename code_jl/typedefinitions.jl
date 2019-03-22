@@ -32,11 +32,13 @@ mutable struct Zone
     nodes::Any
     net_position::Dict
     net_export::Dict
-    function Zone(index, demand, nodes)
+    plants::Array
+    function Zone(index, demand, nodes, plants)
         z = new()
         z.index = index
         z.demand = demand
         z.nodes = nodes
+        z.plants = plants
         return z
     end
 end
@@ -45,11 +47,13 @@ mutable struct Heatarea
     index::Any
     name::String
     demand::Dict
-    function Heatarea(index, demand)
-        z = new()
-        z.index = index
-        z.demand = demand
-        return z
+    plants::Array
+    function Heatarea(index, demand, plants)
+        ha = new()
+        ha.index = index
+        ha.demand = demand
+        ha.plants = plants
+        return ha
     end
 end
 
@@ -60,12 +64,14 @@ mutable struct Node
     name::String
     demand::Dict
     net_export::Dict
-        function Node(index, zone, slack, name)
+    plants::Array
+    function Node(index, zone, slack, name, plants)
         n = new()
         n.index = index
         n.zone = zone
         n.slack = slack
         n.name = name
+        n.plants = plants
         return n
     end
 end
@@ -79,7 +85,6 @@ mutable struct Plant
     heatarea::Heatarea
     mc::Float64
     node::Node
-    has_avail::Bool
     function Plant(index, efficiency, g_max, h_max, tech, mc)
         p = new()
         p.index = index

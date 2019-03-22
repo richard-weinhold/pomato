@@ -14,7 +14,7 @@
         "reference_flows": false,
         "precalc_filename": "",
         "senstitivity": 5e-2,
-        "cbco_option": "save_base",
+        "cbco_option": "clarkson_base",
         "preprocess": true
     },
     "data": {

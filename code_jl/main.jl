@@ -17,11 +17,11 @@
 if length(ARGS) > 0
     println("Arguments passed, running in: ", ARGS[1], " and data folder: ", ARGS[2])
     WDIR = ARGS[1]
-    data_folder = ARGS[2]
+    data_dir = ARGS[2]
 else
 	println("No arguments passed, running as script in pwd()")
     WDIR = pwd()
-    data_folder = "/data/"
+    data_dir = "/data/"
 end
 # WDIR = "C:/Users/riw/tubCloud/Uni/Market_Tool/pomato"
 # /net/work/wein/pomato//data_temp/julia_files/data/
@@ -39,18 +39,18 @@ include("read_data.jl")
 include("model.jl")
 include("setdefinitions.jl")
 
+data_dir = WDIR*"/data_temp/julia_files"*data_dir
 model_horizon, options,
-plants, plants_in_ha, plants_at_node, plants_in_zone, availabilities,
-nodes, zones, slack_zones, heatareas, nodes_in_zone,
-ntc, dc_lines, grid = read_model_data(WDIR*"/data_temp/julia_files"*data_folder)
+plants, availabilities,
+nodes, zones, heatareas,
+grid, dc_lines, slack_zones, ntc = read_model_data(data_dir)
 
 
 # Run Dispatch Model
 out = build_and_run_model(model_horizon, options,
-                          plants, plants_in_ha, plants_at_node, plants_in_zone, 
-                          availabilities,
-                          nodes, zones, heatareas, nodes_in_zone,
-                          dc_lines, grid, ntc, slack_zones)
+                          plants, availabilities,
+                          nodes, zones, heatareas,
+                          grid, dc_lines, slack_zones, ntc)
 
 
 println("DONE")

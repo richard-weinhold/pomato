@@ -65,11 +65,12 @@ function jump_to_df(m::JuMP.Model,
 					result_folder::String="",
 					)
 	if dual
-		arr = getdual(getindex(m, jump_ref)).innerArray
-		dim_arr = getdual(getindex(m, jump_ref)).indexsets
+		arr = JuMP.dual.(getindex(m, jump_ref)).data
+		dim_arr = JuMP.dual.(getindex(m, jump_ref)).axes
+
 	else
-		arr = getvalue(getindex(m, jump_ref)).innerArray
-		dim_arr = getvalue(getindex(m, jump_ref)).indexsets
+		arr = JuMP.value.(getindex(m, jump_ref)).data
+        dim_arr = JuMP.value.(getindex(m, jump_ref)).axes
 	end
 	dims = length(dim_arr)
 	rows = []

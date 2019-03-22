@@ -55,20 +55,17 @@ for z in 1:nrow(zones_mat)
         net_export_sum[demand_el_mat[t, :index]] = nex_sum
     end
     nodes = nodes_mat[nodes_mat[:zone] .== index, :index]
+    plants = filter(row -> row[:node] in nodes, plants_mat)[:index]
 
-    newz = Zone(index, demand_sum, nodes)
+    newz = Zone(index, demand_sum, nodes, plants)
     newz.net_export = net_export_sum
     if in(model_type, ["d2cf"])
         newz.net_position = Dict(zip(net_position_mat[:index],  net_position_mat[Symbol(newz.index)]))
     end
+
     zones[newz.index] = newz
 end
 
-# Prapare Nodes
-nodes_in_zone = Dict{String, Dict{String, Node}}()
-for z in collect(keys(zones))
-    nodes_in_zone[z] = Dict()
-end
 
 nodes = OrderedDict{String, Node}()
 for n in 1:nrow(nodes_mat)
@@ -77,8 +74,9 @@ for n in 1:nrow(nodes_mat)
     name = nodes_mat[n, :name]
     zone = nodes_mat[n, :zone]
     zone = zones[zone]
+    plants = plants_mat[plants_mat[:node] .== index, :index]
 
-    newn = Node(index, zone, slack, name)
+    newn = Node(index, zone, slack, name, plants)
 
     demand_time = demand_el_mat[:index]
     demand_at_node = demand_el_mat[Symbol(newn.index)]
@@ -91,7 +89,6 @@ for n in 1:nrow(nodes_mat)
     newn.net_export = net_export_dict
 
     nodes[newn.index] = newn
-    nodes_in_zone[newn.zone.index][newn.index] = newn
 end
 
 #Prepare Heatareas
@@ -107,24 +104,6 @@ end
 
 # Prepare Plants
 plants = Dict{String, Plant}()
-plants_in_zone = Dict{String, Dict{String, Plant}}()
-for z in collect(keys(zones))
-    plants_in_zone[z] = Dict()
-end
-plants_in_ha = Dict{String, Dict{String, Plant}}()
-for h in collect(keys(heatareas))
-    plants_in_ha[h] = Dict()
-end
-
-plants_at_node = Dict{String, Dict{String, Plant}}()
-for n in collect(keys(nodes))
-    plants_at_node[n] = Dict()
-end
-
-p_with_avail = names(availability_mat)
-p_with_avail = setdiff(p_with_avail, [:index])
-p_with_avail = [String(p) for p in p_with_avail]
-
 for p in 1:nrow(plants_mat)
     index = string(plants_mat[p, :index])
     efficiency = plants_mat[p, :eta]
@@ -144,13 +123,12 @@ for p in 1:nrow(plants_mat)
             newp.heatarea = heatareas[plants_mat[p, :heatarea]]
             plants_in_ha[newp.heatarea.index][newp.index] = newp
         catch
-            println("Warning: Heatarea $(heatareas[plants_mat[p, :heatarea]].index) not found in heatarea list for plant $(newp.index)")
+            println("Warning: Heatarea $(heatareas[plants_mat[p, :heatarea]].index)", 
+                    " not found in heatarea list for plant $(newp.index)")
         end
     end
     # Cast to string necessary to recast from symbol belwo
     plants[newp.index] = newp
-    plants_at_node[newp.node.index][newp.index] = newp
-    plants_in_zone[newp.node.zone.index][newp.index] = newp
 end
 
 # Prepare Availability
@@ -170,7 +148,6 @@ for l in 1:nrow(dc_lines_mat)
     node_i = nodes[dc_lines_mat[l, :node_i]]
     node_j = nodes[dc_lines_mat[l, :node_j]]
     maxflow = dc_lines_mat[l, :maxflow]
-
     newl = DC_Line(index, node_i, node_j, maxflow)
     dc_lines[newl.index] = newl
 end
@@ -195,7 +172,6 @@ for cbco in 1:nrow(grid_mat)
         ptdf = [x for x in grid_mat[cbco, Symbol.(collect(keys(zones)))]]
     else
         ptdf = [x for x in grid_mat[cbco, Symbol.(collect(keys(nodes)))]]
-
     end
     ram = grid_mat[cbco, :ram]
     newcbco = Grid(index, ptdf, ram)
@@ -214,7 +190,7 @@ end
 
 println("Data Prepared")
 return model_horizon, options,
-       plants, plants_in_ha, plants_at_node, plants_in_zone, availabilities,
-       nodes, zones, slack_zones, heatareas, nodes_in_zone,
-       ntc, dc_lines, grid
+       plants, availabilities,
+       nodes, zones, heatareas,
+       grid, dc_lines, slack_zones, ntc
 end # end of function
