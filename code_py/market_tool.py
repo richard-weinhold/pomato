@@ -109,7 +109,7 @@ class MarketTool(object):
         self.bokeh_plot.start_server()
         # self.bokeh_plot.stop_server()
 
-    def create_grid_representation(self, ):
+    def create_grid_representation(self):
         """Grid Representation as property"""
         if self.grid.is_empty:
             self.grid.build_grid_model(self.data.nodes, self.data.lines)

@@ -228,7 +228,7 @@ class GridModel(object):
 		if not isinstance(line, int):
 			line = self.lines.index.get_loc(line)
 
-		cond = abs(self.lodf[line]) >= sensitivity
+		cond = abs(np.multiply(self.lodf[line], self.lines.maxflow.values)) >= sensitivity*self.lines.maxflow[line]
 
 		if as_index:
 			return [self.lines.index.get_loc(line) for line in self.lines.index[cond]]

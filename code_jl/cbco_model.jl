@@ -1,14 +1,18 @@
 
 using CSV, DataFrames, Dates, Logging
 using LinearAlgebra
-using JuMP, GLPK
+using JuMP, GLPK, Gurobi
 const MOI = JuMP.MathOptInterface
 
 global suppress_csv_write = Dict("backup" => true,
 								 "final" => false)
 
-global wdir = "C:/Users/riw/tubcloud/Uni/Market_Tool/pomato/"
-global debug = true
+global debug = false
+
+if length(ARGS) == 0
+    global wdir = pwd()
+	println("No arguments passed or not running in repl, initializing in pwd(): ", wdir)
+end
 
 function is_redundant(model::JuMP.Model, constraint::Vector{Float64}, rhs::Float64)
 	temp = @constraint(model, constraint' * model[:x] <= rhs + 1)
@@ -28,7 +32,7 @@ end
 
 function build_model(n::Int, A::Array{Float64}, b::Vector{Float64})
 	model = Model(with_optimizer(GLPK.Optimizer))
-	# model = Model(with_optimizer(Gurobi.Optimizer))
+	# model = Model(with_optimizer(Gurobi.Optimizer, OutputFlag=0)) #, Presolve=0)) #, Method=2))
 	@variable(model, x[i=1:n])
 	@constraint(model, A * x .<= b)
 	return model
@@ -145,9 +149,10 @@ end
 function save_to_file(Indices, filename::String, suppress_write::Bool=false)
 	# I_result.-1: Indices start at 0 (in python.... or any other decent programming language)
 	if !suppress_write
-		#println("Writing File ", filename, " .... ")
+		println("Writing File ", filename, " .... ")
 		CSV.write(wdir*"/data_temp/julia_files/cbco_data/"*filename*".csv",
 		  	 	  DataFrame(constraints = Indices.-1))
+		println("done! ")
 	else
 		if debug
 			println("No File Written bc of debug parameter in Line 8")
@@ -182,10 +187,10 @@ function run(file_suffix::String)
 		A_base, b_base = A[I,:], b[I]
 	end
 
-	m = collect(range(1, length(b) + length(b_base)))
+	m = collect(range(1, stop=length(b) + length(b_base)))
 	# Adding base problem
-	index_loadflow = collect(range(1, length(b)))
-	index_base = collect(range(length(b), length(b) + length(b_base)))
+	index_loadflow = collect(range(1, stop=length(b)))
+	index_base = collect(range(length(b), stop=length(b) + length(b_base)))
 	A = vcat(A, A_base) 
 	b = vcat(b, b_base)
 	println("Preprocessing...")
@@ -247,8 +252,8 @@ end
 if length(ARGS) > 0
 	file_suffix = ARGS[1]
 	global wdir = ARGS[2]
-	global debug = true
-    run(file_suffix)
+	global debug = false
+    @time run(file_suffix)
     # run(file_suffix)
 end
 

@@ -15,11 +15,8 @@ from bokeh.models import HoverTool, Select, WMTSTileSource, \
                          Label, TapTool
 from bokeh.models.widgets import RadioButtonGroup, Slider
 
-# pd.options.mode.chained_assignment = None  # default='warn'
-#wdir = Path(sys.argv[1])
-wdir = Path("C:/Users/riw/tubCloud/Uni/Market_Tool/pomato/data_temp/bokeh_files")
 
-
+wdir = Path(sys.argv[1])
 STAMEN_LITE = WMTSTileSource(
     url='http://tile.stamen.com/toner-lite/{Z}/{X}/{Y}.png',
     attribution=(
@@ -201,8 +198,8 @@ def update_node_injections(attrname, old, new):
 
 def update_line_loadings(attrname, old, new):
 
-    line_legend_options = {0: {"from": 60, "to": 105, "title": "N-0 Lineliadings in %"},
-                           1: {"from": 60, "to": 105, "title": "N-1 Lineliadings in %"},
+    line_legend_options = {0: {"from": 60, "to": 105, "title": "N-0 Lineloadings in %"},
+                           1: {"from": 60, "to": 105, "title": "N-1 Lineloadings in %"},
                            2: {"from": 60, "to": 105, "title": "Showing Line Info"}}
 
     source_line_legend.data = create_line_legend(line_legend_options[flow_type_botton.active]["from"],
@@ -264,6 +261,9 @@ def update_lodf_color(attrname, old, new):
         tmp[tmp>max_perc] = max_perc
         colors = [color[int((x - min_perc)*11/(max_perc - min_perc))] for x in  tmp]
         colors[idx] = "blue"
+
+        print(colors)
+
         line_alpha = [0.3 if c == "#bababa" else 0.8 for c in colors]
 
         source_line_legend.data = create_line_legend(min_perc, max_perc)
@@ -556,19 +556,18 @@ fig_indicator = figure(x_range=(0,8), y_range=(0,2), toolbar_location=None,
                        tools="", plot_height=50, plot_width=300)
 label = Label(x=1.8, y=.8, text="Data is Loaded!", text_alpha=1)
 fig_indicator.add_layout(label)
-
 fig_indicator.axis.visible = False
 fig_indicator.grid.visible = False
 fig_indicator.outline_line_alpha = 0
 fig_indicator.circle("x", "y", size=25, fill_alpha=0.6, fill_color="color", line_color=None, source=source_ind)
 
 ### Legend for Lineloadings/LODF colors
-line_legend_dict = create_line_legend(60, 120)
+line_legend_dict = create_line_legend(60, 110)
 source_line_legend = ColumnDataSource(line_legend_dict)
 legend_lines = figure(plot_width=300, plot_height=80,
-                      x_range=(60,120.4), y_range=(0,1),
+                      x_range=(60,110.1), y_range=(0,1),
                       toolbar_location=None, tools="",
-                      title="N-0 Line Loading in %"
+                      title="N-0 Lineloadings in %"
                       )
 
 

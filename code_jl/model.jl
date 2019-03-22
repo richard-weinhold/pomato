@@ -178,7 +178,6 @@ for t in t_set
     # Applies to: Dispatch
     # Base Constraint
     for p in intersect(ts_set, he_set)
-        # println(availabilities[p].value[model_horizon[t]], p, t)
         @constraint(disp, H[t, p] <= plants[p].h_max * availabilities[p].value[model_horizon[t]])
         @constraint(disp, H[t, p] >= plants[p].h_max * availabilities[p].value[model_horizon[t]] * 0.8)
     end

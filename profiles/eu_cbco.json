@@ -7,14 +7,14 @@
         "infeas_el_zonal": true,
         "infeas_lines": false,
         "infeas_lines_ref": false,
-        "infeasibility_bound": 500
+        "infeasibility_bound": 20
     },
     "grid": {
         "capacity_multiplier": 0.95,
         "reference_flows": false,
         "precalc_filename": "",
         "senstitivity": 5e-2,
-        "cbco_option": "save_base",
+        "cbco_option": "full_cbco",
         "preprocess": true
     },
     "data": {

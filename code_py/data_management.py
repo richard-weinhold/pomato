@@ -38,7 +38,6 @@ class DataManagement(object):
                                                                         "INFEAS_EL_Z_POS", "INFEAS_EL_Z_NEG",
                                                                         "INFEAS_LINES", "INFEAS_REF_FLOW"]}
 
-
             self.data_attributes = {"data": data, "source": None}
 
             self.result_attributes = {"variables": variables, "dual_variables": dual_variables,

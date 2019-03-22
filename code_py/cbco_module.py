@@ -40,7 +40,7 @@ class CBCOModule(object):
         self.data = data
         self.options = option
 
-        # Attributes 
+        # Attributes
         self.grid_representation = {}
         self.cbco_info = None
         self.cbco_index = None
@@ -48,15 +48,14 @@ class CBCOModule(object):
         self.A_base, self.b_base = None, None
 
         self.logger.info("CBCOModule Initialized!")
-    
+
     def create_grid_representation(self):
 
         # determining what grid represenation is wanted
-        # options are: dispacth (default), ntc, nodal, cbco_nodal, 
+        # options are: dispacth (default), ntc, nodal, cbco_nodal,
         # cbco_zonal (tbd), d2cf
-        grid_option = self.options["grid"]
         optimization_option = self.options["optimization"]
-        
+
         # Data Structure of grid_representation
         self.grid_representation["option"] = optimization_option["type"]
         self.grid_representation["mult_slacks"] = self.grid.mult_slack
@@ -71,7 +70,7 @@ class CBCOModule(object):
             self.process_cbco_nodal()
         elif optimization_option["type"] == "d2cf":
            self.process_d2cf()
-        else: 
+        else:
             self.logger.info("No grid represenation needed for dispatch model")
 
     def process_ntc(self):
@@ -83,19 +82,21 @@ class CBCOModule(object):
         ptdf_df = pd.DataFrame(index=self.grid.lines.index,
                        columns=self.grid.nodes.index,
                        data=np.round(self.grid.ptdf, decimals=4))
-        ptdf_df["ram"] = self.grid.lines.maxflow
+        ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
+
         self.grid_representation["cbco"] = ptdf_df
+
 
     def process_cbco_nodal(self):
         """process grid information for cbco nodal representation in market model"""
         grid_option = self.options["grid"]
         self.A, self.b, self.cbco_info = self.create_Ab(grid_option["senstitivity"], grid_option["preprocess"])
-       
+
         if grid_option["precalc_filename"]:
             try:
                 filename = grid_option["precalc_filename"]
                 self.logger.info(f"Using cbco indices from pre-calc: {filename}")
-                precalc_cbco = pd.read_csv(self.jdir.joinpath(f"cbco_data/{filename}.csv"), 
+                precalc_cbco = pd.read_csv(self.jdir.joinpath(f"cbco_data/{filename}.csv"),
                                            delimiter=',')
                 self.cbco_index = list(precalc_cbco.constraints.values)
                 self.logger.info("Number of CBCOs from pre-calc: " + str(len(self.cbco_index)))
@@ -104,22 +105,37 @@ class CBCOModule(object):
                 self.logger.warning("Running nomal CBCO Algorithm - ConvexHull only")
         else:
             # 3 valid args supported for cbco_option:
-            # clarkson, clarkson_base, convex_hull, full_cbco (default) 
+            # clarkson, clarkson_base, convex_hull, full_cbco (default)
             if grid_option["cbco_option"] == "full_cbco":
                 self.cbco_index = [i for i in range(0, len(self.b))]
 
             elif grid_option["cbco_option"] == "convex_hull":
                 self.cbco_index = self.reduce_Ab_convex_hull()
+
             elif grid_option["cbco_option"] == "clarkson_base":
                 # self.cbco_index = self.reduce_Ab_convex_hull()
                 self.A_base, self.b_base = self.base_constraints()
                 self.cbco_index = self.clarkson_algorithm()
+
             elif grid_option["cbco_option"] == "clarkson":
                 # self.cbco_index = self.reduce_Ab_convex_hull()
                 self.A_base, self.b_base = np.array([]), np.array([])
                 self.cbco_index = self.clarkson_algorithm()
 
+            elif grid_option["cbco_option"] == "save":
+                self.A_base, self.b_base = np.array([]), np.array([])
+                self.write_Ab(self.jdir.joinpath("cbco_data"), "py")
+                self.cbco_index = [i for i in range(0, len(self.b))]
+
+            elif grid_option["cbco_option"] == "save_base":
+                self.A_base, self.b_base = self.base_constraints()
+                self.write_Ab(self.jdir.joinpath("cbco_data"), "py")
+                self.cbco_index = [i for i in range(0, len(self.b))]
+            else:
+                raise
+
         self.grid_representation["cbco"] = self.return_cbco()
+        self.grid_representation["cbco"].ram *= grid_option["capacity_multiplier"]
 
     def process_d2cf(self):
         """process grid information for d2cf representation in market model"""
@@ -153,7 +169,7 @@ class CBCOModule(object):
     def create_Ab(self, lodf_sensitivity=0, preprocess=True):
         """
         Create all relevant N-1 ptdfs in the for of Ax<b (ptdf x < ram):
-        For each line as CB add basecase (N-0) 
+        For each line as CB add basecase (N-0)
         and COs based on the senstitivity in LODF (default = 5%)
         return ptdf, corresponding ram and df with the relevant info
         """
@@ -166,10 +182,10 @@ class CBCOModule(object):
             label_lines.extend([line for i in range(0, len(outages))])
             label_outages.extend(outages)
 
-        # estimate size of array = nr_elements * bits per element (float32) / (8 * 1e6) MB
-        estimate_size = len(label_lines)*len(self.grid.nodes.index)*32/(8*1e6)
+        # estimate size of array = nr_elements * bits per element (float64) / (8 * 1e6) MB
+        estimate_size = len(label_lines)*(len(self.grid.nodes.index) + 1)*64/(8*1e6)
         self.logger.info(f"Estimated size in RAM for A is: {estimate_size} MB")
-        if estimate_size > 3000:
+        if estimate_size > 5000:
             raise
 
         for idx, line in enumerate(self.grid.lines.index[self.grid.lines.contingency]):
@@ -190,7 +206,7 @@ class CBCOModule(object):
             b = b[idx]
             label_lines = [label_lines[x] for x in idx]
             label_outages = [label_outages[x] for x in idx]
-       
+
         df_info = pd.DataFrame(columns=list(self.grid.nodes.index), data=A)
         df_info["cb"] = label_lines
         df_info["co"] = label_outages
@@ -202,31 +218,31 @@ class CBCOModule(object):
 
         if isinstance(self.A, np.ndarray) and isinstance(self.b, np.ndarray):
             self.logger.info("Saving A, b...")
-            np.savetxt(folder.joinpath(f"A_{suffix}.csv"), 
+            np.savetxt(folder.joinpath(f"A_{suffix}.csv"),
                        np.asarray(self.A), delimiter=",")
 
-            np.savetxt(folder.joinpath(f"b_{suffix}.csv"), 
+            np.savetxt(folder.joinpath(f"b_{suffix}.csv"),
                        np.asarray(self.b), delimiter=",")
 
         if isinstance(self.cbco_index, list):
             self.logger.info(f"Saving I...")
-            np.savetxt(folder.joinpath(f"I_{suffix}.csv"), 
+            np.savetxt(folder.joinpath(f"I_{suffix}.csv"),
                        np.array(self.cbco_index).astype(int),
                        fmt='%i', delimiter=",")
 
         if isinstance(self.A_base, np.ndarray) and isinstance(self.b_base, np.ndarray):
             self.logger.info(f"Saving A_base, b_base...")
-            np.savetxt(folder.joinpath(f"A_base_{suffix}.csv"), 
+            np.savetxt(folder.joinpath(f"A_base_{suffix}.csv"),
                        np.asarray(self.A_base), delimiter=",")
-            
-            np.savetxt(folder.joinpath(f"b_base_{suffix}.csv"), 
+
+            np.savetxt(folder.joinpath(f"b_base_{suffix}.csv"),
                        np.asarray(self.b_base), delimiter=",")
 
         self.logger.info(f"Saved everything to folder \n {str(folder)}")
 
     def base_constraints(self):
         """ Create Base Constraints for Clarkson algorithm"""
-        infeas_upperbound = self.options["optimization"]["infeasibility_bound"] 
+        infeas_upperbound = self.options["optimization"]["infeasibility_bound"]
         base_constraints = []
         base_rhs = []
 
@@ -268,10 +284,10 @@ class CBCOModule(object):
         ## save A,b to csv
         self.write_Ab(self.jdir.joinpath("cbco_data"), "py")
 
-        args = ["julia", "--project=project_files/cbco", 
-                str(self.wdir.joinpath("code_jl/cbco_model.jl")), 
+        args = ["julia", "--project=project_files/cbco",
+                str(self.wdir.joinpath("code_jl/cbco_model.jl")),
                 "py", str(self.wdir)]
-               
+
         t_start = dt.datetime.now()
         self.logger.info("Start-Time: " + t_start.strftime("%H:%M:%S"))
         # with open(self.wdir.joinpath("logs").joinpath('cbco_reduction.log'), 'w') as log:

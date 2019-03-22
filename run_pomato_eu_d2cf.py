@@ -12,7 +12,7 @@ import pandas as pd
 import tools
 import datetime
 
-mato = MarketTool(options_file="profiles/d2cf.json")
+mato = MarketTool(options_file="profiles/eu_cbco.json")
 mato.load_data('data_input\dataset_eu_d2cf.xlsx')
 
 n = mato.data.nodes
@@ -24,20 +24,38 @@ f = mato.data.fuel
 d = mato.data.demand_el
 o = mato.options
 a = mato.data.availability
+
 mato.create_grid_representation()
-#gr = mato.grid_representation["cbco"]
+gr = mato.grid_representation["cbco"]
+
+8*3600 + 53*60
+
+#len(mato.grid.lines) + len(mato.grid.lines)*len(mato.grid.lines[mato.grid.lines.contingency])
+#lodf_graph = {}
+#for i in range(1, 20):
+#    mato.options["grid"]["senstitivity"] = 0.01 + 0.005*i
+#    mato.create_grid_representation()
+#    lodf_graph[0.01 + 0.005*i] = len(mato.grid_representation["cbco"])
+#
+#df = pd.DataFrame.from_dict(lodf_graph, orient='index')
+#df.to_clipboard()
+#
+#for i in df.index:
+#    print(f"({i*100}, {df.loc[i, 0]})")
 
 #mato.data.visulize_inputdata(mato.data.results.result_folder)
 
-mato.data.process_results(mato.wdir.joinpath("data_temp\\julia_files\\results\\1402_1953"),
-                          mato.options, grid=mato.grid)
+#mato.data.process_results(mato.wdir.joinpath("data_temp\\julia_files\\results\\1402_1953"),
+#                          mato.options, grid=mato.grid)
+
+#t = mato.data.results.net_position()
 
 #mato.init_market_model()
 #mato.run_market_model()
 #t = mato.data.results.check_courtailment()
 #from bokeh_plot_interface import BokehPlot
 #mato.init_bokeh_plot(name="FBMC")
-print("OK")
+#print("OK")
 # ##  bokeh serve --show .\code_py\bokeh_plot.py --args=data_temp/bokeh_files
 
 
