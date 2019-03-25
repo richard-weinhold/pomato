@@ -342,6 +342,7 @@ class CBCOModule(object):
             self.logger.exception('error:reduce_ptdf')
 
     def return_cbco(self):
+
         """returns cbco dataframe with A and b"""
         return_df = self.cbco_info.iloc[self.cbco_index].copy()
         return_df.loc[:, "index"] = return_df.cb + "_" + return_df.co

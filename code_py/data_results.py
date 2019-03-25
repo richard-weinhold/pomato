@@ -54,6 +54,7 @@ class ResultProcessing(object):
 
 
     def commercial_exchange(self, t):
+        
         exchange = self.EX[(self.EX.t == t)][["EX", "z", "zz"]]
         exchange.columns = ["values", "from_zone", "to_zone"]
         exchange = exchange.pivot(values="values", index="from_zone", columns="to_zone")

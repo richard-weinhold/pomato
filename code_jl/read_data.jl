@@ -16,8 +16,8 @@
 
 # Read Excel Data into Data Frame
 # Input: Pre-Processed data from /julia/data/
-# Output: Ordered Dicts of Plants, Node, Heatareas, Lines etc.,
-#         as well as PTDF matrix, potential cbcos and necessary mappings
+# Output: Ordered Dicts of Types as definded in typedefinitions.jl (Plants, Node, Heatareas, Lines etc.)
+
 function read_model_data(data_dir::String)
 println("Reading Model Data from: ", data_dir)
 
@@ -43,46 +43,50 @@ model_type = options["type"]
 
 println("Model Type: ", model_type)
 # Prepare Zones
+# Ordered Dict nessesary for Load Flow Calculation
 zones = OrderedDict{String, Zone}()
 for z in 1:nrow(zones_mat)
     index = zones_mat[z, :index]
-    demand_sum = Dict()
-    net_export_sum = Dict()
-    for t in 1:nrow(demand_el_mat)
-        d_sum = sum(demand_el_mat[t, Symbol(n)] for n in nodes_mat[nodes_mat[:zone] .== index, :index])
-        nex_sum = sum(net_export_mat[t, Symbol(n)] for n in nodes_mat[nodes_mat[:zone] .== index, :index])
-        demand_sum[demand_el_mat[t, :index]] = d_sum
-        net_export_sum[demand_el_mat[t, :index]] = nex_sum
-    end
     nodes = nodes_mat[nodes_mat[:zone] .== index, :index]
     plants = filter(row -> row[:node] in nodes, plants_mat)[:index]
 
-    newz = Zone(index, demand_sum, nodes, plants)
-    newz.net_export = net_export_sum
-    if in(model_type, ["d2cf"])
-        newz.net_position = Dict(zip(net_position_mat[:index],  net_position_mat[Symbol(newz.index)]))
-    end
+    demand_sum = Dict(zip(demand_el_mat[:index],
+                          sum(demand_el_mat[Symbol(n)] for n in nodes)))
 
+    newz = Zone(index, demand_sum, nodes, plants)
+
+    if index in ntc_mat[:zone_i]
+        ntc = filter(row -> row[:zone_i] == index, ntc_mat)
+        newz.ntc = Dict(zip(ntc[:zone_j], ntc[:ntc]))
+        newz.ntc[index] = 0
+    end
+    net_export_sum = Dict(zip(demand_el_mat[:index],
+                          sum(net_export_mat[Symbol(n)] for n in nodes)))
+    newz.net_export = net_export_sum
+
+    if in(model_type, ["d2cf"])
+        newz.net_position = Dict(zip(net_position_mat[:index],  
+                                     net_position_mat[Symbol(index)]))
+    end
     zones[newz.index] = newz
 end
 
-
+# Prepare Nodes
+# Ordered Dict nessesary for Load Flow Calculation
 nodes = OrderedDict{String, Node}()
 for n in 1:nrow(nodes_mat)
     index = nodes_mat[n, :index]
     slack = uppercase(nodes_mat[n, :slack]) == "TRUE"
     name = nodes_mat[n, :name]
     zone = nodes_mat[n, :zone]
-    zone = zones[zone]
     plants = plants_mat[plants_mat[:node] .== index, :index]
-
-    newn = Node(index, zone, slack, name, plants)
-
     demand_time = demand_el_mat[:index]
-    demand_at_node = demand_el_mat[Symbol(newn.index)]
+    demand_at_node = demand_el_mat[Symbol(index)]
     demand_dict = Dict(zip(demand_time, demand_at_node))
-    newn.demand = demand_dict
-
+    newn = Node(index, zone, demand_dict, slack, plants)
+    if slack
+        newn.slack_zone = slack_zones[index]
+    end
     net_export_time = net_export_mat[:index]
     net_export_at_node = net_export_mat[Symbol(newn.index)]
     net_export_dict = Dict(zip(net_export_time, net_export_at_node))
@@ -98,7 +102,8 @@ for h in 1:nrow(heatareas_mat)
     demand_time = demand_h_mat[:index]
     demand_in_ha = demand_h_mat[Symbol(index)]
     demand_dict = Dict(zip(demand_time, demand_in_ha))
-    newh = Heatarea(index, demand_dict)
+    plants = plants_mat[plants_mat[:heatarea] .=== index, :index]
+    newh = Heatarea(index, demand_dict, plants)
     heatareas[newh.index] = newh
 end
 
@@ -106,48 +111,28 @@ end
 plants = Dict{String, Plant}()
 for p in 1:nrow(plants_mat)
     index = string(plants_mat[p, :index])
-    efficiency = plants_mat[p, :eta]
-    g_max = plants_mat[p, :g_max]
-    h_max = plants_mat[p, :h_max]
-    mc = plants_mat[p, :mc]
+    node = plants_mat[p, :node]
+    eta = plants_mat[p, :eta]*1.
+    g_max = plants_mat[p, :g_max]*1.
+    h_max = plants_mat[p, :h_max]*1.
+    mc = plants_mat[p, :mc]*1.
     tech = plants_mat[p, :tech]
-    newp = Plant(index, efficiency, g_max, h_max, tech, mc)
-    try
-        newp.node = nodes[plants_mat[p, :node]]
-    catch
-        println("Warning: Node $(plants_mat[p, :node]) not found in node-list for plant $(newp.index).")
-    end
+    newp = Plant(index, node, mc, eta, g_max, h_max, tech) 
 
-    if !(isa(plants_mat[p, :heatarea], Missing))
-        try
-            newp.heatarea = heatareas[plants_mat[p, :heatarea]]
-            plants_in_ha[newp.heatarea.index][newp.index] = newp
-        catch
-            println("Warning: Heatarea $(heatareas[plants_mat[p, :heatarea]].index)", 
-                    " not found in heatarea list for plant $(newp.index)")
-        end
+    if Symbol(index) in names(availability_mat)
+        newp.availability = Dict(zip(availability_mat[:index], 
+                                     availability_mat[Symbol(index)]))
     end
-    # Cast to string necessary to recast from symbol belwo
     plants[newp.index] = newp
-end
-
-# Prepare Availability
-availabilities = Dict{String, Availability}()
-time_data = availability_mat[:index]
-for p in setdiff(names(availability_mat), [:index])
-    plant = plants[String(p)]
-    avail_dict = Dict(zip(time_data, availability_mat[p]))
-    newa = Availability(plant, avail_dict)
-    availabilities[String(p)] = newa
 end
 
 # Prepare dc_lines
 dc_lines = Dict{String, DC_Line}()
 for l in 1:nrow(dc_lines_mat)
     index = dc_lines_mat[l, :index]
-    node_i = nodes[dc_lines_mat[l, :node_i]]
-    node_j = nodes[dc_lines_mat[l, :node_j]]
-    maxflow = dc_lines_mat[l, :maxflow]
+    node_i = dc_lines_mat[l, :node_i]
+    node_j = dc_lines_mat[l, :node_j]
+    maxflow = dc_lines_mat[l, :maxflow]*1.
     newl = DC_Line(index, node_i, node_j, maxflow)
     dc_lines[newl.index] = newl
 end
@@ -190,7 +175,7 @@ end
 
 println("Data Prepared")
 return model_horizon, options,
-       plants, availabilities,
+       plants,
        nodes, zones, heatareas,
-       grid, dc_lines, slack_zones, ntc
+       grid, dc_lines
 end # end of function

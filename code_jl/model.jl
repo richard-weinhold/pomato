@@ -15,16 +15,12 @@ function build_and_run_model(model_horizon::OrderedDict,
                              options::Dict,
 
                              plants::Dict{String, Plant}, 
-                             availabilities::Dict{String, Availability},
-
                              nodes::OrderedDict{String, Node}, 
                              zones::OrderedDict{String, Zone}, 
                              heatareas::Dict{String, Heatarea},
                              
                              grid::Dict{String, Grid},
                              dc_lines::Dict{String, DC_Line}, 
-                             slack_zones::Dict,
-                             ntc::Dict{Tuple, Number}
                              )
 
 
@@ -72,8 +68,8 @@ for dc in dc_set
         tmp[n] = 0
     end
     dc_incidence[dc] = tmp
-    dc_incidence[dc][dc_lines[dc].node_i.index] =  1
-    dc_incidence[dc][dc_lines[dc].node_j.index] = -1
+    dc_incidence[dc][dc_lines[dc].node_i] =  1
+    dc_incidence[dc][dc_lines[dc].node_j] = -1
 end
 
 # Setup model
@@ -166,34 +162,35 @@ println("Building Constraints")
 # Base Constraint
 # WARNING this formulation requires the availabilty df to be correctly sorted by times
 @constraint(disp, [t=t_set, p=intersect(ts_set, co_set)],
-    G[t, p] <= plants[p].g_max * availabilities[p].value[model_horizon[t]])
+    G[t, p] <= plants[p].g_max * plants[p].availability[model_horizon[t]])
 @constraint(disp, [t=t_set, p=intersect(ts_set, co_set)],
-    G[t, p] >= plants[p].g_max * availabilities[p].value[model_horizon[t]] * 0.8)
+    G[t, p] >= plants[p].g_max * plants[p].availability[model_horizon[t]] * 0.8)
 
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, [t=t_set, p=intersect(ts_set, he_set)],
-    H[t, p] <= plants[p].h_max * availabilities[p].value[model_horizon[t]])
+    H[t, p] <= plants[p].h_max * plants[p].availability[model_horizon[t]])
 @constraint(disp, [t=t_set, p=intersect(ts_set, he_set)],
-    H[t, p] >= plants[p].h_max * availabilities[p].value[model_horizon[t]] * 0.8)
+    H[t, p] >= plants[p].h_max * plants[p].availability[model_horizon[t]] * 0.8)
 
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, [t=t_set, p=d_set],
-    D_d[t, p] <= plants[p].g_max * availabilities[p].value[model_horizon[t]])
+    D_d[t, p] <= plants[p].g_max * plants[p].availability[model_horizon[t]])
 @constraint(disp, [t=t_set, p=d_set],
-    D_d[t, p] >=  plants[p].g_max * availabilities[p].value[model_horizon[t]] * 0.8)
+    D_d[t, p] >=  plants[p].g_max * plants[p].availability[model_horizon[t]] * 0.8)
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, [t=t_set, p=ph_set],
-    D_ph[t, p] == H[t, p] * plants[p].efficiency)
+    D_ph[t, p] == H[t, p] * plants[p].eta)
 
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, [t=t_set, p=es_set],
     L_es[t, p]  == (t>t_start ? L_es[t-1, p] : plants[p].g_max*2)
                    - G[t, p]
-                   + plants[p].efficiency*D_es[t, p])
+                   + plants[p].eta*D_es[t, p])
+
 @constraint(disp, [t=t_set, p=es_set], 
     L_es[t, p] <= plants[p].g_max*8)
 @constraint(disp, [t=t_set, p=es_set],
@@ -204,7 +201,7 @@ println("Building Constraints")
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, [t=t_set, p=hs_set],
-    L_hs[t, p] ==  (t>t_start ? plants[p].efficiency*L_hs[t-1, p] : plants[p].h_max*2)
+    L_hs[t, p] ==  (t>t_start ? plants[p].eta*L_hs[t-1, p] : plants[p].h_max*2)
                    - H[t, p]
                    + D_hs[t, p])
 @constraint(disp, [t=t_set, p=hs_set],
@@ -260,17 +257,17 @@ println("Building Constraints")
 
 # NTC Constraints
 # Applies to: ntc
-if in(model_type, ["ntc"])
-    @constraint(disp, [z=z_set, zz=z_set],
-        EX[t, z, zz] <=  ntc[(z, zz)])
+if in(model_type, ["ntc", "cbco_nodal"])
+    @constraint(disp, [t=t_set, z=z_set, zz=z_set],
+        EX[t, z, zz] <=  zones[z].ntc[zz])
 end
 
- # Slack Constraint
+# Slack Constraint
 # Applies to: ntc, nodal, cbco_nodal, cbco_zonal
 if in(model_type, ["ntc", "nodal", "cbco_nodal", "cbco_zonal", "d2cf"])
     # INJ have to be balanced within a slack_zone
     @constraint(disp, [t=t_set, slack=slack_set],
-        0 == sum(INJ[t, n] for n in slack_zones[slack]))
+        0 == sum(INJ[t, n] for n in nodes[slack].slack_zone))
 end
 
 # Cbco Constraints

@@ -4,7 +4,7 @@
 # Created by Robert Mieth and Richard Weinhold
 # Licensed under LGPL v3
 #
-# Language: Julia, v0.6.2 (required)
+# Language: Julia, v1.1.0 (required)
 # ----------------------------------
 #
 # This file:
@@ -12,11 +12,15 @@
 # -------------------------------------------------------------------------------------------------
 
 mutable struct Grid
+    # Attributes
     index::Any
-    ptdf::Array{Float64}
+    ptdf::Vector{Float64}
     ram::Float64
+    # Optional Attributes
     reference_flow::Dict
-    function Grid(index, ptdf, ram)
+    function Grid(index::Any, 
+                  ptdf::Vector{Float64}, 
+                  ram::Float64)
         z = new()
         z.index = index
         z.ptdf = ptdf
@@ -26,14 +30,19 @@ mutable struct Grid
 end
 
 mutable struct Zone
+    # Attributes
     index::Any
     demand::Dict
-    # ntc_to::Dict
-    nodes::Any
+    nodes::Array
+    plants::Array
+    # Optional Attributes
     net_position::Dict
     net_export::Dict
-    plants::Array
-    function Zone(index, demand, nodes, plants)
+    ntc::Dict
+    function Zone(index::Any, 
+                  demand::Dict, 
+                  nodes::Array, 
+                  plants::Array)
         z = new()
         z.index = index
         z.demand = demand
@@ -44,11 +53,13 @@ mutable struct Zone
 end
 
 mutable struct Heatarea
+    # Attributes
     index::Any
-    name::String
     demand::Dict
     plants::Array
-    function Heatarea(index, demand, plants)
+    function Heatarea(index::Any, 
+                      demand::Dict, 
+                      plants::Array)
         ha = new()
         ha.index = index
         ha.demand = demand
@@ -58,67 +69,76 @@ mutable struct Heatarea
 end
 
 mutable struct Node
+    # Attributes
     index::Any
-    zone::Zone
+    zone::Any
     slack::Bool
-    name::String
     demand::Dict
-    net_export::Dict
     plants::Array
-    function Node(index, zone, slack, name, plants)
+    # Optional Attributes
+    net_export::Dict
+    slack_zone::Array
+    function Node(index::Any, 
+                  zone::Any, 
+                  demand::Dict, 
+                  slack::Bool, 
+                  plants::Array)
         n = new()
         n.index = index
         n.zone = zone
+        n.demand = demand
         n.slack = slack
-        n.name = name
         n.plants = plants
         return n
     end
 end
 
 mutable struct Plant
+    # Attributes
     index::Any
-    efficiency::Float64
+    node::Any
+    mc::Float64
     g_max::Float64
     h_max::Float64
+    eta::Float64
     tech::Any
+    # Optional Attributes
     heatarea::Heatarea
-    mc::Float64
-    node::Node
-    function Plant(index, efficiency, g_max, h_max, tech, mc)
+    availability::Dict
+    function Plant(index::Any, 
+                   node::Any,
+                   mc::Float64,
+                   eta::Float64, 
+                   g_max::Float64, 
+                   h_max::Float64, 
+                   tech::Any)
         p = new()
         p.index = index
-        p.efficiency = efficiency
+        p.node = node
+        p.mc = mc
+        p.eta = eta
         p.g_max = g_max
         p.h_max = h_max
         p.tech = tech
-        p.mc = mc
         return p
     end
 end
 
 mutable struct DC_Line
+    # Attributes
     index::Any
-    node_i::Node
-    node_j::Node
+    node_i::Any
+    node_j::Any
     maxflow::Float64
-    function DC_Line(index, node_i, node_j, maxflow)
+    function DC_Line(index::Any, 
+                     node_i::Any, 
+                     node_j::Any, 
+                     maxflow::Float64)
         l = new()
         l.index = index
         l.node_i = node_i
         l.node_j = node_j
         l.maxflow = maxflow
         return l
-    end
-end
-
-mutable struct Availability
-    plant::Plant
-    value::Dict
-    function Availability(plant, value)
-        a = new()
-        a.plant = plant
-        a.value = value
-        return a
     end
 end

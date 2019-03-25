@@ -41,16 +41,15 @@ include("setdefinitions.jl")
 
 data_dir = WDIR*"/data_temp/julia_files"*data_dir
 model_horizon, options,
-plants, availabilities,
+plants,
 nodes, zones, heatareas,
-grid, dc_lines, slack_zones, ntc = read_model_data(data_dir)
+grid, dc_lines = read_model_data(data_dir)
 
 
 # Run Dispatch Model
 out = build_and_run_model(model_horizon, options,
-                          plants, availabilities,
+                          plants,
                           nodes, zones, heatareas,
-                          grid, dc_lines, slack_zones, ntc)
-
+                          grid, dc_lines)
 
 println("DONE")
