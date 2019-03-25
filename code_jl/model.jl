@@ -257,7 +257,7 @@ println("Building Constraints")
 
 # NTC Constraints
 # Applies to: ntc
-if in(model_type, ["ntc", "cbco_nodal"])
+if in(model_type, ["ntc"])
     @constraint(disp, [t=t_set, z=z_set, zz=z_set],
         EX[t, z, zz] <=  zones[z].ntc[zz])
 end

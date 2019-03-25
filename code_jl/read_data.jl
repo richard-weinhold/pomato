@@ -55,7 +55,7 @@ for z in 1:nrow(zones_mat)
 
     newz = Zone(index, demand_sum, nodes, plants)
 
-    if index in ntc_mat[:zone_i]
+    if (size(ntc_mat, 2) > 1)
         ntc = filter(row -> row[:zone_i] == index, ntc_mat)
         newz.ntc = Dict(zip(ntc[:zone_j], ntc[:ntc]))
         newz.ntc[index] = 0
