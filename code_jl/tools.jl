@@ -46,17 +46,6 @@ function write_to_csv(dir::String, fname::String, df::DataFrame; time_stamp=fals
     end
 end
 
-function progress(t, max_t)
-    max_bars = 35
-    r = t/max_t
-    n = Int(floor(r*35))
-    p = Int(floor(r*100))
-    bar = repeat("=", n)
-    res = repeat(" ", max_bars - n)
-    out = "[" * bar * res * "] " * string(p) * "%"
-    (t == max_t ? print("\r" * out * "\n") : print("\r" * out))
-    flush(STDOUT)
-end
 
 function jump_to_df(m::JuMP.Model,
  				    jump_ref::Symbol,

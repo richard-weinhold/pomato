@@ -273,10 +273,8 @@ end
 # Cbco Constraints
 # Applies to: cbco_nodal, nodal
 if in(model_type, ["cbco_nodal", "nodal"])
-    @constraint(disp, [t=t_set, cb=cb_set],
-        sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set)) <= grid[cb].ram ) #+ INFEAS_LINES[t, cb])
-    @constraint(disp, [t=t_set, cb=cb_set],
-        sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set)) >= -(grid[cb].ram)) #+ INFEAS_LINES[t, cb]))
+    @constraint(disp, [t=t_set, cb=cb_set], grid[cb].ptdf' * INJ[t, :] <= grid[cb].ram) #+ INFEAS_LINES[t, cb])
+    @constraint(disp, [t=t_set, cb=cb_set], grid[cb].ptdf' * INJ[t, :] >= -grid[cb].ram) #+ INFEAS_LINES[t, cb])
 end
 
 # Applies to: cbco_zonal

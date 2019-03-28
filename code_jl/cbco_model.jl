@@ -6,11 +6,12 @@ const MOI = JuMP.MathOptInterface
 
 global suppress_csv_write = Dict("backup" => true,
 								 "final" => false)
-global debug = true
+
+global_logger(ConsoleLogger(stdout, Logging.Info))
 
 if length(ARGS) == 0
     global wdir = pwd()
-	println("No arguments passed or not running in repl, initializing in pwd(): ", wdir)
+	@info("No arguments passed or not running in repl, initializing in pwd(): ", wdir)
 end
 
 function is_redundant(model::JuMP.Model, constraint::Vector{Float64}, rhs::Float64)
@@ -30,8 +31,8 @@ function is_redundant(model::JuMP.Model, constraint::Vector{Float64}, rhs::Float
 end
 
 function build_model(n::Int, A::Array{Float64}, b::Vector{Float64})
-	model = Model(with_optimizer(GLPK.Optimizer))
-	# model = Model(with_optimizer(Gurobi.Optimizer, OutputFlag=0)) #, Presolve=0)) #, Method=2))
+	# model = Model(with_optimizer(GLPK.Optimizer))
+	model = Model(with_optimizer(Gurobi.Optimizer, OutputFlag=0)) #, Presolve=0)) #, Method=2))
 	@variable(model, x[i=1:n])
 	@constraint(model, A * x .<= b)
 	return model
@@ -57,9 +58,7 @@ function RayShoot(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 		temp = A[m,:]*point - b[m]
 		# If 1 constraint is hit, return it
 		if size(findall(x-> x>0, temp), 1) == 1
-			if debug
-				println("Constraint hit: $(m[findall(x->x>0, temp)]) With i = $i")
-			end
+			@debug("Constraint hit: $(m[findall(x->x>0, temp)]) With i = $i")
 			return m[findfirst(x->x>0, temp)]
 		# If more than one constraint is hit:
 		# 1) Check for breaking condition:
@@ -74,10 +73,8 @@ function RayShoot(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 		elseif size(findall(x-> x>0, temp))[1] > 1
 			# Check breaking condition
 			if counter > 12
-				if debug
-					println("Counter > 10, returning first of the constraints hit!")
-					println("Constraints hit: $(m[findall(x->x>0, temp)]) With i = $i")
-				end
+				@debug("Counter > 10, returning first of the constraints hit!")
+				@debug("Constraints hit: $(m[findall(x->x>0, temp)]) With i = $i")
 				return m[findfirst(x->x>0, temp)]
 				# return m[findall(x->x>0, temp)]
 			else
@@ -96,8 +93,8 @@ end
 function main(A::Array{Float64}, b::Vector{Float64},
 			  m::Vector{Int}, I::Vector{Int}, z::Vector{Float64})
 
-	println("Starting Algorithm with I of size: $(length(I))")
-	println("and with m of size: $(length(m))")
+	@info("Starting Algorithm with I of size: $(length(I))")
+	@info("and with m of size: $(length(m))")
 	# Set-up
 	# Make counter to print out progress and make backups
 	# every number of steps
@@ -114,17 +111,13 @@ function main(A::Array{Float64}, b::Vector{Float64},
 	# Start Algorithm
 	while true
 		k = m[1]
-		if debug 
-			println("checking constraint k = $k")
-		end
+		@debug("checking constraint k = $k")
 		# Check redundancy of constraint k
 		alpha, x_opt = is_redundant(model, A[k,:], b[k])
 		if alpha
 			# If true, rayshoot and add constraint j to the model
 			j = RayShoot(A, b, m, z, x_opt-z)
-			if debug
-				println("k = $k and j = $j")
-			end
+			@debug("k = $k and j = $j")
 			model = add_constraint(model, A[j,:], b[j])
 			m = setdiff(m, j)
 			I = union(I, j)
@@ -134,9 +127,10 @@ function main(A::Array{Float64}, b::Vector{Float64},
 		end
 		# print progress and make backups of I, to allow for restart incase of crash :(
 		if length(m) in save_points
-			percentage = string(Int(100 - 100/steps*findfirst(x -> x==length(m), save_points)))
-			println("########## ------> "*percentage*"% done!")
-			save_to_file(I, "backups/cbco_01_backup_"*percentage, suppress_csv_write["backup"])
+			percentage = Int(100 - 100/steps*findfirst(x -> x==length(m), save_points))
+			progress_bar = repeat("#", Int(round(percentage/5)))*repeat(" ", Int(round((100-percentage)/5)))
+			@info(progress_bar*string(percentage)*"% done!")
+			save_to_file(I, "backups/cbco_backup_"*string(percentage), suppress_csv_write["backup"])
 		end
 		if length(m) == 0
 			break
@@ -148,20 +142,18 @@ end
 function save_to_file(Indices, filename::String, suppress_write::Bool=false)
 	# I_result.-1: Indices start at 0 (in python.... or any other decent programming language)
 	if !suppress_write
-		println("Writing File ", filename, " .... ")
+		@info("Writing File "*filename*" .... ")
 		CSV.write(wdir*"/data_temp/julia_files/cbco_data/"*filename*".csv",
 		  	 	  DataFrame(constraints = Indices.-1))
-		println("done! ")
+		@info("done! ")
 	else
-		if debug
-			println("No File Written bc of debug parameter in Line 8")
-		end
+		@debug("No File Written bc of debug parameter in Line 8")
 	end
 end
 
 function read_data(file_suffix::String)
 	# Read Data From CSV Files
-	println("Reading A, b Matrices...")
+	@info("Reading A, b Matrices...")
 	A_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/A_"*file_suffix*".csv", 
 					  delim=',', header=false)
 	b_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/b_"*file_suffix*".csv", 
@@ -191,15 +183,15 @@ function run(file_suffix::String)
 	index_base = collect(range(length(b), stop=length(b) + length(b_base)))
 	A = vcat(A, A_base) 
 	b = vcat(b, b_base)
-	println("Preprocessing...")
-	println("Removing duplicate rows...")
+	@info("Preprocessing...")
+	@info("Removing duplicate rows...")
 	# Remove douplicates
 	condition_unique = .!nonunique(DataFrame(hcat(A,b)))
-	println("Removing all zero rows...")
+	@info("Removing all zero rows...")
 	# Remove cb = co rows
 	condition_zero = vcat([!all(A[i, :] .== 0) for i in 1:length(b)])
 	m = m[condition_unique .& condition_zero]
-	println("Removed $(length(b) + length(b_base) - length(m)) rows in preprocessing!")
+	@info("Removed $(length(b) + length(b_base) - length(m)) rows in preprocessing!")
 	z = zeros(size(A, 2))
 	
 	I = index_base
@@ -207,7 +199,7 @@ function run(file_suffix::String)
 	I_full = main(A, b, m, I, z)
 	I_result = [cbco for cbco in I_full if cbco in index_loadflow]
 
-	println("Number of non-redundant constraints: $(length(I_result))" )
+	@info("Number of non-redundant constraints: $(length(I_result))" )
 	save_to_file(I_result, "cbco_"*file_suffix*"_"*Dates.format(now(), "ddmm_HHMM"), 
 		         suppress_csv_write["final"])
 end
@@ -222,11 +214,11 @@ function run_with_I(file_suffix::String, I_file::String, start_index::Int=1)
   	else
   		I = Array{Int, 1}()
   	end
-	println("Preprocessing...")
-	println("Removing duplicate rows...")
+	@info("Preprocessing...")
+	@info("Removing duplicate rows...")
 	# Remove douplicates
 	condition_unique = .!nonunique(DataFrame(hcat(A,b)))
-	println("Removing all zero rows...")
+	@info("Removing all zero rows...")
 	# Remove cb = co rows
 	condition_zero = vcat([!all(A[i, :] .== 0) for i in 1:length(b)])
 
@@ -234,14 +226,14 @@ function run_with_I(file_suffix::String, I_file::String, start_index::Int=1)
 	m = m[condition_unique .& condition_zero]
 	m = filter(x -> x >= start_index, m)
 
-	println("Removed $(length(b) - length(m)) rows in preprocessing!")
+	@info("Removed $(length(b) - length(m)) rows in preprocessing!")
 	m = setdiff(m, I)
 
 	z = zeros(size(A, 2))
 
 	I_result = @time main(A, b, m, I, z)
 
-	println("Number of non-redundant constraints: $(length(I_result))")
+	@info("Number of non-redundant constraints: $(length(I_result))")
 	save_to_file(I_result, "cbco_I_"*file_suffix*"_"*Dates.format(now(), "ddmm_HHMM"), 
 				 suppress_csv_write["final"])
 end
@@ -250,6 +242,6 @@ end
 if length(ARGS) > 0
 	file_suffix = ARGS[1]
 	global wdir = ARGS[2]
-	global debug = false
+	global_logger(ConsoleLogger(stdout, Logging.Info))
     @time run(file_suffix)
 end
