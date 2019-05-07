@@ -11,42 +11,6 @@
 # Auxiliary functions for data pre- and postprocessing
 # -------------------------------------------------------------------------------------------------
 
-function indexdf_to_indexdict(df::DataFrame, indexcol::Symbol)
-    out_dict = Dict()
-    for row in 1:nrow(df)
-        tmp = Dict()
-        for col in names(df)
-            tmp[col] = df[row, col]
-            println
-        end
-        out_dict[df[row, indexcol]] = deepcopy(tmp)
-    end
-    return out_dict
-end
-
-function write_to_csv(dir::String, fname::String, df::DataFrame; time_stamp=false)
-
-    if isdir(dir) == false
-        mkdir(dir)
-    end
-    if time_stamp
-        rn = now()
-        fname = "$fname$(rn)"
-        fname = replace(fname, ":", "-")
-    end
-
-    if !contains(fname, ".csv")
-        fname = "$fname.csv"
-    end
-
-    try
-        writetable("$dir/$fname", df)
-    catch
-        warn("Can't overwrite $fname. Check if the file is opened, if so close it.")
-    end
-end
-
-
 function jump_to_df(m::JuMP.Model,
  				    jump_ref::Symbol,
 				    dim_names::Array{Symbol, 1},

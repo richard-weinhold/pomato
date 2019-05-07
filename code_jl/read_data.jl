@@ -4,19 +4,18 @@
 # Created by Robert Mieth and Richard Weinhold
 # Licensed under LGPL v3
 #
-# Language: Julia, v0.6.2 (required)
+# Language: Julia, v1.1. (required)
 # ----------------------------------
 #
 # This file:
 # POMATO optimization kernel
 # Called by julia_interface.py, reads pre-processed data from /julia/data/
 # Output: Optimization results saved in /julia/results/
-# -------------------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------
 
-
-# Read Excel Data into Data Frame
+# Read Data into Data Frame
 # Input: Pre-Processed data from /julia/data/
-# Output: Ordered Dicts of Types as definded in typedefinitions.jl (Plants, Node, Heatareas, Lines etc.)
+# Output: Ordered Dicts of Types as definded in typedefinitions.jl (Plants, Node, Heatareas, Grid etc.)
 
 function read_model_data(data_dir::String)
 println("Reading Model Data from: ", data_dir)
@@ -37,7 +36,8 @@ reference_flows_mat = CSV.read(data_dir*"reference_flows.csv");
 
 grid_mat = CSV.read(data_dir*"cbco.csv")
 
-slack_zones = JSON.parsefile(data_dir*"slack_zones.json"; dicttype=Dict)
+# slack_zones = JSON.parsefile(data_dir*"slack_zones.json"; dicttype=Dict)
+slack_zones = CSV.read(data_dir*"slack_zones.csv")
 options = JSON.parsefile(data_dir*"options.json"; dicttype=Dict)
 model_type = options["type"]
 
@@ -85,7 +85,8 @@ for n in 1:nrow(nodes_mat)
     demand_dict = Dict(zip(demand_time, demand_at_node))
     newn = Node(index, zone, demand_dict, slack, plants)
     if slack
-        newn.slack_zone = slack_zones[index]
+        # newn.slack_zone = slack_zones[index]
+        newn.slack_zone = slack_zones[:index][slack_zones[Symbol(index)] .== 1]
     end
     net_export_time = net_export_mat[:index]
     net_export_at_node = net_export_mat[Symbol(newn.index)]
@@ -135,17 +136,6 @@ for l in 1:nrow(dc_lines_mat)
     maxflow = dc_lines_mat[l, :maxflow]*1.
     newl = DC_Line(index, node_i, node_j, maxflow)
     dc_lines[newl.index] = newl
-end
-
-# Build NTC Matrix
-ntc = Dict{Tuple, Number}()
-for n in 1:nrow(ntc_mat)
-    i = ntc_mat[n, :zone_i]
-    j = ntc_mat[n, :zone_j]
-    ntc[(i, j)] = ntc_mat[n, :ntc]
-end
-for z in collect(keys(zones))
-    ntc[(z, z)] = 0
 end
 
 # Prepare Grid Representation

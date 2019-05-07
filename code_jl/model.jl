@@ -20,9 +20,15 @@ function build_and_run_model(model_horizon::OrderedDict,
                              heatareas::Dict{String, Heatarea},
                              
                              grid::Dict{String, Grid},
-                             dc_lines::Dict{String, DC_Line}, 
+                             dc_lines::Dict{String, DC_Line}
                              )
 
+
+result_folder = WDIR*"/data_temp/julia_files/results/"*Dates.format(now(), "dmm_HHMM")
+if !isdir(result_folder)
+    println("Creating Results Folder")
+    mkdir(result_folder)
+end
 
 # Check for feasible model_type
 model_type = options["type"]
@@ -76,7 +82,7 @@ end
 # disp = Model(solver=ClpSolver(SolveType=5))
 # disp = Model(solver=GurobiSolver(Presolve=2, PreDual=2, Threads=8))
 # disp = Model(solver=GurobiSolver(Method=0,Threads=1))
-disp = Model(with_optimizer(Gurobi.Optimizer)) #, Presolve=0)) #, Method=2))
+disp = Model(with_optimizer(Gurobi.Optimizer, Method=1, LogFile=result_folder*"/log.txt")) #, Presolve=0)) #))
 
 # Variables
 @variable(disp, G[t_set, p_set] >= 0) # El. power generation per plant p
@@ -107,13 +113,6 @@ else
     @variable(disp, INFEAS_EL_N_NEG[t_set, n_set] == 0)
     @variable(disp, INFEAS_EL_N_POS[t_set, n_set] == 0)
 end
-if options["infeas_el_zonal"]
-    @variable(disp, 0 <= INFEAS_EL_Z_NEG[t_set, z_set] <= options["infeasibility_bound"])
-    @variable(disp, 0 <= INFEAS_EL_Z_POS[t_set, z_set] <= options["infeasibility_bound"])
-else
-    @variable(disp, INFEAS_EL_Z_NEG[t_set, z_set] == 0)
-    @variable(disp, INFEAS_EL_Z_POS[t_set, z_set] == 0)
-end
 
 if options["infeas_lines"]
     @variable(disp, 0 <= INFEAS_LINES[t_set, cb_set] <= options["infeasibility_bound"])
@@ -127,15 +126,8 @@ else
     @variable(disp, INFEAS_REF_FLOW[t_set, cb_set] == 0)
 end
 
-## Make Constraint references to get the duals after solve
-# @constraintref EB_nodal[t_set, n_set]
-# JuMP.registercon(disp, :EB_nodal, EB_nodal)
-# @constraintref EB_zonal[t_set, z_set]
-# JuMP.registercon(disp, :EB_zonal, EB_zonal)
-
 @objective(disp, Min, sum(sum(G[t, p]*plants[p].mc for p in p_set) for t in t_set)
                       + sum(sum(H[t, p]*plants[p].mc for p in p_set) for t in t_set)
-                      + (sum(INFEAS_EL_Z_POS) + sum(INFEAS_EL_Z_NEG))*1e4
                       + (sum(INFEAS_EL_N_POS) + sum(INFEAS_EL_N_NEG))*1e2
                       + (sum(INFEAS_H_NEG) + sum(INFEAS_H_POS))*1e3
                       + (sum(INFEAS_LINES)*1e3)
@@ -195,6 +187,7 @@ println("Building Constraints")
     L_es[t, p] <= plants[p].g_max*8)
 @constraint(disp, [t=t_set, p=es_set],
     D_es[t, p] <= plants[p].g_max)
+
 @constraint(disp, [p=es_set],
     L_es[t_end, p] >= 2*plants[p].g_max)
 
@@ -230,7 +223,6 @@ println("Building Constraints")
     - sum(EX[t, z, zz] for zz in z_set)
     + sum(EX[t, zz, z] for zz in z_set)
     + sum(INFEAS_EL_N_POS[t, n] - INFEAS_EL_N_NEG[t, n] for n in zones[z].nodes)
-    # + INFEAS_EL_Z_POS[t, z] - INFEAS_EL_Z_NEG[t, z]
     )
 
 # Nodal Energy Balance
@@ -320,41 +312,33 @@ end
 
 println("Solving...")
 t_start = time_ns()
-JuMP.optimize!(disp)
+@time JuMP.optimize!(disp)
 println("Objective: $(JuMP.objective_value(disp))")
 t_elapsed = time_ns() - t_start
 println("Solvetime: $(round(t_elapsed*1e-9, digits=2)) seconds")
 
-
-result_folder = WDIR*"/data_temp/julia_files/results/"*Dates.format(now(), "dmm_HHMM")
-if !isdir(result_folder)
-    println("Creating Results Folder: ", result_folder)
-    mkdir(result_folder)
-end
-
 results_parameter = [[:G, [:t, :p], false],
-					 [:H, [:t, :p], false],
-					 [:D_es, [:t, :p], false],
-					 [:D_hs, [:t, :p], false],
-					 [:D_ph, [:t, :p], false],
-					 [:D_d, [:t, :p], false],
-					 [:L_es, [:t, :p], false],
-					 [:L_hs, [:t, :p], false],
-					 [:EX, [:t, :z, :zz], false],
-					 [:INJ, [:t, :n], false],
-					 [:F_DC, [:t, :dc], false],
-					 [:INFEAS_H_NEG, [:t, :ha], false],
-					 [:INFEAS_H_POS, [:t, :ha], false],
-					 [:INFEAS_EL_N_NEG, [:t, :n], false],
-					 [:INFEAS_EL_N_POS, [:t, :n], false],
-					 [:INFEAS_EL_Z_NEG, [:t, :z], false],
-					 [:INFEAS_EL_Z_POS, [:t, :z], false],
-					 [:INFEAS_LINES, [:t, :cb], false],
-					 [:INFEAS_REF_FLOW, [:t, :cb], false],
-					 [:EB_nodal, [:t, :n], true],
-					 [:EB_zonal, [:t, :z], true],
-					]
+                     [:H, [:t, :p], false],
+                     [:D_es, [:t, :p], false],
+                     [:D_hs, [:t, :p], false],
+                     [:D_ph, [:t, :p], false],
+                     [:D_d, [:t, :p], false],
+                     [:L_es, [:t, :p], false],
+                     [:L_hs, [:t, :p], false],
+                     [:EX, [:t, :z, :zz], false],
+                     [:INJ, [:t, :n], false],
+                     [:F_DC, [:t, :dc], false],
+                     [:INFEAS_H_NEG, [:t, :ha], false],
+                     [:INFEAS_H_POS, [:t, :ha], false],
+                     [:INFEAS_EL_N_NEG, [:t, :n], false],
+                     [:INFEAS_EL_N_POS, [:t, :n], false],
+                     [:INFEAS_LINES, [:t, :cb], false],
+                     [:INFEAS_REF_FLOW, [:t, :cb], false],
+                     [:EB_nodal, [:t, :n], true],
+                     [:EB_zonal, [:t, :z], true],
+					          ] 
 
+println("Saving results to results folder: ", result_folder)
 for par in results_parameter
 	jump_to_df(disp, par[1], par[2], par[3], result_folder)
 end

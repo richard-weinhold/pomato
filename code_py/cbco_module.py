@@ -182,8 +182,9 @@ class CBCOModule(object):
             label_lines.extend([line for i in range(0, len(outages))])
             label_outages.extend(outages)
 
-        # estimate size of array = nr_elements * bits per element (float64) / (8 * 1e6) MB
-        estimate_size = len(label_lines)*(len(self.grid.nodes.index) + 1)*64/(8*1e6)
+        # estimate size of array = nr_elements * bytes per element (float64 + sep = 8 + 1) / (1024**2) MB
+        estimate_size = len(label_lines)*len(self.grid.nodes.index)*(8 + 1)/(1024*1024)
+
         self.logger.info(f"Estimated size in RAM for A is: {estimate_size} MB")
         if estimate_size > 5000:
             raise
@@ -342,7 +343,6 @@ class CBCOModule(object):
             self.logger.exception('error:reduce_ptdf')
 
     def return_cbco(self):
-
         """returns cbco dataframe with A and b"""
         return_df = self.cbco_info.iloc[self.cbco_index].copy()
         return_df.loc[:, "index"] = return_df.cb + "_" + return_df.co

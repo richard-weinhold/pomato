@@ -7,12 +7,18 @@
         "infeas_el_zonal": true,
         "infeas_lines": false,
         "infeas_lines_ref": false,
-        "infeasibility_bound": 20
+        "infeasibility_bound": 20,
+        "plant_types": {
+            "es": ["psp", "reservoir"],
+            "hs": ["storage"],
+            "ts": ["wind onshore", "wind offshore", "solar", "solarheat", "iheat"],
+            "ph": ["heatpump", "elheat"]
+        }
     },
     "grid": {
         "capacity_multiplier": 0.95,
         "reference_flows": false,
-        "precalc_filename": "",
+        "precalc_filename": "cbco_IEEE_base_0304_1115",
         "senstitivity": 5e-2,
         "cbco_option": "clarkson_base",
         "preprocess": true

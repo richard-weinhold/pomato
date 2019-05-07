@@ -7,23 +7,12 @@ import logging
 
 class InputProcessing(object):
     """Data Woker Class"""
-    def __init__(self, data, set_up=None):
+    def __init__(self, data, options):
         self.logger = logging.getLogger('Log.MarketModel.DataManagement.InputData')
         self.data = data
 
-        if not set_up:
-            self.logger.info("Using default data processing set-up")
-
-            self.set_up = {"unique_mc": True,
-                           "round_demand": True,
-                           "default_efficiency": 0.5,
-                           "default_mc": 200,
-                           "co2_price": 20,
-                           "all_lines_cb": False,
-                           "d2cf_data": False
-                           }
-        else:
-            self.set_up = set_up
+        
+        self.options = options
         self.logger.info("Processing Input Data...")
 
         if self.data.data_attributes["source"] == "mpc_casefile":
@@ -37,16 +26,16 @@ class InputProcessing(object):
         self.process_availability()
         self.process_net_export()
 
-        if self.set_up["unique_mc"]:
+        if self.options["data"]["unique_mc"]:
             self.unique_mc()
 
-        if self.set_up["d2cf_data"]:
+        if self.options["data"]["d2cf_data"]:
             self.process_d2cf_data()
 
         if not self.data.data_attributes["data"]["dclines"]:
             self.data.dclines = pd.DataFrame(columns=['node_i', 'node_j', 'name_i', 'name_j', 'maxflow'])
 
-        if self.set_up["all_lines_cb"]:
+        if self.options["data"]["all_lines_cb"]:
             self.data.lines.cb = True
 
         self._check_data()
@@ -94,7 +83,7 @@ class InputProcessing(object):
 
         self.data.availability = pd.DataFrame(index=self.data.demand_el.index)
         """Calculate the availability for generation that relies on timeseries"""
-        ts_tech = ["wind onshore", "wind offshore", "solar", "solarheat", "iheat"]
+        ts_tech = self.options["optimization"]["plant_types"]["ts"]
         for elm in self.data.plants.index[self.data.plants.tech.isin(ts_tech)]:
             ts_zone = self.data.timeseries.zone == self.data.nodes.zone[self.data.plants.node[elm]]
             self.data.availability[elm] = self.data.timeseries[self.data.plants.tech[elm]][ts_zone].values
@@ -106,11 +95,11 @@ class InputProcessing(object):
                        how='left', on=['tech', 'fuel']).set_index(tmp.index)
         self.data.plants.loc[self.data.plants.eta.isnull(), "eta"] = tmp.eta
         ## If there are still data.plants without efficiency
-        self.data.plants.loc[self.data.plants.eta.isnull(), "eta"] = self.set_up["default_efficiency"]
+        self.data.plants.loc[self.data.plants.eta.isnull(), "eta"] = self.options["data"]["default_efficiency"]
 
     def marginal_costs(self):
         """Calculate the marginal costs for plants that don't have it manually set"""
-        co2_price = self.set_up["co2_price"]
+        co2_price = self.options["data"]["co2_price"]
         self.data.plants["mc"] = np.nan
         tmp_plants = self.data.plants[['mc', 'fuel', 'tech', 'eta']][self.data.plants.mc.isnull()]
         tmp_costs = pd.merge(self.data.fuel[["fuel", "fuel_price", "co2"]],
@@ -123,7 +112,7 @@ class InputProcessing(object):
         self.data.plants.loc[self.data.plants.mc.isnull(), "mc"] = tmp_plants.mc.values
 
         if len(self.data.plants.mc[self.data.plants.mc.isnull()]) > 0:
-            default_value = self.set_up["default_mc"]
+            default_value = self.options["data"]["default_mc"]
             self.data.logger.info(f"Number of Plants without marginal costs: \
                                   {len(self.data.plants.mc[self.data.plants.mc.isnull()])} \
                                   -> set to: {default_value}")

@@ -11,13 +11,14 @@
 # Define Data-Subsets based on general properties of the data
 # -------------------------------------------------------------------------------------------------
 
-
 # Power-to-heat plants
 PH_TECH = ["heatpump", "elheat"]
 # Plants that use time-series for capacity of p
 TS_TECH = ["wind onshore", "wind offshore", "solar", "solarheat", "iheat"]
 # El storgae technologies 
 EL_STORAGE_TECH = ["psp", "reservoir"]
+# Heat storgae technologies 
+HE_STORAGE_TECH = ["storage"]
 #Conventional Plants
 function get_co(plants::Dict)
     set = []
@@ -66,7 +67,7 @@ end
 function get_hs(plants::Dict)
     set = []
     for p in keys(plants)
-         if (plants[p].tech == "storage") & (plants[p].h_max > 0)
+         if in(plants[p].tech, HE_STORAGE_TECH) & (plants[p].h_max > 0)
             push!(set, plants[p].index)
         end
     end

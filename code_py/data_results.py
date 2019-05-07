@@ -172,7 +172,6 @@ class ResultProcessing(object):
     ######
     # Grid Analytics
     # - Load Flows
-
     def n_0_flow(self, timesteps=None):
 
         if not timesteps:

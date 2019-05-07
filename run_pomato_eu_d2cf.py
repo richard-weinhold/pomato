@@ -28,7 +28,7 @@ a = mato.data.availability
 mato.create_grid_representation()
 gr = mato.grid_representation["cbco"]
 
-8*3600 + 53*60
+#8*3600 + 53*60
 
 #len(mato.grid.lines) + len(mato.grid.lines)*len(mato.grid.lines[mato.grid.lines.contingency])
 #lodf_graph = {}

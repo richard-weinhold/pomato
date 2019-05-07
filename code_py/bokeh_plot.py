@@ -17,13 +17,14 @@ from bokeh.models.widgets import RadioButtonGroup, Slider
 
 
 wdir = Path(sys.argv[1])
+# wdir = Path("C:\\Users\\riw\\tubCloud\\Uni\\Market_Tool\\pomato\\data_temp\\bokeh_files")
+
 STAMEN_LITE = WMTSTileSource(
-    url='http://tile.stamen.com/toner-lite/{Z}/{X}/{Y}.png',
+    url='http://tile.stamen.com/toner-background/{Z}/{X}/{Y}.png',
+    # url='http://tile.stamen.com/terrain-lines/{Z}/{X}/{Y}.png',
+    # url='https://maps.wikimedia.org/osm-intl/{Z}/{X}/{Y}@2x.png',
     attribution=(
-        'Map tiles by <a href="http://stamen.com">Stamen Design</a>, '
-        'under <a href="http://creativecommons.org/licenses/by/3.0">CC BY 3.0</a>.'
-        'Data by <a href="http://openstreetmap.org">OpenStreetMap</a>, '
-        'under <a href="http://www.openstreetmap.org/copyright">ODbL</a>'
+        'Probably cc'
     ))
 
 def init_market_data(market_db):
@@ -114,7 +115,7 @@ def update_line_colors(option=0, FROM=0, TO=100):
 
     if option == 0:
         n_0_flows = source_n_0_flows_data.to_df()
-        n_0_flows["alpha"] = 0.2
+        n_0_flows["alpha"] = 0.4
         n_0_flows["color"] = palettes.RdYlGn[10][0]
         for i, r in enumerate(STEPS):
             n_0_flows.loc[abs(n_0_flows[t])/lines.maxflow > r/100, "color"] = palettes.RdYlGn[10][i]
@@ -123,7 +124,7 @@ def update_line_colors(option=0, FROM=0, TO=100):
 
     elif option == 1:
         n_1_flows = source_n_1_flows_data.to_df()
-        n_1_flows["alpha"] = 0.2
+        n_1_flows["alpha"] = 0.4
         n_1_flows["color"] = palettes.RdYlGn[10][0]
         for i, r in enumerate(STEPS):
             n_1_flows.loc[abs(n_1_flows[t]/lines.maxflow) > r/100, "color"] = palettes.RdYlGn[10][i]
@@ -256,18 +257,16 @@ def update_lodf_color(attrname, old, new):
         sel_line = source_lines.data["line"][idx]
         max_perc = 10e-2
         min_perc = 1e-2
-        tmp = lodf.loc[sel_line].abs()
+        tmp = lodf.loc[sel_line].abs() * lines.maxflow / lines.loc[sel_line].maxflow
         tmp[tmp<min_perc] = min_perc
         tmp[tmp>max_perc] = max_perc
         colors = [color[int((x - min_perc)*11/(max_perc - min_perc))] for x in  tmp]
         colors[idx] = "blue"
 
-        print(colors)
-
         line_alpha = [0.3 if c == "#bababa" else 0.8 for c in colors]
 
         source_line_legend.data = create_line_legend(min_perc, max_perc)
-        legend_lines.title.text = "Load outage sensitivity towards selected line in %"
+        legend_lines.title.text = "Sensitivity towards selected line in %"
         legend_lines.x_range.start, legend_lines.x_range.end = min_perc, max_perc*1.005
     else:
         colors, line_alpha = update_line_colors(option=flow_type_botton.active)

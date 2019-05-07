@@ -52,27 +52,27 @@ class DataManagement(object):
             # Results are part of the results processing
             self.results = None
 
-    def load_data(self, wdir, filepath, set_up=None):
+    def load_data(self, wdir, filepath, options):
         ### PATH ARETMETICS INCOMING
         self.wdir = wdir
         ### Make sure wdir/file_path or wdir/data/file_path is a file
         if self.wdir.joinpath(filepath).is_file():
             DataWorker(self, self.wdir.joinpath(filepath))
-            self.process_input(set_up=set_up)
+            self.process_input(options)
             
 
         elif self.wdir.joinpath(f"data_input/{filepath}").is_file():
             DataWorker(self, self.wdir.joinpath(f"data/{filepath}"))
-            self.process_input(set_up=set_up)
+            self.process_input(options)
             
         elif self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat").is_file():
             DataWorker(self, self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat"))
-            self.process_input(set_up=set_up)
+            self.process_input(options)
         else:
             self.logger.error("Data File not found!")
 
-    def process_input(self, set_up=None):
-        InputProcessing(self, set_up)
+    def process_input(self, options=None):
+        InputProcessing(self, options)
 
     def process_results(self, opt_folder, opt_setup, grid=None):
         self.results = ResultProcessing(self, opt_folder, opt_setup, grid=grid)

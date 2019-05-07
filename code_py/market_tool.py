@@ -75,7 +75,7 @@ class MarketTool(object):
 
     def load_data(self, filename):
         """init Data Model with loading the fata from file"""
-        self.data.load_data(self.wdir, filename, set_up=self.options["data"])
+        self.data.load_data(self.wdir, filename, self.options)
 
         if self.grid.is_empty:
             self.grid.build_grid_model(self.data.nodes, self.data.lines)

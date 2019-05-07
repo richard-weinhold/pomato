@@ -14,9 +14,6 @@ def _mpc_data_pu_to_real(lines,  base_kv, base_mva):
 	lines['x'] = np.multiply(lines['x'], z_base)
 	lines['b_other'] = np.divide(lines['b_other'], z_base)
 	lines['b'] = np.divide(1, lines['x'])
-	# Some numerical correction
-	# lines['b'] = np.multiply(lines['b'], 1)
-	# lines['maxflow'] = np.ones(len(lines['idx']))*600
 	return lines
 
 class DataWorker(object):
@@ -26,7 +23,7 @@ class DataWorker(object):
 		self.data = data
 
 		if ".xls" in str(file_path):
-			self.logger.info("Loading data from xls file")
+			self.logger.info("Loading data from Excel file")
 			print(file_path)
 			self.read_xls(file_path)
 

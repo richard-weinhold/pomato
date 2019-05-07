@@ -43,24 +43,6 @@ class JuliaInterface(object):
         self.options["t_start"] = self.model_horizon[0]
         self.options["t_end"] = self.model_horizon[-1]
 
-        # Extract Model Relevant Data
-        self.nodes = data.nodes[["name", "zone", "slack"]]
-        self.zones = data.zones
-        self.plants = data.plants[['mc', 'tech', 'node', 'eta', 'g_max',
-                                   'h_max', 'heatarea']]
-
-        self.heatareas = data.heatareas
-        self.demand_el = data.demand_el[data.demand_el.index.isin(self.model_horizon)]
-        self.demand_h = data.demand_h[data.demand_h.index.isin(self.model_horizon)]
-        self.availability = data.availability
-        self.dclines = data.dclines[["node_i", "node_j", "maxflow"]]
-        self.ntc = data.ntc
-
-        # fbmc related parameters
-        self.net_position = data.net_position
-        self.net_export = data.net_export
-        self.reference_flows = data.reference_flows
-
         self.data_to_csv()
         # self.data_to_json()
 
@@ -102,28 +84,43 @@ class JuliaInterface(object):
         """Export Data to csv files file in the jdir + \\data"""
         # Some legacy json also needs to be written here
         csv_path = self.jl_data_dir.joinpath('data')
-        self.plants.to_csv(str(csv_path.joinpath('plants.csv')), index_label='index')
-        self.nodes.to_csv(str(csv_path.joinpath('nodes.csv')), index_label='index')
-        self.zones.to_csv(str(csv_path.joinpath('zones.csv')), index_label='index')
-        self.heatareas.to_csv(str(csv_path.joinpath('heatareas.csv')), index_label='index')
-        self.demand_el.to_csv(str(csv_path.joinpath('demand_el.csv')), index_label='index')
-        self.demand_h.to_csv(str(csv_path.joinpath('demand_h.csv')), index_label='index')
-        self.availability.to_csv(str(csv_path.joinpath('availability.csv')), index_label='index')
-        self.ntc.to_csv(str(csv_path.joinpath('ntc.csv')), index=False)
-        self.dclines.to_csv(str(csv_path.joinpath('dclines.csv')), index_label='index')
-        self.net_export.to_csv(str(csv_path.joinpath('net_export.csv')), index_label='index')
-        self.net_position.to_csv(str(csv_path.joinpath('net_position.csv')), index_label='index')
-        self.reference_flows.to_csv(str(csv_path.joinpath('reference_flows.csv')), index_label='index')
+        self.data.plants[['mc', 'tech', 'node', 'eta', 'g_max','h_max', 'heatarea']].to_csv(str(csv_path.joinpath('plants.csv')), index_label='index')
+        self.data.nodes[["name", "zone", "slack"]].to_csv(str(csv_path.joinpath('nodes.csv')), index_label='index')
+        self.data.zones.to_csv(str(csv_path.joinpath('zones.csv')), index_label='index')
+        self.data.heatareas.to_csv(str(csv_path.joinpath('heatareas.csv')), index_label='index')
+        self.data.demand_el[self.data.demand_el.index.isin(self.model_horizon)].to_csv(str(csv_path.joinpath('demand_el.csv')), index_label='index')
+        self.data.demand_h[self.data.demand_h.index.isin(self.model_horizon)].to_csv(str(csv_path.joinpath('demand_h.csv')), index_label='index')
+        self.data.availability.to_csv(str(csv_path.joinpath('availability.csv')), index_label='index')
+        self.data.dclines[["node_i", "node_j", "maxflow"]].to_csv(str(csv_path.joinpath('dclines.csv')), index_label='index')
+        self.data.ntc.to_csv(str(csv_path.joinpath('ntc.csv')), index=False)
+        self.data.net_export.to_csv(str(csv_path.joinpath('net_export.csv')), index_label='index')
+        self.data.net_position.to_csv(str(csv_path.joinpath('net_position.csv')), index_label='index')
+        self.data.reference_flows.to_csv(str(csv_path.joinpath('reference_flows.csv')), index_label='index')
+
+        plant_types = pd.DataFrame(index=self.data.plants.tech.unique())
+        for ptype in self.options["plant_types"]:
+            plant_types[ptype] = 0
+            plant_types[ptype][plant_types.index.isin(self.options["plant_types"][ptype])] = 1
+        plant_types.to_csv(str(csv_path.joinpath('plant_types.csv')), index_label='index')
 
         # Optional data
         self.grid_representation["cbco"].to_csv(str(csv_path.joinpath('cbco.csv')), index_label='index')
         
         try:
+            slack_zones = pd.DataFrame(index=self.data.nodes.index)
+            for slack in self.grid_representation["slack_zones"]:
+                slack_zones[slack] = 0
+                slack_zones[slack][slack_zones.index.isin(self.grid_representation["slack_zones"][slack])] = 1
+            slack_zones.to_csv(str(csv_path.joinpath('slack_zones.csv')), index_label='index')
+        except:
+            self.logger.warning("slack_zones.json not found - Check if relevant for the model")
+
+        try:
             with open(csv_path.joinpath('slack_zones.json'), 'w') as file:
                 json.dump(self.grid_representation["slack_zones"], file)
         except:
             self.logger.warning("slack_zones.json not found - Check if relevant for the model")
-
+            
         try:
             with open(csv_path.joinpath('options.json'), 'w') as file:
                 json.dump(self.options, file, indent=2)
