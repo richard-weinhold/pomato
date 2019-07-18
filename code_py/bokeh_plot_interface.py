@@ -6,17 +6,15 @@ start and stop bokeh plot through threading
 
 import re
 import logging
-import pickle
 import json
 import subprocess
 import threading
-import datetime as dt
 import pandas as pd
 import psutil
 import tools
 
 
-class BokehPlot(object):
+class BokehPlot():
     """interface market data and bokeh plot, init all data then run the server from cmd"""
     def __init__(self, wdir):
         # Impoort Logger
@@ -33,10 +31,13 @@ class BokehPlot(object):
         self.bokeh_pid = None
 
     def add_market_result(self, market_result, name):
-        """create data set for bokeh plot from julia market_result-object with the associated grid model"""
+        """
+        create data set for bokeh plot from julia market_result-object
+        with the associated grid model
+        """
         if not market_result.grid:
             self.logger.error("Grid Model not in Results Object!")
-            raise
+            raise Exception('Grid Model not in Results Object!')
 
         self.logger.info("Processing market model data...")
 
@@ -46,13 +47,16 @@ class BokehPlot(object):
 
         # market_result.data.zones.to_csv(str(folder.joinpath('zones.csv')), index_label='index')
         # market_result.data.tech.to_csv(str(folder.joinpath('tech.csv')))
-        pd.DataFrame(index=market_result.grid.lines.index, 
-                     columns=market_result.grid.lines.index, 
-                     data=market_result.grid.lodf).to_csv(str(data_path.joinpath('lodf.csv')), 
+        pd.DataFrame(index=market_result.grid.lines.index,
+                     columns=market_result.grid.lines.index,
+                     data=market_result.grid.lodf).to_csv(str(data_path.joinpath('lodf.csv')),
                                                           index_label='index')
-        market_result.data.fuel.to_csv(str(data_path.joinpath('fuel.csv')), index_label='index')
-        market_result.data.dclines.to_csv(str(data_path.joinpath('dclines.csv')), index_label='index')
-        market_result.grid.nodes.to_csv(str(data_path.joinpath('nodes.csv')), index_label='index')
+        market_result.data.fuel.to_csv(str(data_path.joinpath('fuel.csv')),
+                                       index_label='index')
+        market_result.data.dclines.to_csv(str(data_path.joinpath('dclines.csv')),
+                                          index_label='index')
+        market_result.grid.nodes.to_csv(str(data_path.joinpath('nodes.csv')),
+                                        index_label='index')
         market_result.grid.lines.to_csv(str(data_path.joinpath('lines.csv')))
         market_result.F_DC.to_csv(str(data_path.joinpath('F_DC.csv')))
         market_result.INJ.to_csv(str(data_path.joinpath('INJ.csv')))
@@ -77,7 +81,7 @@ class BokehPlot(object):
         with open(data_path.joinpath('t.json'), 'w') as time_frame:
             json.dump(t_dict, time_frame)
 
-        self.logger.info(f"Market Results {name} successfully initialized!")
+        self.logger.info("Market Results %s successfully initialized!", name)
 
     def process_grid_data(self, market_result):
         """precalculatting the line flows for the bokeh plot"""
@@ -95,7 +99,7 @@ class BokehPlot(object):
         return n_0_flows, n_1_flows.set_index("cb").reindex(market_result.grid.lines.index)
 
     def process_generation_data(self, market_result):
-
+        """Prepare Generation Data for Bokeh Plot"""
         generation = market_result.G
         ## Save relevant variables from market result
         generation = pd.merge(generation, market_result.data.plants[["node", "fuel"]],
@@ -109,7 +113,7 @@ class BokehPlot(object):
         map_pn = market_result.data.plants.node.reset_index()
         map_pn.columns = ['p', 'n']
 
-        demand = market_result.data.demand_el.unstack().reset_index()
+        demand = market_result.data.demand_el[market_result.data.nodes.index].unstack().reset_index()
         demand.columns = ["n", "t", "d_el"]
         demand_d = market_result.D_d
         demand_ph = market_result.D_ph
@@ -148,7 +152,7 @@ class BokehPlot(object):
         """helper function to print stdout to console"""
         for line in iter(proc.stdout.readline, b''):
             bokeh_output = '{0}'.format(line.decode('utf-8')).strip()
-            self.logger.info('bokeh: ' + bokeh_output)
+            self.logger.info('bokeh: %s', bokeh_output)
 
             # listen to output and save bokeh pid
             if "Starting Bokeh server with process id" in bokeh_output:
@@ -162,14 +166,14 @@ class BokehPlot(object):
     def start_server(self):
         """Run the Bokeh server via command Line"""
         self.logger.info("Starting Bokeh Server - Close Browser Window to Terminate")
-        args_list = ["bokeh", "serve", "--show", str(self.wdir.joinpath("code_py/bokeh_plot.py")), "--args",
-                     str(self.bokeh_dir)]
+        args_list = ["bokeh", "serve", "--show",
+                     str(self.wdir.joinpath("code_py/bokeh_plot.py")),
+                     "--args", str(self.bokeh_dir)]
 
         self.bokeh_server = subprocess.Popen(args_list,
                                              stdout=subprocess.PIPE,
                                              stderr=subprocess.STDOUT,
-                                             shell=False
-                                             )
+                                             shell=False)
 
         self.bokeh_thread = threading.Thread(target=self.output_reader,
                                              args=(self.bokeh_server,))

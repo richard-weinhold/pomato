@@ -29,57 +29,20 @@ gr = mato.grid_representation["cbco"]
 
 #mato.grid.lines[mato.grid.lines.contingency]
 #186 + 186*(186 - 9)
-
-plant_types = pd.DataFrame(index=p.tech)
-for ptype in mato.options["optimization"]["plant_types"]:
-    plant_types[ptype] = False
-    plant_types[ptype][plant_types.index.isin(mato.options["optimization"]["plant_types"][ptype])] = True
-
 #mato.data.process_results(mato.wdir.joinpath("data_temp\\julia_files\\results\\304_1027"),
 #                          mato.options, grid=mato.grid)
+
 mato.init_market_model()
-#mato.run_market_model()
-###
-#df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
-#df3 = mato.data.results.n_1_flow()
-#df4 = mato.data.results.n_0_flow()
+mato.run_market_model()
+##
+
+mato.data.results.G
+df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
+# df3 = mato.data.results.n_1_flow()
+# df4 = mato.data.results.n_0_flow()
 
 #from bokeh_plot_interface import BokehPlot
 #mato.init_bokeh_plot(name="IEEE")
 
-# ##  bokeh serve --show .\code_py\bokeh_plot.py --args=data_temp/bokeh_files
-
-#%%
-#from scipy.spatial import ConvexHull
-#from sklearn.decomposition import PCA
-#####
-#######%%
-#from cbco_module import CBCOModule
-#cbco_module = CBCOModule(mato.wdir, mato.grid)
-#####df = cbco_module.julia_cbco_algorithm()
-###cbco_module.cbco_index = [i for i in range(0, len(cbco_module.b))]
-##idx = cbco_module.reduce_Ab_convex_hull()
-#path = mato.wdir.joinpath("data_temp/julia_files/cbco_data/")
-#A, b, info = cbco_module.create_Ab(preprocess=True)
-#
-#add_A = np.vstack(nodal_constraints)
-#add_b = np.array(nodal_rhs).reshape(len(nodal_rhs), 1)
-#
-#Aplus = np.vstack([A, add_A])
-#bplus = np.vstack([b, add_b])
-#Iplus = [i for i in range(len(A), len(Aplus))]
-##
-#path = mato.wdir.joinpath("data_temp/julia_files/cbco_data")
-
-#cbco = [cb for cb in range(0, len(Aplus) - len(add_A)) if cb in precalc_cbco]
-#
-#pd.DataFrame(columns=["constraints"], data=cbco).to_csv(mato.wdir.joinpath("data_temp/julia_files/cbco_data").joinpath("cbco118_+_test.csv"))
-##return_df = info.iloc[precalc_cbco]
-#
-#np.savetxt(mato.wdir.joinpath("data_temp/julia_files/cbco_data").joinpath("A_118+.csv"), np.asarray(Aplus), delimiter=",")
-#np.savetxt(mato.wdir.joinpath("data_temp/julia_files/cbco_data").joinpath("b_118+.csv"), np.asarray(bplus), delimiter=",")
-#np.savetxt(mato.wdir.joinpath("data_temp/julia_files/cbco_data").joinpath("I_118+.csv"), np.array(Iplus).astype(int), fmt='%i', delimiter=",")
-
-
-
+# bokeh serve --show .\code_py\bokeh_plot.py --args=data_temp/bokeh_files
 

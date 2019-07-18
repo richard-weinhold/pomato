@@ -5,7 +5,6 @@ import sys
 import logging
 import numpy as np
 import pandas as pd
-import tables
 
 class GridModel(object):
 	"""GRID Model Class"""
@@ -213,7 +212,10 @@ class GridModel(object):
 			## Avoid division by zero because of radial nodes and lines
 			con = self.lines.contingency.values.astype(int).reshape(len(self.lines), 1)
 			h = np.multiply(h,con)
-			lodf = np.divide(H, (np.ones((len(self.lines), len(self.lines))) - np.dot(np.ones((len(self.lines), 1)), h.T)))
+			lodf = np.divide(H,
+                    (np.ones((len(self.lines), len(self.lines))) \
+                        - np.dot(np.ones((len(self.lines), 1)), h.T)))
+
 			lodf = lodf - np.diag(np.diag(lodf)) - np.eye(len(self.lines), len(self.lines))
 			# explicitly set line-line sensitivity to 0 for contingency==False
 			lodf = np.multiply(lodf, np.ones((len(self.lines),1))*self.lines.contingency.values)
@@ -228,7 +230,8 @@ class GridModel(object):
 		if not isinstance(line, int):
 			line = self.lines.index.get_loc(line)
 
-		cond = abs(np.multiply(self.lodf[line], self.lines.maxflow.values)) >= sensitivity*self.lines.maxflow[line]
+		cond = abs(np.multiply(self.lodf[line], self.lines.maxflow.values)) \
+                    >= sensitivity*self.lines.maxflow[line]
 
 		if as_index:
 			return [self.lines.index.get_loc(line) for line in self.lines.index[cond]]
@@ -276,7 +279,9 @@ class GridModel(object):
 		try:
 			if not isinstance(outage, int):
 				outage = self.lines.index.get_loc(outage)
-			n_1_ptdf = np.array(self.ptdf, dtype=np.float) + np.vstack([np.dot(self.lodf[lx, outage], self.ptdf[outage, :]) for lx in range(0, len(self.lines))])
+			n_1_ptdf = np.array(self.ptdf, dtype=np.float) + \
+            np.vstack([np.dot(self.lodf[lx, outage], self.ptdf[outage, :]) \
+                       for lx in range(0, len(self.lines))])
 			return n_1_ptdf
 
 		except:

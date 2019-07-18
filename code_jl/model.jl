@@ -82,7 +82,8 @@ end
 # disp = Model(solver=ClpSolver(SolveType=5))
 # disp = Model(solver=GurobiSolver(Presolve=2, PreDual=2, Threads=8))
 # disp = Model(solver=GurobiSolver(Method=0,Threads=1))
-disp = Model(with_optimizer(Gurobi.Optimizer, Method=1, LogFile=result_folder*"/log.txt")) #, Presolve=0)) #))
+# disp = Model(with_optimizer(Gurobi.Optimizer, Method=1, LogFile=result_folder*"/log.txt")) #, Presolve=0)) #))
+disp = Model(with_optimizer(Gurobi.Optimizer, LogFile=result_folder*"/log.txt"))
 
 # Variables
 @variable(disp, G[t_set, p_set] >= 0) # El. power generation per plant p
@@ -90,7 +91,6 @@ disp = Model(with_optimizer(Gurobi.Optimizer, Method=1, LogFile=result_folder*"/
 @variable(disp, D_es[t_set, es_set] >= 0) # El. demand of storage plants
 @variable(disp, D_hs[t_set, hs_set] >= 0) # El. demand of heat storage
 @variable(disp, D_ph[t_set, ph_set] >= 0) # El. demand of power to heat
-@variable(disp, D_d[t_set, d_set] >= 0) # Electricity Demand by Demand Units
 @variable(disp, L_es[t_set, es_set] >= 0) # Level of electricity storage
 @variable(disp, L_hs[t_set, hs_set] >= 0) # Level of heat storage
 @variable(disp, EX[t_set, z_set, z_set] >= 0) # Commercial Exchanges between zones (row from, col to)
@@ -131,12 +131,12 @@ end
                       + (sum(INFEAS_EL_N_POS) + sum(INFEAS_EL_N_NEG))*1e2
                       + (sum(INFEAS_H_NEG) + sum(INFEAS_H_POS))*1e3
                       + (sum(INFEAS_LINES)*1e3)
-                      + (sum(INFEAS_REF_FLOW)*1e1))
+                      )
 
 println("Building Constraints")
 # Applies to: Dispatch
 # Base Constraint
-@constraint(disp, [t=t_set, p=setdiff(p_set, union(he_set, ts_set, d_set))],
+@constraint(disp, [t=t_set, p=setdiff(p_set, union(he_set, ts_set))],
     G[t, p] <= plants[p].g_max)
 
 # All plants without he, ts and demand units
@@ -156,21 +156,15 @@ println("Building Constraints")
 @constraint(disp, [t=t_set, p=intersect(ts_set, co_set)],
     G[t, p] <= plants[p].g_max * plants[p].availability[model_horizon[t]])
 @constraint(disp, [t=t_set, p=intersect(ts_set, co_set)],
-    G[t, p] >= plants[p].g_max * plants[p].availability[model_horizon[t]] * 0.8)
+    G[t, p] >= plants[p].g_max * plants[p].availability[model_horizon[t]] * 0)
 
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, [t=t_set, p=intersect(ts_set, he_set)],
     H[t, p] <= plants[p].h_max * plants[p].availability[model_horizon[t]])
 @constraint(disp, [t=t_set, p=intersect(ts_set, he_set)],
-    H[t, p] >= plants[p].h_max * plants[p].availability[model_horizon[t]] * 0.8)
+    H[t, p] >= plants[p].h_max * plants[p].availability[model_horizon[t]] * 0)
 
-# Applies to: Dispatch
-# Base Constraint
-@constraint(disp, [t=t_set, p=d_set],
-    D_d[t, p] <= plants[p].g_max * plants[p].availability[model_horizon[t]])
-@constraint(disp, [t=t_set, p=d_set],
-    D_d[t, p] >=  plants[p].g_max * plants[p].availability[model_horizon[t]] * 0.8)
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, [t=t_set, p=ph_set],
@@ -202,6 +196,9 @@ println("Building Constraints")
 @constraint(disp, [t=t_set, p=hs_set],
     D_hs[t, p] <= plants[p].h_max)
 
+@constraint(disp, [p=hs_set],
+    L_hs[t_end, p] >= 2*plants[p].h_max)
+
 # Applies to: Dispatch
 # Base Constraint
 # WARNING this formulation requires the demand df to be correctly sorted by times
@@ -215,11 +212,11 @@ println("Building Constraints")
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, EB_zonal[t=t_set, z=z_set], 
-    zones[z].demand[model_horizon[t]] + zones[z].net_export[model_horizon[t]] ==
-      sum(G[t, p] for p in intersect(zones[z].plants, co_set))
+    zones[z].demand[model_horizon[t]] ==
+    + zones[z].net_export[model_horizon[t]] 
+    + sum(G[t, p] for p in intersect(zones[z].plants, co_set))
     - sum(D_ph[t, p] for p in intersect(zones[z].plants, ph_set))
     - sum(D_es[t, p] for p in intersect(zones[z].plants, es_set))
-    - sum(D_d[t, p] for p in intersect(zones[z].plants, d_set))
     - sum(EX[t, z, zz] for zz in z_set)
     + sum(EX[t, zz, z] for zz in z_set)
     + sum(INFEAS_EL_N_POS[t, n] - INFEAS_EL_N_NEG[t, n] for n in zones[z].nodes)
@@ -229,11 +226,11 @@ println("Building Constraints")
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, EB_nodal[t=t_set, n=n_set], 
-    nodes[n].demand[model_horizon[t]] + nodes[n].net_export[model_horizon[t]] ==
-      sum(G[t, p] for p in intersect(nodes[n].plants, co_set))
+    nodes[n].demand[model_horizon[t]] == 
+    + nodes[n].net_export[model_horizon[t]] 
+    + sum(G[t, p] for p in intersect(nodes[n].plants, co_set))
     - sum(D_ph[t, p] for p in intersect(nodes[n].plants, ph_set))
     - sum(D_es[t, p] for p in intersect(nodes[n].plants, es_set))
-    - sum(D_d[t, p] for p in intersect(nodes[n].plants, d_set))
     - sum((F_DC[t, dc]*dc_incidence[dc][n]) for dc in dc_set)
     - INJ[t, n]
     + INFEAS_EL_N_POS[t, n] - INFEAS_EL_N_NEG[t, n]
@@ -265,8 +262,8 @@ end
 # Cbco Constraints
 # Applies to: cbco_nodal, nodal
 if in(model_type, ["cbco_nodal", "nodal"])
-    @constraint(disp, [t=t_set, cb=cb_set], grid[cb].ptdf' * INJ[t, :] <= grid[cb].ram) #+ INFEAS_LINES[t, cb])
-    @constraint(disp, [t=t_set, cb=cb_set], grid[cb].ptdf' * INJ[t, :] >= -grid[cb].ram) #+ INFEAS_LINES[t, cb])
+    @constraint(disp, [t=t_set, cb=cb_set], grid[cb].ptdf' * INJ[t, :] <= grid[cb].ram + INFEAS_LINES[t, cb])
+    @constraint(disp, [t=t_set, cb=cb_set], grid[cb].ptdf' * INJ[t, :] >= -grid[cb].ram - INFEAS_LINES[t, cb])
 end
 
 # Applies to: cbco_zonal
@@ -276,7 +273,23 @@ if in(model_type, ["cbco_zonal"])
         <= grid[cb].ram + INFEAS_LINES[t, cb])
     @constraint(disp, [t=t_set, cb=cb_set],
         sum((sum(EX[t, zz, z] for zz in z_set) - sum(EX[t, z, zz] for zz in z_set))*grid[cb].ptdf[i] for (i, z) in enumerate(z_set)) 
-        >= -(grid[cb].ram + INFEAS_LINES[t, cb]))
+        >= -(grid[cb].ram - INFEAS_LINES[t, cb]))
+end
+
+
+# Applies to nodal model for basecase calculation:
+if in(model_type, ["nodal"])
+    for t in t_set
+        for z in ["DE", "NL", "BE", "FR"]
+            ### net_position when positive -> export
+            @constraint(disp, sum(EX[t, z, zz] - EX[t, zz, z] for zz in z_set) <=
+                              zones[z].net_position[model_horizon[t]] + 0.2*abs(zones[z].net_position[model_horizon[t]])
+                              )
+            @constraint(disp, sum(EX[t, z, zz] - EX[t, zz, z] for zz in z_set) >=
+                              zones[z].net_position[model_horizon[t]] - 0.2*abs(zones[z].net_position[model_horizon[t]])
+                              )
+        end
+    end
 end
 
 # Applies to d2cf model:
@@ -322,7 +335,6 @@ results_parameter = [[:G, [:t, :p], false],
                      [:D_es, [:t, :p], false],
                      [:D_hs, [:t, :p], false],
                      [:D_ph, [:t, :p], false],
-                     [:D_d, [:t, :p], false],
                      [:L_es, [:t, :p], false],
                      [:L_hs, [:t, :p], false],
                      [:EX, [:t, :z, :zz], false],
@@ -352,6 +364,7 @@ open(result_folder*"/misc_result.json", "w") do f
 end
 
 # End build_and_run_model function
+return disp
 end
 
 

@@ -30,7 +30,7 @@ using CSV
 using JSON
 using DataStructures
 using JuMP
-using Gurobi
+using Gurobi, GLPK
 using Dates
 
 include("tools.jl")

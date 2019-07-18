@@ -24,7 +24,7 @@ def create_folder_structure(base_path, logger=None):
 	  "logs": {},
 	  "profiles": {},
 	}
-	
+
 	if logger:
 		logger.info("Creating Folder Structure")
 	try:
@@ -110,15 +110,22 @@ def array2latex(array):
 		row = []
 		for j in i:
 			row.append(str(round(j,3)))
-
 		print(' & '.join(row) + ' \\\ ')
+
+
+def delete_empty_subfolders(folder):
+    """Delete all empty subfolders to input folder"""
+    non_empty_subfolders = {f.parent for f in folder.rglob("*") if f.is_file()}
+    for subfolder in folder.iterdir():
+        if subfolder not in non_empty_subfolders:
+            subfolder.rmdir()
 
 def default_options():
 
 	json_str = """{
 					"optimization": {
 						"type": "dispatch",
-						"model_horizon": [0,1], 
+						"model_horizon": [0,1],
 						"infeas_heat": true,
 						"infeas_el_nodal": true,
 						"infeas_el_zonal": true,
@@ -143,6 +150,6 @@ def default_options():
 						"d2cf_data": false
 					}
 				}"""
-				
+
 	return json.loads(json_str)
 

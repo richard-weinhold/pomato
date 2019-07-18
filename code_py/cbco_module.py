@@ -1,19 +1,30 @@
+"""
+CBCO Module
+Creates Grid Representation for the Merket Model
 
+Options: Full, Reduced, None etc
+
+
+"""
 import logging
 import subprocess
-import json
 import datetime as dt
+import itertools
 import numpy as np
 import pandas as pd
-import tables
 
-from scipy.spatial import ConvexHull
+
+from scipy import spatial
 from sklearn.decomposition import PCA
 
-from pathlib import Path
+
 import tools
 
 def split_length_in_ranges(step_size, length):
+    """
+    [1,..,R] in [1,...,r1], [r1+1,...,r2], etc
+
+    """
     ranges = []
     if step_size > length:
         ranges.append(range(0, length))
@@ -25,7 +36,7 @@ def split_length_in_ranges(step_size, length):
         ranges.append(range((i+1)*step_size, length))
     return ranges
 
-class CBCOModule(object):
+class CBCOModule():
     """ Class to do all calculations in connection with cbco calculation"""
     def __init__(self, wdir, grid, data, option):
         # Import Logger
@@ -50,10 +61,11 @@ class CBCOModule(object):
         self.logger.info("CBCOModule Initialized!")
 
     def create_grid_representation(self):
-
-        # determining what grid represenation is wanted
-        # options are: dispacth (default), ntc, nodal, cbco_nodal,
-        # cbco_zonal (tbd), d2cf
+        """
+        Creates Grid Representation:
+        based on set option:
+        options are: dispacth (default), ntc, nodal, zonal, cbco_nodal, cbco_zonal, d2cf
+        """
         optimization_option = self.options["optimization"]
 
         # Data Structure of grid_representation
@@ -66,40 +78,130 @@ class CBCOModule(object):
             self.process_ntc()
         elif optimization_option["type"] == "nodal":
             self.process_nodal()
+        elif optimization_option["type"] == "zonal":
+            self.process_zonal()
         elif optimization_option["type"] == "cbco_nodal":
             self.process_cbco_nodal()
+        elif optimization_option["type"] == "cbco_zonal":
+            self.process_cbco_zonal()
         elif optimization_option["type"] == "d2cf":
-           self.process_d2cf()
+            self.process_d2cf()
         else:
             self.logger.info("No grid represenation needed for dispatch model")
 
     def process_ntc(self):
         """process grid information for NTC representation in market model"""
-        self.grid_representation["ntc"] = self.data.ntc
+
+        tmp = []
+        for from_zone, to_zone in itertools.combinations(set(self.data.nodes.zone), 2):
+            lines = []
+
+            from_nodes = self.data.nodes.index[self.data.nodes.zone == from_zone]
+            to_nodes = self.data.nodes.index[self.data.nodes.zone == to_zone]
+
+            condition_i_from = self.data.lines.node_i.isin(from_nodes)
+            condition_j_to = self.data.lines.node_j.isin(to_nodes)
+
+            condition_i_to = self.data.lines.node_i.isin(to_nodes)
+            condition_j_from = self.data.lines.node_j.isin(from_nodes)
+
+            lines += list(self.data.lines.index[condition_i_from&condition_j_to])
+            lines += list(self.data.lines.index[condition_i_to&condition_j_from])
+
+            dclines = []
+            condition_i_from = self.data.dclines.node_i.isin(from_nodes)
+            condition_j_to = self.data.dclines.node_j.isin(to_nodes)
+
+            condition_i_to = self.data.dclines.node_i.isin(to_nodes)
+            condition_j_from = self.data.dclines.node_j.isin(from_nodes)
+
+            dclines += list(self.data.dclines.index[condition_i_from&condition_j_to])
+            dclines += list(self.data.dclines.index[condition_i_to&condition_j_from])
+
+
+            if lines or dclines:
+                tmp.append([from_zone, to_zone, 1e5])
+                tmp.append([to_zone, from_zone, 1e5])
+            else:
+                tmp.append([from_zone, to_zone, 0])
+                tmp.append([to_zone, from_zone, 0])
+
+        self.grid_representation["ntc"] = pd.DataFrame(tmp, columns=["zone_i", "zone_j", "ntc"])
+
 
     def process_nodal(self):
         """process grid information for nodal N-0 representation in market model"""
         ptdf_df = pd.DataFrame(index=self.grid.lines.index,
-                       columns=self.grid.nodes.index,
-                       data=np.round(self.grid.ptdf, decimals=4))
+                               columns=self.grid.nodes.index,
+                               data=np.round(self.grid.ptdf, decimals=4))
+
         ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
 
         self.grid_representation["cbco"] = ptdf_df
 
+    def process_zonal(self):
+        """process grid information for zonal N-0 representation in market model"""
+        gsk = self.options["grid"]["gsk"]
+        grid_option = self.options["grid"]
+
+        if grid_option["cbco_option"] == "clarkson":            
+            A = self.grid.ptdf
+            label_lines = list(self.grid.lines.index)
+            label_outages = ["basecase" for i in range(0, len(self.grid.lines.index))]
+            A = np.dot(A, self.create_gsk(gsk))
+            b = self.grid.lines.maxflow[label_lines].values.reshape(len(label_lines), 1)
+            columns = list(self.data.zones.index)
+            df_info = pd.DataFrame(columns=columns, data=A)
+            df_info["cb"] = label_lines
+            df_info["co"] = label_outages
+            df_info["ram"] = b
+            df_info = df_info[["cb", "co", "ram"] + list(columns)]
+            self.A, self.b, self.cbco_info = A, b, df_info
+            self.A_base, self.b_base = np.array([]), np.array([])
+            self.cbco_index = self.clarkson_algorithm()
+            self.grid_representation["cbco"] = self.return_cbco()
+
+
+        else:
+            ptdf = np.dot(self.grid.ptdf, self.create_gsk(gsk))
+            ptdf_df = pd.DataFrame(index=self.grid.lines.index,
+                                   columns=self.data.zones.index,
+                                   data=np.round(ptdf, decimals=4))
+
+            ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
+
+            self.grid_representation["cbco"] = ptdf_df
+
+
+    def process_cbco_zonal(self):
+        """Creating a Reduced Zonal N-1 Representation, with Convex Hull Algorithm"""
+        grid_option = self.options["grid"]
+
+        self.A, self.b, self.cbco_info = self.create_Ab(grid_option["senstitivity"],
+                                                        preprocess=False,
+                                                        gsk=grid_option["gsk"])
+
+        self.cbco_index = self.reduce_Ab_convex_hull()
+
+        self.grid_representation["cbco"] = self.return_cbco()
+        self.grid_representation["cbco"].ram *= grid_option["capacity_multiplier"]
+        self.process_ntc()
+
 
     def process_cbco_nodal(self):
-        """process grid information for cbco nodal representation in market model"""
+        """process grid information for nodal N-1 representation in market model"""
         grid_option = self.options["grid"]
-        self.A, self.b, self.cbco_info = self.create_Ab(grid_option["senstitivity"], grid_option["preprocess"])
+        self.A, self.b, self.cbco_info = self.create_Ab(grid_option["senstitivity"],
+                                                        grid_option["preprocess"])
 
         if grid_option["precalc_filename"]:
             try:
                 filename = grid_option["precalc_filename"]
-                self.logger.info(f"Using cbco indices from pre-calc: {filename}")
+                self.logger.info("Using cbco indices from pre-calc: %s", filename)
                 precalc_cbco = pd.read_csv(self.jdir.joinpath(f"cbco_data/{filename}.csv"),
                                            delimiter=',')
                 self.cbco_index = list(precalc_cbco.constraints.values)
-                self.logger.info("Number of CBCOs from pre-calc: " + str(len(self.cbco_index)))
+                self.logger.info("Number of CBCOs from pre-calc: %s", str(len(self.cbco_index)))
             except FileNotFoundError:
                 self.logger.warning("FileNotFound: No Precalc available")
                 self.logger.warning("Running nomal CBCO Algorithm - ConvexHull only")
@@ -132,7 +234,7 @@ class CBCOModule(object):
                 self.write_Ab(self.jdir.joinpath("cbco_data"), "py")
                 self.cbco_index = [i for i in range(0, len(self.b))]
             else:
-                raise
+                self.logger.warning("No valid cbco_option set!")
 
         self.grid_representation["cbco"] = self.return_cbco()
         self.grid_representation["cbco"].ram *= grid_option["capacity_multiplier"]
@@ -158,15 +260,18 @@ class CBCOModule(object):
 
         if grid_option["reference_flows"]:
             self.grid_representation["reference_flows"] = self.data.reference_flows
-            self.grid_representation["reference_flows"].columns = [x + "_basecase" for x in self.data.reference_flows.columns]
+            columns = [line + "_basecase" for line in self.data.reference_flows.columns]
+            self.grid_representation["reference_flows"].columns = columns
+
         else:
-            self.grid_representation["reference_flows"] = pd.DataFrame(index=self.data.demand_el.index)
+            df = pd.DataFrame(index=self.data.demand_el.index)
+            self.grid_representation["reference_flows"] = df
 
         for line in ptdf.index:
             if not line in self.grid_representation["reference_flows"].columns:
                 self.grid_representation["reference_flows"][line] = 0
 
-    def create_Ab(self, lodf_sensitivity=0, preprocess=True):
+    def create_Ab(self, lodf_sensitivity=0, preprocess=True, gsk=None):
         """
         Create all relevant N-1 ptdfs in the for of Ax<b (ptdf x < ram):
         For each line as CB add basecase (N-0)
@@ -182,12 +287,13 @@ class CBCOModule(object):
             label_lines.extend([line for i in range(0, len(outages))])
             label_outages.extend(outages)
 
-        # estimate size of array = nr_elements * bytes per element (float64 + sep = 8 + 1) / (1024**2) MB
+        # estimate size of array = nr_elements * bytes per element
+        # (float64 + sep = 8 + 1) / (1024**2) MB
         estimate_size = len(label_lines)*len(self.grid.nodes.index)*(8 + 1)/(1024*1024)
 
-        self.logger.info(f"Estimated size in RAM for A is: {estimate_size} MB")
+        self.logger.info("Estimated size in RAM for A is: %d MB", estimate_size)
         if estimate_size > 5000:
-            raise
+            raise Exception('Matrix A too large!')
 
         for idx, line in enumerate(self.grid.lines.index[self.grid.lines.contingency]):
             outages = list(self.grid.lodf_filter(line, lodf_sensitivity))
@@ -201,18 +307,24 @@ class CBCOModule(object):
         if preprocess:
             A = np.round(A, decimals=6)
             self.logger.info("Preprocessing Ab...")
-            _, idx = np.unique(np.hstack((A,b)), axis=0, return_index=True)
+            _, idx = np.unique(np.hstack((A, b)), axis=0, return_index=True)
             idx = np.sort(idx)
             A = A[idx]
             b = b[idx]
             label_lines = [label_lines[x] for x in idx]
             label_outages = [label_outages[x] for x in idx]
 
-        df_info = pd.DataFrame(columns=list(self.grid.nodes.index), data=A)
+        if gsk:
+            A = np.dot(A, self.create_gsk(gsk))
+            columns = list(self.data.zones.index)
+        else:
+            columns = list(self.grid.nodes.index)
+
+        df_info = pd.DataFrame(columns=columns, data=A)
         df_info["cb"] = label_lines
         df_info["co"] = label_outages
         df_info["ram"] = b
-        df_info = df_info[["cb", "co", "ram"] + list(list(self.grid.nodes.index))]
+        df_info = df_info[["cb", "co", "ram"] + list(columns)]
         return A, b, df_info
 
     def write_Ab(self, folder, suffix):
@@ -226,20 +338,20 @@ class CBCOModule(object):
                        np.asarray(self.b), delimiter=",")
 
         if isinstance(self.cbco_index, list):
-            self.logger.info(f"Saving I...")
+            self.logger.info("Saving I...")
             np.savetxt(folder.joinpath(f"I_{suffix}.csv"),
                        np.array(self.cbco_index).astype(int),
                        fmt='%i', delimiter=",")
 
         if isinstance(self.A_base, np.ndarray) and isinstance(self.b_base, np.ndarray):
-            self.logger.info(f"Saving A_base, b_base...")
+            self.logger.info("Saving A_base, b_base...")
             np.savetxt(folder.joinpath(f"A_base_{suffix}.csv"),
                        np.asarray(self.A_base), delimiter=",")
 
             np.savetxt(folder.joinpath(f"b_base_{suffix}.csv"),
                        np.asarray(self.b_base), delimiter=",")
 
-        self.logger.info(f"Saved everything to folder \n {str(folder)}")
+        self.logger.info("Saved everything to folder: \n %s", str(folder))
 
     def base_constraints(self):
         """ Create Base Constraints for Clarkson algorithm"""
@@ -248,12 +360,12 @@ class CBCOModule(object):
         base_rhs = []
 
         for node in self.data.nodes.index:
-            condition_storage = (self.data.plants.node==node)& \
+            condition_storage = (self.data.plants.node == node) & \
                                 (self.data.plants.tech.isin(["psp", "reservoir"]))
-            condition_el_heat = (self.data.plants.node==node)& \
+            condition_el_heat = (self.data.plants.node == node) & \
                                 (self.data.plants.tech.isin(["heatpump", "elheat"]))
 
-            max_dc_inj = self.data.dclines.maxflow[(self.data.dclines.node_i == node)| \
+            max_dc_inj = self.data.dclines.maxflow[(self.data.dclines.node_i == node) | \
                                                    (self.data.dclines.node_j == node)].sum()
 
             upper = max(self.data.plants.g_max[self.data.plants.node == node].sum() \
@@ -290,28 +402,28 @@ class CBCOModule(object):
                 "py", str(self.wdir)]
 
         t_start = dt.datetime.now()
-        self.logger.info("Start-Time: " + t_start.strftime("%H:%M:%S"))
-        # with open(self.wdir.joinpath("logs").joinpath('cbco_reduction.log'), 'w') as log:
-        # shell=false needed for mac (and for Unix in general I guess)
+        self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
         with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE) as programm:
             for line in programm.stdout:
                 self.logger.info(line.decode().strip())
 
         t_end = dt.datetime.now()
-        self.logger.info("End-Time: " + t_end.strftime("%H:%M:%S"))
-        self.logger.info("Total Time: " + str((t_end-t_start).total_seconds()) + " sec")
+        self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
+        self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")
 
         if programm.returncode == 0:
             df = pd.DataFrame()
             df["files"] = [i for i in self.jdir.joinpath("cbco_data").iterdir()]
             df["time"] = [i.lstat().st_mtime for i in self.jdir.joinpath("cbco_data").iterdir()]
             file = df.files[df.time.idxmax()]
-            self.logger.info(f"cbco list save for later use to: \n{file.stem}.csv")
+            self.logger.info("cbco list save for later use to: \n%s", file.stem + ".csv")
             cbco = pd.read_csv(file, delimiter=',').constraints.values
-
-            return list(cbco)
+            return_value = list(cbco)
         else:
             self.logger.critical("Error in Julia code")
+            return_value = None
+
+        return return_value
 
     def return_range_of_Ab(self, r):
         """return range of A and b"""
@@ -324,23 +436,24 @@ class CBCOModule(object):
         Reduce will find the set of ptdf equations which constrain the solution domain
         (which are based on the N-1 ptdfs)
         """
-        try:
-            ranges = split_length_in_ranges(5e4, len(self.b))
-            self.logger.info(f"Splitting A in {len(ranges)} segments")
-            vertices = []
-            for r in ranges:
-                A, b = self.return_range_of_Ab(r)
-                D = A/b
+
+        ranges = split_length_in_ranges(5e4, len(self.b))
+        self.logger.info("Splitting A in %d segments", len(ranges))
+        vertices = []
+        for r in ranges:
+            A, b = self.return_range_of_Ab(r)
+            D = A[:, A.any(axis=0)]/b
+            # D = A/b
+
+            if np.size(D, 1) > 8:
                 model = PCA(n_components=8).fit(D)
-                D_t = model.transform(D)
-                k = ConvexHull(D_t, qhull_options="Qx")
-                vertices.extend(k.vertices + r[0])
-                self.logger.info("BeepBeepBoopBoop")
+                D = model.transform(D)
 
-            return vertices #np.array(cbco_rows)
-
-        except:
-            self.logger.exception('error:reduce_ptdf')
+            k = spatial.qhull.ConvexHull(D, qhull_options="QJ")
+            # k = ConvexHull(D, qhull_options="Qx")
+            vertices.extend(k.vertices + r[0])
+            self.logger.info("BeepBeepBoopBoop")
+        return vertices #np.array(cbco_rows)
 
     def return_cbco(self):
         """returns cbco dataframe with A and b"""
@@ -349,3 +462,25 @@ class CBCOModule(object):
         return_df = return_df.set_index("index")
         return return_df
 
+    def create_gsk(self, option="flat"):
+        """returns GSK, either flat or gmax"""
+
+        gsk = pd.DataFrame(index=self.data.nodes.index)
+        conv_fuel = ['uran', 'lignite', 'hard coal', 'gas', 'oil', 'hydro', 'waste']
+        condition = self.data.plants.fuel.isin(conv_fuel)&(self.data.plants.tech != "psp")
+        gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]].groupby("node").sum()
+
+        for zone in self.data.zones.index:
+            nodes_in_zone = self.data.nodes.index[self.data.nodes.zone == zone]
+            gsk[zone] = 0
+            gmax_in_zone = gmax_per_node[gmax_per_node.index.isin(nodes_in_zone)]
+            if option == "gmax":
+                if not gmax_in_zone.empty:
+                    gsk_value = gmax_in_zone.g_max/gmax_in_zone.values.sum()
+                    gsk.loc[gsk.index.isin(gmax_in_zone.index), zone] = gsk_value
+
+            elif option == "flat":
+                # if not gmax_in_zone.empty:
+                gsk.loc[gsk.index.isin(nodes_in_zone), zone] = 1/len(nodes_in_zone)
+
+        return gsk.values

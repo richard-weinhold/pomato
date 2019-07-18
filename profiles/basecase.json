@@ -1,20 +1,26 @@
 {
     "optimization": {
-        "type": "d2cf",
-        "model_horizon": [0,168], 
+        "type": "cbco_nodal",
+        "model_horizon": [0,24], 
         "infeas_heat": true,
         "infeas_el_nodal": true,
-        "infeas_el_zonal": false,
-        "infeas_lines": true,
-        "infeas_lines_ref": true,
-        "infeasibility_bound": 10000
+        "infeas_lines": false,
+        "infeas_lines_ref": false,
+        "infeasibility_bound": 1000,
+        "plant_types": {
+            "es": ["psp", "reservoir"],
+            "hs": ["storage"],
+            "ts": ["wind onshore", "wind offshore", "solar", "solarheat", "iheat"],
+            "ph": ["heatpump", "elheat"]
+        }
     },
     "grid": {
-        "capacity_multiplier": 1,
+        "capacity_multiplier": 0.8,
         "reference_flows": false,
         "precalc_filename": "",
-        "senstitivity": 5e-2,
-        "cbco_option": "nodal",
+        "senstitivity": 20e-2,
+        "cbco_option": "save_base",
+        "gsk": "flat",
         "preprocess": true
     },
     "data": {
@@ -22,8 +28,8 @@
         "round_demand": true,
         "default_efficiency": 0.5,
         "default_mc": 200,
-        "co2_price": 30,
+        "co2_price": 20,
         "all_lines_cb": false,
-        "d2cf_data": true
+        "d2cf_data": false
     }
 }

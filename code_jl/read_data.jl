@@ -64,10 +64,11 @@ for z in 1:nrow(zones_mat)
                           sum(net_export_mat[Symbol(n)] for n in nodes)))
     newz.net_export = net_export_sum
 
-    if in(model_type, ["d2cf"])
-        newz.net_position = Dict(zip(net_position_mat[:index],  
-                                     net_position_mat[Symbol(index)]))
-    end
+    # if in(model_type, ["d2cf"])
+    newz.net_position = Dict(zip(net_position_mat[:index],  
+                                 net_position_mat[Symbol(index)]))
+    
+    # end
     zones[newz.index] = newz
 end
 
@@ -143,12 +144,12 @@ grid = Dict{String, Grid}()
 for cbco in 1:nrow(grid_mat)
     index = grid_mat[cbco, :index]
 
-    if in(model_type, ["cbco_zonal"])
+    if in(model_type, ["cbco_zonal", "zonal"])
         ptdf = [x for x in grid_mat[cbco, Symbol.(collect(keys(zones)))]]
     else
         ptdf = [x for x in grid_mat[cbco, Symbol.(collect(keys(nodes)))]]
     end
-    ram = grid_mat[cbco, :ram]
+    ram = grid_mat[cbco, :ram]*1.
     newcbco = Grid(index, ptdf, ram)
     if in(model_type, ["d2cf"])
         newcbco.reference_flow = Dict(collect(zip(reference_flows_mat[:, :index],

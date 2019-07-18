@@ -1,17 +1,20 @@
+"""
+
+THIS IS POMATO
+INPUT: DATA
+OUTPUT: RESULTS
+
+"""
+from pathlib import Path
 import logging
 import json
-import pandas as pd
-import subprocess
-from pathlib import Path
 
 from data_management import DataManagement
 from grid_model import GridModel
-from julia_interface import JuliaInterface
+from market_model import MarketModel
 from cbco_module import CBCOModule
 import bokeh_plot_interface as bokeh
-
 import tools
-
 
 def _logging_setup(wdir):
     # Logging setup
@@ -39,13 +42,14 @@ def _logging_setup(wdir):
         logger.addHandler(console_handler)
     return logger
 
-class MarketTool(object):
+class MarketTool():
     """ Main Class"""
     def __init__(self, options_file=None):
         self.wdir = Path.cwd()
         self.logger = _logging_setup(self.wdir)
 
         self.logger.info("Market Tool Initialized")
+
         self.data = DataManagement()
         self.grid = GridModel(self.wdir)
 
@@ -53,6 +57,7 @@ class MarketTool(object):
         self.initialize_options(options_file)
 
         ## Core Attributes
+        self.cbco_module = None
         self.grid_representation = None
         self.market_model = None
         self.bokeh_plot = None
@@ -64,14 +69,15 @@ class MarketTool(object):
                 self.options = json.load(ofile)
                 opt_str = "Optimization Options:" + \
                            json.dumps(self.options, indent=2) + "\n"
-
             self.logger.info(opt_str)
-        except:
+
+        except FileNotFoundError:
             self.logger.warning("No or invalid options file provided, using default options")
             self.options = tools.default_options()
             opt_str = "Optimization Options:" + json.dumps(self.options, indent=2) + "\n"
             self.logger.info(opt_str)
-
+        except BaseException as unknown_exception:
+            self.logger.exception("Error: %s", unknown_exception)
 
     def load_data(self, filename):
         """init Data Model with loading the fata from file"""
@@ -88,8 +94,8 @@ class MarketTool(object):
         if not self.grid_representation:
             self.create_grid_representation()
 
-        self.market_model = JuliaInterface(self.wdir, self.data, self.options["optimization"],
-                                           self.grid_representation)
+        self.market_model = MarketModel(self.wdir, self.data, self.options["optimization"],
+                                        self.grid_representation)
 
     def run_market_model(self):
         """ Run the model """
@@ -100,11 +106,12 @@ class MarketTool(object):
             self.data.results.grid = self.grid
 
     def clear_data(self):
+        """ Reset DataManagement Class"""
         self.logger.info("Resetting Data Object")
         self.data = DataManagement()
 
     def plot_grid_object(self, name="plotmodel"):
-        # TODO: Add all the add market data and grid data stuff to the API
+        """Create and run the Bokeh Plot"""
         self.init_bokeh_plot(name)
         self.bokeh_plot.start_server()
         # self.bokeh_plot.stop_server()
@@ -125,6 +132,5 @@ class MarketTool(object):
             self.logger.info("No result available form market model!")
         else:
             folder = self.data.result_attributes["source"]
-            self.logger.info(f"initializing bokeh plot with from folder: {str(folder)}")
+            self.logger.info("initializing bokeh plot with from folder: %s", str(folder))
             self.bokeh_plot.add_market_result(self.data.results, name)
-

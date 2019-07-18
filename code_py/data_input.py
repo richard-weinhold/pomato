@@ -11,7 +11,7 @@ class InputProcessing(object):
         self.logger = logging.getLogger('Log.MarketModel.DataManagement.InputData')
         self.data = data
 
-        
+
         self.options = options
         self.logger.info("Processing Input Data...")
 
@@ -19,12 +19,13 @@ class InputProcessing(object):
             pass
 
         elif self.data.data_attributes["source"] == "xls":
-            self.data.zones.set_index("zone", inplace=True)
+            self.process_demand()
             self.efficiency()
             self.marginal_costs()
 
         self.process_availability()
         self.process_net_export()
+        self.process_net_position()
 
         if self.options["data"]["unique_mc"]:
             self.unique_mc()
@@ -39,7 +40,18 @@ class InputProcessing(object):
             self.data.lines.cb = True
 
         self._check_data()
+    def process_demand(self):
+        """ Process Demand data"""
+        if self.data.demand_h.empty:
+            self.data.demand_h = pd.DataFrame(index=self.data.demand_el.index)
 
+        for node in self.data.nodes.index[~self.data.nodes.index.isin(self.data.demand_el.columns)]:
+            self.logger.warning("Node %s not in demand_el, including with demand of 0", node)
+            self.data.demand_el[node] = 0
+
+    def process_net_position(self):
+        for zone in self.data.zones.index.difference(self.data.net_position.columns):#
+            self.data.net_position[zone] = 0
 
     def process_net_export(self):
         """
@@ -71,9 +83,22 @@ class InputProcessing(object):
                                                            (self.data.dclines.node_j.isin(self.data.nodes.index[self.data.nodes.zone == zones[0]]))]))
                 nodes = list(set(nodes))
 
-                for n in nodes:
-                    self.data.net_export[n] = net_export_raw.export[(net_export_raw["from_zone"] == zones[0]) & \
-                                                                    (net_export_raw["to_zone"] == zones[1])].values/len(nodes)
+                for node in nodes:
+                    tmp = net_export_raw[(net_export_raw["from_zone"] == zones[0]) & \
+                                         (net_export_raw["to_zone"] == zones[1])]
+
+                    tmp.export = tmp.export/len(nodes)
+                    tmp = tmp[["timestep", "export"]].rename(columns={"export": node})
+                    if not node in self.data.net_export.columns:
+                        self.data.net_export = pd.merge(self.data.net_export, tmp, how="left",
+                                                        left_index=True, right_on="timestep").set_index("timestep")
+                    else:
+                        self.logger.warning("node %s with multiple net export timeseries", node)
+
+            ## Fill NaNs with
+            if any(self.data.net_export.isna().any(axis=0)):
+                self.logger.warning("Net export contains NaNs, set NaNs to 0")
+                self.data.net_export.fillna(0, inplace=True)
 
             for n in list(set(self.data.nodes.index) - set(self.data.net_export.columns)):
                 self.data.net_export[n] = 0
@@ -102,13 +127,13 @@ class InputProcessing(object):
         co2_price = self.options["data"]["co2_price"]
         self.data.plants["mc"] = np.nan
         tmp_plants = self.data.plants[['mc', 'fuel', 'tech', 'eta']][self.data.plants.mc.isnull()]
-        tmp_costs = pd.merge(self.data.fuel[["fuel", "fuel_price", "co2"]],
+        tmp_costs = pd.merge(self.data.fuel,
                              self.data.tech[['fuel', 'tech', 'variable_om']],
-                             how='left', on=['fuel'])
+                             how='left', left_on="index", right_on=['fuel'])
 
         tmp_plants = pd.merge(tmp_plants, tmp_costs, how='left', on=['tech', 'fuel'])
         tmp_plants.mc = tmp_plants.fuel_price / tmp_plants.eta + tmp_plants.variable_om + tmp_plants.co2 * co2_price
-        
+
         self.data.plants.loc[self.data.plants.mc.isnull(), "mc"] = tmp_plants.mc.values
 
         if len(self.data.plants.mc[self.data.plants.mc.isnull()]) > 0:
@@ -208,7 +233,7 @@ class InputProcessing(object):
     def _check_data(self):
         """ checks if dataset contaisn NaNs"""
         self.logger.info("Checking Data...")
-        ## Heatarea contains NaN, but that's alright
+
         data_nan = {}
         for i, df_name in enumerate(self.data.data_attributes["data"]):
             tmp_df = getattr(self.data, df_name)
