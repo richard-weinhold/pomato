@@ -14,7 +14,6 @@ class InputProcessing(object):
 
         self.options = options
         self.logger.info("Processing Input Data...")
-
         if self.data.data_attributes["source"] == "mpc_casefile":
             pass
 
@@ -22,7 +21,6 @@ class InputProcessing(object):
             self.process_demand()
             self.efficiency()
             self.marginal_costs()
-
         self.process_availability()
         self.process_net_export()
         self.process_net_position()
@@ -67,34 +65,35 @@ class InputProcessing(object):
         else:
             net_export_raw = self.data.net_export.copy()
             self.data.net_export = pd.DataFrame(index=self.data.demand_el.index)
-
             for zones in set([(from_zone,to_zone) for (from_zone,to_zone) in zip(net_export_raw.from_zone, net_export_raw.to_zone)]):
                 nodes = []
-                nodes.extend(list(self.data.lines.node_i[(self.data.lines.node_i.isin(self.data.nodes.index[self.data.nodes.zone == zones[0]]))& \
-                                                         (self.data.lines.node_j.isin(self.data.nodes.index[self.data.nodes.zone == zones[1]]))]))
+                nodes_from_zones = self.data.nodes.index[self.data.nodes.zone == zones[0]]
+                nodes_to_zones = self.data.nodes.index[self.data.nodes.zone == zones[1]]
 
-                nodes.extend(list(self.data.lines.node_j[(self.data.lines.node_i.isin(self.data.nodes.index[self.data.nodes.zone == zones[1]]))& \
-                                                         (self.data.lines.node_j.isin(self.data.nodes.index[self.data.nodes.zone == zones[0]]))]))
 
-                nodes.extend(list(self.data.dclines.node_i[(self.data.dclines.node_i.isin(self.data.nodes.index[self.data.nodes.zone == zones[0]]))& \
-                                                           (self.data.dclines.node_j.isin(self.data.nodes.index[self.data.nodes.zone == zones[1]]))]))
+                nodes.extend(list(self.data.lines.node_i[(self.data.lines.node_i.isin(nodes_from_zones))& \
+                                                         (self.data.lines.node_j.isin(nodes_to_zones))]))
 
-                nodes.extend(list(self.data.dclines.node_j[(self.data.dclines.node_i.isin(self.data.nodes.index[self.data.nodes.zone == zones[1]]))& \
-                                                           (self.data.dclines.node_j.isin(self.data.nodes.index[self.data.nodes.zone == zones[0]]))]))
+                nodes.extend(list(self.data.lines.node_j[(self.data.lines.node_i.isin(nodes_to_zones))& \
+                                                         (self.data.lines.node_j.isin(nodes_from_zones))]))
+
+                nodes.extend(list(self.data.dclines.node_i[(self.data.dclines.node_i.isin(nodes_from_zones))& \
+                                                           (self.data.dclines.node_j.isin(nodes_to_zones))]))
+
+                nodes.extend(list(self.data.dclines.node_j[(self.data.dclines.node_i.isin(nodes_to_zones))& \
+                                                           (self.data.dclines.node_j.isin(nodes_from_zones))]))
                 nodes = list(set(nodes))
-
                 for node in nodes:
                     tmp = net_export_raw[(net_export_raw["from_zone"] == zones[0]) & \
-                                         (net_export_raw["to_zone"] == zones[1])]
+                                         (net_export_raw["to_zone"] == zones[1])].copy()
 
-                    tmp.export = tmp.export/len(nodes)
+                    tmp.loc[:, "export"] = tmp.export/len(nodes)
                     tmp = tmp[["timestep", "export"]].rename(columns={"export": node})
                     if not node in self.data.net_export.columns:
                         self.data.net_export = pd.merge(self.data.net_export, tmp, how="left",
                                                         left_index=True, right_on="timestep").set_index("timestep")
                     else:
                         self.logger.warning("node %s with multiple net export timeseries", node)
-
             ## Fill NaNs with
             if any(self.data.net_export.isna().any(axis=0)):
                 self.logger.warning("Net export contains NaNs, set NaNs to 0")

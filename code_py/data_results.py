@@ -258,6 +258,13 @@ class ResultProcessing():
             label_lines.extend([line for i in range(0, len(outages))])
             label_outages.extend(outages)
 
+        # estimate size of array = nr_elements * bytes per element
+        # (float64 + sep = 8 + 1) / (1024**2) MB
+        estimate_size = len(label_lines)*len(self.grid.nodes.index)*(8 + 1)/(1024*1024)
+        if estimate_size > 5000:
+            raise Exception('Matrix N-1 PTDF MAtrix too large! Use a higher sensitivity!')
+
+
         for line in self.grid.lines.index[self.grid.lines.contingency]:
             if use_lodf:
                 outages = list(self.grid.lodf_filter(line, sensitivity))

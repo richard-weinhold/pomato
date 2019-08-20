@@ -24,8 +24,23 @@ d = mato.data.demand_el
 o = mato.options
 a = mato.data.availability
 
+
+# %%
 mato.create_grid_representation()
 gr = mato.grid_representation["cbco"]
+
+# cbco_convexhull = gr
+# # cbco_clarkson = gr
+
+# idx_ch = list(cbco_convexhull.index)
+# # idx_clarkson = list(cbco_clarkson.index)
+
+# count = 0
+# for i in idx_ch:
+#     if i not in idx_clarkson:
+#         count += 1
+#         print(i)
+# print(count)
 
 #mato.grid.lines[mato.grid.lines.contingency]
 #186 + 186*(186 - 9)
@@ -34,10 +49,13 @@ gr = mato.grid_representation["cbco"]
 
 mato.init_market_model()
 mato.run_market_model()
-##
+#
 
 mato.data.results.G
 df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
+
+
+
 # df3 = mato.data.results.n_1_flow()
 # df4 = mato.data.results.n_0_flow()
 

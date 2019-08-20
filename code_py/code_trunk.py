@@ -425,3 +425,57 @@ def manual_exe():
         price["marginal"] = -(price.EB_zonal + price.EB_nodal)
 
         return price[["t", "n", "z", "marginal"]]
+
+
+
+
+
+
+
+
+
+
+
+
+
+####
+    def plot_vertecies_of_inequalities(self, domain_x, domain_y, gsk_sink):
+        """Plot Vertecies Representation of FBMC Domain"""
+        self.nodes.net_injection = 0
+        contingency = self.n_1_ptdf
+        gsk_sink = gsk_sink or {}
+        list_zonal_ptdf = self.create_zonal_ptdf(contingency)
+
+        A, b = self.create_eq_list_zptdf(list_zonal_ptdf, domain_x, domain_y, gsk_sink)
+        cbco_index = self.reduce_ptdf(A, b)
+
+        full_indices = np.array([x for x in range(0,len(A))])
+        # only plot a subset of linear inequalities that are not part of the load flow domain if A too large
+        if len(A) > 1e3:
+            relevant_subset = np.append(cbco_index, np.random.choice(full_indices, int(1e3), replace=False))
+        else:
+            relevant_subset = full_indices
+
+        relevant_subset = cbco_index
+        A = np.array(A)
+        b = np.array(b).reshape(len(b), 1)
+
+        vertecies_full = np.take(A, relevant_subset, axis=0)/np.take(b, relevant_subset, axis=0)
+        vertecies_reduces = np.take(A, cbco_index, axis=0)/np.take(b, cbco_index, axis=0)
+
+        xy_limits = tools.find_xy_limits([[vertecies_reduces[:,0], vertecies_reduces[:,1]]])
+
+        fig = plt.figure()
+        ax = plt.subplot()
+
+        scale = 1.2
+        ax.set_xlim(xy_limits["x_min"]*scale, xy_limits["x_max"]*scale)
+        ax.set_ylim(xy_limits["y_min"]*scale, xy_limits["y_max"]*scale)
+
+        for point in vertecies_full:
+            ax.scatter(point[0], point[1], c='lightgrey')
+        for point in vertecies_reduces:
+            ax.scatter(point[0], point[1], c='r')
+        return fig
+
+    #####

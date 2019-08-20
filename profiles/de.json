@@ -18,9 +18,9 @@
     "grid": {
         "capacity_multiplier": 0.95,
         "reference_flows": false,
-        "precalc_filename": "",
+        "precalc_filename": "cbco_de_aug_0708_2048",
         "senstitivity": 5e-2,
-        "cbco_option": "full_cbco",
+        "cbco_option": "save_base",
         "preprocess": true
     },
     "data": {

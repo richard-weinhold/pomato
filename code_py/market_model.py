@@ -24,7 +24,7 @@ class MarketModel():
         self.status = 'empty'
         self.logger = logging.getLogger('Log.MarketModel.JuliaInterface')
         self.logger.info("Initializing MarketModel...")
-        self._gams = True
+        self._gams = False
         # Create Folders
         self.wdir = wdir
         if self._gams:
@@ -39,13 +39,15 @@ class MarketModel():
         self.grid_representation = grid_representation
 
         self.options = options
-        model_horizon_range = range(options["model_horizon"][0], options["model_horizon"][1])
+
+        model_horizon_range = range(options["optimization"]["model_horizon"][0], 
+                                    options["optimization"]["model_horizon"][1])
+
         self.model_horizon = [str(x) for x in data.demand_el.index[model_horizon_range]]
 
-        self.options["t_start"] = self.model_horizon[0]
-        self.options["t_end"] = self.model_horizon[-1]
+        self.options["optimization"]["t_start"] = self.model_horizon[0]
+        self.options["optimization"]["t_end"] = self.model_horizon[-1]
         self.data_to_csv()
-        # self.data_to_json()
 
         self.status = 'ready_to_solve'
         self.results = {}
@@ -62,11 +64,11 @@ class MarketModel():
             args = ["gams", str(self.wdir.joinpath("code_gms/model.gms")),
                     "--wdir=" + str(self.wdir),
                     "--rdir=" + str(result_folder),
-                    "--model_type=" + self.options["type"],
-                    "--infeas_el_nodal=" + str(self.options["infeas_el_nodal"]),
-                    "--infeas_lines=" + str(self.options["infeas_lines"]),
-                    "--infeas_heat=" + str(self.options["infeas_heat"]),
-                    "--infeasibility_bound=" + str(self.options["infeasibility_bound"]),
+                    "--model_type=" + self.options["optimization"]["type"],
+                    "--infeas_el_nodal=" + str(self.options["optimization"]["infeas_el_nodal"]),
+                    "--infeas_lines=" + str(self.options["optimization"]["infeas_lines"]),
+                    "--infeas_heat=" + str(self.options["optimization"]["infeas_heat"]),
+                    "--infeasibility_bound=" + str(self.options["optimization"]["infeasibility_bound"]),
                     "lo=3",
                     "curDir=" + str(result_folder)]
         else:
@@ -93,7 +95,10 @@ class MarketModel():
                           for i in self.data_dir.joinpath("results").iterdir()]
             folder = folders.folder[folders.time.idxmax()]
 
-            self.data.process_results(folder, self.options)
+            with open(folder.joinpath("optionfile.json"), 'w') as file:
+                json.dump(self.options, file, indent=2)
+
+            self.data.process_results(folder, self.options["optimization"])
             self.data.results.check_infeasibilities()
             self.status = 'solved'
         else:
@@ -136,16 +141,16 @@ class MarketModel():
             .to_csv(str(csv_path.joinpath('reference_flows.csv')), index_label='index')
 
         plant_types = pd.DataFrame(index=self.data.plants.tech.unique())
-        for ptype in self.options["plant_types"]:
+        for ptype in self.options["optimization"]["plant_types"]:
             plant_types[ptype] = 0
-            plant_types[ptype][plant_types.index.isin(self.options["plant_types"][ptype])] = 1
+            condition = plant_types.index.isin(self.options["optimization"]["plant_types"][ptype])
+            plant_types[ptype][condition] = 1
         plant_types.to_csv(str(csv_path.joinpath('plant_types.csv')), index_label='index')
 
         # Optional data
         self.grid_representation["cbco"] \
             .to_csv(str(csv_path.joinpath('cbco.csv')), index_label='index')
 
-        # try:
         slack_zones = pd.DataFrame(index=self.data.nodes.index)
         for slack in self.grid_representation["slack_zones"]:
             slack_zones[slack] = 0
@@ -153,8 +158,6 @@ class MarketModel():
             slack_zones[slack][condition] = 1
 
         slack_zones.to_csv(str(csv_path.joinpath('slack_zones.csv')), index_label='index')
-        # except:
-        #     self.logger.warning("slack_zones.json not found - Check if relevant for the model")
 
         try:
             with open(csv_path.joinpath('slack_zones.json'), 'w') as file:
@@ -164,6 +167,6 @@ class MarketModel():
 
         try:
             with open(csv_path.joinpath('options.json'), 'w') as file:
-                json.dump(self.options, file, indent=2)
+                json.dump(self.options["optimization"], file, indent=2)
         except:
             self.logger.warning("options.json not found - Check if relevant for the model")

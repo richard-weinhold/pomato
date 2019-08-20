@@ -94,7 +94,7 @@ class MarketTool():
         if not self.grid_representation:
             self.create_grid_representation()
 
-        self.market_model = MarketModel(self.wdir, self.data, self.options["optimization"],
+        self.market_model = MarketModel(self.wdir, self.data, self.options,
                                         self.grid_representation)
 
     def run_market_model(self):

@@ -82,8 +82,8 @@ end
 # disp = Model(solver=ClpSolver(SolveType=5))
 # disp = Model(solver=GurobiSolver(Presolve=2, PreDual=2, Threads=8))
 # disp = Model(solver=GurobiSolver(Method=0,Threads=1))
-# disp = Model(with_optimizer(Gurobi.Optimizer, Method=1, LogFile=result_folder*"/log.txt")) #, Presolve=0)) #))
-disp = Model(with_optimizer(Gurobi.Optimizer, LogFile=result_folder*"/log.txt"))
+disp = Model(with_optimizer(Gurobi.Optimizer, Method=1, LogFile=result_folder*"/log.txt"))
+# disp = Model(with_optimizer(Gurobi.Optimizer, LogFile=result_folder*"/log.txt"))
 
 # Variables
 @variable(disp, G[t_set, p_set] >= 0) # El. power generation per plant p
@@ -109,6 +109,7 @@ end
 if options["infeas_el_nodal"]
     @variable(disp, 0 <= INFEAS_EL_N_NEG[t_set, n_set] <= options["infeasibility_bound"])
     @variable(disp, 0 <= INFEAS_EL_N_POS[t_set, n_set] <= options["infeasibility_bound"])
+
 else
     @variable(disp, INFEAS_EL_N_NEG[t_set, n_set] == 0)
     @variable(disp, INFEAS_EL_N_POS[t_set, n_set] == 0)
@@ -156,7 +157,7 @@ println("Building Constraints")
 @constraint(disp, [t=t_set, p=intersect(ts_set, co_set)],
     G[t, p] <= plants[p].g_max * plants[p].availability[model_horizon[t]])
 @constraint(disp, [t=t_set, p=intersect(ts_set, co_set)],
-    G[t, p] >= plants[p].g_max * plants[p].availability[model_horizon[t]] * 0)
+    G[t, p] >= plants[p].g_max * plants[p].availability[model_horizon[t]] * 0.8)
 
 # Applies to: Dispatch
 # Base Constraint
@@ -196,8 +197,8 @@ println("Building Constraints")
 @constraint(disp, [t=t_set, p=hs_set],
     D_hs[t, p] <= plants[p].h_max)
 
-@constraint(disp, [p=hs_set],
-    L_hs[t_end, p] >= 2*plants[p].h_max)
+# @constraint(disp, [p=hs_set],
+#     L_hs[t_end, p] >= 2*plants[p].h_max)
 
 # Applies to: Dispatch
 # Base Constraint
@@ -246,7 +247,7 @@ println("Building Constraints")
 
 # NTC Constraints
 # Applies to: ntc
-if in(model_type, ["ntc"])
+if in(model_type, ["ntc", "zonal", "cbco_zonal"])
     @constraint(disp, [t=t_set, z=z_set, zz=z_set],
         EX[t, z, zz] <=  zones[z].ntc[zz])
 end
@@ -278,7 +279,7 @@ end
 
 
 # Applies to nodal model for basecase calculation:
-if in(model_type, ["nodal"])
+if in(model_type, ["cbco_nodal_s"])
     for t in t_set
         for z in ["DE", "NL", "BE", "FR"]
             ### net_position when positive -> export
@@ -292,7 +293,7 @@ if in(model_type, ["nodal"])
     end
 end
 
-# Applies to d2cf model:
+# Applies to d2cf model:²
 # set net_position net_position:
 if in(model_type, ["d2cf"])
     for t in t_set

@@ -1,11 +1,18 @@
-import sys
+"""
+
+THIS IS FBMC Module
+INPUT: DATA
+OUTPUT: RESULTS
+
+"""
+
 import logging
 import datetime as dt
 import numpy as np
 import pandas as pd
 
 import matplotlib.pyplot as plt
-from scipy.spatial import ConvexHull
+from scipy import spatial
 import tools as tools
 
 
@@ -17,7 +24,7 @@ import tools as tools
 # #
 # # 3d plot
 
-class FBMCDomain(object):
+class FBMCDomain():
     """Class to store all relevant information of an FBMC Plot"""
     def __init__(self, plot_information, plot_equations, hull_information, xy_limits, domain_data):
 
@@ -47,28 +54,30 @@ class FBMCDomain(object):
         hull_coord_x = self.hull_information["hull_coord_x"]
         hull_coord_y = self.hull_information["hull_coord_y"]
         fig = plt.figure()
-        ax = plt.subplot()
+        axis = plt.subplot()
         scale = 1.05
-        ax.set_xlim(self.x_min*scale, self.x_max*scale)
-        ax.set_ylim(self.y_min*scale, self.y_max*scale)
+        axis.set_xlim(self.x_min*scale, self.x_max*scale)
+        axis.set_ylim(self.y_min*scale, self.y_max*scale)
 
-        title = 'FBMC Domain between: ' + "-".join(self.domain_x) + ' and ' + "-".join(self.domain_y) \
+        title = 'FBMC Domain between: ' + "-".join(self.domain_x) \
+                + ' and ' + "-".join(self.domain_y) \
                 + '\n Number of CBCOs: ' + str(len(hull_plot_x)-1) \
-                + "\n GSK Strategy: " + self.gsk_strategy + " - Timestep: " + self.timestep
+                + "\n GSK Strategy: " + self.gsk_strategy \
+                + " - Timestep: " + self.timestep
 
         for elem in self.plot_equations:
-            ax.plot(elem[0], elem[1], c='lightgrey', ls='-')
+            axis.plot(elem[0], elem[1], c='lightgrey', ls='-')
 
-        ax.plot(hull_plot_x, hull_plot_y, 'r--', linewidth=2)
-        ax.set_title(title)
-        ax.scatter(hull_coord_x, hull_coord_y)
+        axis.plot(hull_plot_x, hull_plot_y, 'r--', linewidth=2)
+        axis.set_title(title)
+        axis.scatter(hull_coord_x, hull_coord_y)
         fig.savefig(str(folder.joinpath(f"FBMC_{self.title}.png")))
         fig.clf()
 
 
-class FBMCModule(object):
+class FBMCModule():
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, grid_object, results):
+    def __init__(self, wdir, grid_object, results, cbco_list=None):
         # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
@@ -80,18 +89,11 @@ class FBMCModule(object):
         self.lines = grid_object.lines
 
         self.flowbased_region = ["DE", "FR", "NL", "BE", "LU"]
-
-        self.gsk_strategy = "gmax"
-        self.timestep = "t0001"
+        self.cbco_list = cbco_list
 
         self.results = results
         self.fbmc_plots = {}
         self.nodal_fbmc_ptdf, self.domain_info = self.create_fbmc_info()
-        
-        # A, b saved, for recreation of multiple plots with the same
-        # configuration of gsk_strat and timestep
-        self.A = None
-        self.b = None
 
         # set-up: dont show the graphs when created
         plt.ioff()
@@ -99,23 +101,17 @@ class FBMCModule(object):
         self.logger.info("FBMCModule  Initialized!")
 
 
-    def save_worker(self, arg):
-        """ arg[0] = plot, arg[1] = folder"""
-        # self.logger.info(f"Plotting Domain of {arg[0]}")
-        print(f"Plotting Domain of {arg[0]} in folder {arg[1]}")
-        self.fbmc_plots[arg[0]].plot_fbmc_domain(arg[1])
-        print(f"Done {arg[0]}")
-
-    def save_all_domain_plots(self, folder, set_xy_limits=True):
-        if set_xy_limits:
-            self.set_xy_limits_forall_plots()
+    def save_all_domain_plots(self, folder):
+        """Saving all the FBMC Plots"""
+        self.set_xy_limits_forall_plots()
         plt.close("all")
         for plot in self.fbmc_plots:
-            arg = [plot, folder]
-            self.save_worker(arg)
+            self.logger.info("Plotting Domain of %s in folder %s", plot, folder)
+            self.fbmc_plots[plot].plot_fbmc_domain(folder)
+            self.logger.info("Done!")
 
     def save_all_domain_info(self, folder, name_suffix=""):
-
+        """Save the FBMC Domain Info (=Data) """
         domain_info = pd.concat([self.fbmc_plots[plot].domain_data for plot in self.fbmc_plots])
         # oder the columns
         columns = ["timestep", "gsk_strategy", "cb", "co"]
@@ -123,20 +119,17 @@ class FBMCModule(object):
         columns.extend(["ram", "in_domain"])
         domain_info = domain_info[columns]
 
-        mask = domain_info[['cb','co']].isin({'cb': domain_info[domain_info.in_domain].cb.unique(), 
-                                              'co': domain_info[domain_info.in_domain].co.unique()}).all(axis=1)
+        mask_dict = {'cb': domain_info[domain_info.in_domain].cb.unique(),
+                     'co': domain_info[domain_info.in_domain].co.unique()}
+        mask = domain_info[['cb', 'co']].isin(mask_dict).all(axis=1)
 
         self.logger.info("Saving domain info as csv")
-        domain_info[domain_info.in_domain].to_csv(folder.joinpath("domain_info" + name_suffix + ".csv"))
-        domain_info[mask].to_csv(folder.joinpath("domain_info_full" + name_suffix + ".csv"))
-        # domain_info[domain_info.in_domain].to_csv(folder.joinpath("domain_info_domain" + name_suffix + ".csv"))
-        return domain_info
 
-    def update_plot_setup(self, timestep, gsk_strategy):
-        self.logger.info("Setting Net Injection and Updating Ab Matrix")
-        self.gsk_strategy, self.timestep = gsk_strategy, timestep
-        ## recalculating Ab
-        self.create_zonal_Ab()
+        filename = folder.joinpath("domain_info" + name_suffix + ".csv")
+        domain_info[domain_info.in_domain].to_csv(filename)
+
+        domain_info[mask].to_csv(folder.joinpath("domain_info_full" + name_suffix + ".csv"))
+        return domain_info
 
     def set_xy_limits_forall_plots(self):
         """For each fbmc plot object, set x and y limits"""
@@ -147,7 +140,7 @@ class FBMCModule(object):
         y_max = max([self.fbmc_plots[plot].y_max for plot in self.fbmc_plots])
 
         for plots in self.fbmc_plots:
-            self.logger.info(f"Resetting x and y limits for {self.fbmc_plots[plots].title}")
+            self.logger.info("Resetting x and y limits for %s", self.fbmc_plots[plots].title)
             self.fbmc_plots[plots].x_min = x_min
             self.fbmc_plots[plots].x_max = x_max
             self.fbmc_plots[plots].y_min = y_min
@@ -158,8 +151,10 @@ class FBMCModule(object):
 
         gsk = pd.DataFrame(index=self.nodes.index)
         conv_fuel = ['uran', 'lignite', 'hard coal', 'gas', 'oil', 'hydro', 'waste']
-        condition = self.results.data.plants.fuel.isin(conv_fuel)&(self.results.data.plants.tech != "psp")
-        gmax_per_node = self.results.data.plants.loc[condition, ["g_max", "node"]].groupby("node").sum()
+        condition = (self.results.data.plants.fuel.isin(conv_fuel)) & \
+                    (self.results.data.plants.tech != "psp")
+        gmax_per_node = self.results.data.plants.loc[condition, ["g_max", "node"]] \
+                        .groupby("node").sum()
 
         for zone in self.results.data.zones.index:
             nodes_in_zone = self.nodes.index[self.nodes.zone == zone]
@@ -177,56 +172,87 @@ class FBMCModule(object):
 
         return gsk.values
 
+    def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax"):
 
-    def return_critical_branches(self, threshold=5e-2):
-        gsk = self.create_gsk("gmax")
+        self.logger.info("List of CBs is generated from zone-to-zone PTDFs with:")
+        self.logger.info("GSK Strategy: %s, Threshold: %d percent", gsk_strategy, threshold*100)
+
+        gsk = self.create_gsk(gsk_strategy)
         zonal_ptdf = np.dot(self.grid.ptdf, gsk)
-        zonal_ptdf_df = pd.DataFrame(index=self.lines.index, columns=self.results.data.zones.index, data=zonal_ptdf)
+        zonal_ptdf_df = pd.DataFrame(index=self.lines.index,
+                                     columns=self.results.data.zones.index,
+                                     data=zonal_ptdf)
+
         z2z_ptdf_df = pd.DataFrame(index=self.lines.index)
-        for z in self.flowbased_region:
-            for zz in self.flowbased_region:
-                z2z_ptdf_df["-".join([z, zz])] = zonal_ptdf_df[z] - zonal_ptdf_df[zz]
+        for zone in self.flowbased_region:
+            for zzone in self.flowbased_region:
+                z2z_ptdf_df["-".join([zone, zzone])] = zonal_ptdf_df[zone] - zonal_ptdf_df[zzone]
 
         critical_branches = list(z2z_ptdf_df.index[np.any(z2z_ptdf_df.abs() > threshold, axis=1)])
 
-        condition_cross_border = self.nodes.zone[self.lines.node_i].values != self.nodes.zone[self.lines.node_j].values
-        condition_flowbased_region = self.nodes.zone[self.lines.node_i].isin(self.flowbased_region).values & \
-                                     self.nodes.zone[self.lines.node_j].isin(self.flowbased_region).values
+        condition_cross_border = self.nodes.zone[self.lines.node_i].values != \
+                                 self.nodes.zone[self.lines.node_j].values
 
-        cross_border_lines = list(self.lines.index[condition_cross_border&condition_flowbased_region])
+        cond_fb_region = self.nodes.zone[self.lines.node_i].isin(self.flowbased_region).values & \
+                         self.nodes.zone[self.lines.node_j].isin(self.flowbased_region).values
+
+        cross_border_lines = list(self.lines.index[condition_cross_border&cond_fb_region])
         total_cbs = list(set(critical_branches + cross_border_lines))
 
         self.logger.info("Number of Critical Branches: %d, \
-                          Number of Cross Border lines: %d, \
-                          Total Number of CBs: %d", len(critical_branches), len(cross_border_lines), len(total_cbs))
+                         Number of Cross Border lines: %d, \
+                         Total Number of CBs: %d",
+                         len(critical_branches), len(cross_border_lines), len(total_cbs))
 
         return total_cbs
 
-
-
-    def create_fbmc_info(self, lodf_sensitivity=20e-2):
+    def create_fbmc_info(self, lodf_sensitivity=5e-2):
 
         """
         create ptdf, determine CBs
         """
 
-        self.lines["cb"] = False
-        critical_branches = self.return_critical_branches(threshold=5e-2)
-        self.lines.loc[self.lines.index.isin(critical_branches), "cb"] = True
+        if isinstance(self.cbco_list, pd.DataFrame):
+            base_cb = list(self.cbco_list.cb[self.cbco_list.co == "basecase"])
 
-        select_lines = self.lines.index[(self.lines["cb"])&(self.lines.contingency)]
+            index_position = [self.lines.index.get_loc(line) for line in base_cb]
+            base_ptdf = self.grid.ptdf[index_position, :]
+            full_ptdf = [base_ptdf, -base_ptdf]
+            label_lines = list(base_cb)+list(base_cb)
+            label_outages = ["basecase" for line in label_lines]
 
-        full_ptdf = []
-        label_lines, label_outages = [], []
+            self.cbco_list = self.cbco_list[~(self.cbco_list.co == "basecase")]
+            select_lines = []
+            select_outages = {}
+            for line in self.cbco_list.cb.unique():
+                select_lines.append(line)
+                select_outages[line] = list(self.cbco_list.co[self.cbco_list.cb == line])
 
-        for idx, line in enumerate(select_lines):
-            outages = list(self.grid.lodf_filter(line, lodf_sensitivity))
-            tmp_ptdf = np.vstack([self.grid.create_n_1_ptdf_cbco(line,o) for o in outages])
+        else:
+            self.lines["cb"] = False
+            critical_branches = self.return_critical_branches(threshold=5e-2)
+            self.lines.loc[self.lines.index.isin(critical_branches), "cb"] = True
+
+            select_lines = self.lines.index[(self.lines["cb"])&(self.lines.contingency)]
+            select_outages = {}
+            for line in select_lines:
+                select_outages[line] = list(self.grid.lodf_filter(line, lodf_sensitivity))
+
+            index_position = [self.lines.index.get_loc(line) for line in select_lines]
+            base_ptdf = self.grid.ptdf[index_position, :]
+            full_ptdf = [base_ptdf, -base_ptdf]
+            label_lines = list(select_lines)+list(select_lines)
+            label_outages = ["basecase" for line in label_lines]
+
+        for line in select_lines:
+            outages = select_outages[line]
+            tmp_ptdf = np.vstack([self.grid.create_n_1_ptdf_cbco(line, out) for out in outages])
             full_ptdf.extend([tmp_ptdf, -tmp_ptdf])
             label_lines.extend([line for i in range(0, 2*len(outages))])
             label_outages.extend(outages*2)
 
-        nodal_fbmc_ptdf = np.concatenate(full_ptdf).reshape(len(label_lines), len(list(self.nodes.index)))
+        nodal_fbmc_ptdf = np.concatenate(full_ptdf)
+        nodal_fbmc_ptdf = nodal_fbmc_ptdf.reshape(len(label_lines), len(list(self.nodes.index)))
 
         domain_info = pd.DataFrame(columns=list(self.results.data.zones.index))
         domain_info["cb"] = label_lines
@@ -234,100 +260,80 @@ class FBMCModule(object):
 
         return nodal_fbmc_ptdf, domain_info
 
-    def create_zonal_Ab(self):
+    def create_flowbased_ptdf(self, gsk_strategy, timestep):
         """
         Create Zonal ptdf -> creates both positive and negative line
         restrictions or ram. Depending on flow != 0
         """
-        try:
-            self.logger.info("Creating zonal Ab")
-            # Calculate zonal ptdf based on ram -> (if current flow is 0 the
-            # zonal ptdf is based on overall
-            # avalable line capacity (l_max)), ram is calculated for every n-1
-            # ptdf matrix to ensure n-1 security constrained FB Domain
-            # The right side of the equation has to be positive
-            
+        self.logger.info("Creating zonal Ab")
+        # Calculate zonal ptdf based on ram -> (if current flow is 0 the
+        # zonal ptdf is based on overall
+        # avalable line capacity (l_max)), ram is calculated for every n-1
+        # ptdf matrix to ensure n-1 security constrained FB Domain
+        # The right side of the equation has to be positive
 
-            frm_fav = pd.DataFrame(index=self.domain_info.cb.unique())
-            frm_fav["value"] = self.lines.maxflow[frm_fav.index]*0.2
+        frm_fav = pd.DataFrame(index=self.domain_info.cb.unique())
+        frm_fav["value"] = self.lines.maxflow[frm_fav.index]*0
 
-            injection = self.results.INJ.INJ[self.results.INJ.t == self.timestep].values
+        injection = self.results.INJ.INJ[self.results.INJ.t == timestep].values
 
 
-            f_ref_base_case = np.dot(self.nodal_fbmc_ptdf, injection)
-            gsk = self.create_gsk(self.gsk_strategy)
-            zonal_fbmc_ptdf = np.dot(self.nodal_fbmc_ptdf, gsk)
+        f_ref_base_case = np.dot(self.nodal_fbmc_ptdf, injection)
+        gsk = self.create_gsk(gsk_strategy)
+        zonal_fbmc_ptdf = np.dot(self.nodal_fbmc_ptdf, gsk)
 
-            # F Day Ahead (eigentlich mit LTNs)
-            net_position = self.results.net_position()
-            net_position.loc[:, ~net_position.columns.isin(self.flowbased_region)] = 0
+        # F Day Ahead (eigentlich mit LTNs)
+        net_position = self.results.net_position() * 0.75
+        net_position.loc[:, ~net_position.columns.isin(self.flowbased_region)] = 0
 
-            f_da = np.dot(zonal_fbmc_ptdf, net_position.loc[self.timestep].values)
-            f_ref_nonmarket = f_ref_base_case - f_da
+        f_da = np.dot(zonal_fbmc_ptdf, net_position.loc[timestep].values)
+        # f_ref_nonmarket = f_ref_base_case
+        f_ref_nonmarket = f_ref_base_case - f_da
 
-            ram = np.subtract(self.lines.maxflow[self.domain_info.cb] - frm_fav.value[self.domain_info.cb],
-                                  f_ref_nonmarket).values
+        ram = np.subtract(self.lines.maxflow[self.domain_info.cb] - \
+                          frm_fav.value[self.domain_info.cb],
+                          f_ref_nonmarket).values
 
-            ram = ram.reshape(len(ram), 1)
+        ram = ram.reshape(len(ram), 1)
 
-            # if any(ram < 0):
-            #     self.logger.warning("%d RAMs are <0", sum(ram<0))
-            #     ram[ram<150] = 10000
-
-
-
-            self.domain_info[list(self.results.data.zones.index)] = zonal_fbmc_ptdf
-            self.domain_info["ram"] = ram
-            self.domain_info["timestep"] = self.timestep
-            self.domain_info["gsk_strategy"] = self.gsk_strategy
-
-            self.logger.info("Done!")
-
-            self.A = zonal_fbmc_ptdf
-            self.b = ram
-
-            return zonal_fbmc_ptdf, ram
-        except:
-                self.logger.exception('error:create_zonal_ptdf')
+        if any(ram < 0):
+            self.logger.warning("%d RAMs are <0", sum(ram<0))
+            # ram[ram<150] = 10000
 
 
-    def create_fbmc_equations(self, domain_x=None, domain_y=None, gsk_sink=None):
-            """
-            from zonal ptdf calculate linear equations ax = b to plot the FBMC domain
-            nodes/Zones that are not part of the 2D FBMC are summerized using GSK sink
-            """
-            domain_x = domain_x or []
-            domain_y = domain_y or []
-            gsk_sink = gsk_sink or []
+        self.domain_info[list(self.results.data.zones.index)] = zonal_fbmc_ptdf
+        self.domain_info["ram"] = ram
+        self.domain_info["timestep"] = timestep
+        self.domain_info["gsk_strategy"] = gsk_strategy
 
-            list_zones = list(self.nodes.zone.unique())
-            if not (isinstance(self.A, np.ndarray) and isinstance(self.b, np.ndarray)):
-                A, b = self.create_zonal_Ab()
-            else:
-                self.logger.info("Using previous Ab")
+        self.logger.info("Done!")
 
-            A = self.A
-            b = self.b
-            self.logger.info("Creating fbmc equations...")
+        # return A, b
+        return zonal_fbmc_ptdf, ram
 
-            if len(domain_x) == 1:
-                domain_idx = [list_zones.index(z) for z in domain_x + domain_y]
-                sink_idx = [list_zones.index(z) for z in gsk_sink.keys()]
-                sink_values = np.array([gsk_sink[z] for z in gsk_sink.keys()])
-                A = np.vstack([A[:, domain] - np.dot(A[:, sink_idx], sink_values) for domain in domain_idx]).T
+    def create_fbmc_equations(self, domain_x, domain_y, A, b):
+        """
+        from zonal ptdf calculate linear equations ax = b to plot the FBMC domain
+        nodes/Zones that are not part of the 2D FBMC are summerized using GSK sink
+        """
+        self.logger.info("Creating fbmc equations...")
+        list_zones = list(self.nodes.zone.unique())
+        if len(domain_x) == 2:
+            domain_idx = [[list_zones.index(zone[0]),
+                           list_zones.index(zone[1])] for zone in [domain_x, domain_y]]
+            A = np.vstack([np.dot(A[:, domain], np.array([1, -1])) for domain in domain_idx]).T
+        else:
+            self.logger.warning("Domains not set in the right way!")
+            raise
 
-            elif len(domain_x) == 2:
-                domain_idx = [[list_zones.index(z[0]), list_zones.index(z[1])] for z in [domain_x, domain_y]]
-                A = np.vstack([np.dot(A[:, domain], np.array([1, -1])) for domain in domain_idx]).T
+        #Clean reduce Ax=b only works if b_i != 0 for all i,
+        #which should be but sometimes wierd stuff comes up
+        #Therefore if b == 0, b-> 1 (or something small>0)
+        if not (b > 0).all():
+            b[(b < 0)] = 0.1
+            self.logger.warning('some b is not right (possibly < 0)')
 
-            #Clean reduce Ax=b only works if b_i != 0 for all i,
-            #which should be but sometimes wierd stuff comes up
-            #Therefore if b == 0, b-> 1 (or something small>0)
-            if not (b > 0).all():
-                b[(b < 0)] = 0.1
-                self.logger.warning('some b is not right (possibly < 0)')
-
-            return(A, b)
+        return(A, b)
 
 
     def reduce_ptdf(self, A, b):
@@ -371,45 +377,6 @@ class FBMCModule(object):
             plot_equations.append([xcoord, ycoord])
 
         return plot_equations
-
-    def plot_vertecies_of_inequalities(self, domain_x, domain_y, gsk_sink):
-        """Plot Vertecies Representation of FBMC Domain"""
-        self.nodes.net_injection = 0
-        contingency = self.n_1_ptdf
-        gsk_sink = gsk_sink or {}
-        list_zonal_ptdf = self.create_zonal_ptdf(contingency)
-
-        A, b = self.create_eq_list_zptdf(list_zonal_ptdf, domain_x, domain_y, gsk_sink)
-        cbco_index = self.reduce_ptdf(A, b)
-
-        full_indices = np.array([x for x in range(0,len(A))])
-        # only plot a subset of linear inequalities that are not part of the load flow domain if A too large
-        if len(A) > 1e3:
-            relevant_subset = np.append(cbco_index, np.random.choice(full_indices, int(1e3), replace=False))
-        else:
-            relevant_subset = full_indices
-
-        relevant_subset = cbco_index
-        A = np.array(A)
-        b = np.array(b).reshape(len(b), 1)
-
-        vertecies_full = np.take(A, relevant_subset, axis=0)/np.take(b, relevant_subset, axis=0)
-        vertecies_reduces = np.take(A, cbco_index, axis=0)/np.take(b, cbco_index, axis=0)
-
-        xy_limits = tools.find_xy_limits([[vertecies_reduces[:,0], vertecies_reduces[:,1]]])
-
-        fig = plt.figure()
-        ax = plt.subplot()
-
-        scale = 1.2
-        ax.set_xlim(xy_limits["x_min"]*scale, xy_limits["x_max"]*scale)
-        ax.set_ylim(xy_limits["y_min"]*scale, xy_limits["y_max"]*scale)
-
-        for point in vertecies_full:
-            ax.scatter(point[0], point[1], c='lightgrey')
-        for point in vertecies_reduces:
-            ax.scatter(point[0], point[1], c='r')
-        return fig
 
     def get_xy_hull(self, A, b, cbco_index):
         """get x,y coordinates of the FBMC Hull"""
@@ -485,25 +452,25 @@ class FBMCModule(object):
         list_coord = np.take(list_coord, unique_rows_idx, axis=0)
         return(list_coord[:, 0], list_coord[:, 1], intersection_x, intersection_y)
 
-    def plot_fbmc(self, domain_x, domain_y, gsk_sink=None, reduce=False):
+    def plot_fbmc(self, domain_x, domain_y, gsk_strategy, timestep):
         """
         Combines previous functions to actually plot the FBMC Domain with the
         hull
         """
-        gsk_sink = gsk_sink or {}
-        A, b = self.create_fbmc_equations(domain_x, domain_y, gsk_sink)
+
+        A, b = self.create_flowbased_ptdf(gsk_strategy, timestep)
+        A, b = self.create_fbmc_equations(domain_x, domain_y, A, b)
         # Reduce
         cbco_index = self.reduce_ptdf(A, b)
         self.domain_info["in_domain"] = False
         self.domain_info.loc[self.domain_info.index.isin(cbco_index), "in_domain"] = True
+        self.logger.info("Number of CBCOs %d", len(cbco_index))
 
-        self.logger.info(f"Number of CBCOs %d", len(cbco_index))
-
-        full_indices = np.array([x for x in range(0,len(A))])
-        
         # Limit the number of constraints to 5000
+        full_indices = np.array([x for x in range(0,len(A))])
         threshold = 5e3
         if len(A) > threshold:
+            self.logger.info("Plot limited to %d constraints plotted", threshold)
             cbco_plot_indices = np.append(cbco_index,
                                           np.random.choice(full_indices,
                                                            size=int(threshold),
@@ -513,24 +480,21 @@ class FBMCModule(object):
 
         plot_equations = self.create_domain_plot(A, b, cbco_plot_indices)
         hull_plot_x, hull_plot_y, hull_coord_x, hull_coord_y = self.get_xy_hull(A, b, cbco_index)
-        self.logger.info(f"Number of CBCOs defining the domain %d", len(hull_plot_x) - 1)
-
-
         xy_limits = tools.find_xy_limits([[hull_plot_x, hull_plot_y]])
 
-        fbmc_plot = FBMCDomain({"gsk_strategy": self.gsk_strategy, 
-                                "timestep": self.timestep,
-                                "domain_x": domain_x, 
+        self.logger.info("Number of CBCOs defining the domain %d", len(hull_plot_x) - 1)
+        fbmc_plot = FBMCDomain({"gsk_strategy": gsk_strategy,
+                                "timestep": timestep,
+                                "domain_x": domain_x,
                                 "domain_y": domain_y
                                 },
                                plot_equations,
-                               {"hull_plot_x": hull_plot_x, 
+                               {"hull_plot_x": hull_plot_x,
                                 "hull_plot_y": hull_plot_y,
-                                "hull_coord_x": hull_coord_x, 
+                                "hull_coord_x": hull_coord_x,
                                 "hull_coord_y": hull_coord_y
                                 },
                                xy_limits,
                                self.domain_info.copy())
 
         self.fbmc_plots[fbmc_plot.title] = fbmc_plot
-

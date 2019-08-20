@@ -160,7 +160,7 @@ class CBCOModule():
             self.A_base, self.b_base = np.array([]), np.array([])
             self.cbco_index = self.clarkson_algorithm()
             self.grid_representation["cbco"] = self.return_cbco()
-
+            self.grid_representation["cbco"].ram *= grid_option["capacity_multiplier"]
 
         else:
             ptdf = np.dot(self.grid.ptdf, self.create_gsk(gsk))
@@ -169,9 +169,9 @@ class CBCOModule():
                                    data=np.round(ptdf, decimals=4))
 
             ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
-
             self.grid_representation["cbco"] = ptdf_df
-
+        
+        self.process_ntc()
 
     def process_cbco_zonal(self):
         """Creating a Reduced Zonal N-1 Representation, with Convex Hull Algorithm"""
@@ -181,7 +181,11 @@ class CBCOModule():
                                                         preprocess=False,
                                                         gsk=grid_option["gsk"])
 
-        self.cbco_index = self.reduce_Ab_convex_hull()
+        if grid_option["cbco_option"] == "clarkson":   
+            self.A_base, self.b_base = np.array([]), np.array([])
+            self.cbco_index = self.clarkson_algorithm()
+        else:
+            self.cbco_index = self.reduce_cbco_convex_hull()
 
         self.grid_representation["cbco"] = self.return_cbco()
         self.grid_representation["cbco"].ram *= grid_option["capacity_multiplier"]
@@ -212,26 +216,28 @@ class CBCOModule():
                 self.cbco_index = [i for i in range(0, len(self.b))]
 
             elif grid_option["cbco_option"] == "convex_hull":
-                self.cbco_index = self.reduce_Ab_convex_hull()
+                self.cbco_index = self.reduce_cbco_convex_hull()
 
             elif grid_option["cbco_option"] == "clarkson_base":
-                # self.cbco_index = self.reduce_Ab_convex_hull()
+                # self.cbco_index = self.reduce_cbco_convex_hull()
                 self.A_base, self.b_base = self.base_constraints()
                 self.cbco_index = self.clarkson_algorithm()
 
             elif grid_option["cbco_option"] == "clarkson":
-                # self.cbco_index = self.reduce_Ab_convex_hull()
+                # self.cbco_index = self.reduce_cbco_convex_hull()
                 self.A_base, self.b_base = np.array([]), np.array([])
                 self.cbco_index = self.clarkson_algorithm()
 
             elif grid_option["cbco_option"] == "save":
+                self.cbco_index = self.reduce_cbco_convex_hull()
                 self.A_base, self.b_base = np.array([]), np.array([])
-                self.write_Ab(self.jdir.joinpath("cbco_data"), "py")
+                self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")
                 self.cbco_index = [i for i in range(0, len(self.b))]
 
             elif grid_option["cbco_option"] == "save_base":
                 self.A_base, self.b_base = self.base_constraints()
-                self.write_Ab(self.jdir.joinpath("cbco_data"), "py")
+                self.cbco_index = self.reduce_cbco_convex_hull()
+                self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")
                 self.cbco_index = [i for i in range(0, len(self.b))]
             else:
                 self.logger.warning("No valid cbco_option set!")
@@ -327,7 +333,7 @@ class CBCOModule():
         df_info = df_info[["cb", "co", "ram"] + list(columns)]
         return A, b, df_info
 
-    def write_Ab(self, folder, suffix):
+    def write_cbco_info(self, folder, suffix):
 
         if isinstance(self.A, np.ndarray) and isinstance(self.b, np.ndarray):
             self.logger.info("Saving A, b...")
@@ -342,7 +348,11 @@ class CBCOModule():
             np.savetxt(folder.joinpath(f"I_{suffix}.csv"),
                        np.array(self.cbco_index).astype(int),
                        fmt='%i', delimiter=",")
-
+        else:
+            np.savetxt(folder.joinpath(f"I_{suffix}.csv"),
+                       np.array([]),
+                       fmt='%i', delimiter=",")
+            
         if isinstance(self.A_base, np.ndarray) and isinstance(self.b_base, np.ndarray):
             self.logger.info("Saving A_base, b_base...")
             np.savetxt(folder.joinpath(f"A_base_{suffix}.csv"),
@@ -384,9 +394,6 @@ class CBCOModule():
             base_constraints.extend([row, -row])
             base_rhs.extend([max(upper, lower), max(upper, lower)])
 
-        # base_constraints.append(np.ones(len(self.data.nodes.index)))
-        # base_rhs.append(0)
-
         A_base = np.vstack(base_constraints)
         b_base = np.array(base_rhs).reshape(len(base_rhs), 1)
 
@@ -395,7 +402,7 @@ class CBCOModule():
 
     def clarkson_algorithm(self):
         ## save A,b to csv
-        self.write_Ab(self.jdir.joinpath("cbco_data"), "py")
+        self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")
 
         args = ["julia", "--project=project_files/pomato",
                 str(self.wdir.joinpath("code_jl/cbco_model.jl")),
@@ -425,12 +432,7 @@ class CBCOModule():
 
         return return_value
 
-    def return_range_of_Ab(self, r):
-        """return range of A and b"""
-        A, b = self.A[r], self.b[r]
-        return A, b.reshape(len(b), 1)
-
-    def reduce_Ab_convex_hull(self):
+    def reduce_cbco_convex_hull(self):
         """
         Given an system Ax = b, where A is a list of ptdf and b the corresponding ram
         Reduce will find the set of ptdf equations which constrain the solution domain
@@ -441,19 +443,31 @@ class CBCOModule():
         self.logger.info("Splitting A in %d segments", len(ranges))
         vertices = []
         for r in ranges:
-            A, b = self.return_range_of_Ab(r)
+            A, b = self.A[r], self.b[r].reshape(len(self.b[r]), 1)
             D = A[:, A.any(axis=0)]/b
-            # D = A/b
-
-            if np.size(D, 1) > 8:
+            if np.size(D, 1) > 9:
                 model = PCA(n_components=8).fit(D)
                 D = model.transform(D)
 
-            k = spatial.qhull.ConvexHull(D, qhull_options="QJ")
+            k = spatial.qhull.ConvexHull(D, qhull_options="Qx")
             # k = ConvexHull(D, qhull_options="Qx")
             vertices.extend(k.vertices + r[0])
             self.logger.info("BeepBeepBoopBoop")
-        return vertices #np.array(cbco_rows)
+
+        if len(ranges) > 1:
+            self.logger.info("Final ConvexHull with %d indices", len(vertices))
+            A, b = self.A[vertices], self.b[vertices].reshape(len(self.b[vertices]), 1)
+            D = A[:, A.any(axis=0)]/b
+            if np.size(D, 1) > 10:
+                model = PCA(n_components=9).fit(D)
+                D = model.transform(D)
+            k = spatial.qhull.ConvexHull(D, qhull_options="Qx")
+            cbco_index = [vertices[idx] for idx in k.vertices]
+        
+        else:
+            cbco_index = vertices
+        self.logger.info("Number of vertices: %d", len(cbco_index))
+        return cbco_index
 
     def return_cbco(self):
         """returns cbco dataframe with A and b"""
