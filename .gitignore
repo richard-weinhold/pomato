@@ -2,6 +2,7 @@
 /data_output
 /data_temp
 /logs
+.spyproject/*
 *DEV*
 */__pycache__
 *.sublime* 
