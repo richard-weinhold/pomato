@@ -1,5 +1,5 @@
 
-$if not set data_folder          $set data_folder data
+$if not set data_folder          $set data_folder C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data
 $if not set data_type            $set data_type nodal
 
 Sets
@@ -42,7 +42,7 @@ Parameter
          node_data
          slack_data
          plant_data
-         cbco_data
+         cbco_data(cb, *)
          dclines_data
          plant_types
          plant_mapping
@@ -75,7 +75,6 @@ Parameter
          net_export(t,n)
          ntc(z,zz)
 ;
-scalar test;
 
 *###############################################################################
 *                                 UPLOAD
@@ -179,7 +178,6 @@ $gdxin %data_folder%\demand_el.gdx
 $load t=dim1
 $load demand_el_data
 ;
-
 d_el(t,n) = demand_el_data(t,n)
 
 
@@ -193,26 +191,33 @@ else
          d_h(t,ha) = 0;
 );
 
-$call csv2gdx %data_folder%\availability.csv output=%data_folder%\availability.gdx id=ava_data Index=(1) Values=(2..LastCol) UseHeader=Y
+$call csv2gdx %data_folder%\availability.csv output=%data_folder%\availability.gdx id=ava_data Index=(1) Values=(2..LastCol) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\availability.gdx
 *$load ava_data
 ;
 if (card(ts)>0,
-         execute_load "%data_folder%\availability.gdx", ava=demand_el_data;
+         execute_load "%data_folder%\availability.gdx", ava=ava_data;
 else
          ava(t,p) = 0;
 );
 
-$call csv2gdx %data_folder%\cbco.csv output=%data_folder%\cbco.gdx id=cbco_data Index=(1) Values=(2..LastCol) UseHeader=Y
+$call csv2gdx %data_folder%\cbco.csv output=%data_folder%\cbco.gdx id=cbco_data Index=(1) UseHeader=Y
 $gdxin %data_folder%\cbco.gdx
-$load cbco_data
-$load cb=dim1
+$load cb=*
 ;
+
+$call csv2gdx %data_folder%\cbco.csv output=%data_folder%\cbco.gdx id=cbco_data Index=(1) Values=(2..LastCol) UseHeader=Y StoreZero=Y
+$gdxin %data_folder%\cbco.gdx
+;
+
+set dummy /ram/;
+if (card(cb) > 0,
+         execute_load "%data_folder%\cbco.gdx", cbco_data=cbco_data;
+         ram(cb) = cbco_data(cb, 'RAM');
+);
 
 $if %data_type% == zonal ptdf(cb, z) = cbco_data(cb, z);
 $if %data_type% == nodal ptdf(cb, n) = cbco_data(cb, n);
-
-ram(cb) = cbco_data(cb, "ram");
 
 $call csv2gdx %data_folder%\dclines.csv output=%data_folder%\dclines.gdx id=dclines_data Index=(1) Values=(LastCol) UseHeader=Y
 $gdxin %data_folder%\dclines.gdx
@@ -241,7 +246,7 @@ else
          net_position(t,z) = 0;
 );
 
-$call csv2gdx %data_folder%\net_export.csv output=%data_folder%\net_export.gdx id=net_export Index=(1) Values=(3..LastCol) UseHeader=Y StoreZero=Y
+$call csv2gdx %data_folder%\net_export.csv output=%data_folder%\net_export.gdx id=net_export Index=(1) Values=(2..LastCol) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\net_export.gdx
 $load net_export
 ;

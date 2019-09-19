@@ -1,13 +1,13 @@
 {
     "optimization": {
-        "type": "d2cf",
-        "model_horizon": [0,168], 
-        "gams": false,
-                "infeasibility": {
-            "heat": false,
+        "type": "dispatch",
+        "gams": true,
+        "model_horizon": [0, 10],
+        "infeasibility": {
+            "heat": true,
             "electricity": true,
             "lines": false,
-            "bound": 100000
+            "bound": 400
         },
         "parameters": {
             "chp_efficiency": 0.15,
@@ -19,26 +19,28 @@
         "plant_types": {
             "es": ["psp", "reservoir"],
             "hs": ["storage"],
-            "ts": ["wind onshore", "wind offshore", "solar", "solarheat", "iheat"],
+            "ts": ["wind onshore", "wind offshore", 
+                "solar", "solarheat", "iheat"],
             "ph": ["heatpump", "elheat"]
         }
     },
     "grid": {
-        "capacity_multiplier": 0.75,
-        "reference_flows": true,
-        "precalc_filename": "",
-        "senstitivity": 5e-2,
-        "cbco_option": "cbco",
+        "capacity_multiplier": 0.9,
+        "reference_flows": false,
+        "precalc_filename": "cbco_py_2708_2136",
+        "senstitivity": 10e-2,
+        "cbco_option": "clarkson_base",
+        "gsk": "gmax",
         "preprocess": true
     },
     "data": {
-        "process_input": true,
+        "process_input": false,
         "unique_mc": true,
         "round_demand": true,
         "default_efficiency": 0.5,
         "default_mc": 200,
-        "co2_price": 30,
+        "co2_price": 20,
         "all_lines_cb": false,
-        "d2cf_data": true
+        "d2cf_data": false
     }
 }

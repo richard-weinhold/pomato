@@ -14,15 +14,15 @@
 # -------------------------------------------------------------------------------------------------
 
 # To use file both in POMATO and as script
-if length(ARGS) > 0
-    println("Arguments passed, running in: ", ARGS[1], " and data folder: ", ARGS[2])
-    WDIR = ARGS[1]
-    data_dir = ARGS[2]
-else
-	println("No arguments passed, running as script in pwd()")
-    WDIR = pwd()
-    data_dir = "/data/"
-end
+# if length(ARGS) > 0
+#     println("Arguments passed, running in: ", ARGS[1], " and data folder: ", ARGS[2])
+#     global WDIR = ARGS[1]
+#     global data_dir = ARGS[2]
+# else
+# 	println("No arguments passed, running as script in pwd()")
+#     global WDIR = pwd()
+#     global data_dir = "/data/"
+# end
 # WDIR = "C:/Users/riw/tubCloud/Uni/Market_Tool/pomato"
 # /net/work/wein/pomato//data_temp/julia_files/data/
 using DataFrames
@@ -39,17 +39,25 @@ include("read_data.jl")
 include("model.jl")
 include("setdefinitions.jl")
 
-data_dir = WDIR*"/data_temp/julia_files"*data_dir
-model_horizon, options,
-plants,
-nodes, zones, heatareas,
-grid, dc_lines = read_model_data(data_dir)
+
+function run(WDIR=pwd(), DATA_DIR="/data/")
+	DATA_DIR = WDIR*"/data_temp/julia_files"*DATA_DIR
+	model_horizon, options,
+	plants,
+	nodes, zones, heatareas,
+	grid, dc_lines = read_model_data(DATA_DIR)
 
 
-# Run Dispatch Model
-out = build_and_run_model(model_horizon, options,
-                          plants,
-                          nodes, zones, heatareas,
-                          grid, dc_lines)
+	# Run Dispatch Model
+	out = build_and_run_model(WDIR,
+							  model_horizon, options,
+	                          plants,
+	                          nodes, zones, heatareas,
+	                          grid, dc_lines)
 
-println("DONE")
+	println("Model Done!")
+end
+
+
+println("Initialized")
+

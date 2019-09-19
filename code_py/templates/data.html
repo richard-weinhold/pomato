@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+{% block content %} 
+<div class="row">
+  <div class="col-2">
+    <div class="content-section">
+      <form method="POST" action="">
+        {{ form.hidden_tag() }}
+        <fieldset class="form-group">
+        <legend class="border-bottom mb-2">Choose Data:</legend>
+          <div class="input-group mb-4">
+              {{ form.data_selector.label(class="input-group-text") }}
+              {{ form.data_selector(class="custom-select input-group-lg")}}
+          </div>
+        </fieldset>
+        <div class="form-group">
+          {{ form.submit_data(class="btn btn-outline-info") }}
+        </div>
+      </form>
+    </div>
+  </div>
+  <div class="col-8">
+    <div style="overflow:auto; font-size: 14px">
+    {% for table in tables %}
+      {{ table|safe }}
+    {% endfor %}
+  </div>
+  </div>
+</div>
+{% endblock content %}

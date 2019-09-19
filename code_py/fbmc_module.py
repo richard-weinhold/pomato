@@ -277,7 +277,6 @@ class FBMCModule():
 
         injection = self.results.INJ.INJ[self.results.INJ.t == timestep].values
 
-
         f_ref_base_case = np.dot(self.nodal_fbmc_ptdf, injection)
         gsk = self.create_gsk(gsk_strategy)
         zonal_fbmc_ptdf = np.dot(self.nodal_fbmc_ptdf, gsk)

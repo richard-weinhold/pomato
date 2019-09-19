@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head></head>
+<main>
+	<div class="content-section">
+	  <legend class="border-bottom mb-2">Results:</legend>
+	  <ul class="list-group">
+	    {% for key, value in results.items() %}
+	      <li class="list-group-item">{{key}}: {{value}}</li>
+	    {% endfor %}
+	  </ul>
+	</div>
+</main>
+</html>

@@ -104,7 +104,6 @@ class InputProcessing(object):
 
     def process_availability(self):
         """Process availability so there is a timeseries per plant"""
-
         self.data.availability = pd.DataFrame(index=self.data.demand_el.index)
         """Calculate the availability for generation that relies on timeseries"""
         ts_tech = self.options["optimization"]["plant_types"]["ts"]

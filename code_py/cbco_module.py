@@ -56,7 +56,7 @@ class CBCOModule():
         self.cbco_info = None
         self.cbco_index = None
         self.A, self.b = None, None
-        self.A_base, self.b_base = None, None
+        self.x_bounds = None
 
         self.logger.info("CBCOModule Initialized!")
 
@@ -118,7 +118,6 @@ class CBCOModule():
             dclines += list(self.data.dclines.index[condition_i_from&condition_j_to])
             dclines += list(self.data.dclines.index[condition_i_to&condition_j_from])
 
-
             if lines or dclines:
                 tmp.append([from_zone, to_zone, 1e5])
                 tmp.append([to_zone, from_zone, 1e5])
@@ -128,23 +127,41 @@ class CBCOModule():
 
         self.grid_representation["ntc"] = pd.DataFrame(tmp, columns=["zone_i", "zone_j", "ntc"])
 
-
     def process_nodal(self):
         """process grid information for nodal N-0 representation in market model"""
-        ptdf_df = pd.DataFrame(index=self.grid.lines.index,
-                               columns=self.grid.nodes.index,
-                               data=np.round(self.grid.ptdf, decimals=4))
 
-        ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
+        grid_option = self.options["grid"]
+        if grid_option["cbco_option"] == "clarkson":
+            A = self.grid.ptdf
+            label_lines = list(self.grid.lines.index)
+            label_outages = ["basecase" for i in range(0, len(self.grid.lines.index))]
+            b = self.grid.lines.maxflow[label_lines].values.reshape(len(label_lines), 1)
+            columns = list(self.data.nodes.index)
+            df_info = pd.DataFrame(columns=columns, data=A)
+            df_info["cb"] = label_lines
+            df_info["co"] = label_outages
+            df_info["ram"] = b
+            df_info = df_info[["cb", "co", "ram"] + list(columns)]
 
-        self.grid_representation["cbco"] = ptdf_df
+            self.A, self.b, self.cbco_info = A, b, df_info
+            self.x_bounds = self.net_injections_bounds()
+            self.cbco_index = self.clarkson_algorithm()
+            self.grid_representation["cbco"] = self.return_cbco()
+            self.grid_representation["cbco"].ram *= grid_option["capacity_multiplier"]
+
+        else:
+            ptdf_df = pd.DataFrame(index=self.grid.lines.index,
+                                   columns=self.grid.nodes.index,
+                                   data=np.round(self.grid.ptdf, decimals=4))
+            ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
+            self.grid_representation["cbco"] = ptdf_df
 
     def process_zonal(self):
         """process grid information for zonal N-0 representation in market model"""
         gsk = self.options["grid"]["gsk"]
         grid_option = self.options["grid"]
 
-        if grid_option["cbco_option"] == "clarkson":            
+        if grid_option["cbco_option"] == "clarkson":
             A = self.grid.ptdf
             label_lines = list(self.grid.lines.index)
             label_outages = ["basecase" for i in range(0, len(self.grid.lines.index))]
@@ -156,8 +173,9 @@ class CBCOModule():
             df_info["co"] = label_outages
             df_info["ram"] = b
             df_info = df_info[["cb", "co", "ram"] + list(columns)]
+
             self.A, self.b, self.cbco_info = A, b, df_info
-            self.A_base, self.b_base = np.array([]), np.array([])
+            self.x_bounds = np.array([])
             self.cbco_index = self.clarkson_algorithm()
             self.grid_representation["cbco"] = self.return_cbco()
             self.grid_representation["cbco"].ram *= grid_option["capacity_multiplier"]
@@ -170,7 +188,7 @@ class CBCOModule():
 
             ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
             self.grid_representation["cbco"] = ptdf_df
-        
+
         self.process_ntc()
 
     def process_cbco_zonal(self):
@@ -181,8 +199,8 @@ class CBCOModule():
                                                         preprocess=False,
                                                         gsk=grid_option["gsk"])
 
-        if grid_option["cbco_option"] == "clarkson":   
-            self.A_base, self.b_base = np.array([]), np.array([])
+        if grid_option["cbco_option"] == "clarkson":
+            self.x_bounds = np.array([])
             self.cbco_index = self.clarkson_algorithm()
         else:
             self.cbco_index = self.reduce_cbco_convex_hull()
@@ -220,23 +238,23 @@ class CBCOModule():
 
             elif grid_option["cbco_option"] == "clarkson_base":
                 # self.cbco_index = self.reduce_cbco_convex_hull()
-                self.A_base, self.b_base = self.base_constraints()
+                self.x_bounds = self.net_injections_bounds()
                 self.cbco_index = self.clarkson_algorithm()
 
             elif grid_option["cbco_option"] == "clarkson":
                 # self.cbco_index = self.reduce_cbco_convex_hull()
-                self.A_base, self.b_base = np.array([]), np.array([])
+                self.x_bounds = np.array([])
                 self.cbco_index = self.clarkson_algorithm()
 
             elif grid_option["cbco_option"] == "save":
-                self.cbco_index = self.reduce_cbco_convex_hull()
-                self.A_base, self.b_base = np.array([]), np.array([])
+                # self.cbco_index = self.reduce_cbco_convex_hull()
+                self.x_bounds = np.array([])
                 self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")
                 self.cbco_index = [i for i in range(0, len(self.b))]
 
             elif grid_option["cbco_option"] == "save_base":
-                self.A_base, self.b_base = self.base_constraints()
-                self.cbco_index = self.reduce_cbco_convex_hull()
+                self.x_bounds = self.net_injections_bounds()
+                # self.cbco_index = self.reduce_cbco_convex_hull()
                 self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")
                 self.cbco_index = [i for i in range(0, len(self.b))]
             else:
@@ -352,22 +370,18 @@ class CBCOModule():
             np.savetxt(folder.joinpath(f"I_{suffix}.csv"),
                        np.array([]),
                        fmt='%i', delimiter=",")
-            
-        if isinstance(self.A_base, np.ndarray) and isinstance(self.b_base, np.ndarray):
-            self.logger.info("Saving A_base, b_base...")
-            np.savetxt(folder.joinpath(f"A_base_{suffix}.csv"),
-                       np.asarray(self.A_base), delimiter=",")
 
-            np.savetxt(folder.joinpath(f"b_base_{suffix}.csv"),
-                       np.asarray(self.b_base), delimiter=",")
+        if isinstance(self.x_bounds, np.ndarray):
+            self.logger.info("Saving bounds for net injections...")
+            np.savetxt(folder.joinpath(f"x_bounds_{suffix}.csv"),
+                       np.asarray(self.x_bounds), delimiter=",")
 
         self.logger.info("Saved everything to folder: \n %s", str(folder))
 
-    def base_constraints(self):
+    def net_injections_bounds(self):
         """ Create Base Constraints for Clarkson algorithm"""
-        infeas_upperbound = self.options["optimization"]["infeasibility_bound"]
-        base_constraints = []
-        base_rhs = []
+        infeas_upperbound = self.options["optimization"]["infeasibility"]["bound"]
+        x_bounds = []
 
         for node in self.data.nodes.index:
             condition_storage = (self.data.plants.node == node) & \
@@ -389,16 +403,10 @@ class CBCOModule():
                         + max_dc_inj \
                         + infeas_upperbound, 0)
 
-            row = np.zeros(len(self.data.nodes.index))
-            row[self.data.nodes.index.get_loc(node)] = 1
-            base_constraints.extend([row, -row])
-            base_rhs.extend([max(upper, lower), max(upper, lower)])
+            x_bounds.append(max(upper, lower))
 
-        A_base = np.vstack(base_constraints)
-        b_base = np.array(base_rhs).reshape(len(base_rhs), 1)
-
-        return A_base, b_base
-
+        x_bounds = np.array(x_bounds).reshape(len(x_bounds), 1)
+        return x_bounds
 
     def clarkson_algorithm(self):
         ## save A,b to csv
@@ -412,7 +420,7 @@ class CBCOModule():
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
         with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE) as programm:
             for line in programm.stdout:
-                self.logger.info(line.decode().strip())
+                self.logger.info(line.decode('utf-8').strip())
 
         t_end = dt.datetime.now()
         self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
@@ -438,7 +446,6 @@ class CBCOModule():
         Reduce will find the set of ptdf equations which constrain the solution domain
         (which are based on the N-1 ptdfs)
         """
-
         ranges = split_length_in_ranges(5e4, len(self.b))
         self.logger.info("Splitting A in %d segments", len(ranges))
         vertices = []
@@ -463,7 +470,7 @@ class CBCOModule():
                 D = model.transform(D)
             k = spatial.qhull.ConvexHull(D, qhull_options="Qx")
             cbco_index = [vertices[idx] for idx in k.vertices]
-        
+
         else:
             cbco_index = vertices
         self.logger.info("Number of vertices: %d", len(cbco_index))

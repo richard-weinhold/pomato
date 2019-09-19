@@ -22,5 +22,15 @@ execute 'gdxdump %result_folder%\result.gdx output=%result_folder%\EB_zonal.csv 
 
 File results / %result_folder%\misc_result.json /;
 put results;
-put '{"Objective Value":',COST.l,'}'/;
+put '{"Objective Value":', COST.L,
+    ', "COST_G":', COST_G.L,
+    ', "COST_H":', COST_H.L,
+    ', "COST_EX":', COST_EX.L,
+    ', "COST_INEAS_EL":', COST_INEAS_EL.L,
+    ', "COST_INEAS_H":', COST_INEAS_H.L,
+    ', "COST_INEAS_LINES":', COST_INEAS_LINES.L,
+    ', "Solve Status":', model_%model_type%.modelstat,
+    '}'/;
 putclose;
+
+

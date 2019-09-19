@@ -82,19 +82,19 @@ class GridModel(object):
 					(self.lines.contingency)
 
 		if not self.lines[condition].empty:
-			self.logger.info("Radial nodes are part of the contingency: " + \
-							 ", ".join(list(self.lines.index[condition])))
+			self.logger.info("Radial nodes are set as contingency:")
 			self.lines.loc[condition, "contingency"] = False
-
-			self.logger.info("Contingency of radial nodes is set to False")
+			self.logger.info("Contingency of %d lines is set to false", len(self.lines.index[condition]))
 
 		condition = self.lines.index.isin(radial_lines) & self.lines.contingency
 		if not self.lines.contingency[condition].empty:
-			self.logger.info("Radial lines are part of the contingency: " + \
-							 ", ".join(list(self.lines.index[condition])))
+			self.logger.info("Radial lines are set as contingency:")
 			self.lines.loc[condition, "contingency"] = False
-			self.logger.info("Contingency of radial lines is set to False")
+			self.logger.info("Contingency of %d lines is set to false", len(self.lines.index[condition]))
 
+		self.logger.info("Total number of Lines: %d", len(self.lines.index))
+		self.logger.info("Total number of contingencies: %d", len(self.lines[self.lines.contingency]))
+		
 	def slack_zones(self):
 		"""
 		returns number of nodes that are part of a synchronous area

@@ -11,7 +11,8 @@
 # Central optimization implemented in JuMP
 # -------------------------------------------------------------------------------------------------
 
-function build_and_run_model(model_horizon::OrderedDict, 
+function build_and_run_model(WDIR::String,
+                             model_horizon::OrderedDict, 
                              options::Dict,
 
                              plants::Dict{String, Plant}, 
@@ -29,9 +30,13 @@ if !isdir(result_folder)
     println("Creating Results Folder")
     mkdir(result_folder)
 end
+### Set Options
+model_type = options["type"]
+curtailment_electricity = options["parameters"]["curtailment"]["electricity"]
+curtailment_heat = options["parameters"]["curtailment"]["heat"]
+chp_efficiency = options["parameters"]["chp_efficiency"]
 
 # Check for feasible model_type
-model_type = options["type"]
 possible_types = ["base", "dispatch", "ntc", "nodal", "cbco_nodal", "cbco_zonal", "d2cf"]
 if !in(model_type, possible_types)
     println("Error: Model_Type $(model_type) unkown. Calculate Base Model")
@@ -97,42 +102,45 @@ disp = Model(with_optimizer(Gurobi.Optimizer, Method=1, LogFile=result_folder*"/
 @variable(disp, INJ[t_set, n_set]) # Net Injection at Node n
 @variable(disp, F_DC[t_set, dc_set]) # Flow in DC Line dc
 
-if options["infeas_heat"]
+@variable(disp, COST_G >= 0)
+@variable(disp, COST_H >= 0)
+@variable(disp, COST_EX >= 0)
+@variable(disp, COST_INEAS_EL >= 0)
+@variable(disp, COST_INEAS_H >= 0)
+@variable(disp, COST_INEAS_LINES >= 0)
+
+if options["infeasibility"]["heat"]
     # Relaxing at high costs to avoid infeasibility in heat EB
-    @variable(disp, 0 <= INFEAS_H_NEG[t_set, ha_set] <= options["infeasibility_bound"]) 
-    @variable(disp, 0 <= INFEAS_H_POS[t_set, ha_set] <= options["infeasibility_bound"])
+    @variable(disp, 0 <= INFEAS_H_NEG[t_set, ha_set] <= options["infeasibility"]["bound"]) 
+    @variable(disp, 0 <= INFEAS_H_POS[t_set, ha_set] <= options["infeasibility"]["bound"])
 else
     @variable(disp, INFEAS_H_NEG[t_set, ha_set] == 0)
     @variable(disp, INFEAS_H_POS[t_set, ha_set] == 0)
 end
 
-if options["infeas_el_nodal"]
-    @variable(disp, 0 <= INFEAS_EL_N_NEG[t_set, n_set] <= options["infeasibility_bound"])
-    @variable(disp, 0 <= INFEAS_EL_N_POS[t_set, n_set] <= options["infeasibility_bound"])
+if options["infeasibility"]["electricity"]
+    @variable(disp, 0 <= INFEAS_EL_N_NEG[t_set, n_set] <= options["infeasibility"]["bound"])
+    @variable(disp, 0 <= INFEAS_EL_N_POS[t_set, n_set] <= options["infeasibility"]["bound"])
 
 else
     @variable(disp, INFEAS_EL_N_NEG[t_set, n_set] == 0)
     @variable(disp, INFEAS_EL_N_POS[t_set, n_set] == 0)
 end
 
-if options["infeas_lines"]
-    @variable(disp, 0 <= INFEAS_LINES[t_set, cb_set] <= options["infeasibility_bound"])
+if options["infeasibility"]["lines"]
+    @variable(disp, 0 <= INFEAS_LINES[t_set, cb_set] <= options["infeasibility"]["bound"])
 else
     @variable(disp, INFEAS_LINES[t_set, cb_set] == 0)
 end
 
-if options["infeas_lines_ref"]
-    @variable(disp, 0 <= INFEAS_REF_FLOW[t_set, cb_set] <= options["infeasibility_bound"])
-else
-    @variable(disp, INFEAS_REF_FLOW[t_set, cb_set] == 0)
-end
-
-@objective(disp, Min, sum(sum(G[t, p]*plants[p].mc for p in p_set) for t in t_set)
-                      + sum(sum(H[t, p]*plants[p].mc for p in p_set) for t in t_set)
-                      + (sum(INFEAS_EL_N_POS) + sum(INFEAS_EL_N_NEG))*1e2
-                      + (sum(INFEAS_H_NEG) + sum(INFEAS_H_POS))*1e3
-                      + (sum(INFEAS_LINES)*1e3)
-                      )
+@objective(disp, Min, COST_G + COST_H + COST_EX + COST_INEAS_EL + COST_INEAS_H + COST_INEAS_LINES)
+                     
+@constraint(disp, COST_G == sum(sum(G[t, p]*plants[p].mc for p in p_set) for t in t_set))
+@constraint(disp, COST_H == sum(sum(H[t, p]*plants[p].mc for p in p_set) for t in t_set))
+@constraint(disp, COST_EX == sum(EX)*1e0)
+@constraint(disp, COST_INEAS_EL == (sum(INFEAS_EL_N_POS) + sum(INFEAS_EL_N_NEG))*1e2)
+@constraint(disp, COST_INEAS_H == (sum(INFEAS_H_NEG) + sum(INFEAS_H_POS))*1e3)
+@constraint(disp, COST_INEAS_LINES == sum(INFEAS_LINES)*1e3)
 
 println("Building Constraints")
 # Applies to: Dispatch
@@ -147,9 +155,10 @@ println("Building Constraints")
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, [t=t_set, p=chp_set],
-    G[t, p] >= ((plants[p].g_max*0.85) / plants[p].h_max) * H[t, p])
+    G[t, p] >= ((plants[p].g_max*(1 - chp_efficiency)) / plants[p].h_max) * H[t, p])
+
 @constraint(disp, [t=t_set, p=chp_set],
-    G[t, p] <= plants[p].g_max * (1-(0.15 * H[t,p] / plants[p].h_max)))
+    G[t, p] <= plants[p].g_max * (1-(chp_efficiency * H[t,p] / plants[p].h_max)))
 
 # Applies to: Dispatch
 # Base Constraint
@@ -157,14 +166,14 @@ println("Building Constraints")
 @constraint(disp, [t=t_set, p=intersect(ts_set, co_set)],
     G[t, p] <= plants[p].g_max * plants[p].availability[model_horizon[t]])
 @constraint(disp, [t=t_set, p=intersect(ts_set, co_set)],
-    G[t, p] >= plants[p].g_max * plants[p].availability[model_horizon[t]] * 0.8)
+    G[t, p] >= plants[p].g_max * plants[p].availability[model_horizon[t]] * curtailment_electricity)
 
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, [t=t_set, p=intersect(ts_set, he_set)],
     H[t, p] <= plants[p].h_max * plants[p].availability[model_horizon[t]])
 @constraint(disp, [t=t_set, p=intersect(ts_set, he_set)],
-    H[t, p] >= plants[p].h_max * plants[p].availability[model_horizon[t]] * 0)
+    H[t, p] >= plants[p].h_max * plants[p].availability[model_horizon[t]] * curtailment_heat)
 
 # Applies to: Dispatch
 # Base Constraint
@@ -192,6 +201,7 @@ println("Building Constraints")
     L_hs[t, p] ==  (t>t_start ? plants[p].eta*L_hs[t-1, p] : plants[p].h_max*2)
                    - H[t, p]
                    + D_hs[t, p])
+
 @constraint(disp, [t=t_set, p=hs_set],
     L_hs[t, p] <= plants[p].h_max*4)
 @constraint(disp, [t=t_set, p=hs_set],
@@ -293,37 +303,6 @@ if in(model_type, ["cbco_nodal_s"])
     end
 end
 
-# Applies to d2cf model:²
-# set net_position net_position:
-if in(model_type, ["d2cf"])
-    for t in t_set
-        for z in ["DE", "NL", "BE", "FR"]
-            ### net_position when positive -> export
-            @constraint(disp, sum(EX[t, z, zz] - EX[t, zz, z] for zz in z_set) <=
-                              zones[z].net_position[model_horizon[t]] + 0.2*abs(zones[z].net_position[model_horizon[t]])
-                              )
-            @constraint(disp, sum(EX[t, z, zz] - EX[t, zz, z] for zz in z_set) >=
-                              zones[z].net_position[model_horizon[t]] - 0.2*abs(zones[z].net_position[model_horizon[t]])
-                              )
-        end
-
-        # set reference flows in CNECS
-        for cb in cb_set
-            if grid[cb].reference_flow[model_horizon[t]] != 0
-                @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set))
-                                  <= grid[cb].reference_flow[model_horizon[t]] + INFEAS_REF_FLOW[t, cb])
-                @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set))
-                                  >= grid[cb].reference_flow[model_horizon[t]]  - INFEAS_REF_FLOW[t, cb])
-            end
-            # Upper/Lower Bound on CBs
-            @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set))
-                              <= grid[cb].ram) # + INFEAS_LINES[t, cb])
-            @constraint(disp, sum(INJ[t, n]*grid[cb].ptdf[i] for (i, n) in enumerate(n_set))
-                              >= -grid[cb].ram) # - INFEAS_LINES[t, cb])
-        end
-    end
-end
-
 println("Solving...")
 t_start = time_ns()
 @time JuMP.optimize!(disp)
@@ -346,19 +325,26 @@ results_parameter = [[:G, [:t, :p], false],
                      [:INFEAS_EL_N_NEG, [:t, :n], false],
                      [:INFEAS_EL_N_POS, [:t, :n], false],
                      [:INFEAS_LINES, [:t, :cb], false],
-                     [:INFEAS_REF_FLOW, [:t, :cb], false],
                      [:EB_nodal, [:t, :n], true],
                      [:EB_zonal, [:t, :z], true],
 					          ] 
 
 println("Saving results to results folder: ", result_folder)
 for par in results_parameter
-	jump_to_df(disp, par[1], par[2], par[3], result_folder)
+	jump_to_df(disp, par[1], par[2], par[3], model_horizon, result_folder)
 end
 
 # Misc Results or Data
 misc_result = Dict()
 misc_result["Objective Value"] = JuMP.objective_value(disp)
+misc_result["COST_G"] = JuMP.value(COST_G)
+misc_result["COST_H"] = JuMP.value(COST_H)
+misc_result["COST_EX"] = JuMP.value(COST_EX)
+misc_result["COST_INEAS_EL"] = JuMP.value(COST_INEAS_EL)
+misc_result["COST_INEAS_H"] = JuMP.value(COST_INEAS_H)
+misc_result["COST_INEAS_LINES"] = JuMP.value(COST_INEAS_LINES)
+misc_result["Solve Status"] = JuMP.termination_status(disp)
+
 # write the file with the stringdata variable information
 open(result_folder*"/misc_result.json", "w") do f
         write(f, JSON.json(misc_result))

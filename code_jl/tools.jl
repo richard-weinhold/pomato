@@ -15,6 +15,7 @@ function jump_to_df(m::JuMP.Model,
  				    jump_ref::Symbol,
 				    dim_names::Array{Symbol, 1},
 					dual::Bool,
+					model_horizon::OrderedDict,
 					result_folder::String="",
 					)
 	if dual

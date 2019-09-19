@@ -15,11 +15,12 @@ from data_results import ResultProcessing
 
 class DataManagement():
     """Data Set Class"""
-    def __init__(self):
+    def __init__(self, options):
         # import logger
         self.logger = logging.getLogger('Log.MarketModel.DataManagement')
         self.logger.info("Initializing DataObject")
 
+        self.options = options
         self.wdir = None
         # init
         data = {data: False for data in ["lines", "nodes", "zones",
@@ -57,8 +58,16 @@ class DataManagement():
 
         # Results are part of the results processing
         self.results = None
+    def save_data(self, wdir, filepath):
+        """Write Data to excel file"""
+        xls_file = wdir.joinpath(filepath)
 
-    def load_data(self, wdir, filepath, options):
+        self.logger.info("Writing Data to Excel File %s", str(xls_file))
+        with pd.ExcelWriter(xls_file) as writer:
+            for data in self.data_attributes["data"]:
+                getattr(self, data).to_excel(writer, sheet_name=data)
+
+    def load_data(self, wdir, filepath):
         """
         Load Data from data set at filepath
         Currently xls(x) and mat work
@@ -69,34 +78,32 @@ class DataManagement():
         ### Make sure wdir/file_path or wdir/data/file_path is a file
         if self.wdir.joinpath(filepath).is_file():
             DataWorker(self, self.wdir.joinpath(filepath))
-            self.process_input(options)
+            self.process_input()
 
 
         elif self.wdir.joinpath(f"data_input/{filepath}").is_file():
             DataWorker(self, self.wdir.joinpath(f"data/{filepath}"))
-            self.process_input(options)
+            self.process_input()
 
         elif self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat").is_file():
             DataWorker(self, self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat"))
-            self.process_input(options)
+            self.process_input()
         else:
             self.logger.error("Data File not found!")
 
-    def process_input(self, options=None):
+    def process_input(self):
         """
         Input Processing in Seperate Class
         Will Change data attr based on options["data"]
         """
-        InputProcessing(self, options)
-        # pass
+        if self.options["data"]["process_input"]:
+            InputProcessing(self, self.options)
+        else:
+            self.logger.info("Input Data not processed")
 
     def process_results(self, opt_folder, opt_setup, grid=None):
         """ Init Results Calss with results_folder and self"""
         self.results = ResultProcessing(self, opt_folder, opt_setup, grid=grid)
-
-        if not grid:
-            self.logger.warning("Grid not set in Results Processing! \
-                                Manually set Grid as attribute to perform load flow analysis")
 
     def return_results(self, symb):
         """interface method to allow access to results from ResultsProcessing class"""

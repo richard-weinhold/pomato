@@ -1,0 +1,46 @@
+{% extends "main_layout.html" %}
+{% block content %}
+<!-- <div class="row"> -->
+  <!-- <div class="col-md-4"> -->
+    <div class="content-section">
+      <form method="POST" action="">
+        {{ form.hidden_tag() }}
+        <fieldset class="form-group">
+          <legend class="border-bottom mb-2">Options:</legend>
+          <div class="input-group input-group-sm mb-3">
+              {{ form.option_wind.label(class="input-group-text") }}
+              {{ form.option_wind(class="form-control form-control-lg") }}
+          </div>
+          <div class="input-group input-group-sm mb-3">
+            <label class="input-group-text">Export [MW] DK -> DE/SE/NO</label>
+              {{ form.option_ex_de(class="form-control form-control-lg")}}
+              {{ form.option_ex_se(class="form-control form-control-lg")}}
+              {{ form.option_ex_no(class="form-control form-control-lg")}}
+          </div>
+          <div class="input-group input-group-sm mb-3">
+            <label class="input-group-text">Demand [MW]: DK1/DK2</label>
+              {{ form.option_demand_dk1(class="form-control form-control-lg")}}
+              {{ form.option_demand_dk2(class="form-control form-control-lg")}}
+          </div>
+          <div class="input-group mb-4">
+              {{ form.grid_config.label(class="input-group-text") }}
+              {{ form.grid_config(class="custom-select input-group-lg")}}
+          </div>
+        </fieldset>
+        <div class="form-group">
+          {{ form.submit(class="btn btn-outline-info", value="run_model") }}
+        </div>
+      </form>
+    </div>
+    <div class="content-section">
+      <legend class="border-bottom mb-2">Results:</legend>
+      <ul class="list-group">
+        {% for key, value in results.items() %}
+          <li class="list-group-item">{{key}}: {{value}}</li>
+        {% endfor %}
+      </ul>
+    </div>
+{% endblock content %}
+
+
+

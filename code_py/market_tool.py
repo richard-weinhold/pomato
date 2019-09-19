@@ -16,7 +16,7 @@ from cbco_module import CBCOModule
 import bokeh_plot_interface as bokeh
 import tools
 
-def _logging_setup(wdir):
+def _logging_setup(wdir, webapp):
     # Logging setup
     logger = logging.getLogger('Log.MarketModel')
     logger.setLevel(logging.INFO)
@@ -24,37 +24,49 @@ def _logging_setup(wdir):
         # create file handler which logs even debug messages
         if not wdir.joinpath("logs").is_dir():
             wdir.joinpath("logs").mkdir()
-        file_handler = logging.FileHandler(wdir.joinpath("logs").joinpath('market_tool.log'))
-        file_handler.setLevel(logging.DEBUG)
-        # create console handler with a higher log level
-#        handler = logging.StreamHandler()
-        console_handler = logging.StreamHandler()
-        console_handler.setLevel(logging.INFO)
-        # create formatter and add it to the handlers
-        fh_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                                         "%d.%m.%Y %H:%M")
-        file_handler.setFormatter(fh_formatter)
-        # Only message in Console
-        ch_formatter = logging.Formatter('%(levelname)s - %(message)s')
-        console_handler.setFormatter(ch_formatter)
-        # add the handlers to the logger
-        logger.addHandler(file_handler)
-        logger.addHandler(console_handler)
+
+        if webapp:
+            logfile_path = wdir.joinpath("logs").joinpath('market_tool_webapp.log')
+            # Clear Logfile
+            with open(logfile_path, 'w'):
+                pass 
+            file_handler = logging.FileHandler(logfile_path)
+            file_handler.setLevel(logging.INFO)
+            file_handler_formatter = logging.Formatter('%(asctime)s - %(message)s',
+                                                       '%d.%m %H:%M')
+            file_handler.setFormatter(file_handler_formatter)
+            logger.addHandler(file_handler)
+
+        else:
+            file_handler = logging.FileHandler(wdir.joinpath("logs").joinpath('market_tool.log'))
+            file_handler.setLevel(logging.DEBUG)
+            file_handler_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                                                       '%d.%m.%Y %H:%M')
+            file_handler.setFormatter(file_handler_formatter)
+            console_handler = logging.StreamHandler()
+            console_handler.setLevel(logging.INFO)
+            console_handler_formatter = logging.Formatter('%(levelname)s - %(message)s')
+            console_handler.setFormatter(console_handler_formatter)
+        
+            # add the handlers to the logger
+            logger.addHandler(console_handler)
+            logger.addHandler(file_handler)
+
     return logger
 
 class MarketTool():
     """ Main Class"""
-    def __init__(self, options_file=None):
+    def __init__(self, options_file=None, webapp=False):
         self.wdir = Path.cwd()
-        self.logger = _logging_setup(self.wdir)
+        self.logger = _logging_setup(self.wdir, webapp)
 
         self.logger.info("Market Tool Initialized")
 
-        self.data = DataManagement()
-        self.grid = GridModel(self.wdir)
-
         tools.create_folder_structure(self.wdir, self.logger)
         self.initialize_options(options_file)
+
+        self.data = DataManagement(self.options)
+        self.grid = GridModel(self.wdir)
 
         ## Core Attributes
         self.cbco_module = None
@@ -81,7 +93,7 @@ class MarketTool():
 
     def load_data(self, filename):
         """init Data Model with loading the fata from file"""
-        self.data.load_data(self.wdir, filename, self.options)
+        self.data.load_data(self.wdir, filename)
 
         if self.grid.is_empty:
             self.grid.build_grid_model(self.data.nodes, self.data.lines)
@@ -94,11 +106,22 @@ class MarketTool():
         if not self.grid_representation:
             self.create_grid_representation()
 
-        self.market_model = MarketModel(self.wdir, self.data, self.options,
-                                        self.grid_representation)
+        if not self.market_model:
+            self.market_model = MarketModel(self.wdir, self.options)
+            self.market_model.update_data(self.data, self.options, self.grid_representation)
+    
+    def update_market_model_data(self):
+        if not self.market_model:
+            self.init_market_model()
+        else:
+            self.market_model.update_data(self.data, self.options, self.grid_representation)
 
     def run_market_model(self):
         """ Run the model """
+
+        if not self.market_model:
+            self.init_market_model()
+
         self.market_model.run()
 
         if self.data.results:

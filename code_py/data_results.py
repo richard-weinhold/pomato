@@ -7,8 +7,9 @@ import pandas as pd
 import logging
 import json
 import matplotlib.pyplot as plt
-# pylint: disable-msg=E1101
 
+import tools
+# pylint: disable-msg=E1101
 
 class ResultProcessing():
     """Data Woker Class"""
@@ -32,12 +33,12 @@ class ResultProcessing():
         # Add opt Set-Up to the results attributes
         self.data.result_attributes = {**self.data.result_attributes, **opt_setup}
         self.data.result_attributes["source"] = opt_folder
-        self.load_results_from_jlfolder(opt_folder)
+        self.load_results_from_folder(opt_folder)
 
         # set-up: dont show the graphs when created
         plt.ioff()
 
-    def load_results_from_jlfolder(self, folder):
+    def load_results_from_folder(self, folder):
         """Loading Results CSVs from results folder"""
         folder_name = str(folder).split("\\")[-1]
         self.logger.info("Loading Results from results folder %s", folder_name)
@@ -52,8 +53,14 @@ class ResultProcessing():
 
         ## Manual setting of attributes:
         with open(str(folder.joinpath("misc_result.json")), "r") as jsonfile:
-            data = json.load(jsonfile)
-        self.data.result_attributes["objective"] = data["Objective Value"]
+            self.data.result_attributes["objective"] = json.load(jsonfile)
+
+        if self.data.options["optimization"]["gams"]:
+            model_stat = self.data.result_attributes["objective"]["Solve Status"]
+            model_stat_str = tools.gams_modelstat_dict(model_stat)
+            self.data.result_attributes["objective"]["Solve Status"] = model_stat_str
+
+        # self.data.result_attributes["objective"] = data["Objective Value"]
         self.data.result_attributes["model_horizon"] = list(self.INJ.t.unique())
 
 
@@ -328,7 +335,7 @@ class ResultProcessing():
         # 2% overload as tolerance
         n_1_overload = n_1_load[~(n_1_load[timesteps] <= 1.02).all(axis=1)]
         return_df = n_1_overload[["cb", "co"]].copy()
-        return_df["nr overloads"] = np.sum(n_1_overload[timesteps] > 1, axis=1).values
+        return_df["# of overloads"] = np.sum(n_1_overload[timesteps] > 1, axis=1).values
         return_df["# of COs"] = 1
         return_df = return_df.groupby("cb").sum()
         return_df["avg load"] = n_1_overload.groupby(by=["cb"]).mean().mean(axis=1).values

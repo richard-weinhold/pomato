@@ -1,13 +1,20 @@
 {
     "optimization": {
         "type": "cbco_nodal",
-        "model_horizon": [0,2], 
-        "infeas_heat": true,
-        "infeas_el_nodal": true,
-        "infeas_el_zonal": true,
-        "infeas_lines": false,
-        "infeas_lines_ref": false,
-        "infeasibility_bound": 20,
+        "model_horizon": [0,1], 
+        "infeasibility": {
+            "heat": false,
+            "electricity": true,
+            "lines": false,
+            "bound": 20
+        },
+        "parameters": {
+            "chp_efficiency": 0.15,
+            "curtailment": {
+                "heat": 0,
+                "electricity": 0.8
+            }
+        },
         "plant_types": {
             "es": ["psp", "reservoir"],
             "hs": ["storage"],
@@ -24,6 +31,7 @@
         "preprocess": true
     },
     "data": {
+        "process_input": true,
         "unique_mc": true,
         "round_demand": true,
         "default_efficiency": 0.5,

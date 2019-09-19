@@ -23,10 +23,16 @@ function is_redundant(model::JuMP.Model, constraint::Vector{Float64}, rhs::Float
 	end
 end
 
-function build_model(n::Int, A::Array{Float64}, b::Vector{Float64})
+function build_model(dim::Int, A::Array{Float64}, b::Vector{Float64}, x_bounds::Vector{Float64})
 	# model = Model(with_optimizer(GLPK.Optimizer))
 	model = Model(with_optimizer(Gurobi.Optimizer, OutputFlag=0)) #, Presolve=0)) #, Method=2))
-	@variable(model, x[i=1:n])
+	if size(x_bounds, 1) > 0
+		@info("Building Model with bounds on x!")
+		@variable(model, x[i=1:dim], lower_bound=-x_bounds[i], upper_bound=x_bounds[i])
+	else
+		@info("Building Model with x free!")
+		@variable(model, x[i=1:dim])
+	end
 	@constraint(model, A * x .<= b)
 	return model
 end
@@ -42,11 +48,18 @@ function RayShoot(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 	stepsize = 1
 	i = 0
 	counter = 0
-	max_iterations = 5
+	max_iterations = 10
 	## Define Ray (vector from interior point z to x_op)
 	r = x_opt - z
 	## Subset m to only contain constraints violated by x_opt 
-	m_hat = m[findall(x-> x>0, A[m,:]*x_opt - b[m])]
+	m_hat = m[findall(x-> x>=0, A[m,:]*x_opt - b[m])]
+	if length(m_hat) == 0
+		 @info("WARNING: M_hat empty, possibly numerical error")
+		 @info("Moving further outside along the Ray")
+		 m_hat = m[findall(x-> x>=0, A[m,:]*x_opt*1.01 - b[m])]
+		 @info("m_hat $(m_hat), length = $(length(m_hat))!")
+	end
+
 	while true
 		point = z + r*i
 		temp = A[m_hat,:]*point - b[m_hat]
@@ -68,8 +81,8 @@ function RayShoot(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 		elseif constraints_hit > 1
 			# Check breaking condition
 			if counter > max_iterations
-				@warn("Counter > $(max_iterations), returning first of the constraints hit!")
-				@warn("Constraints hit: $(m_hat[findall(x->x>0, temp)]) With i = $i")
+				@debug("Counter > $(max_iterations), returning first of the constraints hit!")
+				@debug("Constraints hit: $(m_hat[findall(x->x>0, temp)]) With i = $i")
 				return m_hat[findfirst(x->x>0, temp)]
 			else
 				counter += 1
@@ -84,8 +97,8 @@ function RayShoot(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 	end
 end
 
-function main(A::Array{Float64}, b::Vector{Float64},
-			  m::Vector{Int}, I::Vector{Int}, z::Vector{Float64})
+function main(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int}, 
+			  I::Vector{Int}, x_bounds::Vector{Float64}, z::Vector{Float64})
 
 	@info("Starting Algorithm with I of size: $(length(I))")
 	@info("and with m of size: $(length(m))")
@@ -101,7 +114,7 @@ function main(A::Array{Float64}, b::Vector{Float64},
 		save_points = save_points[(length(save_points) + 1 - 100):end]
 	end
 	### Build base model
-	model = build_model(size(A, 2), A[I,:], b[I])
+	model = build_model(size(A, 2), A[I,:], b[I], x_bounds)
 	# Start Algorithm
 	while true
 		k = m[1]
@@ -119,12 +132,13 @@ function main(A::Array{Float64}, b::Vector{Float64},
 			# if not, remove constraint from m
 			m = setdiff(m, k)
 		end
-		# print progress and make backups of I, to allow for restart incase of crash :(
+		# print progress
 		if length(m) in save_points
 			percentage = Int(100 - 100/steps*findfirst(x -> x==length(m), save_points))
 			progress_bar = repeat("#", Int(round(percentage/5)))*repeat(" ", Int(round((100-percentage)/5)))
 			timestamp = Dates.format(now(), "dd.mm - HH:MM:SS")
-			@info(progress_bar*string(percentage)*"% - "*timestamp)
+			report = "- Size of I $(length(I)) - Found Redudnant $(to_check - length(I) - length(m)) - Remaining $(length(m)) - "
+			@info(progress_bar*string(percentage)*"%"*report*timestamp)
 		end
 		if length(m) == 0
 			break
@@ -144,10 +158,8 @@ end
 
 function read_data(file_suffix::String)
 	# Read Data From CSV Files
-	@info("Reading A, b Matrices...")
-
+	@info("Reading A, b, x_bounds and I Matrices...")
 	I = Array{Int, 1}()
-
 	A_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/A_"*file_suffix*".csv", 
 					  delim=',', header=false)
 	b_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/b_"*file_suffix*".csv", 
@@ -156,17 +168,13 @@ function read_data(file_suffix::String)
 	A =  hcat([A_data[i] for i in 1:size(A_data, 2)]...)
 	b = b_data[1]
 
-	A_base_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/A_base_"*file_suffix*".csv", 
-					  	   delim=',', header=false)
-	b_base_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/b_base_"*file_suffix*".csv", 
-					       delim=',', header=false, types=Dict(1=>Float64))
+	x_bounds = CSV.read(wdir*"/data_temp/julia_files/cbco_data/x_bounds_"*file_suffix*".csv", 
+					    delim=',', header=false, types=Dict(1=>Float64))
 	
-	A_base =  hcat([A_base_data[i] for i in 1:size(A_base_data, 2)]...)
-	if size(b_base_data, 2) > 0
-		b_base = b_base_data[1]
+	if size(x_bounds, 2) > 0
+		x_bounds = x_bounds[1]
 	else 
-		b_base = []
-		A_base, b_base = A_base[I,:], b_base[I]
+		x_bounds = Array{Float64, 1}()
 	end
 
 	I_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/I_"*file_suffix*".csv",
@@ -175,18 +183,13 @@ function read_data(file_suffix::String)
   		I = I_data[1].+1
   	end
 
-	return A, b, A_base, b_base, I
+	return A, b, x_bounds, I
 end
 
 function run(file_suffix::String)
-	A, b, A_base, b_base, I = read_data(file_suffix)
+	A, b, x_bounds, I = read_data(file_suffix)
 
-	m = collect(range(1, stop=length(b) + length(b_base)))
-	# Adding base problem
-	index_loadflow = collect(range(1, stop=length(b)))
-	index_base = collect(range(length(b), stop=length(b) + length(b_base)))
-	A = vcat(A, A_base) 
-	b = vcat(b, b_base)
+	m = collect(1:length(b))
 	@info("Preprocessing...")
 	@info("Removing duplicate rows...")
 	# Remove douplicates
@@ -195,13 +198,12 @@ function run(file_suffix::String)
 	# Remove cb = co rows
 	condition_zero = vcat([!all(A[i, :] .== 0) for i in 1:length(b)])
 	m = m[condition_unique .& condition_zero]
-	@info("Removed $(length(b) + length(b_base) - length(m)) rows in preprocessing!")
+	@info("Removed $(length(b) - length(m)) rows in preprocessing!")
 	z = zeros(size(A, 2))
 	
-	I = union(I, index_base)
+	I = union(I)
 	m = setdiff(m, I)
-	I_full = main(A, b, m, I, z)
-	I_result = [cbco for cbco in I_full if cbco in index_loadflow]
+	I_result = main(A, b, m, I, x_bounds, z)
 
 	@info("Number of non-redundant constraints: $(length(I_result))" )
 	save_to_file(I_result, "cbco_"*file_suffix*"_"*Dates.format(now(), "ddmm_HHMM"))

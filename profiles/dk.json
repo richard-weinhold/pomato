@@ -1,29 +1,40 @@
 {
     "optimization": {
-        "type": "dispatch",
-        "model_horizon": [0,10], 
-        "infeas_heat": true,
-        "infeas_el_nodal": true,
-        "infeas_el_zonal": true,
-        "infeas_lines": false,
-        "infeas_lines_ref": false,
-        "infeasibility_bound": 50000,      
+        "type": "cbco_nodal",
+        "gams": true,
+        "model_horizon": [0, 1],
+        "infeasibility": {
+            "heat": true,
+            "electricity": true,
+            "lines": false,
+            "bound": 400
+        },
+        "parameters": {
+            "chp_efficiency": 0.15,
+            "curtailment": {
+                "heat": 0,
+                "electricity": 0.8
+            }
+        },
         "plant_types": {
             "es": ["psp", "reservoir"],
             "hs": ["storage"],
-            "ts": ["wind onshore", "wind offshore", "solar", "solarheat", "iheat"],
+            "ts": ["wind onshore", "wind offshore", 
+                "solar", "solarheat", "iheat"],
             "ph": ["heatpump", "elheat"]
         }
     },
     "grid": {
-        "capacity_multiplier": 0.95,
+        "capacity_multiplier": 0.9,
         "reference_flows": false,
-        "precalc_filename": "",
-        "senstitivity": 5e-2,
+        "precalc_filename": "cbco_py_2708_2136",
+        "senstitivity": 10e-2,
         "cbco_option": "clarkson_base",
+        "gsk": "gmax",
         "preprocess": true
     },
     "data": {
+        "process_input": false,
         "unique_mc": true,
         "round_demand": true,
         "default_efficiency": 0.5,

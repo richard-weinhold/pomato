@@ -25,7 +25,8 @@ $if %model_type% == cbco_zonal           $set data_type zonal
 $if %model_type% == zonal                $set data_type zonal
 $if %model_type% == cbco_nodal           $set data_type nodal
 $if %model_type% == nodal                $set data_type nodal
-
+$if %model_type% == dispatch             $set data_type none
+$if %model_type% == ntc                  $set data_type none
 
 Sets
 t        Hour
@@ -212,7 +213,7 @@ Obj..                                            COST =e= COST_G + COST_H + COST
 
 DEF_Cost_G..                                           COST_G =e= sum((t,p), G(t,p)* mc(p));
 DEF_COST_H..                                           COST_H =e= sum((t,p), H(t,p)*mc(p));
-DEF_COST_INEAS_EL..                                    COST_INEAS_EL =e=  sum((t,n), (INFEAS_EL_N_POS(t,n) + INFEAS_EL_N_NEG(t,n))*1E2);
+DEF_COST_INEAS_EL..                                    COST_INEAS_EL =e= sum((t,n), (INFEAS_EL_N_POS(t,n) + INFEAS_EL_N_NEG(t,n))*1E2);
 DEF_COST_INEAS_H..                                     COST_INEAS_H =e=  sum((t,ha), (INFEAS_H_POS(t,ha) + INFEAS_H_NEG(t,ha))*1E3);
 DEF_COST_INEAS_LINES..                                 COST_INEAS_LINES =e= sum((t,cb), INFEAS_LINES(t,cb)*1E3);
 DEF_COST_EX..                                          COST_EX =E= sum((t,z,zz), EX(t,z,zz)*1);
@@ -225,9 +226,9 @@ Gen_Max_CHP1(t,chp)..                            G(t,chp) =g= (g_max(chp)*(1-chp
 ;
 Gen_Max_CHP2(t,chp)..                            G(t,chp) =l= g_max(chp)*(1-(chp_efficiency*H(t,chp)/h_max(chp)))
 ;
-Gen_Max_RES(t,p)$(ts(p) and co(p))..             G(t,p)  =l= g_max(p) * ava(t,p)
+Gen_Max_RES(t,ts)$(g_max(ts))..                  G(t,ts)  =l= g_max(ts) * ava(t,ts)
 ;
-Gen_Min_RES(t,p)$(ts(p) and co(p))..             G(t,p)  =g= g_max(p) * ava(t,p) * curtailment_electricity
+Gen_Min_RES(t,ts)$(g_max(ts))..                  G(t,ts)  =g= g_max(ts) * ava(t,ts) * curtailment_electricity
 ;
 Gen_Max_RES_h(t,ts)$(h_max(ts))..                H(t,ts)  =l= h_max(ts) * ava(t,ts)
 ;
@@ -325,7 +326,7 @@ Gen_PH
 STOR_EL
 STOR_EL_Cap
 STOR_EL_Max
-*STOR_EL_End
+STOR_EL_End
 STOR_H
 STOR_H_Cap
 STOR_H_Max
@@ -378,6 +379,7 @@ solver = cplex
 
 *$stop
 Solve model_%model_type% min COST using lp;
+
 
 $include %wdir%\code_gms\result_export
 

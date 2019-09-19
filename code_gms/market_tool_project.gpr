@@ -779,11 +779,11 @@ Decim=7
 PlaneRownr=-1
 
 [GDXDISP: d_el Par 2]
-PlaneDim=1
+PlaneDim=0
 RowDim=1
 Squeeze=1
 SqTrail0=0
-Order=2,1
+Order=1,2
 Decim=7
 PlaneRownr=-1
 PlaneFilter1=n3396
@@ -1168,12 +1168,12 @@ PlaneFilter1=Marginal
 [GDXDISP: ava Par 2]
 PlaneDim=0
 RowDim=1
-Squeeze=1
+Squeeze=0
 SqTrail0=0
-Order=2,1
-Decim=7
+Order=1,2
+Decim=5
 PlaneRownr=-1
-PlaneFilter1=H_Gen_05_A
+PlaneFilter1=p4313
 
 [GDXDISP: Gen_Max_RES Equ 2]
 PlaneDim=1
@@ -1300,7 +1300,7 @@ Squeeze=1
 SqTrail0=0
 Order=3,1,2
 Decim=7
-PlaneRownr=1
+PlaneRownr=-1
 PlaneFilter1=Marginal
 
 [GDXDISP: map_nsz Set 2]
@@ -1543,8 +1543,8 @@ Decim=7
 PlaneRownr=-1
 
 [GDXDISP: G Var 2]
-PlaneDim=2
-RowDim=0
+PlaneDim=1
+RowDim=1
 Squeeze=1
 SqTrail0=0
 Order=3,1,2
@@ -1611,13 +1611,14 @@ Decim=7
 PlaneRownr=-1
 
 [GDXDISP: Dim2 Set 1]
-PlaneDim=0
-RowDim=1
+PlaneDim=1
+RowDim=0
 Squeeze=1
 SqTrail0=0
 Order=1
 Decim=7
 PlaneRownr=-1
+PlaneFilter1=p4313
 
 [GDXDISP: plants Par 4]
 PlaneDim=0
@@ -1936,13 +1937,14 @@ Decim=7
 PlaneRownr=-1
 
 [GDXDISP: cbco_data Par 2]
-PlaneDim=0
+PlaneDim=1
 RowDim=1
 Squeeze=1
 SqTrail0=0
-Order=1,2
+Order=2,1
 Decim=7
 PlaneRownr=-1
+PlaneFilter1=ram
 
 [GDXDISP: dclines_data Par 2]
 PlaneDim=0
@@ -2006,7 +2008,7 @@ SqTrail0=1
 Order=1,2
 Decim=7
 PlaneRownr=-1
-PlaneFilter1=t0866
+PlaneFilter1=t0002
 
 [GDXDISP: CON_NEX_u Equ 2]
 PlaneDim=0
@@ -2220,7 +2222,8 @@ Squeeze=1
 SqTrail0=0
 Order=3,1,2
 Decim=7
-PlaneRownr=-1
+PlaneRownr=1
+PlaneFilter1=Upper
 
 [GDXDISP: INFEAS_H_POS Var 2]
 PlaneDim=1
@@ -2302,9 +2305,6 @@ Order=1,2
 Decim=7
 PlaneRownr=-1
 
-[RP:BSC_HYDRO_MODEL_ALL]
-1=
-
 [GDXDISP: ha_test Par 2]
 PlaneDim=0
 RowDim=2
@@ -2371,61 +2371,239 @@ PlaneRownr=-1
 [RP:DYNELMOD]
 1=
 
+[RP:VAR_KKT]
+1=
+
+[GDXDISP: curtailment_heat Par 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: curtailment_electricity Par 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: chp_efficiency Par 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: DEF_COST_INEAS_LINES Equ 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: DEF_COST_INEAS_H Equ 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: DEF_COST_INEAS_EL Equ 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: DEF_COST_H Equ 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: DEF_COST_G Equ 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: DEF_COST_EX Equ 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: COST_INEAS_LINES Var 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: COST_INEAS_H Var 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: COST_INEAS_EL Var 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: COST_H Var 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: COST_G Var 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: COST_EX Var 0]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[RP:OR3_PROJECT_DCMCP_SOS1]
+1=
+
+[RP:OR3_PROJECT_CHECK_INCENTIVE_TWOSTAGE_MODULE]
+1=
+
+[RP:OR3_PROJECT_CHECK_INCENTIVE_TWOSTAGE_LOOP]
+1=
+
+[RP:BSC_HYDRO_MODEL_ALL]
+1=
+
 [RP:RESULT_EXPORT]
 1=
 
+[GDXDISP: test_cb Set 1]
+PlaneDim=0
+RowDim=0
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: test_cbco Par 2]
+PlaneDim=0
+RowDim=2
+Squeeze=1
+SqTrail0=0
+Order=1,2
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: cbco_test Par 2]
+PlaneDim=0
+RowDim=1
+Squeeze=1
+SqTrail0=0
+Order=1,2
+Decim=7
+PlaneRownr=-1
+
 [RP:MODEL]
-1=--wdir="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato" --rdir="00_00" --infeas=25
-2=--wdir="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato" --rdir="00_00" --infeas=100
-3=--wdir="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato" --rdir="00_00"
-4=--wdir="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato"
-5=--model_type="zonal" --folder="maiken_DETwo_w6" -gdx asd
-6=--model_type="zonal" --folder="maiken_DEOne_w6" -gdx asd
-7=--model_type="zonal" --folder="maiken_DETwo_w24" -gdx asd
-8=--model_type="zonal" --folder="maiken_DET_w24" -gdx asd
-9=--model_type="zonal" --folder="maiken_DEOne_w24" -gdx asd
-10=--model_type="zonal" --folder="maiken_DEoNE_w"$" -gdx asd
-11=--model_type="zonal" --folder="asd" -gdx asd
-12=--model_type="zonal" -gdx asd
-13=--model_type="nodal" -gdx asd
-14=--model_type="zonal"
-15=-gdx asd --model_type="zonal"
-16=-gdx asd --model_type="zonal
-17=-gdx asd --model_type=
-18=-gdx asd
-19=
+1=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato -gdx asd
+2=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --gdx asd
+3=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato
+4=
+5=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --rdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\2208_1144 --model_type=nodal --infeas_el_nodal=True --infeas_lines=False --infeas_heat=True --infeasibility_bound=100000 lo
+6=-wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --rdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\2208_1144 --model_type=nodal --infeas_el_nodal=True --infeas_lines=False --infeas_heat=True --infeasibility_bound=100000 lo=
+7=--wdir="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato" --rdir="00_00" --infeas=25
+8=--wdir="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato" --rdir="00_00" --infeas=100
+9=--wdir="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato" --rdir="00_00"
+10=--wdir="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato"
+11=--model_type="zonal" --folder="maiken_DETwo_w6" -gdx asd
+12=--model_type="zonal" --folder="maiken_DEOne_w6" -gdx asd
+13=--model_type="zonal" --folder="maiken_DETwo_w24" -gdx asd
+14=--model_type="zonal" --folder="maiken_DET_w24" -gdx asd
+15=--model_type="zonal" --folder="maiken_DEOne_w24" -gdx asd
+16=--model_type="zonal" --folder="maiken_DEoNE_w"$" -gdx asd
+17=--model_type="zonal" --folder="asd" -gdx asd
+18=--model_type="zonal" -gdx asd
+19=--model_type="nodal" -gdx asd
+20=--model_type="zonal"
 
 [RP:DATAIMPORT]
-1=--data_folder="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data" -gdx asd
-2=--data_folder="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data"
-3=--model_type="zonal" -gdx asd
-4=--model_type="nodal" -gdx asd
-5=
-6=--model_type = zonal -gdx asd
-7=--model_type = zonal
-8=--model_type = "zonal"
-9=--model_type == "zonal"
-10=-gdx asd
+1=-gdx asd --data_type=none
+2=-gdx asd --data_type=nodal
+3=-gdx asd
+4=
+5=-wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --rdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\2208_1144 --model_type=nodal --infeas_el_nodal=True --infeas_lines=False --infeas_heat=True --infeasibility_bound=100000 lo=
+6=--data_folder="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data" -gdx asd
+7=--data_folder="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data"
+8=--model_type="zonal" -gdx asd
+9=--model_type="nodal" -gdx asd
+10=--model_type = zonal -gdx asd
+11=--model_type = zonal
+12=--model_type = "zonal"
+13=--model_type == "zonal"
 
 [MRUFILES]
-1=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\model.lst
-2=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\system.date.json
-3=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\00_00\misc_results.json
-4=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\%result_folder%\%datastr%.json
-5=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\result.gdx
-6=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\model.lst
-7=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\dataimport.lst
+1=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data\dataset.gdx
+2=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data\cbco.gdx
+3=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\model.~gm
+4=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\dataimport.gms
+5=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\dataimport.lst
+6=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\result_export.gms
+7=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data\availability.gdx
+8=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\2808_1754\result.gdx
+9=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\2808_1805\result.gdx
 
 [OPENWINDOW_1]
-FILE0=C:\Users\riw\Downloads\dynELMOD.gms
-FILE1=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\dataimport.gms
-FILE2=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\model.gms
-FILE3=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\result_export.gms
-FILE4=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\00_00\result.gdx
-FILE5=C:\Users\riw\tubCloud\Uni\Masterarbeit\GAMS_REFORM\Var_KKT.gms
-FILE6=C:\Users\riw\tubCloud\Uni\Masterarbeit\GAMS_REFORM\Var_KKT.gms
+FILE0=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\model.gms
+FILE1=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\model.gms
 MAXIM=1
-TOP=142
-LEFT=-521
-HEIGHT=980
-WIDTH=1727
+TOP=-1
+LEFT=201
+HEIGHT=1336
+WIDTH=1229
