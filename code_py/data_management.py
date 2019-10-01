@@ -30,7 +30,7 @@ class DataManagement():
                                          "timeseries", "availability",
                                          "ntc", "net_position",
                                          "reference_flows", "frm_fav",
-                                         "net_export"]}
+                                         "net_export", "inflows"]}
 
         variables = {variable: False for variable in ["G", "H", "D_es", "L_es",
                                                       "D_hs", "L_hs", "INJ", "F_DC",
@@ -41,7 +41,6 @@ class DataManagement():
         infeasibility_variables = {variable: False \
                                        for variable in ["INFEAS_H_POS", "INFEAS_H_NEG",
                                                         "INFEAS_EL_N_POS", "INFEAS_EL_N_NEG",
-                                                        "INFEAS_EL_Z_POS", "INFEAS_EL_Z_NEG",
                                                         "INFEAS_LINES", "INFEAS_REF_FLOW"]}
 
         self.data_attributes = {"data": data, "source": None}
@@ -58,6 +57,7 @@ class DataManagement():
 
         # Results are part of the results processing
         self.results = None
+
     def save_data(self, wdir, filepath):
         """Write Data to excel file"""
         xls_file = wdir.joinpath(filepath)
@@ -80,7 +80,6 @@ class DataManagement():
             DataWorker(self, self.wdir.joinpath(filepath))
             self.process_input()
 
-
         elif self.wdir.joinpath(f"data_input/{filepath}").is_file():
             DataWorker(self, self.wdir.joinpath(f"data/{filepath}"))
             self.process_input()
@@ -100,6 +99,28 @@ class DataManagement():
             InputProcessing(self, self.options)
         else:
             self.logger.info("Input Data not processed")
+
+        self.validate_inputdata()
+
+    # def validate_inputdata(self):
+        # file = self.wdir.joinpath("data/data_structure.xlsx")
+        # xls = pd.ExcelFile(file)
+
+        # structure = xls.parse("raw")
+        # columns = [c for c in structure.columns if not "Unnamed:" in c]
+
+        # for c in columns:
+        #    att = "attribute"
+        #    col_pos = structure.columns.get_loc(c)
+        #    cols = list(structure.columns[col_pos:col_pos + 2])
+        #    tmp = structure.loc[1:, cols].copy()
+        #    self.data_structure[c] = {"attribute": {}, "optional attribute": {}}
+        #    for (t,v) in zip(tmp[cols[0]].astype(str), tmp[cols[1]]):
+        #        if not t == "nan":
+        #            if t == "optional attribute":
+        #                att = "optional attribute"
+        #            else:
+        #                self.data_structure[c][att][t] = v
 
     def process_results(self, opt_folder, opt_setup, grid=None):
         """ Init Results Calss with results_folder and self"""

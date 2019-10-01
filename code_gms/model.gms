@@ -18,6 +18,7 @@ $if not set infeasibility_bound          $set infeasibility_bound 1000
 $if not set chp_efficiency               $set chp_efficiency 0.15
 $if not set curtailment_electricity      $set curtailment_electricity 0.8
 $if not set curtailment_heat             $set curtailment_heat 0
+$if not set stor_start                   $set stor_start 0.65
 
 $if not set model_type                   $set model_type dispatch
 
@@ -25,6 +26,24 @@ $if %model_type% == cbco_zonal           $set data_type zonal
 $if %model_type% == zonal                $set data_type zonal
 $if %model_type% == cbco_nodal           $set data_type nodal
 $if %model_type% == nodal                $set data_type nodal
+
+$offlisting
+$offsymxref offsymlist
+
+option
+    limrow = 0
+    limcol = 0
+    solprint = off
+    sysout = off
+    reslim = 10000
+    solver = gurobi
+;
+
+$onecho >gurobi.opt
+threads = 4
+method = 2
+names = 0
+$offecho
 
 
 Sets
@@ -56,7 +75,8 @@ Alias(z,zz);
 
 Parameter
 ***Generation related parameters
-         mc(p)                   Marginal Costs of Technology s
+         mc_el(p)                Marginal Costs for 1 MWh_el of Plant p
+         mc_heat(p)              Marginal Costs for 1 MWh_th of Plant p
          eta(p)                  Efficiency for Plants [MW_el per MW_th] or Storage [loss per period %]
          g_max(p)                Maximum Generation of Plant p
          h_max(p)                Maximum Heat-Generation of Plant h(p)
@@ -75,6 +95,8 @@ Parameter
          inc_dc(dc,n)            Incedence Matrix for DC Connections
          net_position(t,z)
          net_export(t,n)
+         inflows(t, p)          Inflows into storage es in timestep t in [MWh]
+
 ;
 *###############################################################################
 *                                 UPLOAD
@@ -86,7 +108,7 @@ $gdxin %data_folder%\dataset.gdx
 $load t p n z ha dc
 $load chp co he ph es ts hs
 $load cb slack map_pn map_nz map_pha map_ns
-$load mc g_max h_max ava eta hs_cap es_cap d_el d_h
+$load mc_el mc_heat g_max h_max ava inflows eta hs_cap es_cap d_el d_h
 $load ntc ptdf ram dc_max inc_dc net_export net_position
 $gdxin
 ;
@@ -100,6 +122,8 @@ t_end(t)$(ord(t) eq card(t)) = Yes;
 *****SET UP SETS
 Variables
 COST            Total System Cost
+COST_G
+COST_H
 INJ(t,n)        Net Injection at Node n
 F_DC(t,dc)      Flow in DC Line dc
 ;
@@ -120,8 +144,7 @@ INFEAS_H_POS(t,ha)
 INFEAS_H_NEG(t,ha)
 INFEAS_LINES(t,cb)   Infeasibility Variable for Lines
 
-COST_G
-COST_H
+
 COST_EX
 COST_INEAS_EL
 COST_INEAS_H
@@ -210,11 +233,11 @@ Obj..                                            COST =e= COST_G + COST_H + COST
                                                           + COST_INEAS_EL + COST_INEAS_H + COST_INEAS_LINES
 ;
 
-DEF_Cost_G..                                           COST_G =e= sum((t,p), G(t,p)* mc(p));
-DEF_COST_H..                                           COST_H =e= sum((t,p), H(t,p)*mc(p));
-DEF_COST_INEAS_EL..                                    COST_INEAS_EL =e=  sum((t,n), (INFEAS_EL_N_POS(t,n) + INFEAS_EL_N_NEG(t,n))*1E2);
-DEF_COST_INEAS_H..                                     COST_INEAS_H =e=  sum((t,ha), (INFEAS_H_POS(t,ha) + INFEAS_H_NEG(t,ha))*1E3);
-DEF_COST_INEAS_LINES..                                 COST_INEAS_LINES =e= sum((t,cb), INFEAS_LINES(t,cb)*1E3);
+DEF_Cost_G..                                           COST_G =e= sum((t,p), G(t,p)* mc_el(p));
+DEF_COST_H..                                           COST_H =e= sum((t,p), H(t,p) * mc_heat(p));
+DEF_COST_INEAS_EL..                                    COST_INEAS_EL =e=  sum((t,n), (INFEAS_EL_N_POS(t,n) + INFEAS_EL_N_NEG(t,n))*1E4);
+DEF_COST_INEAS_H..                                     COST_INEAS_H =e=  sum((t,ha), (INFEAS_H_POS(t,ha) + INFEAS_H_NEG(t,ha))*1E4);
+DEF_COST_INEAS_LINES..                                 COST_INEAS_LINES =e= sum((t,cb), INFEAS_LINES(t,cb)*1E4);
 DEF_COST_EX..                                          COST_EX =E= sum((t,z,zz), EX(t,z,zz)*1);
 
 Gen_Max_El(t,p)$(not (he(p) or ts(p)))..                 G(t,p) =l= g_max(p)
@@ -233,32 +256,34 @@ Gen_Max_RES_h(t,ts)$(h_max(ts))..                H(t,ts)  =l= h_max(ts) * ava(t,
 ;
 Gen_Min_RES_h(t,ts)$(h_max(ts))..                H(t,ts)  =g= h_max(ts) * ava(t,ts) * curtailment_heat
 ;
-Gen_PH(t,ph)..                                   D_ph(t,ph) =E= H(t,ph) * eta(ph)
+Gen_PH(t,ph)..                                   D_ph(t,ph) =E= H(t,ph) / eta(ph)
 ;
 
 STOR_EL(t,es)..                                  L_es(t,es) =e= L_es(t-1,es)$(ord(t)>1)
                                                         - G(t,es)
                                                         + eta(es)*D_es(t,es)
-                                                        + g_max(es)*2$(ord(t) eq 1)
+                                                        + inflows(t, es)
+                                                        + %stor_start%*es_cap(es)$(ord(t) eq 1)
 ;
 
-STOR_EL_Cap(t,es)..                      L_es(t,es) =l= g_max(es)*8
+STOR_EL_Cap(t,es)..                      L_es(t,es) =l= es_cap(es)
 ;
-STOR_EL_Max(t,es)..                      D_es(t,es) =l= g_max(es)
+STOR_EL_Max(t,es)..                      D_es(t,es) =l= 0
+*g_max(es)
 ;
-STOR_EL_End(t_end,es)..                  L_es(t_end,es) =g= g_max(es)*2
+STOR_EL_End(t_end,es)..                  L_es(t_end,es) =g= %stor_start%*es_cap(es)
 ;
 
 STOR_H(t,hs)..                           L_hs(t,hs) =e= eta(hs)*L_hs(t,hs-1)$(ord(t)>1)
                                                         - H(t,hs)
                                                         + D_hs(t,hs)
-                                                        + h_max(hs)*2$(ord(t) eq 1)
+                                                        + 0.65*hs_cap(hs)$(ord(t) eq 1)
 ;
-STOR_H_Cap(t,hs)..                       L_hs(t,hs) =l= h_max(hs)*4
+STOR_H_Cap(t,hs)..                       L_hs(t,hs) =l= hs_cap(hs)
 ;
 STOR_H_Max(t,hs)..                       D_hs(t,hs) =l= h_max(hs)
 ;
-STOR_H_End(t_end,hs)..                   L_hs(t_end,hs) =g= h_max(hs)*4
+STOR_H_End(t_end,hs)..                   L_hs(t_end,hs) =g= hs_cap(hs)/2
 ;
 
 EB_Heat(t,ha)..                  d_h(t,ha) =e= sum(map_pha(he,ha), H(t,he))
@@ -306,7 +331,7 @@ CON_CBCO_zonal_n(t,cb)..         sum(z, sum(zz, EX(t,zz,z) - EX(t,z,zz))*ptdf(cb
 
 Model Base_Model
 /Obj
-DEF_COST_G
+DEF_Cost_G
 DEF_COST_H
 DEF_COST_EX
 DEF_COST_INEAS_EL
@@ -325,7 +350,7 @@ Gen_PH
 STOR_EL
 STOR_EL_Cap
 STOR_EL_Max
-*STOR_EL_End
+STOR_EL_End
 STOR_H
 STOR_H_Cap
 STOR_H_Max
@@ -370,13 +395,8 @@ CON_CBCO_zonal_n
 CON_Slack
 /;
 
-option
-reslim = 10000
-solver = cplex
-;
-
-
 *$stop
+model_%model_type%.optfile = 1;
 Solve model_%model_type% min COST using lp;
 
 $include %wdir%\code_gms\result_export

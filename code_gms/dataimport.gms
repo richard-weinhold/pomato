@@ -54,7 +54,8 @@ Parameter
          ntc_data
 
 ***Generation related parameters
-         mc(p)                   Marginal Costs of Technology s
+         mc_el(p)                Marginal Costs for 1 MWh_el of Plant p
+         mc_heat(p)              Marginal Costs for 1 MWh_th of Plant p
          eta(p)                  Efficiency for Plants [MW_el per MW_th] or Storage [loss per period %]
          g_max(p)                Maximum Generation of Plant p
          h_max(p)                Maximum Heat-Generation of Plant h(p)
@@ -74,6 +75,7 @@ Parameter
          net_position(t,z)
          net_export(t,n)
          ntc(z,zz)
+         inflows(t, p)          Inflows into storage es in timestep t in [MWh]
 ;
 
 *###############################################################################
@@ -109,7 +111,7 @@ $load ha=dim1
 $gdxin
 ;
 
-$call csv2gdx %data_folder%\plants.csv output=%data_folder%\plants.gdx id=plant_data Index=(1) Values=(2,5,6,7) UseHeader=Y StoreZero=Y
+$call csv2gdx %data_folder%\plants.csv output=%data_folder%\plants.gdx id=plant_data Index=(1) Values=(2,3,6,7,8,9) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\plants.gdx
 $load plant_data
 $load p=dim1
@@ -124,23 +126,24 @@ $load tech=dim1
 $gdxin
 ;
 
-$call csv2gdx %data_folder%\plants.csv output=%data_folder%\map_pn.gdx id=map_pn Index=(1,4) Values=(5) UseHeader=Y StoreZero=Y
+$call csv2gdx %data_folder%\plants.csv output=%data_folder%\map_pn.gdx id=map_pn Index=(1,5) Values=(6) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\map_pn.gdx
 $load map_pn=map_pn
 $gdxin
 ;
 
-$call csv2gdx %data_folder%\plants.csv output=%data_folder%\map_ptech.gdx id=map_ptech Index=(1,3) Values=(5) UseHeader=Y StoreZero=Y
+$call csv2gdx %data_folder%\plants.csv output=%data_folder%\map_ptech.gdx id=map_ptech Index=(1,4) Values=(6) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\map_ptech.gdx
 $load map_ptech=map_ptech
 $gdxin
 ;
 
-$call csv2gdx %data_folder%\plants.csv output=%data_folder%\map_pha.gdx id=map_pha Index=(1,8) Values=(5) UseHeader=Y StoreZero=Y
+$call csv2gdx %data_folder%\plants.csv output=%data_folder%\map_pha.gdx id=map_pha Index=(1,10) Values=(6) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\map_pha.gdx
 $load map_pha=map_pha
 $gdxin
 ;
+
 
 es_tech(tech)$(plant_types(tech, "es") eq 1) = Yes;
 hs_tech(tech)$(plant_types(tech, "hs") eq 1) = Yes;
@@ -157,12 +160,13 @@ hs(p)$sum(hs_tech, map_ptech(p,hs_tech)) = Yes ;
 ts(p)$sum(ts_tech, map_ptech(p,ts_tech)) = Yes ;
 ph(p)$sum(ph_tech, map_ptech(p,ph_tech)) = Yes ;
 
-mc(p) = plant_data(p,"mc");
+mc_el(p) = plant_data(p,"mc_el");
+mc_heat(p) = plant_data(p,"mc_heat");
 eta(p) = plant_data(p, "eta");
 g_max(p) = plant_data(p, "g_max");
 h_max(p) = plant_data(p, "h_max");
-es_cap(es) = plant_data(es, "g_max")*8;
-hs_cap(hs) = plant_data(hs, "h_max")*8;
+es_cap(es) = plant_data(es, "storage_capacity");
+hs_cap(hs) = plant_data(hs, "storage_capacity");
 
 chp(p) = No;
 chp(p)$((g_max(p) > 0) and (h_max(p) > 0)) = Yes;
@@ -201,10 +205,19 @@ else
          ava(t,p) = 0;
 );
 
+$call csv2gdx %data_folder%\inflows.csv output=%data_folder%\inflows.gdx id=inflows Index=(1) Values=(2..LastCol) UseHeader=Y StoreZero=Y
+$gdxin %data_folder%\inflows.gdx
+$load inflows=inflows
+$gdxin
+;
+
+
 $call csv2gdx %data_folder%\cbco.csv output=%data_folder%\cbco.gdx id=cbco_data Index=(1) UseHeader=Y
 $gdxin %data_folder%\cbco.gdx
 $load cb=*
 ;
+
+
 
 $call csv2gdx %data_folder%\cbco.csv output=%data_folder%\cbco.gdx id=cbco_data Index=(1) Values=(2..LastCol) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\cbco.gdx
@@ -257,7 +270,7 @@ $gdxin %data_folder%\ntc.gdx
 $load test_ntc=*
 ;
 if (card(test_ntc)>0,
-         execute_load "%data_folder%\net_position.gdx", ntc=ntc_data;
+         execute_load "%data_folder%\ntc.gdx", ntc=ntc_data;
 else
          ntc(z,zz) = 0;
 );
@@ -266,7 +279,7 @@ execute_unload "%data_folder%\dataset.gdx",
 t p n z ha dc
 chp co he ph es ts hs
 cb slack map_pn map_nz map_pha map_ns
-mc g_max h_max ava eta hs_cap es_cap d_el d_h
+mc_el mc_heat g_max h_max ava inflows eta hs_cap es_cap d_el d_h
 ntc ptdf ram dc_max inc_dc net_export net_position
 ;
 

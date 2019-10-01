@@ -149,7 +149,7 @@ class MarketModel():
         """Export Data to csv files file in the jdir + \\data"""
         # Some legacy json also needs to be written here
         csv_path = self.data_dir.joinpath('data')
-        self.data.plants[['mc', 'tech', 'node', 'eta', 'g_max', 'h_max', 'heatarea']] \
+        self.data.plants[['mc_el', "mc_heat", 'tech', 'node', 'eta', 'g_max', 'h_max', "storage_capacity", 'heatarea']] \
             .to_csv(str(csv_path.joinpath('plants.csv')), index_label='index')
 
         self.data.nodes[["name", "zone", "slack"]] \
@@ -170,6 +170,9 @@ class MarketModel():
 
         self.data.availability[self.data.availability.index.isin(self.model_horizon)] \
             .to_csv(str(csv_path.joinpath('availability.csv')), index_label='index')
+
+        self.data.inflows[self.data.inflows.index.isin(self.model_horizon)] \
+            .to_csv(str(csv_path.joinpath('inflows.csv')), index_label='index')
 
         self.data.net_export[self.data.net_export.index.isin(self.model_horizon)] \
             .to_csv(str(csv_path.joinpath('net_export.csv')), index_label='index')

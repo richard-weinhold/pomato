@@ -11,7 +11,6 @@ class InputProcessing(object):
         self.logger = logging.getLogger('Log.MarketModel.DataManagement.InputData')
         self.data = data
 
-
         self.options = options
         self.logger.info("Processing Input Data...")
         if self.data.data_attributes["source"] == "mpc_casefile":
@@ -19,11 +18,12 @@ class InputProcessing(object):
 
         elif self.data.data_attributes["source"] == "xls":
             self.process_demand()
-            self.efficiency()
-            self.marginal_costs()
-        self.process_availability()
-        self.process_net_export()
+            # self.efficiency()
+        #     self.marginal_costs()
+        # self.process_availability()
+        # self.process_net_export()
         self.process_net_position()
+        self.process_inflows()
 
         if self.options["data"]["unique_mc"]:
             self.unique_mc()
@@ -38,6 +38,7 @@ class InputProcessing(object):
             self.data.lines.cb = True
 
         self._check_data()
+
     def process_demand(self):
         """ Process Demand data"""
         if self.data.demand_h.empty:
@@ -50,6 +51,12 @@ class InputProcessing(object):
     def process_net_position(self):
         for zone in self.data.zones.index.difference(self.data.net_position.columns):#
             self.data.net_position[zone] = 0
+
+    def process_inflows(self):
+        condition = self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["es"])
+        for es_plant in self.data.plants.index[condition]:
+            if not es_plant in self.data.inflows:
+                self.data.inflows[es_plant] = 0
 
     def process_net_export(self):
         """
@@ -69,7 +76,6 @@ class InputProcessing(object):
                 nodes = []
                 nodes_from_zones = self.data.nodes.index[self.data.nodes.zone == zones[0]]
                 nodes_to_zones = self.data.nodes.index[self.data.nodes.zone == zones[1]]
-
 
                 nodes.extend(list(self.data.lines.node_i[(self.data.lines.node_i.isin(nodes_from_zones))& \
                                                          (self.data.lines.node_j.isin(nodes_to_zones))]))
