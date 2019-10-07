@@ -40,7 +40,7 @@ option
 ;
 
 $onecho >gurobi.opt
-threads = 4
+threads = 0
 method = 2
 names = 0
 $offecho
@@ -229,8 +229,10 @@ CON_NEX_u
 CON_NEX_l
 ;
 
-Obj..                                            COST =e= COST_G + COST_H + COST_EX
-                                                          + COST_INEAS_EL + COST_INEAS_H + COST_INEAS_LINES
+*H.fx(t,hs) = 0;
+
+Obj..                                                  COST =e= COST_G + COST_H + COST_EX
+                                                                + COST_INEAS_EL + COST_INEAS_H + COST_INEAS_LINES
 ;
 
 DEF_Cost_G..                                           COST_G =e= sum((t,p), G(t,p)* mc_el(p));
@@ -238,7 +240,7 @@ DEF_COST_H..                                           COST_H =e= sum((t,p), H(t
 DEF_COST_INEAS_EL..                                    COST_INEAS_EL =e=  sum((t,n), (INFEAS_EL_N_POS(t,n) + INFEAS_EL_N_NEG(t,n))*1E4);
 DEF_COST_INEAS_H..                                     COST_INEAS_H =e=  sum((t,ha), (INFEAS_H_POS(t,ha) + INFEAS_H_NEG(t,ha))*1E4);
 DEF_COST_INEAS_LINES..                                 COST_INEAS_LINES =e= sum((t,cb), INFEAS_LINES(t,cb)*1E4);
-DEF_COST_EX..                                          COST_EX =E= sum((t,z,zz), EX(t,z,zz)*1);
+DEF_COST_EX..                                          COST_EX =E= sum((t,z,zz), EX(t,z,zz)*0.1);
 
 Gen_Max_El(t,p)$(not (he(p) or ts(p)))..                 G(t,p) =l= g_max(p)
 ;
@@ -372,6 +374,7 @@ Model model_ntc
 /
 Base_Model
 CON_NTC
+*CON_Slack
 /;
 Model model_cbco_nodal
 /Base_Model

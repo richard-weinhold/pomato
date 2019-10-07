@@ -44,7 +44,7 @@ class DataWorker(object):
 
 		for data in self.data.data_attributes["data"]:
 			try:
-				setattr(self.data, data, xls.parse(data, index_col=0))
+				setattr(self.data, data, xls.parse(data, index_col=0).infer_objects())
 				self.data.data_attributes["data"][data] = True
 			except:
 				self.logger.warning(f"{data} not in excel file")
@@ -98,9 +98,9 @@ class DataWorker(object):
 		caseinfo = docstring[0]
 
 		return caseinfo, busname, baseMVA, bus_df, gen_df, branch_df, gencost_df
-		
+
 	def read_m_file(self, casefile):
-		
+
 		with open(casefile) as mfile:
 			raw_text = mfile.read()
 
@@ -205,7 +205,7 @@ class DataWorker(object):
 					# 'g_max_Q': gen_df['Qmax'],
 					'node': gen_df['bus'],
 					# 'apf': gen_df['apf'],
-					'mc': gencost_df['c1'][list(range(0,ng))],
+					'mc_el': gencost_df['c1'][list(range(0,ng))],
 					# 'mc_Q': np.zeros(ng)
 					}
 
@@ -229,17 +229,26 @@ class DataWorker(object):
 		self.data.zones = pd.DataFrame(index=set(self.data.nodes.zone.values))
 		self.data.plants.node = ["n" + str(int(idx)) for idx in self.data.plants.node]
 		self.data.demand_el = pd.DataFrame(index=["t0001", "t0002"], data=self.data.nodes.Pd.to_dict())
+		self.data.demand_el = self.data.demand_el.stack().reset_index()
+		self.data.demand_el.columns = ["timestep", "node", "demand_el"]
 
-		self.data.plants = self.data.plants[["g_max", "mc", "node"]]
+		self.data.net_export = self.data.demand_el.copy()
+		self.data.net_export.columns = ["timestep", "node", "net_export"]
+		self.data.net_export.loc[:, "net_export"] = 0
+		
+		self.data.plants = self.data.plants[["g_max", "mc_el", "node"]]
 
-		self.data.plants["tech"] = self.data.plants.index
+		self.data.plants["plant_type"] = "default"
+		self.data.plants["plant_type"] = self.data.plants.index
 		self.data.plants["eta"] = 1
 		self.data.plants["fuel"] = "default"
 		self.data.plants["h_max"] = 0
+		self.data.plants["mc_heat"] = 0
+		self.data.plants["storage_capacity"] = np.nan
 		self.data.plants["heatarea"] = ""
 
-		self.data.fuel = pd.DataFrame.from_dict({1: {"fuel": "default", "year":2018, 
-													 "co2": 0, "fuel_price":10}}, 
+		self.data.fuel = pd.DataFrame.from_dict({1: {"fuel": "default", "year":2018,
+													 "co2": 0, "fuel_price":10}},
 												orient="index")
 		# try:
 		filepath = str(casefile).split(".")[0] + "_coordinates.csv"
@@ -266,4 +275,5 @@ class DataWorker(object):
 		self.data.data_attributes["data"]["plants"] = True
 		self.data.data_attributes["data"]["zones"] = True
 		self.data.data_attributes["data"]["demand_el"] = True
+		self.data.data_attributes["source"] = "mpc_casefile"
 

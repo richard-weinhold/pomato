@@ -113,8 +113,8 @@ class BokehPlot():
         map_pn = market_result.data.plants.node.reset_index()
         map_pn.columns = ['p', 'n']
 
-        demand = market_result.data.demand_el[market_result.data.nodes.index].unstack().reset_index()
-        demand.columns = ["n", "t", "d_el"]
+        demand = market_result.data.demand_el[market_result.data.demand_el.node.isin(market_result.data.nodes.index)].copy()
+        demand.rename(columns={"node": "n", "timestep": "t", "demand_el": "d_el"}, inplace=True)
         demand_d = market_result.D_d
         demand_ph = market_result.D_ph
         demand_es = market_result.D_es
@@ -145,7 +145,7 @@ class BokehPlot():
         demand = pd.merge(demand, demand_es[["D_es", "n", "t"]], how="outer", on=["n", "t"])
         demand.fillna(value=0, inplace=True)
         demand["d_total"] = demand.d_el + demand.D_d + demand.D_ph + demand.D_es
-
+        
         return demand[["n", "t", "d_total"]]
 
     def output_reader(self, proc):

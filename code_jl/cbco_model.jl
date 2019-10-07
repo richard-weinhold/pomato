@@ -165,14 +165,14 @@ function read_data(file_suffix::String)
 	b_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/b_"*file_suffix*".csv", 
 					  delim=',', header=false, types=Dict(1=>Float64))
 
-	A =  hcat([A_data[i] for i in 1:size(A_data, 2)]...)
-	b = b_data[1]
+	A =  hcat([A_data[:, i] for i in 1:size(A_data, 2)]...)
+	b = b_data[:,1]
 
 	x_bounds = CSV.read(wdir*"/data_temp/julia_files/cbco_data/x_bounds_"*file_suffix*".csv", 
 					    delim=',', header=false, types=Dict(1=>Float64))
 	
 	if size(x_bounds, 2) > 0
-		x_bounds = x_bounds[1]
+		x_bounds = x_bounds[:,1]
 	else 
 		x_bounds = Array{Float64, 1}()
 	end
@@ -180,7 +180,7 @@ function read_data(file_suffix::String)
 	I_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/I_"*file_suffix*".csv",
 					  delim=',', types=Dict(1=>Int))
 	if size(I_data, 2) > 0
-  		I = I_data[1].+1
+  		I = I_data[:, 1].+1
   	end
 
 	return A, b, x_bounds, I

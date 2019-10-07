@@ -21,13 +21,24 @@ l = mato.grid.lines
 dc = mato.data.dclines
 f = mato.data.fuel
 d = mato.data.demand_el
+d_h = mato.data.demand_h
 o = mato.options
 a = mato.data.availability
+z = mato.data.zones
+i = mato.data.inflows
+tech = mato.data.tech
+ntc = mato.data.ntc
+nex = mato.data.net_export
+inflows = mato.data.inflows
 
+
+mato.data.data_attributes["source"]
 ## cbco_py_2108_1611 without base
-
-
+#
+# mato.update_market_model_data()
 # %%
+
+
 mato.create_grid_representation()
 gr = mato.grid_representation["cbco"]
 

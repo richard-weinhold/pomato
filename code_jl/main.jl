@@ -41,16 +41,17 @@ include("setdefinitions.jl")
 
 
 function run(WDIR=pwd(), DATA_DIR="/data/")
+	DATA_DIR="/data/"
+	WDIR = "C:/Users/riw/tubCloud/Uni/Market_Tool/pomato/"
 	DATA_DIR = WDIR*"/data_temp/julia_files"*DATA_DIR
-	model_horizon, options,
+	model_horizon, options, plant_types,
 	plants,
 	nodes, zones, heatareas,
 	grid, dc_lines = read_model_data(DATA_DIR)
 
-
 	# Run Dispatch Model
 	out = build_and_run_model(WDIR,
-							  model_horizon, options,
+							  model_horizon, options, plant_types,
 	                          plants,
 	                          nodes, zones, heatareas,
 	                          grid, dc_lines)
@@ -60,4 +61,3 @@ end
 
 
 println("Initialized")
-

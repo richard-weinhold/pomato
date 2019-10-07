@@ -72,7 +72,8 @@ class MarketModel():
         model_horizon_range = range(options["optimization"]["model_horizon"][0],
                                     options["optimization"]["model_horizon"][1])
 
-        self.model_horizon = [str(x) for x in data.demand_el.index[model_horizon_range]]
+        timesteps = self.data.demand_el.timestep.unique()
+        self.model_horizon = [str(x) for x in timesteps[model_horizon_range]]
 
         self.options["optimization"]["t_start"] = self.model_horizon[0]
         self.options["optimization"]["t_end"] = self.model_horizon[-1]
@@ -149,7 +150,7 @@ class MarketModel():
         """Export Data to csv files file in the jdir + \\data"""
         # Some legacy json also needs to be written here
         csv_path = self.data_dir.joinpath('data')
-        self.data.plants[['mc_el', "mc_heat", 'tech', 'node', 'eta', 'g_max', 'h_max', "storage_capacity", 'heatarea']] \
+        self.data.plants[['mc_el', "mc_heat", 'plant_type', 'node', 'eta', 'g_max', 'h_max', "storage_capacity", 'heatarea']] \
             .to_csv(str(csv_path.joinpath('plants.csv')), index_label='index')
 
         self.data.nodes[["name", "zone", "slack"]] \
@@ -158,33 +159,32 @@ class MarketModel():
         self.data.zones.to_csv(str(csv_path.joinpath('zones.csv')), index_label='index')
         self.data.heatareas.to_csv(str(csv_path.joinpath('heatareas.csv')), index_label='index')
 
-        self.data.demand_el[self.data.demand_el.index.isin(self.model_horizon)] \
+        self.data.demand_el[self.data.demand_el.timestep.isin(self.model_horizon)] \
             .to_csv(str(csv_path.joinpath('demand_el.csv')), index_label='index')
 
-        self.data.demand_h[self.data.demand_h.index.isin(self.model_horizon)] \
+        self.data.demand_h[self.data.demand_h.timestep.isin(self.model_horizon)] \
             .to_csv(str(csv_path.joinpath('demand_h.csv')), index_label='index')
         self.data.dclines[["node_i", "node_j", "maxflow"]] \
             .to_csv(str(csv_path.joinpath('dclines.csv')), index_label='index')
 
         self.data.ntc.to_csv(str(csv_path.joinpath('ntc.csv')), index=False)
 
-        self.data.availability[self.data.availability.index.isin(self.model_horizon)] \
+        self.data.availability[self.data.availability.timestep.isin(self.model_horizon)] \
             .to_csv(str(csv_path.joinpath('availability.csv')), index_label='index')
 
-        self.data.inflows[self.data.inflows.index.isin(self.model_horizon)] \
+        self.data.inflows[self.data.inflows.timestep.isin(self.model_horizon)] \
             .to_csv(str(csv_path.joinpath('inflows.csv')), index_label='index')
 
-        self.data.net_export[self.data.net_export.index.isin(self.model_horizon)] \
+        self.data.net_export[self.data.net_export.timestep.isin(self.model_horizon)] \
             .to_csv(str(csv_path.joinpath('net_export.csv')), index_label='index')
 
-        self.data.net_position.loc[self.data.net_position.index.isin(self.model_horizon),
-                                   self.data.zones.index] \
+        self.data.net_position.loc[self.data.net_position.timestep.isin(self.model_horizon)]\
             .to_csv(str(csv_path.joinpath('net_position.csv')), index_label='index')
 
         self.data.reference_flows \
             .to_csv(str(csv_path.joinpath('reference_flows.csv')), index_label='index')
 
-        plant_types = pd.DataFrame(index=self.data.plants.tech.unique())
+        plant_types = pd.DataFrame(index=self.data.plants.plant_type.unique())
         for ptype in self.options["optimization"]["plant_types"]:
             plant_types[ptype] = 0
             condition = plant_types.index.isin(self.options["optimization"]["plant_types"][ptype])

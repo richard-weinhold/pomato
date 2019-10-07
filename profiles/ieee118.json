@@ -1,7 +1,8 @@
 {
     "optimization": {
         "type": "cbco_nodal",
-        "model_horizon": [0,1], 
+        "gams": false,
+        "model_horizon": [0,2], 
         "infeasibility": {
             "heat": false,
             "electricity": true,
@@ -25,13 +26,14 @@
     "grid": {
         "capacity_multiplier": 0.95,
         "reference_flows": false,
-        "precalc_filename": "",
+        "precalc_filename": "cbco_py_0610_1642",
         "senstitivity": 5e-2,
         "cbco_option": "clarkson_base",
         "preprocess": true
     },
     "data": {
         "process_input": true,
+        "process": [],
         "unique_mc": true,
         "round_demand": true,
         "default_efficiency": 0.5,

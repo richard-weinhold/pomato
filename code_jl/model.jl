@@ -12,14 +12,15 @@
 # -------------------------------------------------------------------------------------------------
 
 function build_and_run_model(WDIR::String,
-                             model_horizon::OrderedDict, 
+                             model_horizon::OrderedDict,
                              options::Dict,
+                             plant_types::Dict,
 
-                             plants::Dict{String, Plant}, 
-                             nodes::OrderedDict{String, Node}, 
-                             zones::OrderedDict{String, Zone}, 
+                             plants::Dict{String, Plant},
+                             nodes::OrderedDict{String, Node},
+                             zones::OrderedDict{String, Zone},
                              heatareas::Dict{String, Heatarea},
-                             
+
                              grid::Dict{String, Grid},
                              dc_lines::Dict{String, DC_Line}
                              )
@@ -35,6 +36,7 @@ model_type = options["type"]
 curtailment_electricity = options["parameters"]["curtailment"]["electricity"]
 curtailment_heat = options["parameters"]["curtailment"]["heat"]
 chp_efficiency = options["parameters"]["chp_efficiency"]
+storage_start = 0.65
 
 # Check for feasible model_type
 possible_types = ["base", "dispatch", "ntc", "nodal", "cbco_nodal", "cbco_zonal", "d2cf"]
@@ -54,14 +56,14 @@ t_end = collect(keys(model_horizon))[end]
 
 # Create plant subset lists
 p_set = collect(keys(plants))
-co_set = get_co(plants)
+co_set = get_co(plants, plant_types)
 he_set = get_he(plants)
 chp_set = get_chp(plants)
-es_set = get_es(plants)
-hs_set = get_hs(plants)
-ph_set = get_ph(plants)
-d_set = get_d(plants)
-ts_set = get_ts(plants)
+es_set = get_es(plants, plant_types)
+hs_set = get_hs(plants, plant_types)
+ph_set = get_ph(plants, plant_types)
+d_set = get_d(plants, plant_types)
+ts_set = get_ts(plants, plant_types)
 
 # Create area, node and line sets
 slack_set = get_slack(nodes)
@@ -88,7 +90,7 @@ end
 # disp = Model(solver=GurobiSolver(Presolve=2, PreDual=2, Threads=8))
 # disp = Model(solver=GurobiSolver(Method=0,Threads=1))
 disp = Model(with_optimizer(Gurobi.Optimizer, Method=1, LogFile=result_folder*"/log.txt"))
-# disp = Model(with_optimizer(Gurobi.Optimizer, LogFile=result_folder*"/log.txt"))
+# disp = Model(with_optimizer(GLPK.Optimizer))
 
 # Variables
 @variable(disp, G[t_set, p_set] >= 0) # El. power generation per plant p
@@ -102,8 +104,8 @@ disp = Model(with_optimizer(Gurobi.Optimizer, Method=1, LogFile=result_folder*"/
 @variable(disp, INJ[t_set, n_set]) # Net Injection at Node n
 @variable(disp, F_DC[t_set, dc_set]) # Flow in DC Line dc
 
-@variable(disp, COST_G >= 0)
-@variable(disp, COST_H >= 0)
+@variable(disp, COST_G)
+@variable(disp, COST_H)
 @variable(disp, COST_EX >= 0)
 @variable(disp, COST_INEAS_EL >= 0)
 @variable(disp, COST_INEAS_H >= 0)
@@ -111,7 +113,7 @@ disp = Model(with_optimizer(Gurobi.Optimizer, Method=1, LogFile=result_folder*"/
 
 if options["infeasibility"]["heat"]
     # Relaxing at high costs to avoid infeasibility in heat EB
-    @variable(disp, 0 <= INFEAS_H_NEG[t_set, ha_set] <= options["infeasibility"]["bound"]) 
+    @variable(disp, 0 <= INFEAS_H_NEG[t_set, ha_set] <= options["infeasibility"]["bound"])
     @variable(disp, 0 <= INFEAS_H_POS[t_set, ha_set] <= options["infeasibility"]["bound"])
 else
     @variable(disp, INFEAS_H_NEG[t_set, ha_set] == 0)
@@ -133,11 +135,12 @@ else
     @variable(disp, INFEAS_LINES[t_set, cb_set] == 0)
 end
 
+
 @objective(disp, Min, COST_G + COST_H + COST_EX + COST_INEAS_EL + COST_INEAS_H + COST_INEAS_LINES)
-                     
-@constraint(disp, COST_G == sum(sum(G[t, p]*plants[p].mc for p in p_set) for t in t_set))
-@constraint(disp, COST_H == sum(sum(H[t, p]*plants[p].mc for p in p_set) for t in t_set))
-@constraint(disp, COST_EX == sum(EX)*1e0)
+
+@constraint(disp, COST_G == sum(sum(G[t, p]*plants[p].mc_el for p in p_set) for t in t_set))
+@constraint(disp, COST_H == sum(sum(H[t, p]*plants[p].mc_heat for p in p_set) for t in t_set))
+@constraint(disp, COST_EX == sum(EX)*1e-1)
 @constraint(disp, COST_INEAS_EL == (sum(INFEAS_EL_N_POS) + sum(INFEAS_EL_N_NEG))*1e2)
 @constraint(disp, COST_INEAS_H == (sum(INFEAS_H_NEG) + sum(INFEAS_H_POS))*1e3)
 @constraint(disp, COST_INEAS_LINES == sum(INFEAS_LINES)*1e3)
@@ -170,6 +173,7 @@ println("Building Constraints")
 
 # Applies to: Dispatch
 # Base Constraint
+
 @constraint(disp, [t=t_set, p=intersect(ts_set, he_set)],
     H[t, p] <= plants[p].h_max * plants[p].availability[model_horizon[t]])
 @constraint(disp, [t=t_set, p=intersect(ts_set, he_set)],
@@ -178,37 +182,39 @@ println("Building Constraints")
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, [t=t_set, p=ph_set],
-    D_ph[t, p] == H[t, p] * plants[p].eta)
+    D_ph[t, p] == H[t, p] / plants[p].eta)
 
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, [t=t_set, p=es_set],
-    L_es[t, p]  == (t>t_start ? L_es[t-1, p] : plants[p].g_max*2)
+    L_es[t, p]  == (t>t_start ? L_es[t-1, p] : storage_start*plants[p].storage_capacity)
+                   + plants[p].inflow[model_horizon[t]]
                    - G[t, p]
                    + plants[p].eta*D_es[t, p])
 
-@constraint(disp, [t=t_set, p=es_set], 
-    L_es[t, p] <= plants[p].g_max*8)
 @constraint(disp, [t=t_set, p=es_set],
-    D_es[t, p] <= plants[p].g_max)
+    L_es[t, p] <= plants[p].storage_capacity)
+@constraint(disp, [t=t_set, p=es_set],
+    D_es[t, p] <= plants[p].g_max*0)
 
 @constraint(disp, [p=es_set],
-    L_es[t_end, p] >= 2*plants[p].g_max)
+    L_es[t_end, p] >= storage_start*plants[p].storage_capacity)
 
 # Applies to: Dispatch
 # Base Constraint
 @constraint(disp, [t=t_set, p=hs_set],
-    L_hs[t, p] ==  (t>t_start ? plants[p].eta*L_hs[t-1, p] : plants[p].h_max*2)
+    L_hs[t, p] ==  (t>t_start ? plants[p].eta*L_hs[t-1, p] : storage_start*plants[p].storage_capacity)
                    - H[t, p]
                    + D_hs[t, p])
 
 @constraint(disp, [t=t_set, p=hs_set],
-    L_hs[t, p] <= plants[p].h_max*4)
+    L_hs[t, p] <= plants[p].storage_capacity)
+
 @constraint(disp, [t=t_set, p=hs_set],
     D_hs[t, p] <= plants[p].h_max)
 
 # @constraint(disp, [p=hs_set],
-#     L_hs[t_end, p] >= 2*plants[p].h_max)
+#     L_hs[t_end, p] >= storage_start*plants[p].storage_capacity)
 
 # Applies to: Dispatch
 # Base Constraint
@@ -222,9 +228,9 @@ println("Building Constraints")
 # Zonal Energy Balance
 # Applies to: Dispatch
 # Base Constraint
-@constraint(disp, EB_zonal[t=t_set, z=z_set], 
+@constraint(disp, EB_zonal[t=t_set, z=z_set],
     zones[z].demand[model_horizon[t]] ==
-    + zones[z].net_export[model_horizon[t]] 
+    + zones[z].net_export[model_horizon[t]]
     + sum(G[t, p] for p in intersect(zones[z].plants, co_set))
     - sum(D_ph[t, p] for p in intersect(zones[z].plants, ph_set))
     - sum(D_es[t, p] for p in intersect(zones[z].plants, es_set))
@@ -236,9 +242,9 @@ println("Building Constraints")
 # Nodal Energy Balance
 # Applies to: Dispatch
 # Base Constraint
-@constraint(disp, EB_nodal[t=t_set, n=n_set], 
-    nodes[n].demand[model_horizon[t]] == 
-    + nodes[n].net_export[model_horizon[t]] 
+@constraint(disp, EB_nodal[t=t_set, n=n_set],
+    nodes[n].demand[model_horizon[t]] ==
+    + nodes[n].net_export[model_horizon[t]]
     + sum(G[t, p] for p in intersect(nodes[n].plants, co_set))
     - sum(D_ph[t, p] for p in intersect(nodes[n].plants, ph_set))
     - sum(D_es[t, p] for p in intersect(nodes[n].plants, es_set))
@@ -264,6 +270,7 @@ end
 
 # Slack Constraint
 # Applies to: ntc, nodal, cbco_nodal, cbco_zonal
+# "ntc"
 if in(model_type, ["ntc", "nodal", "cbco_nodal", "cbco_zonal", "d2cf"])
     # INJ have to be balanced within a slack_zone
     @constraint(disp, [t=t_set, slack=slack_set],
@@ -280,10 +287,10 @@ end
 # Applies to: cbco_zonal
 if in(model_type, ["cbco_zonal"])
     @constraint(disp, [t=t_set, cb=cb_set],
-        sum((sum(EX[t, zz, z] for zz in z_set) - sum(EX[t, z, zz] for zz in z_set))*grid[cb].ptdf[i] for (i, z) in enumerate(z_set)) 
+        sum((sum(EX[t, zz, z] for zz in z_set) - sum(EX[t, z, zz] for zz in z_set))*grid[cb].ptdf[i] for (i, z) in enumerate(z_set))
         <= grid[cb].ram + INFEAS_LINES[t, cb])
     @constraint(disp, [t=t_set, cb=cb_set],
-        sum((sum(EX[t, zz, z] for zz in z_set) - sum(EX[t, z, zz] for zz in z_set))*grid[cb].ptdf[i] for (i, z) in enumerate(z_set)) 
+        sum((sum(EX[t, zz, z] for zz in z_set) - sum(EX[t, z, zz] for zz in z_set))*grid[cb].ptdf[i] for (i, z) in enumerate(z_set))
         >= -(grid[cb].ram - INFEAS_LINES[t, cb]))
 end
 
@@ -327,7 +334,7 @@ results_parameter = [[:G, [:t, :p], false],
                      [:INFEAS_LINES, [:t, :cb], false],
                      [:EB_nodal, [:t, :n], true],
                      [:EB_zonal, [:t, :z], true],
-					          ] 
+					          ]
 
 println("Saving results to results folder: ", result_folder)
 for par in results_parameter
@@ -353,5 +360,3 @@ end
 # End build_and_run_model function
 return disp
 end
-
-

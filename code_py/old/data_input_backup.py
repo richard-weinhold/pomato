@@ -13,6 +13,7 @@ class InputProcessing(object):
 
         self.options = data.options
         self.logger.info("Processing Input Data...")
+
         if self.data.data_attributes["source"] == "mpc_casefile":
             self.data.demand_h = pd.DataFrame(columns=self.data.data_structure["demand_h"].attributes[1:])
             self.data.availability = pd.DataFrame(columns=self.data.data_structure["availability"].attributes[1:])
@@ -28,11 +29,8 @@ class InputProcessing(object):
 
         if "availability" in self.options["data"]["process"]:
                 self.process_availability()
-        if "opsd" in self.options["data"]["process"]:
-            self.process_opsd_net_export()
-            
-        # if "net_export" in self.options["data"]["process"]:
-        #     self.process_net_export()
+        if "net_export" in self.options["data"]["process"]:
+            self.process_net_export()
 
         if self.options["data"]["unique_mc"]:
             self.unique_mc()
@@ -83,9 +81,7 @@ class InputProcessing(object):
                 tmp[es_plant] = 0
         self.data.inflows = pd.melt(tmp.reset_index(), id_vars=["timestep"], value_name="inflow")
 
-
     def process_net_export(self):
-
         tmp = self.data.net_export.pivot(index="timestep", columns="node", values="net_export").fillna(0)
         for node in self.data.nodes.index[~self.data.nodes.index.isin(tmp.columns)]:
             tmp[node] = 0
@@ -104,7 +100,7 @@ class InputProcessing(object):
                                                 data=0)
         else:
             net_export_raw = self.data.net_export.copy()
-            self.data.net_export = pd.DataFrame(index=self.data.demand_el.timestep.unique())
+            self.data.net_export = pd.DataFrame(index=self.data.demand_el.index)
             for zones in set([(from_zone,to_zone) for (from_zone,to_zone) in zip(net_export_raw.from_zone, net_export_raw.to_zone)]):
                 nodes = []
                 nodes_from_zones = self.data.nodes.index[self.data.nodes.zone == zones[0]]
@@ -140,21 +136,15 @@ class InputProcessing(object):
 
             for n in list(set(self.data.nodes.index) - set(self.data.net_export.columns)):
                 self.data.net_export[n] = 0
-        
-        self.data.net_export = self.data.net_export.stack().reset_index()
-        self.data.net_export.columns = self.data.data_structure["net_export"].attributes[1:]
 
     def process_availability(self):
         """Process availability so there is a timeseries per plant"""
-        self.data.availability = pd.DataFrame(index=self.data.demand_el.timestep.unique())
+        self.data.availability = pd.DataFrame(index=self.data.demand_el.index)
         """Calculate the availability for generation that relies on timeseries"""
-        ts_type = self.options["optimization"]["plant_types"]["ts"]
-        for elm in self.data.plants.index[self.data.plants.plant_type.isin(ts_type)]:
+        ts_tech = self.options["optimization"]["plant_types"]["ts"]
+        for elm in self.data.plants.index[self.data.plants.tech.isin(ts_tech)]:
             ts_zone = self.data.timeseries.zone == self.data.nodes.zone[self.data.plants.node[elm]]
             self.data.availability[elm] = self.data.timeseries[self.data.plants.tech[elm]][ts_zone].values
-        
-        self.data.availability = self.data.availability.stack().reset_index()
-        self.data.availability.columns = self.data.data_structure["availability"].attributes[1:]
 
     def efficiency(self):
         """Calculate the efficiency for plants that dont have it maunually set"""
@@ -171,11 +161,6 @@ class InputProcessing(object):
         tmp_costs = pd.merge(self.data.fuel,
                               self.data.tech[['fuel', 'tech', "plant_type", 'variable_om']],
                               how='left', left_index=True, right_on=['fuel'])
-
-        if not "mc_el" in self.data.plants.columns:
-            self.data.plants["mc_el"] = np.nan        
-        if not "mc_heat" in self.data.plants.columns:
-            self.data.plants["mc_heat"] = np.nan
 
         condition_mc_el = self.data.plants.mc_el.isnull()
         condition_mc_heat = self.data.plants.mc_heat.isnull()
@@ -219,7 +204,7 @@ class InputProcessing(object):
             self.data.plants.loc[self.data.plants.mc_el == marginal_cost, "mc"] = \
             self.data.plants.mc_el[self.data.plants.mc_el == marginal_cost] + \
             [int(x)*1E-4 for x in range(0, len(self.data.plants.mc_el[self.data.plants.mc_el == marginal_cost]))]
-    
+
     def process_d2cf_data(self):
         """Process D2CF Data:
         - Fill NAs

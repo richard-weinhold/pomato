@@ -39,7 +39,7 @@ function jump_to_df(m::JuMP.Model,
     df = DataFrame(kv...)
 
 	if :t in dim_names
-        df[:t] = [model_horizon[x] for x in df[:t]]
+        df[!, :t] = [model_horizon[x] for x in df[:, :t]]
     end
 	if result_folder == ""
 		return df

@@ -177,15 +177,14 @@ co(p)$(g_max(p) > 0) = Yes;
 he(p) = No;
 he(p)$(h_max(p) > 0) = Yes;
 
-$call csv2gdx %data_folder%\demand_el.csv output=%data_folder%\demand_el.gdx id=demand_el_data Index=(1) Values=(2..LastCol) UseHeader=Y
+$call csv2gdx %data_folder%\demand_el.csv output=%data_folder%\demand_el.gdx id=demand_el_data Index=(2,3) Values=(4) UseHeader=Y
 $gdxin %data_folder%\demand_el.gdx
 $load t=dim1
 $load demand_el_data
 ;
 d_el(t,n) = demand_el_data(t,n)
 
-
-$call csv2gdx %data_folder%\demand_h.csv output=%data_folder%\demand_h.gdx id=demand_h_data Index=(1) Values=(2..LastCol) UseHeader=Y storeZero=Y
+$call csv2gdx %data_folder%\demand_h.csv output=%data_folder%\demand_h.gdx id=demand_h_data Index=(2,3) Values=(4) UseHeader=Y storeZero=Y
 $gdxin %data_folder%\demand_h.gdx
 ;
 
@@ -195,7 +194,7 @@ else
          d_h(t,ha) = 0;
 );
 
-$call csv2gdx %data_folder%\availability.csv output=%data_folder%\availability.gdx id=ava_data Index=(1) Values=(2..LastCol) UseHeader=Y StoreZero=Y
+$call csv2gdx %data_folder%\availability.csv output=%data_folder%\availability.gdx id=ava_data Index=(2,3) Values=(4) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\availability.gdx
 *$load ava_data
 ;
@@ -205,10 +204,11 @@ else
          ava(t,p) = 0;
 );
 
-$call csv2gdx %data_folder%\inflows.csv output=%data_folder%\inflows.gdx id=inflows Index=(1) Values=(2..LastCol) UseHeader=Y StoreZero=Y
+
+
+$call csv2gdx %data_folder%\inflows.csv output=%data_folder%\inflows.gdx id=inflows Index=(2,3) Values=(4) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\inflows.gdx
 $load inflows=inflows
-$gdxin
 ;
 
 
@@ -216,8 +216,6 @@ $call csv2gdx %data_folder%\cbco.csv output=%data_folder%\cbco.gdx id=cbco_data 
 $gdxin %data_folder%\cbco.gdx
 $load cb=*
 ;
-
-
 
 $call csv2gdx %data_folder%\cbco.csv output=%data_folder%\cbco.gdx id=cbco_data Index=(1) Values=(2..LastCol) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\cbco.gdx
@@ -249,7 +247,7 @@ inc_dc(dc,n)$sum(nn, map_dcn(dc,n,nn)) = 1;
 inc_dc(dc,n)$sum(nn, map_dcn(dc,nn,n)) = -1;
 
 set test_nex;
-$call csv2gdx %data_folder%\net_position.csv output=%data_folder%\net_position.gdx id=net_position_data Index=(1) Values=(3..LastCol) UseHeader=Y StoreZero=Y
+$call csv2gdx %data_folder%\net_position.csv output=%data_folder%\net_position.gdx id=net_position_data Index=(2,3) Values=(4) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\net_position.gdx
 $load test_nex=*
 ;
@@ -259,7 +257,7 @@ else
          net_position(t,z) = 0;
 );
 
-$call csv2gdx %data_folder%\net_export.csv output=%data_folder%\net_export.gdx id=net_export Index=(1) Values=(2..LastCol) UseHeader=Y StoreZero=Y
+$call csv2gdx %data_folder%\net_export.csv output=%data_folder%\net_export.gdx id=net_export Index=(2,3) Values=(4) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\net_export.gdx
 $load net_export
 ;

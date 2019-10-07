@@ -45,16 +45,16 @@ class DataManagement():
 
         self.data_attributes = {"data": data, "source": None}
 
+        self.data_structure = {}
+
         self.result_attributes = {"variables": variables, "dual_variables": dual_variables,
                                   "infeasibility_variables": infeasibility_variables,
                                   "model_horizon": None, "source": None, "status": None,
                                   "objective": None, "t_start": None, "t_end": None
                                   }
-
         # Input Data as Attributes of DataManagement Class
         for attr in data:
             setattr(self, attr, pd.DataFrame())
-
         # Results are part of the results processing
         self.results = None
 
@@ -75,6 +75,7 @@ class DataManagement():
         """
         ### PATH ARETMETICS INCOMING
         self.wdir = wdir
+        self.load_data_structure()
         ### Make sure wdir/file_path or wdir/data/file_path is a file
         if self.wdir.joinpath(filepath).is_file():
             DataWorker(self, self.wdir.joinpath(filepath))
@@ -90,37 +91,79 @@ class DataManagement():
         else:
             self.logger.error("Data File not found!")
 
+    def stack_data(self):
+        for data in self.options["data"]["stacked"]:
+            tmp = getattr(self, data)
+            tmp = tmp.stack().reset_index()
+            tmp.columns = self.data_structure[data]["attributes"][1:]
+            setattr(self, data, tmp.infer_objects())
+
+    def validate_inputdata(self):
+        """ Checking through the input data and compare it to the defined data structure"""
+        self.logger.info("Validating Input Data...")
+        self.missing_data = {}
+        for data in self.data_structure:
+            attributes = self.data_structure[data]
+            required_attr = [attr for attr in attributes.loc[(attributes["attributes"] != "index")&\
+                                                              (~attributes["optional"].astype(bool)), "attributes"]]
+            optional_attr = [attr for attr in attributes.loc[(attributes["attributes"] != "index")&\
+                                                              (attributes["optional"].astype(bool)), "attributes"] \
+                                                                  if attr in getattr(self, data).columns]
+            ref_attr = attributes.loc[attributes.type.str.contains(".", regex=False)]
+
+            if not attributes[(attributes.attributes.isin(required_attr)&\
+                              (~attributes.attributes.isin(getattr(self, data).columns)))].empty:
+                self.missing_data[data] = list(attributes.attributes[(attributes.attributes.isin(required_attr)&\
+                                               (~attributes.attributes.isin(getattr(self, data).columns)))])
+                self.logger.error("Required Data not there as expexted in %s", data)
+
+            else:
+                tmp = getattr(self, data)[required_attr + optional_attr]
+                for attr, ref in zip(ref_attr.attributes, ref_attr.type):
+                    ref_data, ref_attr = ref.split(".")
+                    if ref_attr == "index":
+                        reference_keys = getattr(self, ref_data).index
+                    else:
+                        reference_keys = getattr(self, ref_data)[ref_attr]
+
+                    if attr in required_attr and not tmp.loc[~(tmp[attr].isin(reference_keys))].empty:
+                        tmp = tmp.loc[(tmp[attr].isin(reference_keys))]
+                        self.logger.error("Invalid Reference Keys and NaNs removed for %s in %s", attr, data)
+                        setattr(self, data, tmp.infer_objects())
+                    elif not tmp.loc[(~tmp[attr].isna())&(~tmp[attr].isin(reference_keys))].empty:
+                        tmp = tmp.loc[(~tmp[attr].isna())&(tmp[attr].isin(reference_keys))]
+                        self.logger.error("Invalid Reference Keys without NaNs removed for %s in %s", attr, data)
+                        setattr(self, data, tmp.infer_objects())
+
+
     def process_input(self):
         """
         Input Processing in Seperate Class
         Will Change data attr based on options["data"]
         """
+        if "stacked" in self.options["data"]:
+            self.stack_data()
+
         if self.options["data"]["process_input"]:
-            InputProcessing(self, self.options)
+            InputProcessing(self)
         else:
             self.logger.info("Input Data not processed")
 
         self.validate_inputdata()
 
-    # def validate_inputdata(self):
-        # file = self.wdir.joinpath("data/data_structure.xlsx")
-        # xls = pd.ExcelFile(file)
-
-        # structure = xls.parse("raw")
-        # columns = [c for c in structure.columns if not "Unnamed:" in c]
-
-        # for c in columns:
-        #    att = "attribute"
-        #    col_pos = structure.columns.get_loc(c)
-        #    cols = list(structure.columns[col_pos:col_pos + 2])
-        #    tmp = structure.loc[1:, cols].copy()
-        #    self.data_structure[c] = {"attribute": {}, "optional attribute": {}}
-        #    for (t,v) in zip(tmp[cols[0]].astype(str), tmp[cols[1]]):
-        #        if not t == "nan":
-        #            if t == "optional attribute":
-        #                att = "optional attribute"
-        #            else:
-        #                self.data_structure[c][att][t] = v
+        
+    def load_data_structure(self):
+        file = self.wdir.joinpath("data_input/data_structure.xlsx")
+        xls = pd.ExcelFile(file)
+        structure = xls.parse("ramses")
+        columns = [c for c in structure.columns if not "Unnamed:" in c]
+        self.data_structure = {}
+        for c in columns:
+            col_pos = structure.columns.get_loc(c)
+            cols = list(structure.columns[col_pos:col_pos + 3])
+            tmp = structure.loc[1:, cols].copy().dropna()
+            tmp.columns = ["attributes" , "type", "optional"]
+            self.data_structure[c] = tmp
 
     def process_results(self, opt_folder, opt_setup, grid=None):
         """ Init Results Calss with results_folder and self"""

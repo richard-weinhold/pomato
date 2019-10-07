@@ -18,8 +18,8 @@ mutable struct Grid
     ram::Float64
     # Optional Attributes
     reference_flow::Dict
-    function Grid(index::Any, 
-                  ptdf::Vector{Float64}, 
+    function Grid(index::Any,
+                  ptdf::Vector{Float64},
                   ram::Float64)
         z = new()
         z.index = index
@@ -39,9 +39,9 @@ mutable struct Zone
     net_position::Dict
     net_export::Dict
     ntc::Dict
-    function Zone(index::Any, 
-                  demand::Dict, 
-                  nodes::Array, 
+    function Zone(index::Any,
+                  demand::Dict,
+                  nodes::Array,
                   plants::Array)
         z = new()
         z.index = index
@@ -57,8 +57,8 @@ mutable struct Heatarea
     index::Any
     demand::Dict
     plants::Array
-    function Heatarea(index::Any, 
-                      demand::Dict, 
+    function Heatarea(index::Any,
+                      demand::Dict,
                       plants::Array)
         ha = new()
         ha.index = index
@@ -78,10 +78,10 @@ mutable struct Node
     # Optional Attributes
     net_export::Dict
     slack_zone::Array
-    function Node(index::Any, 
-                  zone::Any, 
-                  demand::Dict, 
-                  slack::Bool, 
+    function Node(index::Any,
+                  zone::Any,
+                  demand::Dict,
+                  slack::Bool,
                   plants::Array)
         n = new()
         n.index = index
@@ -97,29 +97,34 @@ mutable struct Plant
     # Attributes
     index::Any
     node::Any
-    mc::Float64
+    mc_el::Float64
+    mc_heat::Float64
     g_max::Float64
     h_max::Float64
     eta::Float64
-    tech::Any
+    plant_type::Any
     # Optional Attributes
     heatarea::Heatarea
     availability::Dict
-    function Plant(index::Any, 
+    storage_capacity::Float64
+    inflow::Dict
+    function Plant(index::Any,
                    node::Any,
-                   mc::Float64,
-                   eta::Float64, 
-                   g_max::Float64, 
-                   h_max::Float64, 
-                   tech::Any)
+                   mc_el::Float64,
+                   mc_heat::Float64,
+                   eta::Float64,
+                   g_max::Float64,
+                   h_max::Float64,
+                   plant_type::Any)
         p = new()
         p.index = index
         p.node = node
-        p.mc = mc
+        p.mc_el = mc_el
+        p.mc_heat = mc_heat
         p.eta = eta
         p.g_max = g_max
         p.h_max = h_max
-        p.tech = tech
+        p.plant_type = plant_type
         return p
     end
 end
@@ -130,9 +135,9 @@ mutable struct DC_Line
     node_i::Any
     node_j::Any
     maxflow::Float64
-    function DC_Line(index::Any, 
-                     node_i::Any, 
-                     node_j::Any, 
+    function DC_Line(index::Any,
+                     node_i::Any,
+                     node_j::Any,
                      maxflow::Float64)
         l = new()
         l.index = index

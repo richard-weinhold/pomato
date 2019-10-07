@@ -109,13 +109,13 @@ class ResultProcessing():
                     self.logger.warning("Infeasibilites in %s", col)
 
     def check_courtailment(self):
-        """ Amount Curtailed by Wind and Solar power"""
-        res_plants = self.data.plants[self.data.plants.tech.isin(["wind onshore",
-                                                                  "wind offshore",
-                                                                  "solar"])]
+        """ Amount Curtailed by TS tech"""
+        ts_option = self.data.options["optimization"]["plant_types"]["ts"]
+        res_plants = self.data.plants[self.data.plants.plant_type.isin(ts_option)]
+
         gen = self.G
-        ava = self.data.availability.unstack().reset_index()
-        ava.columns = ["p", "t", "ava"]
+        ava = self.data.availability.copy()
+        ava.columns = ["t", "p", "ava"]
 
         gen = gen[gen.p.isin(res_plants.index)]
         gen = pd.merge(gen, res_plants[["g_max"]], how="left", left_on="p", right_index=True)

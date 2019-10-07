@@ -2,7 +2,7 @@
     "optimization": {
         "type": "ntc",
         "gams": true,
-        "model_horizon": [0, 8760],
+        "model_horizon": [0, 50],
         "infeasibility": {
             "heat": true,
             "electricity": true,
@@ -33,6 +33,9 @@
         "preprocess": true
     },
     "data": {
+        "data_type": "ramses",
+        "stacked": ["demand_el", "demand_h", "availability", "inflows", "net_export"],
+        "process": ["net_export"],
         "process_input": true,
         "unique_mc": false,
         "round_demand": true,

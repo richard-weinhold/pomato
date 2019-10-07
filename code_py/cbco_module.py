@@ -384,20 +384,21 @@ class CBCOModule():
         x_bounds = []
 
         for node in self.data.nodes.index:
+            plant_types = self.options["optimization"]["plant_types"]
             condition_storage = (self.data.plants.node == node) & \
-                                (self.data.plants.tech.isin(["psp", "reservoir"]))
+                                (self.data.plants.plant_type.isin(plant_types["es"]))
             condition_el_heat = (self.data.plants.node == node) & \
-                                (self.data.plants.tech.isin(["heatpump", "elheat"]))
+                                (self.data.plants.plant_type.isin(plant_types["ph"]))
 
             max_dc_inj = self.data.dclines.maxflow[(self.data.dclines.node_i == node) | \
                                                    (self.data.dclines.node_j == node)].sum()
 
             upper = max(self.data.plants.g_max[self.data.plants.node == node].sum() \
-                        - self.data.demand_el[node].min() \
+                        - self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].min() \
                         + max_dc_inj \
                         + infeas_upperbound, 0)
 
-            lower = max(self.data.demand_el[node].max() \
+            lower = max(self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].max() \
                         + self.data.plants.g_max[condition_storage].sum() \
                         + self.data.plants.g_max[condition_el_heat].sum() \
                         + max_dc_inj \
