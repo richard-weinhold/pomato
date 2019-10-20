@@ -89,7 +89,7 @@ end
 # disp = Model(solver=ClpSolver(SolveType=5))
 # disp = Model(solver=GurobiSolver(Presolve=2, PreDual=2, Threads=8))
 # disp = Model(solver=GurobiSolver(Method=0,Threads=1))
-disp = Model(with_optimizer(Gurobi.Optimizer, Method=1, LogFile=result_folder*"/log.txt"))
+disp = Model(with_optimizer(Gurobi.Optimizer, Method=2, LogFile=result_folder*"/log.txt"))
 # disp = Model(with_optimizer(GLPK.Optimizer))
 
 # Variables
@@ -173,7 +173,6 @@ println("Building Constraints")
 
 # Applies to: Dispatch
 # Base Constraint
-
 @constraint(disp, [t=t_set, p=intersect(ts_set, he_set)],
     H[t, p] <= plants[p].h_max * plants[p].availability[model_horizon[t]])
 @constraint(disp, [t=t_set, p=intersect(ts_set, he_set)],

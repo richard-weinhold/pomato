@@ -34,6 +34,7 @@ function build_model(dim::Int, A::Array{Float64}, b::Vector{Float64}, x_bounds::
 		@variable(model, x[i=1:dim])
 	end
 	@constraint(model, A * x .<= b)
+	@constraint(model, sum(x[i] for i in 1:dim) == 0)
 	return model
 end
 
@@ -103,8 +104,7 @@ function main(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 	@info("Starting Algorithm with I of size: $(length(I))")
 	@info("and with m of size: $(length(m))")
 	# Set-up
-	# Make counter to print out progress and make backups
-	# every number of steps
+	# Make counter to print out progress every number of steps
 	steps = 100
 	to_check = length(m)
 	stepsize = round(to_check/steps)
@@ -132,14 +132,15 @@ function main(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 			# if not, remove constraint from m
 			m = setdiff(m, k)
 		end
-		# print progress
+		# print progress at specified when size(m) hit certain threasholds
 		if length(m) in save_points
 			percentage = Int(100 - 100/steps*findfirst(x -> x==length(m), save_points))
 			progress_bar = repeat("#", Int(round(percentage/5)))*repeat(" ", Int(round((100-percentage)/5)))
 			timestamp = Dates.format(now(), "dd.mm - HH:MM:SS")
-			report = "- Size of I $(length(I)) - Found Redudnant $(to_check - length(I) - length(m)) - Remaining $(length(m)) - "
+			report = "- Size of I $(length(I)) - Found Redundant $(to_check - length(I) - length(m)) - Remaining $(length(m)) - "
 			@info(progress_bar*string(percentage)*"%"*report*timestamp)
 		end
+		## Conclude when m is empty
 		if length(m) == 0
 			break
 		end
@@ -153,7 +154,6 @@ function save_to_file(Indices, filename::String)
 	CSV.write(wdir*"/data_temp/julia_files/cbco_data/"*filename*".csv",
 	  	 	  DataFrame(constraints = Indices.-1))
 	@info("done! ")
-
 end
 
 function read_data(file_suffix::String)
@@ -165,30 +165,28 @@ function read_data(file_suffix::String)
 	b_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/b_"*file_suffix*".csv", 
 					  delim=',', header=false, types=Dict(1=>Float64))
 
+	# Create Array A and Vector b from DataFrame
 	A =  hcat([A_data[:, i] for i in 1:size(A_data, 2)]...)
 	b = b_data[:,1]
 
 	x_bounds = CSV.read(wdir*"/data_temp/julia_files/cbco_data/x_bounds_"*file_suffix*".csv", 
 					    delim=',', header=false, types=Dict(1=>Float64))
 	
-	if size(x_bounds, 2) > 0
-		x_bounds = x_bounds[:,1]
-	else 
-		x_bounds = Array{Float64, 1}()
-	end
+	# Read X Bounds or set as empty Vector
+	x_bounds = size(x_bounds, 2) > 0 ? x_bounds[:,1] : Array{Float64, 1}()
+	# x_bounds = Array{Float64, 1}()
 
+	# I data contrains previsouly identified non-redundant indices
 	I_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/I_"*file_suffix*".csv",
 					  delim=',', types=Dict(1=>Int))
-	if size(I_data, 2) > 0
-  		I = I_data[:, 1].+1
-  	end
+  	I = size(I_data, 2) > 0 ? I_data[:,1] : Array{Int, 1}()
 
 	return A, b, x_bounds, I
 end
 
 function run(file_suffix::String)
 	A, b, x_bounds, I = read_data(file_suffix)
-
+	
 	m = collect(1:length(b))
 	@info("Preprocessing...")
 	@info("Removing duplicate rows...")
@@ -199,8 +197,8 @@ function run(file_suffix::String)
 	condition_zero = vcat([!all(A[i, :] .== 0) for i in 1:length(b)])
 	m = m[condition_unique .& condition_zero]
 	@info("Removed $(length(b) - length(m)) rows in preprocessing!")
+	# Interior point z = zero
 	z = zeros(size(A, 2))
-	
 	I = union(I)
 	m = setdiff(m, I)
 	I_result = main(A, b, m, I, x_bounds, z)

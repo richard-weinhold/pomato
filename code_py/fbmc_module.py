@@ -32,8 +32,11 @@ class FBMCDomain():
         self.timestep = plot_information["timestep"]
         self.domain_x = plot_information["domain_x"]
         self.domain_y = plot_information["domain_y"]
-
-        self.title = self.timestep + "_" + self.gsk_strategy
+        if plot_information["filename_suffix"]:
+            self.title = self.timestep + "_" + self.gsk_strategy \
+                         + "_" + plot_information["filename_suffix"]
+        else:
+            self.title = self.timestep + "_" + self.gsk_strategy 
 
         self.plot_equations = plot_equations
         self.hull_information = hull_information
@@ -148,11 +151,12 @@ class FBMCModule():
 
     def create_gsk(self, option="flat"):
         """returns GSK, either flat or gmax"""
-
         gsk = pd.DataFrame(index=self.nodes.index)
-        conv_fuel = ['uran', 'lignite', 'hard coal', 'gas', 'oil', 'hydro', 'waste']
-        condition = (self.results.data.plants.fuel.isin(conv_fuel)) & \
-                    (self.results.data.plants.tech != "psp")
+
+        plant_types = self.results.data.options["optimization"]["plant_types"]
+        condition = (~self.results.data.plants.plant_type.isin(plant_types["ts"])) & \
+                    (~self.results.data.plants.plant_type.isin(plant_types["es"]))
+        
         gmax_per_node = self.results.data.plants.loc[condition, ["g_max", "node"]] \
                         .groupby("node").sum()
 
@@ -200,9 +204,9 @@ class FBMCModule():
         total_cbs = list(set(critical_branches + cross_border_lines))
 
         self.logger.info("Number of Critical Branches: %d, \
-                         Number of Cross Border lines: %d, \
-                         Total Number of CBs: %d",
-                         len(critical_branches), len(cross_border_lines), len(total_cbs))
+                          Number of Cross Border lines: %d, \
+                          Total Number of CBs: %d",
+                          len(critical_branches), len(cross_border_lines), len(total_cbs))
 
         return total_cbs
 
@@ -289,7 +293,9 @@ class FBMCModule():
         # f_ref_nonmarket = f_ref_base_case
         f_ref_nonmarket = f_ref_base_case - f_da
 
-        ram = np.subtract(self.lines.maxflow[self.domain_info.cb] - \
+        capacity_multiplier = self.results.data.options["grid"]["capacity_multiplier"]
+
+        ram = np.subtract(self.lines.maxflow[self.domain_info.cb]/capacity_multiplier - \
                           frm_fav.value[self.domain_info.cb],
                           f_ref_nonmarket).values
 
@@ -297,7 +303,7 @@ class FBMCModule():
 
         if any(ram < 0):
             self.logger.warning("%d RAMs are <0", sum(ram<0))
-            # ram[ram<150] = 10000
+            ram[ram<50] = 10000
 
 
         self.domain_info[list(self.results.data.zones.index)] = zonal_fbmc_ptdf
@@ -451,7 +457,7 @@ class FBMCModule():
         list_coord = np.take(list_coord, unique_rows_idx, axis=0)
         return(list_coord[:, 0], list_coord[:, 1], intersection_x, intersection_y)
 
-    def plot_fbmc(self, domain_x, domain_y, gsk_strategy, timestep):
+    def plot_fbmc(self, domain_x, domain_y, gsk_strategy, timestep, filename_suffix=None):
         """
         Combines previous functions to actually plot the FBMC Domain with the
         hull
@@ -485,7 +491,8 @@ class FBMCModule():
         fbmc_plot = FBMCDomain({"gsk_strategy": gsk_strategy,
                                 "timestep": timestep,
                                 "domain_x": domain_x,
-                                "domain_y": domain_y
+                                "domain_y": domain_y,
+                                "filename_suffix": filename_suffix,
                                 },
                                plot_equations,
                                {"hull_plot_x": hull_plot_x,

@@ -155,7 +155,7 @@ class DataManagement():
     def load_data_structure(self):
         file = self.wdir.joinpath("data_input/data_structure.xlsx")
         xls = pd.ExcelFile(file)
-        structure = xls.parse("ramses")
+        structure = xls.parse("raw")
         columns = [c for c in structure.columns if not "Unnamed:" in c]
         self.data_structure = {}
         for c in columns:

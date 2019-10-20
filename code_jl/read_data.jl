@@ -50,7 +50,6 @@ end
 # Ordered Dict nessesary for Load Flow Calculation
 zones = OrderedDict{String, Zone}()
 for z in 1:nrow(zones_mat)
-
     index = zones_mat[z, :index]
     nodes = nodes_mat[nodes_mat[:, :zone] .== index, :index]
     plants = filter(row -> row[:node] in nodes, plants_mat)[:, :index]

@@ -31,8 +31,8 @@ class InputProcessing(object):
         if "opsd" in self.options["data"]["process"]:
             self.process_opsd_net_export()
             
-        # if "net_export" in self.options["data"]["process"]:
-        #     self.process_net_export()
+        if "net_export" in self.options["data"]["process"]:
+            self.process_net_export()
 
         if self.options["data"]["unique_mc"]:
             self.unique_mc()
@@ -82,7 +82,7 @@ class InputProcessing(object):
             if not es_plant in tmp.columns:
                 tmp[es_plant] = 0
         self.data.inflows = pd.melt(tmp.reset_index(), id_vars=["timestep"], value_name="inflow")
-
+        
 
     def process_net_export(self):
 

@@ -237,7 +237,7 @@ Obj..                                                  COST =e= COST_G + COST_H 
 
 DEF_Cost_G..                                           COST_G =e= sum((t,p), G(t,p)* mc_el(p));
 DEF_COST_H..                                           COST_H =e= sum((t,p), H(t,p) * mc_heat(p));
-DEF_COST_INEAS_EL..                                    COST_INEAS_EL =e=  sum((t,n), (INFEAS_EL_N_POS(t,n) + INFEAS_EL_N_NEG(t,n))*1E4);
+DEF_COST_INEAS_EL..                                    COST_INEAS_EL =e=  sum((t,n), (INFEAS_EL_N_POS(t,n) + INFEAS_EL_N_NEG(t,n))*1E2);
 DEF_COST_INEAS_H..                                     COST_INEAS_H =e=  sum((t,ha), (INFEAS_H_POS(t,ha) + INFEAS_H_NEG(t,ha))*1E4);
 DEF_COST_INEAS_LINES..                                 COST_INEAS_LINES =e= sum((t,cb), INFEAS_LINES(t,cb)*1E4);
 DEF_COST_EX..                                          COST_EX =E= sum((t,z,zz), EX(t,z,zz)*0.1);
@@ -326,9 +326,9 @@ CON_CBCO_zonal_p(t,cb)..         sum(z, sum(zz, EX(t,zz,z) - EX(t,z,zz))*ptdf(cb
 CON_CBCO_zonal_n(t,cb)..         sum(z, sum(zz, EX(t,zz,z) - EX(t,z,zz))*ptdf(cb,z)) =g= -ram(cb) - INFEAS_LINES(t,cb)
 ;
 
-*set cwe(z) /DE, NL, BE, FR/;
-*CON_NEX_u(t, cwe)..              sum(zz, EX(t,cwe,zz) - EX(t,zz,cwe)) =L= net_position(t, cwe) + 0.2*abs(net_position(t, cwe));
-*CON_NEX_l(t, cwe)..              sum(zz, EX(t,cwe,zz) - EX(t,zz,cwe)) =g= net_position(t, cwe) - 0.2*abs(net_position(t, cwe));
+set cwe(z) /DE, NL, BE, FR/;
+CON_NEX_u(t, cwe)..              sum(zz, EX(t,cwe,zz) - EX(t,zz,cwe)) =L= net_position(t, cwe) + 0.2*abs(net_position(t, cwe));
+CON_NEX_l(t, cwe)..              sum(zz, EX(t,cwe,zz) - EX(t,zz,cwe)) =g= net_position(t, cwe) - 0.2*abs(net_position(t, cwe));
 
 
 Model Base_Model
@@ -385,6 +385,8 @@ CON_Slack
 /;
 Model model_nodal
 /Base_Model
+CON_NEX_l
+CON_NEX_u
 *CON_NTC
 CON_CBCO_nodal_p
 CON_CBCO_nodal_n
@@ -394,7 +396,7 @@ Model model_cbco_zonal
 /Base_Model
 CON_NTC
 CON_CBCO_zonal_p
-CON_CBCO_zonal_n
+*CON_CBCO_zonal_n
 CON_Slack
 /;
 

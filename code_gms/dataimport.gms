@@ -165,8 +165,8 @@ mc_heat(p) = plant_data(p,"mc_heat");
 eta(p) = plant_data(p, "eta");
 g_max(p) = plant_data(p, "g_max");
 h_max(p) = plant_data(p, "h_max");
-es_cap(es) = plant_data(es, "storage_capacity");
-hs_cap(hs) = plant_data(hs, "storage_capacity");
+es_cap(es)$(card(es) > 0) = plant_data(es, "storage_capacity");
+hs_cap(hs)$(card(hs) > 0) = plant_data(hs, "storage_capacity");
 
 chp(p) = No;
 chp(p)$((g_max(p) > 0) and (h_max(p) > 0)) = Yes;

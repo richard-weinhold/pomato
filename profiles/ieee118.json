@@ -17,16 +17,16 @@
             }
         },
         "plant_types": {
-            "es": ["psp", "reservoir"],
-            "hs": ["storage"],
-            "ts": ["wind onshore", "wind offshore", "solar", "solarheat", "iheat"],
-            "ph": ["heatpump", "elheat"]
+            "es": ["hydro_res", "hydro_psp"],
+            "hs": [],
+            "ts": ["wind", "solar"],
+            "ph": []
         }
     },
     "grid": {
         "capacity_multiplier": 0.95,
         "reference_flows": false,
-        "precalc_filename": "cbco_py_0610_1642",
+        "precalc_filename": "cbco_py_2110_0036",
         "senstitivity": 5e-2,
         "cbco_option": "clarkson_base",
         "preprocess": true

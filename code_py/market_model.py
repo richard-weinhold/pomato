@@ -46,12 +46,8 @@ class MarketModel():
             self.data_dir = wdir.joinpath("data_temp/gms_files")
         else:
             self.data_dir = wdir.joinpath("data_temp/julia_files")
-            self.julia_process = popen_spawn.PopenSpawn('julia --project=project_files/pomato', 
-                                                        cwd=self.wdir, timeout=1000, logfile=FileAdapter(self.logger))
-            
-            # self.julia_process.logfile_read = sys.stdout
-            self.julia_process.sendline('include("code_jl/main.jl")')
-            self.julia_process.expect(["Initialized", "ERROR"])
+            self.julia_process = None
+
 
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)
@@ -62,6 +58,13 @@ class MarketModel():
 
     def flush(self):
         pass
+    def spawn_jl_process(self):
+            self.julia_process = popen_spawn.PopenSpawn('julia --project=project_files/pomato', 
+                                                        cwd=self.wdir, timeout=100000, 
+                                                        logfile=FileAdapter(self.logger))
+            self.julia_process.sendline('include("code_jl/main.jl")')
+            self.julia_process.expect(["Initialized", "ERROR"])
+
 
     def update_data(self, data, options, grid_representation):
         # Init Datamangement, Grid Data and Model Set-up
@@ -119,6 +122,9 @@ class MarketModel():
                 solved = True
 
         else:
+            if not self.julia_process:
+                self.spawn_jl_process()
+
             self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
             self.julia_process.sendline('run()')
             self.julia_process.expect(["Model Done!", "ERROR"])
