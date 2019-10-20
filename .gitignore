@@ -2,8 +2,11 @@
 /data_output
 /data_temp
 /logs
+.spyproject/*
+*test*
 *DEV*
 */__pycache__
 *.sublime* 
 
-code_jl/.DS_Store
+gms/
+*.gdx

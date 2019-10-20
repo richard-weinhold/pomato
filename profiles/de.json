@@ -1,0 +1,47 @@
+{
+    "optimization": {
+        "type": "nodal",
+        "gams": false,
+        "model_horizon": [0, 24],
+        "infeasibility": {
+            "heat": false,
+            "electricity": true,
+            "lines": false,
+            "bound": 1000
+        },
+        "parameters": {
+            "chp_efficiency": 0.15,
+            "curtailment": {
+                "heat": 0,
+                "electricity": 1
+            }
+        },
+        "plant_types": {
+            "es": ["hydro_res", "hydro_psp"],
+            "hs": [],
+            "ts": ["wind", "solar"],
+            "ph": []
+        }
+    },
+    "grid": {
+        "capacity_multiplier": 0.95,
+        "reference_flows": false,
+        "precalc_filename": "",
+        "senstitivity": 5e-2,
+        "cbco_option": "save_base",
+        "preprocess": true
+    },
+    "data": {
+        "stacked": ["demand_el", "net_position"],
+        "process": ["net_export", "availability", "net_position", "opsd"],
+        "process_input": true,
+        "unique_mc": false,
+        "round_demand": true,
+        "default_efficiency": 0.5,
+        "default_mc": 200,
+        "co2_price": 20,
+        "all_lines_cb": false,
+        "d2cf_data": false
+
+    }
+}
