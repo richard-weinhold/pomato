@@ -213,8 +213,6 @@ class DataWorker(object):
 		# 	mpc_generators['mc_Q'] = gencost_df['c1'][list(range(ng,2*ng))].tolist
 
 		# add coordinates from CSV with X and Y columns for the grid coordinates
-
-
 		self.data.lines = pd.DataFrame(mpc_lines).set_index('idx')
 		self.data.nodes = pd.DataFrame(mpc_buses).set_index('idx')
 		self.data.plants = pd.DataFrame(mpc_generators).set_index('idx')
