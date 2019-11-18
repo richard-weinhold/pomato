@@ -55,9 +55,9 @@ class MarketModel():
         self.grid_representation = None
         self.model_horizon = None
 
-
-    def flush(self):
-        pass
+    # def flush(self):
+    #     pass
+        
     def spawn_jl_process(self):
             self.julia_process = popen_spawn.PopenSpawn('julia --project=project_files/pomato', 
                                                         cwd=self.wdir, timeout=100000, 

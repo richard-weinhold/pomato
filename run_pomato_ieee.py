@@ -13,7 +13,7 @@ import tools
 import datetime
 
 mato = MarketTool(options_file="profiles/ieee118.json")
-mato.load_data('data_input\pglib_casedata\pglib_opf_case118_ieee.m')
+mato.load_data('data_input\DEV_pglib_casedata\pglib_opf_case118_ieee.m')
 
 n = mato.data.nodes
 p = mato.data.plants
@@ -30,18 +30,21 @@ tech = mato.data.tech
 ntc = mato.data.ntc
 nex = mato.data.net_export
 inflows = mato.data.inflows
+net_position = mato.data.net_position
+
+
 
 mato.create_grid_representation()
 gr = mato.grid_representation["cbco"]
 
 mato.init_market_model()
-mato.run_market_model()
+# mato.run_market_model()
 
-df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
-df3, df4 = mato.data.results.overloaded_lines_n_0()
+# df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
+# df3, df4 = mato.data.results.overloaded_lines_n_0()
 
-from bokeh_plot_interface import BokehPlot
-mato.init_bokeh_plot(name="IEEE")
+# from bokeh_plot_interface import BokehPlot
+# mato.init_bokeh_plot(name="IEEE")
 
 # bokeh serve --show .\code_py\bokeh_plot.py --args=data_temp/bokeh_files
 

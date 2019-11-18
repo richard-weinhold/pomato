@@ -1,7 +1,6 @@
 POMATO - Power Market Tool
 ============================
 
-
 Overview
 --------
 

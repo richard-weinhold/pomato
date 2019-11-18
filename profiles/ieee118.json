@@ -2,7 +2,7 @@
     "optimization": {
         "type": "cbco_nodal",
         "gams": false,
-        "model_horizon": [0,2], 
+        "model_horizon": [0,1],
         "infeasibility": {
             "heat": false,
             "electricity": true,
@@ -26,7 +26,7 @@
     "grid": {
         "capacity_multiplier": 0.95,
         "reference_flows": false,
-        "precalc_filename": "cbco_py_2110_0036",
+        "precalc_filename": "cbco_py_0611_2159",
         "senstitivity": 5e-2,
         "cbco_option": "clarkson_base",
         "preprocess": true

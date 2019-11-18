@@ -17,155 +17,258 @@
 # Input: Pre-Processed data from /julia/data/
 # Output: Ordered Dicts of Types as definded in typedefinitions.jl (Plants, Node, Heatareas, Grid etc.)
 
+mutable struct RAW
+    options::Dict{String, Any}
+    model_horizon::DataFrame
+    plant_types::Dict{String, Any}
+    nodes::DataFrame
+    zones::DataFrame
+    heatareas::DataFrame
+    plants::DataFrame
+    res_plants::DataFrame
+    availability::DataFrame
+    demand_el::DataFrame
+    demand_h::DataFrame
+    dc_lines::DataFrame
+    ntc::DataFrame
+    net_position::DataFrame
+    net_export::DataFrame
+    inflows::DataFrame
+    reference_flows::DataFrame
+    grid::DataFrame
+    slack_zones::DataFrame
+    function RAW(data_dir)
+        raw = new()
+        raw.options = JSON.parsefile(data_dir*"options.json"; dicttype=Dict)
+        raw.plant_types = raw.options["plant_types"]
+
+        raw.nodes = CSV.read(data_dir*"nodes.csv")
+        raw.nodes[!, :int_idx] = collect(1:nrow(raw.nodes))
+        raw.zones = CSV.read(data_dir*"zones.csv")
+        raw.zones[!, :int_idx] = collect(1:nrow(raw.zones))
+        raw.heatareas = CSV.read(data_dir*"heatareas.csv")
+        raw.heatareas[!, :int_idx] = collect(1:nrow(raw.heatareas))
+        plants = CSV.read(data_dir*"plants.csv")
+        raw.plants =  filter(row -> !(row[:plant_type] in raw.plant_types["ts"]), plants)
+        raw.res_plants =  filter(row -> row[:plant_type] in raw.plant_types["ts"], plants)
+        raw.plants[!, :int_idx] = collect(1:nrow(raw.plants))
+        raw.res_plants[!, :int_idx] = collect(1:nrow(raw.res_plants))
+        raw.availability = CSV.read(data_dir*"availability.csv")
+        raw.demand_el = CSV.read(data_dir*"demand_el.csv")
+        raw.demand_h = CSV.read(data_dir*"demand_h.csv")
+        raw.dc_lines = CSV.read(data_dir*"dclines.csv")
+        raw.ntc = CSV.read(data_dir*"ntc.csv")
+        raw.net_position = CSV.read(data_dir*"net_position.csv")
+        raw.net_export = CSV.read(data_dir*"net_export.csv")
+        raw.inflows = CSV.read(data_dir*"inflows.csv")
+        raw.reference_flows = CSV.read(data_dir*"reference_flows.csv");
+        raw.grid = CSV.read(data_dir*"cbco.csv")
+        raw.slack_zones = CSV.read(data_dir*"slack_zones.csv")
+        raw.model_horizon = DataFrame(index=collect(1:size(unique(raw.demand_el[:, :timestep]), 1)),
+                                      timesteps=unique(raw.demand_el[:, :timestep]))
+        return raw
+    end
+end
+
+
 function read_model_data(data_dir::String)
-println("Reading Model Data from: ", data_dir)
+    println("Reading Model Data from: ", data_dir)
+    raw = RAW(data_dir)
 
-nodes_mat = CSV.read(data_dir*"nodes.csv")
-zones_mat = CSV.read(data_dir*"zones.csv")
-heatareas_mat = CSV.read(data_dir*"heatareas.csv")
-plants_mat = CSV.read(data_dir*"plants.csv")
-availability_mat = CSV.read(data_dir*"availability.csv")
-demand_el_mat = CSV.read(data_dir*"demand_el.csv")
-demand_h_mat = CSV.read(data_dir*"demand_h.csv")
-dc_lines_mat = CSV.read(data_dir*"dclines.csv")
-ntc_mat = CSV.read(data_dir*"ntc.csv")
-net_position_mat = CSV.read(data_dir*"net_position.csv")
-net_export_mat = CSV.read(data_dir*"net_export.csv")
-inflows_mat = CSV.read(data_dir*"inflows.csv")
-reference_flows_mat = CSV.read(data_dir*"reference_flows.csv");
-grid_mat = CSV.read(data_dir*"cbco.csv")
+    # zones = populate_zones(raw)
+    # nodes = populate_nodes(raw)
+    # heatareas = populate_heatareas(raw)
+    # plants = populate_plants(raw)
+    # res_plants = populate_res_plants(raw)
+    # dc_lines = populate_dclines(raw)
+    # grid = populate_grid(raw)
 
-slack_zones = CSV.read(data_dir*"slack_zones.csv")
-options = JSON.parsefile(data_dir*"options.json"; dicttype=Dict)
-plant_types = options["plant_types"]
-model_type = options["type"]
+    task_zones = Threads.@spawn populate_zones(raw)
+    task_nodes = Threads.@spawn populate_nodes(raw)
+    task_heatareas = Threads.@spawn populate_heatareas(raw)
+    task_plants = Threads.@spawn populate_plants(raw)
+    task_res_plants = Threads.@spawn populate_res_plants(raw)
+    task_dc_lines = Threads.@spawn populate_dclines(raw)
+    task_grid = Threads.@spawn populate_grid(raw)
 
-println("Model Type: ", model_type)
-# Prepare model_horizon
-model_horizon = OrderedDict{Int, String}()
-for t in unique(demand_el_mat[:, :timestep])
-    model_horizon[Meta.parse(t[2:5])] = t
-end
-# Prepare Zones
-# Ordered Dict nessesary for Load Flow Calculation
-zones = OrderedDict{String, Zone}()
-for z in 1:nrow(zones_mat)
-    index = zones_mat[z, :index]
-    nodes = nodes_mat[nodes_mat[:, :zone] .== index, :index]
-    plants = filter(row -> row[:node] in nodes, plants_mat)[:, :index]
-    demand = by(filter(col -> col[:node] in nodes, demand_el_mat), :timestep, sort=true, :demand_el => sum)
-    demand_dict = Dict(zip(eachcol(demand)...))
-    newz = Zone(index, demand_dict, nodes, plants)
-    if (size(ntc_mat, 2) > 1)
-        ntc = filter(row -> row[:zone_i] == index, ntc_mat)
-        ntc_dict = Dict(zip(ntc[:, :zone_j], ntc[:, :ntc]))
-        for zone in setdiff(zones_mat[:, :index], ntc[:, :zone_j])
-            ntc_dict[zone] = 0
-        end
-        newz.ntc = ntc_dict
-    end
-    net_export = by(filter(col -> col[:node] in nodes, net_export_mat), :timestep, sort=true, :net_export => sum)
-    newz.net_export = Dict(zip(eachcol(net_export)...))
-    # if in(model_type, ["d2cf"])
-    net_position = by(filter(col -> col[:zone] == index, net_position_mat), :timestep, sort=true, :net_position => sum)
-    newz.net_position = Dict(zip(eachcol(net_position)...))
-    # end
-    zones[newz.index] = newz
-end
-# Prepare Nodes
-# Ordered Dict nessesary for Load Flow Calculation
-nodes = OrderedDict{String, Node}()
-for n in 1:nrow(nodes_mat)
-    index = nodes_mat[n, :index]
-    slack = uppercase(nodes_mat[n, :slack]) == "TRUE"
-    name = nodes_mat[n, :name]
-    zone = nodes_mat[n, :zone]
-    plants = plants_mat[plants_mat[:, :node] .== index, :index]
+    zones = fetch(task_zones)
+    nodes = fetch(task_nodes)
+    heatareas = fetch(task_heatareas)
+    plants = fetch(task_plants)
+    res_plants = fetch(task_res_plants)
+    dc_lines = fetch(task_dc_lines)
+    grid = fetch(task_grid)
 
-    demand = by(filter(col -> col[:node] == index, demand_el_mat), :timestep, sort=true, :demand_el => sum)
-    demand_dict = Dict(zip(eachcol(demand)...))
-    newn = Node(index, zone, demand_dict, slack, plants)
-    if slack
-        # newn.slack_zone = slack_zones[index]
-        newn.slack_zone = slack_zones[:, :index][slack_zones[:, Symbol(index)] .== 1]
-    end
-    net_export = by(filter(col -> col[:node] == index, net_export_mat), :timestep, sort=true, :net_export => sum)
-    newn.net_export = Dict(zip(eachcol(net_export)...))
-    nodes[newn.index] = newn
-end
-#Prepare Heatareas
-heatareas = Dict{String, Heatarea}()
-for h in 1:nrow(heatareas_mat)
-    index = heatareas_mat[h, :index]
-    demand = by(filter(col -> col[:heatarea] == index, demand_h_mat), :timestep, sort=true, :demand_h => sum)
-    demand_dict = Dict(zip(eachcol(demand)...))
-    plants = plants_mat[plants_mat[:, :heatarea] .=== index, :index]
-    newh = Heatarea(index, demand_dict, plants)
-    heatareas[newh.index] = newh
-end
+    timesteps = popolate_timesteps(raw)
 
-
-# Prepare Plants
-plants = Dict{String, Plant}()
-for p in 1:nrow(plants_mat)
-    index = string(plants_mat[p, :index])
-    node = plants_mat[p, :node]
-    eta = plants_mat[p, :eta]*1.
-    g_max = plants_mat[p, :g_max]*1.
-    h_max = plants_mat[p, :h_max]*1.
-    mc_el = plants_mat[p, :mc_el]*1.
-    mc_heat = plants_mat[p, :mc_heat]*1.
-    plant_type = plants_mat[p, :plant_type]
-    newp = Plant(index, node, mc_el, mc_heat, eta, g_max, h_max, plant_type)
-    if index in availability_mat[:, :plant]
-        availability = by(filter(col -> col[:plant] == index, availability_mat),
-                          :timestep, sort=true, :availability => sum)
-        newp.availability = Dict(zip(eachcol(availability)...))
-    end
-    if index in inflows_mat[:, :plant]
-        inflow = by(filter(col -> col[:plant] == index, inflows_mat),
-                          :timestep, sort=true, :inflow => sum)
-        newp.inflow = Dict(zip(eachcol(inflow)...))
-    end
-
-    if index in plants_mat[.!(ismissing.(plants_mat[:, :storage_capacity])),:index]
-        newp.storage_capacity = plants_mat[p, :storage_capacity]
-    end
-    plants[newp.index] = newp
-end
-# Prepare dc_lines
-dc_lines = Dict{String, DC_Line}()
-for l in 1:nrow(dc_lines_mat)
-    index = dc_lines_mat[l, :index]
-    node_i = dc_lines_mat[l, :node_i]
-    node_j = dc_lines_mat[l, :node_j]
-    maxflow = dc_lines_mat[l, :maxflow]*1.
-    newl = DC_Line(index, node_i, node_j, maxflow)
-    dc_lines[newl.index] = newl
-end
-
-# Prepare Grid Representation
-grid = Dict{String, Grid}()
-for cbco in 1:nrow(grid_mat)
-    index = grid_mat[cbco, :index]
-
-    if in(model_type, ["cbco_zonal", "zonal"])
-        ptdf = [x for x in grid_mat[cbco, Symbol.(collect(keys(zones)))]]
-    else
-        ptdf = [x for x in grid_mat[cbco, Symbol.(collect(keys(nodes)))]]
-    end
-    ram = grid_mat[cbco, :ram]*1.
-    newcbco = Grid(index, ptdf, ram)
-    if in(model_type, ["d2cf"])
-        newcbco.reference_flow = Dict(collect(zip(reference_flows_mat[:, :index],
-                                                  reference_flows_mat[:, Symbol(index)])))
-    end
-    grid[newcbco.index] = newcbco
-end
-
-println("Data Prepared")
-return model_horizon, options, plant_types,
-       plants,
-       nodes, zones, heatareas,
-       grid, dc_lines
+    println("Data Prepared")
+    return raw.options, Data(nodes, zones, heatareas, plants, res_plants, grid, dc_lines, timesteps)
 end # end of function
+
+function popolate_timesteps(raw::RAW)
+    timesteps = Vector{Timestep}()
+    for t in 1:nrow(raw.model_horizon)
+        index = t
+        name = raw.model_horizon[t, :timesteps]
+        push!(timesteps, Timestep(index, name))
+    end
+    return timesteps
+end
+
+function populate_zones(raw::RAW)
+    zones = Vector{Zone}()
+    for z in 1:nrow(raw.zones)
+        index = z
+        name = raw.zones[z, :index]
+        nodes_idx = raw.nodes[raw.nodes[:, :zone] .== name, :int_idx]
+        nodes_name = raw.nodes[raw.nodes[:, :zone] .== name, :index]
+        plants = filter(row -> row[:node] in nodes_name, raw.plants)[:, :int_idx]
+        res_plants = filter(row -> row[:node] in nodes_name, raw.res_plants)[:, :int_idx]
+        demand = by(filter(col -> col[:node] in nodes_name, raw.demand_el), :timestep, sort=true, :demand_el => sum)
+        newz = Zone(index, name, demand[:, :demand_el_sum], nodes_idx, plants, res_plants)
+        if (size(raw.ntc, 2) > 1)
+            ntc = filter(row -> row[:zone_i] == name, raw.ntc)
+            newz.ntc = [zone in ntc[:, :zone_j] ?
+                        ntc[ntc[:, :zone_j] .== zone, :ntc][1] :
+                        0 for zone in raw.zones[:, :index]]
+        end
+
+        net_export = by(filter(col -> col[:node] in nodes_name, raw.net_export), :timestep, sort=true, :net_export => sum)
+        newz.net_export = net_export[:, :net_export_sum]
+        # if in(model_type, ["d2cf"])
+
+        net_position = by(filter(col -> col[:zone] == name, raw.net_position), :timestep, sort=true, :net_position => sum)
+        if size(net_position, 1) > 0
+            newz.net_position = net_position[:, :net_position_sum]
+        end
+        push!(zones, newz)
+    end
+    return zones
+end
+
+function populate_nodes(raw::RAW)
+    nodes = Vector{Node}()
+    for n in 1:nrow(raw.nodes)
+        index = n
+        name = raw.nodes[n, :index]
+        slack = uppercase(raw.nodes[n, :slack]) == "TRUE"
+        zone_name = raw.nodes[n, :zone]
+        zone_idx = raw.zones[raw.zones[:, :index] .== zone_name, :int_idx][1]
+        plants = raw.plants[raw.plants[:, :node] .== name, :int_idx]
+        res_plants = raw.res_plants[raw.res_plants[:, :node] .== name, :int_idx]
+        demand = by(filter(col -> col[:node] == name, raw.demand_el), :timestep, sort=true, :demand_el => sum)
+        newn = Node(index, name, zone_idx, demand[:, :demand_el_sum], slack, plants, res_plants)
+        if slack
+            # newn.slack_zone = slack_zones[index]
+            slack_zone = raw.slack_zones[:, :index][raw.slack_zones[:, Symbol(name)] .== 1]
+            newn.slack_zone = filter(col -> col[:index] in slack_zone, raw.nodes)[:, :int_idx]
+        end
+        net_export = by(filter(col -> col[:node] == name, raw.net_export), :timestep, sort=true, :net_export => sum)
+        newn.net_export = net_export[:, :net_export_sum]
+        push!(nodes, newn)
+    end
+    return nodes
+end
+
+function populate_heatareas(raw::RAW)
+    heatareas = Vector{Heatarea}()
+    for h in 1:nrow(raw.heatareas)
+        index = h
+        name = raw.heatareas[h, :index]
+        demand = by(filter(col -> col[:heatarea] == name, raw.demand_h), :timestep, sort=true, :demand_h => sum)
+        plants = raw.plants[(raw.plants[:, :heatarea] .=== name).&(raw.plants[:, :h_max] .> 0), :int_idx]
+        res_plants = raw.res_plants[(raw.res_plants[:, :heatarea] .=== name).&(raw.res_plants[:, :h_max] .> 0), :int_idx]
+        newh = Heatarea(index, name, demand[:, :demand_h_sum], plants, res_plants)
+        push!(heatareas, newh)
+    end
+    return heatareas
+end
+
+function populate_plants(raw::RAW)
+    plants =  Vector{Plant}()
+    for p in 1:nrow(raw.plants)
+        index = p
+        name = string(raw.plants[p, :index])
+        node_name = raw.plants[p, :node]
+        node_idx = raw.nodes[raw.nodes[:, :index] .== node_name, :int_idx][1]
+        eta = raw.plants[p, :eta]*1.
+        g_max = raw.plants[p, :g_max]*1.
+        h_max = raw.plants[p, :h_max]*1.
+        mc_el = raw.plants[p, :mc_el]*1.
+        mc_heat = raw.plants[p, :mc_heat]*1.
+        plant_type = raw.plants[p, :plant_type]
+        newp = Plant(index, name, node_idx, mc_el,
+                     mc_heat, eta, g_max, h_max, plant_type)
+        if plant_type in union(raw.plant_types["hs"], raw.plant_types["es"])
+            newp.inflow = raw.inflows[raw.inflows[:, :plant] .== name, :inflow]
+            newp.storage_capacity = raw.plants[p, :storage_capacity]
+        end
+        push!(plants, newp)
+    end
+    return plants
+end
+
+function populate_res_plants(raw::RAW)
+    res_plants = Vector{Renewables}()
+    for res in 1:nrow(raw.res_plants)
+        index = res
+        name = string(raw.res_plants[res, :index])
+        node_name = raw.res_plants[res, :node]
+        node_idx = raw.nodes[raw.nodes[:, :index] .== node_name, :int_idx][1]
+        g_max = raw.res_plants[res, :g_max]*1.
+        h_max = raw.res_plants[res, :h_max]*1.
+        mc_el = raw.res_plants[res, :mc_el]*1.
+        mc_heat = raw.res_plants[res, :mc_heat]*1.
+        plant_type = raw.res_plants[res, :plant_type]
+        availability = by(filter(col -> col[:plant] == name, raw.availability),
+                          :timestep, sort=true, :availability => sum)
+        newres = Renewables(index, name, g_max, h_max, mc_el, mc_heat,
+                            availability[:, :availability_sum],
+                            node_idx, plant_type)
+        push!(res_plants, newres)
+    end
+    return res_plants
+end
+
+function populate_dclines(raw::RAW)
+    dc_lines = Vector{DC_Line}()
+    for dc in 1:nrow(raw.dc_lines)
+        index = dc
+        name = raw.dc_lines[dc, :index]
+        node_i = raw.dc_lines[dc, :node_i]
+        node_j = raw.dc_lines[dc, :node_j]
+        node_i_idx = raw.nodes[raw.nodes[:, :index] .== node_i, :int_idx][1]
+        node_j_idx = raw.nodes[raw.nodes[:, :index] .== node_j, :int_idx][1]
+        maxflow = raw.dc_lines[dc, :maxflow]*1.
+        newdc = DC_Line(index, name, node_i_idx, node_j_idx, maxflow)
+        push!(dc_lines, newdc)
+    end
+    return dc_lines
+end
+
+function populate_grid(raw::RAW)
+    grid = Vector{Grid}()
+    for cbco in 1:nrow(raw.grid)
+        index = cbco
+        name = raw.grid[cbco, :index]
+        if in(raw.options["type"], ["cbco_zonal", "zonal"])
+            ptdf = [x for x in raw.grid[cbco, Symbol.(collect(raw.zones[:,:index]))]]
+        else
+            ptdf = [x for x in raw.grid[cbco, Symbol.(collect(raw.nodes[:,:index]))]]
+        end
+        ram = raw.grid[cbco, :ram]*1.
+        newcbco = Grid(index, name, ptdf, ram)
+        if in(raw.options["type"], ["d2cf"])
+            newcbco.reference_flow = Dict(collect(zip(raw.reference_flows[:, :index],
+                                                      raw.reference_flows[:, Symbol(index)])))
+        end
+        if :zone in names(raw.grid)
+            newcbco.zone = coalesce(raw.grid[cbco, :zone], nothing)
+        end
+        if :timestep in names(raw.grid)
+            newcbco.timestep = raw.grid[cbco, :timestep]
+        end
+        push!(grid, newcbco)
+    end
+    return grid
+end

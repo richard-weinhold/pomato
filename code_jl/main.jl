@@ -13,52 +13,82 @@
 # Output: Optimization results saved in /julia/results/
 # -------------------------------------------------------------------------------------------------
 
-# To use file both in POMATO and as script
-# if length(ARGS) > 0
-#     println("Arguments passed, running in: ", ARGS[1], " and data folder: ", ARGS[2])
-#     global WDIR = ARGS[1]
-#     global data_dir = ARGS[2]
-# else
-# 	println("No arguments passed, running as script in pwd()")
-#     global WDIR = pwd()
-#     global data_dir = "/data/"
-# end
-# WDIR = "C:/Users/riw/tubCloud/Uni/Market_Tool/pomato"
-# /net/work/wein/pomato//data_temp/julia_files/data/
-using DataFrames
-using CSV
-using JSON
-using DataStructures
-using JuMP
-using Gurobi, GLPK
-using Dates
+using DataFrames, CSV, JSON, Dates, Base.Threads
+using LinearAlgebra, Distributions, SparseArrays
+using JuMP, Mosek, MosekTools, Gurobi
 
-include("tools.jl")
 include("typedefinitions.jl")
 include("read_data.jl")
-include("model.jl")
-include("setdefinitions.jl")
+include("tools.jl")
+include("model_struct.jl")
+include("model_functions.jl")
+include("models.jl")
+data_dir = "/data/"
+wdir = "C:/Users/riw/tubCloud/Uni/Market_Tool/pomato"
 
+function run_pomato(wdir, data_dir)
+	data_dir = wdir*"/data_temp/julia_files"*data_dir
+	println("Read Model Data..")
+	options, data = read_model_data(data_dir)
+	data.folders = Dict("wdir" => wdir,
+						"data_dir" => data_dir)
 
-function run(WDIR=pwd(), DATA_DIR="/data/")
-	DATA_DIR="/data/"
-	WDIR = "C:/Users/riw/tubCloud/Uni/Market_Tool/pomato/"
-	DATA_DIR = WDIR*"/data_temp/julia_files"*DATA_DIR
-	model_horizon, options, plant_types,
-	plants,
-	nodes, zones, heatareas,
-	grid, dc_lines = read_model_data(DATA_DIR)
+	# result_folder = wdir*"/data_temp/julia_files/results/"*Dates.format(now(), "dmm_HHMM")
+	data.folders["result_dir"] = data.folders["wdir"]*"/data_temp/julia_files/results/test"
+	create_folder(data.folders["result_dir"])
 
-	# Run Dispatch Model
-	out = build_and_run_model(WDIR,
-							  model_horizon, options, plant_types,
-	                          plants,
-	                          nodes, zones, heatareas,
-	                          grid, dc_lines)
+	options["infeasibility"]["electricity"]["bound"] = 10000
+	options["split"] = true
 
+	data.t = data.t[1:3]
+	set_model_horizon!(data)
+	data_0 = deepcopy(data)
+
+	if options["split"]
+		timestep_ranges = [t.index:t.index for t in data.t]
+	else
+		timestep_ranges = [data.t[1].index:data.t[end].index]
+	end
+
+	pomato_results = Dict{String, POMATO}()
+	for timesteps in timestep_ranges
+		data = deepcopy(data_0)
+		data.t = data.t[timesteps]
+		set_model_horizon!(data)
+		println("Initializing Market Model..")
+		pomato_results[data.t[1].name] = run_market_model(data, options)
+	end
+
+	# println(typeof(pomato))
+	# if options["split"]
+	# 	pomato.results = Dict("" => concat_results(pomato_results))
+	# end
+	save_results(concat_results(pomato_results), data.folders["result_dir"])
 	println("Model Done!")
+	return pomato_results
 end
 
+data_dir = "/data/"
+wdir = "C:/Users/riw/tubCloud/Uni/Market_Tool/pomato"
+options, data = read_model_data(wdir*"/data_temp/julia_files"*data_dir)
 
-println("Initialized")
 
+# t = run_pomato(wdir, data_dir)
+# r = concat_results(t)
+
+# r.G[r.G[:p] .== "p4770", :]
+# println("Read Model Data..")
+# options, data = read_model_data(wdir*"/data_temp/julia_files"*data_dir)
+# data.folders = Dict("wdir" => wdir,
+# 					"data_dir" => data_dir)
+#
+# 	# result_folder = wdir*"/data_temp/julia_files/results/"*Dates.format(now(), "dmm_HHMM")
+# data.folders["result_dir"] = data.folders["wdir"]*"/data_temp/julia_files/results/test"
+# create_folder(data.folders["result_dir"])
+# options["infeasibility"]["electricity"]["bound"] = 10000
+# data.t = data.t[1:1]
+# set_model_horizon!(data)
+# pomato = run_market_model(data, options)
+# pomato.results
+
+# t = run_pomato(wdir, data_dir)

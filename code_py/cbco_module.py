@@ -195,6 +195,7 @@ class CBCOModule():
         """Creating a Reduced Zonal N-1 Representation, with Convex Hull Algorithm"""
         grid_option = self.options["grid"]
 
+        
         self.A, self.b, self.cbco_info = self.create_Ab(grid_option["senstitivity"],
                                                         preprocess=False,
                                                         gsk=grid_option["gsk"])
@@ -210,6 +211,20 @@ class CBCOModule():
         self.process_ntc()
 
 
+    def add_zone_to_grid_representation(self):
+        """ Add information in which country a line is located"""
+        self.grid_representation["cbco"]["zone"] = ""
+        for zone in self.data.zones.index:
+            nodes_in_zones = self.grid.nodes.index[self.grid.nodes.zone == zone]
+            lines_in_zone = list(self.grid.lines.index[(self.grid.lines.node_i.isin(nodes_in_zones)& \
+                                                       (self.grid.lines.node_j.isin(nodes_in_zones)))])
+            lines_in_zone.append("basecase")
+            condition = (self.grid_representation["cbco"].cb.isin(lines_in_zone)&  \
+                        (self.grid_representation["cbco"].co.isin(lines_in_zone)))
+
+            self.grid_representation["cbco"].loc[condition, "zone"] = zone
+
+
     def process_cbco_nodal(self):
         """process grid information for nodal N-1 representation in market model"""
         grid_option = self.options["grid"]
@@ -220,10 +235,19 @@ class CBCOModule():
             try:
                 filename = grid_option["precalc_filename"]
                 self.logger.info("Using cbco indices from pre-calc: %s", filename)
+                filepath = self.jdir.joinpath(f"cbco_data/{filename}.csv")
                 precalc_cbco = pd.read_csv(self.jdir.joinpath(f"cbco_data/{filename}.csv"),
                                            delimiter=',')
-                self.cbco_index = list(precalc_cbco.constraints.values)
-                self.logger.info("Number of CBCOs from pre-calc: %s", str(len(self.cbco_index)))
+                if len(precalc_cbco.columns) > 1:
+                    condition = self.cbco_info[["cb", "co"]].apply(tuple, axis=1) \
+                                    .isin(precalc_cbco[["cb", "co"]].apply(tuple, axis=1))
+                    
+                    self.cbco_index = list(self.cbco_info.index[condition])
+                    self.logger.info("Number of CBCOs from pre-calc: %s", str(len(self.cbco_index)))
+                else:
+                    self.cbco_index = list(precalc_cbco.constraints.values)
+                    self.logger.info("Number of CBCOs from pre-calc: %s", str(len(self.cbco_index)))
+            
             except FileNotFoundError:
                 self.logger.warning("FileNotFound: No Precalc available")
                 self.logger.warning("Running nomal CBCO Algorithm - ConvexHull only")
@@ -261,6 +285,7 @@ class CBCOModule():
                 self.logger.warning("No valid cbco_option set!")
 
         self.grid_representation["cbco"] = self.return_cbco()
+        self.add_zone_to_grid_representation()
         self.grid_representation["cbco"].ram *= grid_option["capacity_multiplier"]
 
     def process_d2cf(self):

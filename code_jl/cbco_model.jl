@@ -23,7 +23,8 @@ function is_redundant(model::JuMP.Model, constraint::Vector{Float64}, rhs::Float
 	end
 end
 
-function build_model(dim::Int, A::Array{Float64}, b::Vector{Float64}, x_bounds::Vector{Float64})
+function build_model(dim::Int, A::Array{Float64},
+    				 b::Vector{Float64}, x_bounds::Vector{Float64})
 	# model = Model(with_optimizer(GLPK.Optimizer))
 	model = Model(with_optimizer(Gurobi.Optimizer, OutputFlag=0)) #, Presolve=0)) #, Method=2))
 	if size(x_bounds, 1) > 0
@@ -52,10 +53,10 @@ function RayShoot(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 	max_iterations = 10
 	## Define Ray (vector from interior point z to x_op)
 	r = x_opt - z
-	## Subset m to only contain constraints violated by x_opt 
+	## Subset m to only contain constraints violated by x_opt
 	m_hat = m[findall(x-> x>=0, A[m,:]*x_opt - b[m])]
 	if length(m_hat) == 0
-		 @info("WARNING: M_hat empty, possibly numerical error")
+		 @info("WARNING: m_hat empty, possibly numerical error")
 		 @info("Moving further outside along the Ray")
 		 m_hat = m[findall(x-> x>=0, A[m,:]*x_opt*1.01 - b[m])]
 		 @info("m_hat $(m_hat), length = $(length(m_hat))!")
@@ -65,18 +66,15 @@ function RayShoot(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 		point = z + r*i
 		temp = A[m_hat,:]*point - b[m_hat]
 		# If 1 constraint is hit, return it
-		constraints_hit = size(findall(x-> x>0, temp), 1)  
+		constraints_hit = size(findall(x-> x>0, temp), 1)
 		if constraints_hit == 1
 			@debug("Constraint hit: $(m_hat[findall(x->x>0, temp)]) With i = $i, stepsize = $stepsize")
 			return m_hat[findfirst(x->x>0, temp)]
 		# If more than one constraint is hit:
 		# 1) Check for breaking condition:
 		#	 If True return either the first of the constraints hit
-		#	 or all (currently only the first is returnd, since the others
-		#	 will be checked at a lated stage since they will remain in m)
-		#
 		# 2) 1) Go one step back, to where no constraint was hit
-		#    2) Continue forward with 1/of stepsize
+		#    2) Continue forward with 1/10 of stepsize
 		#	 3) Increase counter, since this procedure is limited by
 		#	    float number of decimal places for increment i
 		elseif constraints_hit > 1
@@ -86,8 +84,8 @@ function RayShoot(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 				@debug("Constraints hit: $(m_hat[findall(x->x>0, temp)]) With i = $i")
 				return m_hat[findfirst(x->x>0, temp)]
 			else
-				counter += 1
 				# Going back and reducing stepsize by 10th
+				counter += 1
 				i = i - exp10(-stepsize)
 				stepsize += 1
 			end
@@ -98,7 +96,7 @@ function RayShoot(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 	end
 end
 
-function main(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int}, 
+function main(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 			  I::Vector{Int}, x_bounds::Vector{Float64}, z::Vector{Float64})
 
 	@info("Starting Algorithm with I of size: $(length(I))")
@@ -110,8 +108,8 @@ function main(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 	stepsize = round(to_check/steps)
 	save_points = [Int(x) for x in stepsize:stepsize:to_check]
 	# Make sure only 100 save_points are available, remove the first ones
-	if length(save_points) > 100
-		save_points = save_points[(length(save_points) + 1 - 100):end]
+	if length(save_points) > steps
+		save_points = save_points[(length(save_points) + 1 - steps):end]
 	end
 	### Build base model
 	model = build_model(size(A, 2), A[I,:], b[I], x_bounds)
@@ -140,7 +138,8 @@ function main(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 			report = "- Size of I $(length(I)) - Found Redundant $(to_check - length(I) - length(m)) - Remaining $(length(m)) - "
 			@info(progress_bar*string(percentage)*"%"*report*timestamp)
 		end
-		## Conclude when m is empty
+
+		### Conclude when m is empty
 		if length(m) == 0
 			break
 		end
@@ -160,18 +159,18 @@ function read_data(file_suffix::String)
 	# Read Data From CSV Files
 	@info("Reading A, b, x_bounds and I Matrices...")
 	I = Array{Int, 1}()
-	A_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/A_"*file_suffix*".csv", 
+	A_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/A_"*file_suffix*".csv",
 					  delim=',', header=false)
-	b_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/b_"*file_suffix*".csv", 
+	b_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/b_"*file_suffix*".csv",
 					  delim=',', header=false, types=Dict(1=>Float64))
 
 	# Create Array A and Vector b from DataFrame
 	A =  hcat([A_data[:, i] for i in 1:size(A_data, 2)]...)
 	b = b_data[:,1]
 
-	x_bounds = CSV.read(wdir*"/data_temp/julia_files/cbco_data/x_bounds_"*file_suffix*".csv", 
+	x_bounds = CSV.read(wdir*"/data_temp/julia_files/cbco_data/x_bounds_"*file_suffix*".csv",
 					    delim=',', header=false, types=Dict(1=>Float64))
-	
+
 	# Read X Bounds or set as empty Vector
 	x_bounds = size(x_bounds, 2) > 0 ? x_bounds[:,1] : Array{Float64, 1}()
 	# x_bounds = Array{Float64, 1}()
@@ -186,7 +185,7 @@ end
 
 function run(file_suffix::String)
 	A, b, x_bounds, I = read_data(file_suffix)
-	
+
 	m = collect(1:length(b))
 	@info("Preprocessing...")
 	@info("Removing duplicate rows...")

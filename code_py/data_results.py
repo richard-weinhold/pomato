@@ -52,7 +52,7 @@ class ResultProcessing():
                     self.logger.warning("%s not in results folder %s", var, folder_name)
 
         ## Manual setting of attributes:
-        with open(str(folder.joinpath("misc_result.json")), "r") as jsonfile:
+        with open(str(folder.joinpath("misc_results.json")), "r") as jsonfile:
             self.data.result_attributes["objective"] = json.load(jsonfile)
 
         if self.data.options["optimization"]["gams"]:
