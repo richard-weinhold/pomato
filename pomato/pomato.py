@@ -24,9 +24,19 @@ The model is structured in three interconnected parts:
 Installation
 ------------
 POMATO is written in python and julia. Python takes care of the data processing
-and julia runs the economic dispatch and N-1 preprocessing. The folder
-``/project_files`` contains environment files for python (3.6, anaconda) and julia (1.3).
+and julia runs the economic dispatch and N-1 redundancy removal algorithm. The folder
+``/project_files`` contains environment files for python (3.6, anaconda, pip) and julia (1.3).
 Note julia has to be available on the PATH for POMATO to run.
+
+After the python enviroment is setup the provided julia environment has to be instantiated. 
+This can be done by running the following commands from the pomato root folder:
+
+.. code-block:: julia
+
+    julia --project=project_files/pomato
+    ] instantiate
+
+After this is completed pomato can be imported:
 
 .. code-block:: python
 
@@ -54,10 +64,13 @@ on the provided functionality and its results.
 Release Status
 --------------
 
-POMATO is part of my PhD and actively developed. I'm not a software engineer,
-thus the "program" is not written with robustness in mind. Expect errors,
-bug, funky behavior, stupid code structures, hard-coded mess and lack of obvious
-features.
+This release covers all features and a big part of the documentation. The FBMCModule is stil 
+changing very often and is not documented. The julia code also lacks documentation until we figure
+out how to include both julia and python code into one shpinx script. 
+
+POMATO is part of my PhD and actively developed by Robert and myself. WE are notsoftware engineers,
+thus the "program" is not written with robustness in mind. Expect errors, bug, funky behavior, 
+stupid code structures, hard-coded mess and lack of obvious features.
 
 Related Publications
 --------------------
