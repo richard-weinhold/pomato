@@ -1,5 +1,6 @@
 POMATO - Power Market Tool
 ============================
+[![Documentation Status](https://readthedocs.org/projects/pomato/badge/?version=latest)](https://pomato.readthedocs.io/en/latest/?badge=latest)
 
 Overview
 --------

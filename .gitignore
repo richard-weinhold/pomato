@@ -9,3 +9,7 @@
 gms/
 *.gdx
 data_input/old/
+*__pycache__*
+*.pylint.d*
+docs/build/
+pomato/logs/

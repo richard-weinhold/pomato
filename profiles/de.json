@@ -1,20 +1,34 @@
 {
     "optimization": {
-        "type": "nodal",
+        "type": "cbco_nodal",
+        "solver": "gurobi",
         "gams": false,
         "model_horizon": [0, 24],
+        "heat_model": false,
+        "redispatch": false,
         "infeasibility": {
-            "heat": false,
-            "electricity": true,
-            "lines": false,
-            "bound": 1000
+            "heat": {
+                "include": false,
+                "cost": 1E3,
+                "bound": 1000
+            },
+            "electricity": {
+                "include": true,
+                "cost": 1E2,
+                "bound": 1000
+            },
+            "lines": {
+                "include": false,
+                "cost": 1E3,
+                "bound": 1000
+            }
+        },
+        "curtailment": {
+            "include": false,
+            "cost": 1E3
         },
         "parameters": {
-            "chp_efficiency": 0.15,
-            "curtailment": {
-                "heat": 0,
-                "electricity": 1
-            }
+            "storage_start": 0.65
         },
         "plant_types": {
             "es": ["hydro_res", "hydro_psp"],
@@ -24,14 +38,15 @@
         }
     },
     "grid": {
-        "capacity_multiplier": 0.95,
-        "reference_flows": false,
+        "cbco_option": "save_base",
         "precalc_filename": "",
         "senstitivity": 5e-2,
-        "cbco_option": "save_base",
-        "preprocess": true
+        "capacity_multiplier": 0.95,
+        "preprocess": true,
+        "gsk": "gmax"
     },
     "data": {
+        "data_type": "opsd",
         "stacked": ["demand_el", "net_position"],
         "process": ["net_export", "availability", "net_position", "opsd"],
         "process_input": true,
@@ -39,9 +54,6 @@
         "round_demand": true,
         "default_efficiency": 0.5,
         "default_mc": 200,
-        "co2_price": 20,
-        "all_lines_cb": false,
-        "d2cf_data": false
-
+        "co2_price": 20
     }
 }

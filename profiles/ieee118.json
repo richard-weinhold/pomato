@@ -1,20 +1,34 @@
 {
     "optimization": {
         "type": "cbco_nodal",
+        "solver": "glpk",
         "gams": false,
-        "model_horizon": [0,1],
+        "model_horizon": [0, 2],
+        "heat_model": false,
+        "redispatch": false,
         "infeasibility": {
-            "heat": false,
-            "electricity": true,
-            "lines": false,
-            "bound": 20
+            "heat": {
+                "include": false,
+                "cost": 1E3,
+                "bound": 20
+            },
+            "electricity": {
+                "include": true,
+                "cost": 1E2,
+                "bound": 20
+            },
+            "lines": {
+                "include": false,
+                "cost": 1E3,
+                "bound": 20
+            }
+        },
+        "curtailment": {
+            "include": false,
+            "cost": 1E3
         },
         "parameters": {
-            "chp_efficiency": 0.15,
-            "curtailment": {
-                "heat": 0,
-                "electricity": 0.8
-            }
+            "storage_start": 0.65
         },
         "plant_types": {
             "es": ["hydro_res", "hydro_psp"],
@@ -24,22 +38,23 @@
         }
     },
     "grid": {
-        "capacity_multiplier": 0.95,
-        "reference_flows": false,
-        "precalc_filename": "cbco_py_0611_2159",
-        "senstitivity": 5e-2,
         "cbco_option": "clarkson_base",
-        "preprocess": true
+        "precalc_filename": "",
+        "senstitivity": 5e-2,
+        "capacity_multiplier": 0.95,
+        "preprocess": true,
+        "gsk": "gmax"
     },
     "data": {
-        "process_input": true,
+        "data_type": "ieee",
+        "stacked": [],
         "process": [],
-        "unique_mc": true,
+        "process_input": false,
+        "unique_mc": false,
         "round_demand": true,
         "default_efficiency": 0.5,
         "default_mc": 200,
         "co2_price": 20,
-        "all_lines_cb": false,
-        "d2cf_data": false
+        "all_lines_cb": false
     }
 }
