@@ -11,16 +11,16 @@
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
 import os, sys
-sys.path.insert(0, os.path.abspath('../../'))
+sys.path.insert(0, os.path.abspath('../'))
 # sys.path.append('C:/Users/riw/tubCloud/Uni/Market_Tool/pomato/')
 
 # -- Project information -----------------------------------------------------
 project = 'POMATO'
 copyright = '2019, riw'
-author = 'riw'
+author = 'riw, rom'
 
 # The full version, including alpha/beta/rc tags
-release = '0.1'
+release = '0.2'
 
 # -- General configuration ---------------------------------------------------
 
