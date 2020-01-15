@@ -16,6 +16,7 @@ Pomato currently includes:
 * Grid
     * Fast network representation with recalculated network constraints
     * Including n-1 security constrained dispatch
+    * See [This Paper](https://arxiv.org/abs/1910.09034)
 
 * Various options for market representation
     * Nodal or Zonal optimization

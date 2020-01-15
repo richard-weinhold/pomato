@@ -59,6 +59,11 @@ thus the "program" is not written with robustness in mind. Expect errors,
 bug, funky behavior, stupid code structures, hard-coded mess and lack of obvious
 features.
 
+Related Publications
+--------------------
+
+- `Weinhold and Mieth (2019), *Fast Security-Constrained Optimal Power Flow through Low-Impact and Redundancy Screening* <https://arxiv.org/abs/1910.09034>`_
+
 """
 
 from pathlib import Path
