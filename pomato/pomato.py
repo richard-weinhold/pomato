@@ -62,7 +62,7 @@ features.
 Related Publications
 --------------------
 
-- `Weinhold and Mieth (2019), *Fast Security-Constrained Optimal Power Flow through Low-Impact and Redundancy Screening* <https://arxiv.org/abs/1910.09034>`_
+- `Weinhold and Mieth (2019), Fast Security-Constrained Optimal Power Flow through Low-Impact and Redundancy Screening <https://arxiv.org/abs/1910.09034>`_
 
 """
 
