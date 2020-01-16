@@ -1,5 +1,5 @@
-POMATO - Power Market Tool
-============================
+POMATO - Power Market Tool ![alt text](https://https://github.com/korpuskel91/pomato/tree/master/pomatologo_small.png "Pomato Soup")
+=====================================================================================================================================
 [![Documentation Status](https://readthedocs.org/projects/pomato/badge/?version=latest)](https://pomato.readthedocs.io/en/latest/?badge=latest)
 
 
@@ -28,7 +28,7 @@ The model is structured in three interconnected parts :
 
 Documentation
 -------------
-Comprehensive documentation is available on [https://pomato.readthedocs.io/](https://pomato.readthedocs.io/).
+Comprehensive documentation is available at [pomato.readthedocs.io](https://pomato.readthedocs.io/).
 
 Installation
 ------------
