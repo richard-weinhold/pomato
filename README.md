@@ -18,17 +18,17 @@ with endogenously generated flow-based parameters, and redispatch.
 
 Model Structure
 ---------------
-The model is structured in three interconnected parts:
-    - Data Management: Data input, processing and result analysis.
-    - Market Model: Calculation of the economic dispatch based on the
-      dataset and chosen grid representation. asd asd
-    - Grid Model: Providing grid representation for economic dispatch
-      calculation in chosen granularity (N-0, N-1, FBMC, NTC, copperplate)
-      and analysis for ex-post analysis of the market result.
+The model is structured in three interconnected parts : 
+  * Data Management: Data input, processing and result analysis.
+  * Market Model: Calculation of the economic dispatch based on the
+    dataset and chosen grid representation. asd asd
+  * Grid Model: Providing grid representation for economic dispatch
+    calculation in chosen granularity (N-0, N-1, FBMC, NTC, copperplate)
+    and analysis for ex-post analysis of the market result.
 
 Documentation
 -------------
-Comprehensive documentation is available [here.](https://pomato.readthedocs.io/)
+Comprehensive documentation is available on [https://pomato.readthedocs.io/](https://pomato.readthedocs.io/).
 
 Installation
 ------------
@@ -51,15 +51,16 @@ After this is completed pomato can be imported:
 
 Examples
 --------
-This release includes two examples :
-    - The IEEE 118 bus network, which contains a singular timestep
+This release includes two examples:
 
-          $ python /scripts/run_pomato_ieee.py
+  - The IEEE 118 bus network, which contains a singular timestep
 
-    - The DE case study, based on data from DIW DataDoc [insert more description]
-      which is more complex and can be run for much longer timeframes
+        $ python /scripts/run_pomato_ieee.py
 
-          $ python /scripts/run_pomato_de.py
+  - The DE case study, based on data from DIW DataDoc [insert more description]
+    which is more complex and can be run for much longer timeframes
+
+        $ python /scripts/run_pomato_de.py
 
 
 However, the functionality of POMATO is best utilized when running inside a
