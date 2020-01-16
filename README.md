@@ -7,7 +7,7 @@ Overview
 --------
 
 POMATO stands for (POwer MArket TOol) and is an easy to use tool for the comprehensive
-analysis of the modern power market. It comprises the necessary power
+analysis of the modern electricity market. It comprises the necessary power
 engineering framework to account for power flow physics, thermal transport
 constraints and security policies of the underlying transmission
 infrastructure, depending on the requirements defined by the user.
@@ -26,6 +26,10 @@ The model is structured in three interconnected parts:
       calculation in chosen granularity (N-0, N-1, FBMC, NTC, copperplate)
       and analysis for ex-post analysis of the market result.
 
+Documentation
+-------------
+Comprehensive documentation is available here: [Link](https://pomato.readthedocs.io/)
+
 Installation
 ------------
 POMATO is written in python and julia. Python takes care of the data processing
@@ -36,14 +40,10 @@ Note julia has to be available on the PATH for POMATO to run.
 After the python enviroment is set-up the provided julia environment has to be instantiated. 
 This can be done by running the following commands from the pomato root folder:
 
-.. code-block:: julia
-
     julia --project=project_files/pomato
     ] instantiate
 
 After this is completed pomato can be imported:
-
-.. code-block:: python
 
     import sys
     sys.path.append(pomato_path)
@@ -80,7 +80,7 @@ stupid code structures, hard-coded mess and lack of obvious features.
 Related Publications
 --------------------
 
-- `Weinhold and Mieth (2019), Fast Security-Constrained Optimal Power Flow through Low-Impact and Redundancy Screening <https://arxiv.org/abs/1910.09034>`_
+- [Weinhold and Mieth (2019), Fast Security-Constrained Optimal Power Flow through Low-Impact and Redundancy Screening](https://arxiv.org/abs/1910.09034>)
 
 
 
