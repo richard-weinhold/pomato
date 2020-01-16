@@ -58,7 +58,7 @@ function run_pomato(wdir, data_dir)
 
 	save_result(concat_results(pomato_results), data.folders["result_dir"])
 	println("Everything Done!")
-	return pomato_results
+	# return pomato_results
 end
 
 function run_redispatch_pomato(wdir, data_dir; redispatch_zones=["DE"])
@@ -76,7 +76,7 @@ function run_redispatch_pomato(wdir, data_dir; redispatch_zones=["DE"])
 	for result in keys(pomato_results)
 		save_result(pomato_results[result], data.folders["result_dir"]*"_"*result)
 	end
-	return pomato_results
+	# return pomato_results
 end
 println("Initialized")
 
