@@ -38,15 +38,19 @@ gr = mato.grid_representation["cbco"]
 # %%
 
 mato.init_market_model()
-# mato.update_market_model_data()
 mato.run_market_model()
-
 
 # %%
 
+# mato.data.lines.maxflow *= 0.7
+# mato.create_grid_representation()
+# mato.update_market_model_data()
+# mato.run_market_model()
+
+# %%
 
 df = mato.data.results.n_1_flow()
 df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
 df3, df4 = mato.data.results.overloaded_lines_n_0()
 
-mato.init_bokeh_plot(name="IEEE")
+# mato.init_bokeh_plot(name="IEEE")
