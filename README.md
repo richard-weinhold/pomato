@@ -74,7 +74,7 @@ This release covers all features and a big part of the documentation. The FBMCMo
 changing very often and is not documented. The julia code also lacks documentation until we figure
 out how to include both julia and python code into one shpinx script. 
 
-POMATO is part of my PhD and actively developed by Robert and myself. WE are notsoftware engineers,
+POMATO is part of my PhD and actively developed by Robert and myself. WE are not software engineers,
 thus the "program" is not written with robustness in mind. Expect errors, bug, funky behavior, 
 stupid code structures, hard-coded mess and lack of obvious features.
 
