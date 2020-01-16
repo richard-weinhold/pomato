@@ -28,7 +28,7 @@ The model is structured in three interconnected parts:
 
 Documentation
 -------------
-Comprehensive documentation is available [here:](https://pomato.readthedocs.io/)
+Comprehensive documentation is available [here.](https://pomato.readthedocs.io/)
 
 Installation
 ------------
