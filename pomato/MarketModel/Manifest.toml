@@ -45,6 +45,18 @@ git-tree-sha1 = "23d7324164c89638c18f6d7f90d972fa9c4fa9fb"
 uuid = "324d7699-5711-5eae-9e2f-1d82baa6b597"
 version = "0.7.7"
 
+[[CodecBzip2]]
+deps = ["BinaryProvider", "Libdl", "TranscodingStreams"]
+git-tree-sha1 = "5db086e510c11b4c87d05067627eadb2dc079995"
+uuid = "523fee87-0ab8-5b00-afb7-3ecf72e48cfd"
+version = "0.6.0"
+
+[[CodecZlib]]
+deps = ["BinaryProvider", "Libdl", "TranscodingStreams"]
+git-tree-sha1 = "05916673a2627dd91b4969ff8ba6941bc85a960e"
+uuid = "944b1d66-785c-5afd-91f1-9de20f533193"
+version = "0.6.0"
+
 [[CommonSubexpressions]]
 deps = ["Test"]
 git-tree-sha1 = "efdaf19ab11c7889334ca247ff4c9f7c322817b0"
@@ -132,16 +144,28 @@ deps = ["Random"]
 uuid = "9fa8497b-333b-5362-9e8d-4d0656e87820"
 
 [[GLPK]]
-deps = ["BinaryProvider", "Libdl", "LinQuadOptInterface", "SparseArrays"]
-git-tree-sha1 = "b12093a67c3007b69d5403625d1920d59c16ac61"
+deps = ["BinaryProvider", "Libdl", "MathOptInterface", "SparseArrays"]
+git-tree-sha1 = "3420033e843e140d9237238d69937a5bc7292e5a"
 uuid = "60bf3e95-4087-53dc-ae20-288a0d20c6a6"
-version = "0.10.0"
+version = "0.12.1"
 
 [[Gurobi]]
-deps = ["Compat", "Libdl", "LinQuadOptInterface", "MathProgBase"]
-git-tree-sha1 = "c2e1b1d4ce50764188c6496f298fa58bbf5e923e"
+deps = ["Libdl", "LinearAlgebra", "MathOptInterface", "MathProgBase", "SparseArrays"]
+git-tree-sha1 = "1b5269a7216fe66776413b011bfe360f57d8a71d"
 uuid = "2e9cd046-0924-5485-92f1-d5272153d98b"
-version = "0.6.0"
+version = "0.7.4"
+
+[[HTTP]]
+deps = ["Base64", "Dates", "IniFile", "MbedTLS", "Sockets"]
+git-tree-sha1 = "5c49dab19938b119fe204fd7d7e8e174f4e9c68b"
+uuid = "cd3eb016-35fb-5094-929b-558a96fad6f3"
+version = "0.8.8"
+
+[[IniFile]]
+deps = ["Test"]
+git-tree-sha1 = "098e4d2c533924c921f9f9847274f2ad89e018b8"
+uuid = "83e8ac13-25f8-5344-8a64-a9f2b223428f"
+version = "0.5.0"
 
 [[InteractiveUtils]]
 deps = ["Markdown"]
@@ -164,23 +188,23 @@ git-tree-sha1 = "b34d7cef7b337321e97d22242c3c2b91f476748e"
 uuid = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
 version = "0.21.0"
 
+[[JSONSchema]]
+deps = ["BinaryProvider", "HTTP", "JSON"]
+git-tree-sha1 = "b0a7f9328967df5213691d318a03cf70ea8c76b1"
+uuid = "7d188eb4-7ad8-530c-ae41-71a32a6d4692"
+version = "0.2.0"
+
 [[JuMP]]
 deps = ["Calculus", "DataStructures", "ForwardDiff", "LinearAlgebra", "MathOptInterface", "NaNMath", "Random", "SparseArrays", "Statistics"]
-git-tree-sha1 = "a37fdb14ee3a04b4df44c20a73da89c57035bdf2"
+git-tree-sha1 = "ba7f96010ed290d77d5c941c32e5df107ca688a4"
 uuid = "4076af6c-e467-56ae-b986-b466b2749572"
-version = "0.19.2"
+version = "0.20.1"
 
 [[LibGit2]]
 uuid = "76f85450-5226-5b5a-8eaa-529ad045b433"
 
 [[Libdl]]
 uuid = "8f399da3-3557-5675-b5ff-fb832c97cbdb"
-
-[[LinQuadOptInterface]]
-deps = ["Compat", "MathOptInterface"]
-git-tree-sha1 = "d6692a09d0424e34c884cd819b8ed47943eefc20"
-uuid = "f8899e07-120b-5979-ab1d-7b97bb9e1a48"
-version = "0.6.0"
 
 [[LinearAlgebra]]
 deps = ["Libdl"]
@@ -193,23 +217,23 @@ uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
 
-[[MarketModel]]
-deps = ["CSV", "DataFrames", "Dates", "Distributions", "GLPK", "Gurobi", "JSON", "JuMP", "LinearAlgebra", "Logging", "Mosek", "MosekTools", "SparseArrays"]
-path = "../../pomato/MarketModel"
-uuid = "a088966c-636e-444b-b123-634d2175ff26"
-version = "0.1.0"
-
 [[MathOptInterface]]
-deps = ["Compat", "Unicode"]
-git-tree-sha1 = "5d3de69c9220610d0336ab45d3eb8b6ac7a7c807"
+deps = ["BenchmarkTools", "CodecBzip2", "CodecZlib", "JSON", "JSONSchema", "LinearAlgebra", "MutableArithmetics", "OrderedCollections", "SparseArrays", "Test", "Unicode"]
+git-tree-sha1 = "d52d0671560f209b8a4604e7267d1f76ceae1f23"
 uuid = "b8f27783-ece8-5eb3-8dc8-9495eed66fee"
-version = "0.8.4"
+version = "0.9.9"
 
 [[MathProgBase]]
 deps = ["Compat"]
 git-tree-sha1 = "3bf2e534e635df810e5f4b4f1a8b6de9004a0d53"
 uuid = "fdba3010-5040-5b88-9595-932c9decdf73"
 version = "0.7.7"
+
+[[MbedTLS]]
+deps = ["BinaryProvider", "Dates", "Libdl", "Random", "Sockets"]
+git-tree-sha1 = "85f5947b53c8cfd53ccfa3f4abae31faa22c2181"
+uuid = "739be429-bea8-5141-9913-cc70e7f3736d"
+version = "0.7.0"
 
 [[Missings]]
 deps = ["DataAPI"]
@@ -228,9 +252,15 @@ version = "1.1.1"
 
 [[MosekTools]]
 deps = ["MathOptInterface", "Mosek", "Printf"]
-git-tree-sha1 = "407d71f5c67145061a9574da81eed09f3361b55e"
+git-tree-sha1 = "2d5b26efcf1352485c967a8a570ceab83118ebbc"
 uuid = "1ec41992-ff65-5c91-ac43-2df89e9693a4"
-version = "0.8.0"
+version = "0.9.1"
+
+[[MutableArithmetics]]
+deps = ["LinearAlgebra", "SparseArrays", "Test"]
+git-tree-sha1 = "aceb69c03688ec90a31ecad9d4fb60db8d472856"
+uuid = "d8a4904e-b15c-11e9-3269-09a3773c0cb0"
+version = "0.2.1"
 
 [[NaNMath]]
 git-tree-sha1 = "928b8ca9b2791081dc71a51c55347c27c618760f"
@@ -294,12 +324,6 @@ uuid = "3fa0cd96-eef1-5676-8a61-b3b8758bbffb"
 [[Random]]
 deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
-
-[[RedundancyRemoval]]
-deps = ["BenchmarkTools", "CSV", "DataFrames", "Dates", "GLPK", "Gurobi", "JuMP", "LinearAlgebra", "Logging"]
-path = "../../pomato/RedundancyRemoval"
-uuid = "32e2fdb4-8fda-4538-bf20-57de85f2491f"
-version = "0.1.0"
 
 [[Reexport]]
 deps = ["Pkg"]
@@ -383,6 +407,12 @@ version = "0.2.11"
 [[Test]]
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[[TranscodingStreams]]
+deps = ["Random", "Test"]
+git-tree-sha1 = "7c53c35547de1c5b9d46a4797cf6d8253807108c"
+uuid = "3bb67fe8-82b1-5028-8e26-92a6c54297fa"
+version = "0.9.5"
 
 [[UUIDs]]
 deps = ["Random", "SHA"]

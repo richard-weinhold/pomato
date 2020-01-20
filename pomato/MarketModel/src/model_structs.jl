@@ -88,8 +88,8 @@ function Result(pomato::POMATO)
 		setfield!(result, v, model_symbol_to_df(v, result_info, pomato))
 	end
 
-	setfield!(result, :G, vcat(result.G, names!(result.G_RES, names(result.G))))
-	setfield!(result, :H, vcat(result.H, names!(result.H_RES, names(result.H))))
+	setfield!(result, :G, vcat(result.G, rename!(result.G_RES, names(result.G))))
+	setfield!(result, :H, vcat(result.H, rename!(result.H_RES, names(result.H))))
 	# Misc Results or Data
 	result.misc_results = Dict()
 	result.misc_results["Objective Value"] = JuMP.objective_value(pomato.model)

@@ -1,29 +1,8 @@
-# -------------------------------------------------------------------------------------------------
-# POMATO - Power Market Tool (C) 2018
-# Current Version: Pre-Release-2018
-# Created by Robert Mieth and Richard Weinhold
-# Licensed under LGPL v3
-#
-# Language: Julia, v0.6.2 (required)
-# ----------------------------------------
-# This file:
-# Central optimization implemented in JuMP
-# ----------------------------------------
+"""
+asd
 
-# using DataFrames, CSV, JSON, Dates, Base.Threads
-# using LinearAlgebra, Distributions, SparseArrays
-# using JuMP, Mosek, MosekTools, Gurobi
-#
-# include("typedefinitions.jl")
-# include("read_data.jl")
-# include("tools.jl")
-# include("model_struct.jl")
-# include("model_functions.jl")
-# include("models.jl")
-# --project=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\project_files\pomato
-# data_dir = "/data/"
-# wdir = "C:/Users/riw/tubCloud/Uni/Market_Tool/pomato"
-# result_name = ""
+"""
+
 
 function run_market_model(data::Data, options::Dict{String, Any})
 
@@ -31,10 +10,10 @@ function run_market_model(data::Data, options::Dict{String, Any})
 		pomato = POMATO(Model(with_optimizer(Mosek.Optimizer)), # logFile=data.folders["result_dir"]*"/log.txt")),
 					   	data, options)
 	else
-		# pomato = POMATO(Model(with_optimizer(Gurobi.Optimizer, LogFile=data.folders["result_dir"]*"/log.txt")),
-		# 			   	data, options)
-		pomato = POMATO(Model(with_optimizer(GLPK.Optimizer)), #LogFile=data.folders["result_dir"]*"/log.txt")),
+		pomato = POMATO(Model(with_optimizer(Gurobi.Optimizer, LogFile=data.folders["result_dir"]*"/log.txt")),
 					   	data, options)
+		# pomato = POMATO(Model(with_optimizer(GLPK.Optimizer)), #LogFile=data.folders["result_dir"]*"/log.txt")),
+		# 			   	data, options)
 	end
 
 	println("Adding Variables and Expressions..")

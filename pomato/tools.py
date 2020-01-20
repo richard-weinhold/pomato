@@ -26,10 +26,10 @@ class InteractiveJuliaProcess():
         self.solved = False 
 
         if julia_model == "market_model":
-            self.julia_process.sendline('include("pomato_jl/main.jl")')
+            self.julia_process.sendline('using MarketModel')
             self.julia_process.expect(["Initialized", "ERROR"])
         elif julia_model == "cbco":
-            self.julia_process.sendline('include("pomato_jl/cbco_model.jl")')
+            self.julia_process.sendline('using RedundancyRemoval')
             self.julia_process.expect(["Initialized", "ERROR"])
         else:
             self.logger.error("Model Options not available!")

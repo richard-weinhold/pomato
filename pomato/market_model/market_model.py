@@ -100,9 +100,9 @@ class MarketModel():
                 self.julia_model = tools.InteractiveJuliaProcess(self.wdir, self.logger, "market_model")
 
             if self.options["optimization"]["redispatch"]:
-                command = 'run_redispatch_pomato("'+ str(self.wdir.as_posix()) + '", "/data/")'
+                command = 'MarketModel.run_redispatch("'+ str(self.wdir.as_posix()) + '", "/data/")'
             else:
-                command = 'run_pomato("'+ str(self.wdir.as_posix()) + '", "/data/")'
+                command = 'MarketModel.run("'+ str(self.wdir.as_posix()) + '", "/data/")'
 
             self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
             self.julia_model.run(command)

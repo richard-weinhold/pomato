@@ -1,6 +1,5 @@
 """Data Management of POMATO, which glues all components together.
 
-
 This module is divided into one main and three sub-modules:
     * :obj:`~pomato.data.DataManagement` : The main hub for the data. An
       instance of this class is attached to the POMATO main module to provide
@@ -12,9 +11,9 @@ This is done within the three sub-modules:
     - :obj:`~pomato.data.InputProcessing` : Process input data to calculate missing parameters,
       fill missing/default values etc.. essentially bringing the raw data
       into the desired structure defined in the `data_structure`.
-    - :obj:`~pomato.data.ResultsProcessing` : Since the DataManagement module is available to
+    - :obj:`~pomato.data.ResultProcessing` : Since the DataManagement module is available to
       the market model the market result is processed alongside the input
-      data in the ResultsProcessing Module. It collects different methods
+      data in the ResultProcessing Module. It collects different methods
       make standard results available to the user in an easy way and is
       meant to simplify result analysis.
 

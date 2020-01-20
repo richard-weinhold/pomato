@@ -36,22 +36,22 @@ function add_variables_expressions!(pomato::POMATO)
 	    @expression(model, INFEAS_H_POS[1:n.t, 1:n.heatareas], 0)
 	end
 
-	@expression(model, INFEAS_EL_Z_NEG[t=1:n.t, z=1:n.zones],
-	    sum(INFEAS_EL_N_NEG[t, node] for node in data.zones[z].nodes));
+	@expression(model, INFEAS_EL_Z_NEG[t=1:n.t, zone=1:n.zones],
+	    sum(INFEAS_EL_N_NEG[t, node] for node in data.zones[zone].nodes));
 
-	@expression(model, INFEAS_EL_Z_POS[t=1:n.t, z=1:n.zones],
-	    sum(INFEAS_EL_N_POS[t, node] for node in data.zones[z].nodes));
+	@expression(model, INFEAS_EL_Z_POS[t=1:n.t, zone=1:n.zones],
+	    sum(INFEAS_EL_N_POS[t, node] for node in data.zones[zone].nodes));
 
 	# Expressions to create Nodal/Zonal Generation and Res Feedin
-	@expression(model, G_Node[t=1:n.t, n=1:n.nodes],
-		size(data.nodes[n].plants, 1) > 0 ? sum(G[t, plant] for plant in data.nodes[n].plants) : 0);
+	@expression(model, G_Node[t=1:n.t, node=1:n.nodes],
+		size(data.nodes[node].plants, 1) > 0 ? sum(G[t, plant] for plant in data.nodes[node].plants) : 0);
 
-	@expression(model, D_Node[t=1:n.t, n=1:n.nodes],
-		size(intersect(data.nodes[n].plants, map.ph), 1) > 0
-	    ? sum(D_ph[t, findfirst(ph -> ph==plant, map.ph)] for plant in intersect(data.nodes[n].plants, map.ph))
+	@expression(model, D_Node[t=1:n.t, node=1:n.nodes],
+		size(intersect(data.nodes[node].plants, map.ph), 1) > 0
+	    ? sum(D_ph[t, findfirst(ph -> ph==plant, map.ph)] for plant in intersect(data.nodes[node].plants, map.ph))
 	    : 0
-		+ size(intersect(data.nodes[n].plants, map.es), 1) > 0
-	    ? sum(D_es[t, findfirst(es -> es==plant, map.es)] for plant in intersect(data.nodes[n].plants, map.es))
+		+ size(intersect(data.nodes[node].plants, map.es), 1) > 0
+	    ? sum(D_es[t, findfirst(es -> es==plant, map.es)] for plant in intersect(data.nodes[node].plants, map.es))
 	    : 0 );
 
 	@expression(model, G_Zone[t=1:n.t, z=1:n.zones],
@@ -73,9 +73,9 @@ function add_variables_expressions!(pomato::POMATO)
 	@expression(model, G_RES[t=1:n.t, res=1:n.res], data.renewables[res].mu[t]);
 	@expression(model, H_RES[t=1:n.t, res=1:n.res], data.renewables[res].mu_heat[t]);
 
-	@expression(model, RES_Node[t=1:n.t, n=1:n.nodes],
-		size(data.nodes[n].res_plants, 1) > 0
-	    ? sum(data.renewables[res].mu[t] for res in data.nodes[n].res_plants)
+	@expression(model, RES_Node[t=1:n.t, node=1:n.nodes],
+		size(data.nodes[node].res_plants, 1) > 0
+	    ? sum(data.renewables[res].mu[t] for res in data.nodes[node].res_plants)
 	    : 0);
 
 	@expression(model, RES_Zone[t=1:n.t, z=1:n.zones],

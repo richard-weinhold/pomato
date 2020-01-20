@@ -497,7 +497,7 @@ class CBCOModule():
 
         t_start = dt.datetime.now()
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
-        self.julia_instance.run('run("py")')
+        self.julia_instance.run('RedundancyRemoval.run("py")')
         t_end = dt.datetime.now()
         self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
         self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")

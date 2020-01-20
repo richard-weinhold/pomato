@@ -290,7 +290,7 @@ class GridModel():
             h = np.multiply(h, con)
             lodf = np.divide(H,
                     (np.ones((len(self.lines), len(self.lines))) \
-                     - np.dot(np.ones((len(self.lines), 1)), h.T)))
+                        - np.dot(np.ones((len(self.lines), 1)), h.T)))
 
             lodf = lodf - np.diag(np.diag(lodf)) - np.eye(len(self.lines), len(self.lines))
             # explicitly set line-line sensitivity to 0 for contingency==False
