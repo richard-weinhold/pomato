@@ -21,13 +21,13 @@ plants = mato.data.plants
 
 # %%
 
-mato.options["optimization"]["type"] = "nodal"
-mato.create_grid_representation()
-mato.init_market_model()
-mato.run_market_model()
+# mato.options["optimization"]["type"] = "nodal"
+# mato.create_grid_representation()
+# mato.init_market_model()
+# mato.run_market_model()
 
-df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
-df3, df4 = mato.data.results.overloaded_lines_n_0()
+# df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
+# df3, df4 = mato.data.results.overloaded_lines_n_0()
 
 # %%
 

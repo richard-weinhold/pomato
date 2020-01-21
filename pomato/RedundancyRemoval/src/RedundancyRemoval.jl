@@ -2,11 +2,13 @@ module RedundancyRemoval
 
 using CSV, DataFrames, Dates, Logging
 using LinearAlgebra
-using JuMP, GLPK, Gurobi
+using JuMP, Gurobi
+using Base.Threads
+using BenchmarkTools, ThreadTools
 
 include("redundancy_removal_functions.jl")
 
-export run
+export run, run_parallel
 
 function __init__()
 	global wdir = pwd()

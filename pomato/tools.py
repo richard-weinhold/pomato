@@ -48,7 +48,6 @@ class InteractiveJuliaProcess():
 def create_folder_structure(base_path, logger=None):
     folder_structure = {
         "pomato": {},
-        "pomato_jl": {},
         "data_input": {},
         "data_output": {},
         "data_temp": {

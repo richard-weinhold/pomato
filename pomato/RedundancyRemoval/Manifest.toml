@@ -332,6 +332,11 @@ version = "0.2.11"
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 
+[[ThreadTools]]
+git-tree-sha1 = "c0c07f8630736c8e38c4efdf89be503d28797c7e"
+uuid = "dbf13d8f-d36e-4350-8970-f3a99faba1a8"
+version = "0.1.1"
+
 [[TranscodingStreams]]
 deps = ["Random", "Test"]
 git-tree-sha1 = "7c53c35547de1c5b9d46a4797cf6d8253807108c"

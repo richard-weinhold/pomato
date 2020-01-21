@@ -14,9 +14,9 @@ from pomato.visualization.plot import create_static_plot
 
 class BokehPlot():
     """Interface market data and the creation of a geographic plot.
-    
+
     There are two option to create a bokeh plot: static and dynamic.
-    
+
     A static plot will generate a plot based on the provided market result
     with limited interaction. It is either a signle timestep or an average
     load for a timeseires.
@@ -24,20 +24,20 @@ class BokehPlot():
     change between timestept, N-0 and N-2 line flows and inspection of
     generation for each or group of nodes. This requires a running
     bokeh server process and a bit more setup, which is why this module exists.
-    
-    
+
+
     Attributes
     ----------
     wdir, bokeh_dir : pathlib.Path
-        Working directory, bokeh_directory, used to store temporary data. 
+        Working directory, bokeh_directory, used to store temporary data.
     bokeh_type : str
         Indicating type of plot. Static or dynamic.
     bokeh_server : subprocess
         Subprocess running the bokeh server.
     bokeh_thread : thread
-        Spawns a seprate thread that contains the bokeh server, this way 
-        the model remains repsonsive.  
-    
+        Spawns a seprate thread that contains the bokeh server, this way
+        the model remains repsonsive.
+
     """
     def __init__(self, wdir, bokeh_type="static"):
         # Impoort Logger
