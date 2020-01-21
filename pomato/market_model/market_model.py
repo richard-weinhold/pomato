@@ -68,7 +68,7 @@ class MarketModel():
             if not Path.is_dir(result_folder):
                 Path.mkdir(result_folder)
 
-            args = ["gams", str(self.wdir.joinpath("pomato_gms/model.gms")),
+            args = ["gams", str(self.wdir.joinpath("pomato/ENS_pomato/model.gms")),
                     # "--wdir=" + str(self.wdir),
                     "--rdir=" + str(result_folder),
                     "--model_type=" + self.options["optimization"]["type"],
