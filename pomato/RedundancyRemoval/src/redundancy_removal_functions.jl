@@ -162,9 +162,9 @@ function parallel_filter(A::Array{Float64}, b::Vector{Float64},
 		withlock(lock) do
 			indices = union(indices, idx)
 		end
-		println("Nonredundant ", length(indices[end]), " from process ", Threads.threadid())
+		println("Nonredundant ", length(idx), " from process ", Threads.threadid())
 	end
-	println("Length of m: ", length(union(indices...)))
+	println("Length of m: ", length(indices))
 	return indices
 end
 
@@ -280,11 +280,11 @@ function run_parallel(file_suffix::String)
 	@info("Preprocessing...")
 	@info("Removing duplicate rows...")
 	# Remove douplicates
-	condition_unique = .!nonunique(DataFrame(hcat(A,b)))
+	# condition_unique = .!nonunique(DataFrame(hcat(A,b)))
 	@info("Removing all zero rows...")
 	# Remove cb = co rows
-	condition_zero = vcat([!all(A[i, :] .== 0) for i in 1:length(b)])
-	m = m[condition_unique .& condition_zero]
+	# condition_zero = vcat([!all(A[i, :] .== 0) for i in 1:length(b)])
+	# m = m[condition_unique .& condition_zero]
 	@info("Removed $(length(b) - length(m)) rows in preprocessing!")
 	# Interior point z = zero
 	z = zeros(size(A, 2))

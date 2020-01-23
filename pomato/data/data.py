@@ -65,8 +65,8 @@ class DataManagement():
         # All data as Attributes of DataManagement Module
         for attr in self.data_attributes:
             setattr(self, attr, pd.DataFrame())
-        # Results are part of the results processing
-        self.results = None
+        # Results are part of the results processing, but attached to the data module.
+        self.results = {}
 
     def save_data(self, filepath):
         """Write Data to excel file.

@@ -83,7 +83,7 @@ from pathlib import Path
 import logging
 import json
 
-from pomato.data import DataManagement
+from pomato.data import DataManagement, ResultProcessing
 from pomato.grid import GridModel
 from pomato.market_model import MarketModel
 from pomato.cbco.cbco_module import CBCOModule
@@ -279,6 +279,16 @@ class POMATO():
             self.init_market_model()
         else:
             self.market_model.update_data(self.data, self.options, self.grid_representation)
+    def initialize_market_results(self, result_folders):
+        """Initionalizes market results from a list of folders.
+        
+        Parameters
+        ----------
+        result_folders : list
+            List of folders containing market resaults.
+        """
+        for folder in result_folders:
+            self.data.results[folder.name] = ResultProcessing(self.data, self.grid, folder)
 
     def run_market_model(self):
         """Run the market model."""
@@ -287,9 +297,10 @@ class POMATO():
 
         self.market_model.run()
 
-        if self.data.results:
-            self.logger.info("Adding Grid Model to Results Processing!")
-            self.data.results.grid = self.grid
+        if self.market_model.status == "solved":
+            self.initialize_market_results(self.market_model.result_folders)
+        else:
+            self.logger.warning("Market Model not successfully run!")
 
     def _clear_data(self):
         """Reset DataManagement Class."""
@@ -305,23 +316,44 @@ class POMATO():
         self.cbco_module.create_grid_representation()
         self.grid_representation = self.cbco_module.grid_representation
 
-    def init_bokeh_plot(self, name="default", bokeh_type="static"):
+    def init_bokeh_plot(self, name="default", result=None, bokeh_type="static", gen=None):
         """Initialize bokeh plot based on the dataset and a market result.
-
+        
         Parameters
         ----------
-        name: str, optional
+        name : str, optional
             Name defaults to 'default' is is used to identify the initialized
             market result in the plot itself and to name the folder within
             the ``data_temp/bokeh_files`` folder.
-
+        result : str or :class:`~pomato.data.ResultProcessing`, optional
+            Result to be plottet. If only one result is available, it will 
+            default to that one, if more are available the user has to specify. 
+            Can be either an instance of ResultProcessing or the name. 
+        bokeh_type : str, optional
+            Specifies if a static or dynamic plot is generated. A dynamic plot 
+            requires to run a bokeh server, which is generally more involved. 
+            Defaults to static, which outputs a html version of the map with 
+            average loads.         
         """
         self.bokeh_plot = BokehPlot(self.wdir, bokeh_type=bokeh_type)
 
-        if not self.data.results:
-            self.logger.info("No result available form market model!")
-
+        if not self.data.results: # if results dict is empty
+            self.logger.warning("No result available form market model!")
         else:
-            folder = self.data.results.result_attributes["source"]
-            self.logger.info("initializing bokeh plot with from folder: %s", str(folder))
-            self.bokeh_plot.create_static_plot(self.data.results)
+            if len(self.data.results) == 1:
+                result = list(self.data.results)[0]
+                folder = self.data.results[result].result_attributes["source"]
+                self.logger.info("initializing bokeh plot with from folder: %s", str(folder))
+                self.bokeh_plot.create_static_plot(self.data.results[result])
+            elif isinstance(result, str):
+                folder = self.data.results[result].result_attributes["source"]
+                self.logger.info("initializing bokeh plot with from folder: %s", str(folder))
+                self.bokeh_plot.create_static_plot(self.data.results[result], gen=gen)
+            elif isinstance(result, ResultProcessing):
+                folder = result.result_attributes["source"]
+                self.logger.info("initializing bokeh plot with from folder: %s", str(folder))
+                self.bokeh_plot.create_static_plot(result, gen=gen)
+            else:
+                self.logger.warning("More than one result available, specify with optional "\
+                                    "paramter which one should be plottet.")
+

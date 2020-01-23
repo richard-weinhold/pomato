@@ -55,6 +55,8 @@ function run_market_model(data::Data, options::Dict{String, Any})
 	# 	println("Adding NEX Constraints...")
 	# 	add_net_position_constraints!(pomato)
 	# end
+
+	add_electricity_energy_balance!(pomato::POMATO)
 	println("Adding Objective Function...")
 	add_objective!(pomato)
 
@@ -108,8 +110,9 @@ function run_redispatch_model(data::Data, options::Dict{String, Any}, redispatch
 
 			redispatch_model!(pomato, market_result, redispatch_zone);
 			add_curtailment_constraints!(pomato);
-			# add_objective!(pomato)
+			add_electricity_energy_balance!(pomato);
 
+			# add_objective!(pomato)
 			println("Solving...")
 			t_start = time_ns()
 			@time JuMP.optimize!(pomato.model)

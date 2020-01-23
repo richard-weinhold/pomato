@@ -11,7 +11,6 @@ import psutil
 import pomato.tools as tools
 from pomato.visualization.plot import create_static_plot
 
-
 class BokehPlot():
     """Interface market data and the creation of a geographic plot.
 
@@ -25,7 +24,6 @@ class BokehPlot():
     generation for each or group of nodes. This requires a running
     bokeh server process and a bit more setup, which is why this module exists.
 
-
     Attributes
     ----------
     wdir, bokeh_dir : pathlib.Path
@@ -37,8 +35,8 @@ class BokehPlot():
     bokeh_thread : thread
         Spawns a seprate thread that contains the bokeh server, this way
         the model remains repsonsive.
-
     """
+
     def __init__(self, wdir, bokeh_type="static"):
         # Impoort Logger
         self.logger = logging.getLogger('Log.MarketModel.BokehPlot')
@@ -54,7 +52,7 @@ class BokehPlot():
         self.bokeh_thread = None
         self._bokeh_pid = None
 
-    def create_static_plot(self, market_result):
+    def create_static_plot(self, market_result, gen=None):
         """Create static bokeh plot of the market result.
 
         """
@@ -65,8 +63,7 @@ class BokehPlot():
         n_1 = n_1.groupby("cb").max().loc[market_result.data.lines.index, n_0.columns]
         n_0_rel = n_0.divide(market_result.data.lines.maxflow, axis=0).abs()
         n_1_rel = n_1.divide(market_result.data.lines.maxflow, axis=0).abs()
-
-        inj = market_result.INJ.groupby("n").mean().values
+        inj = market_result.INJ.groupby("n").mean().loc[market_result.data.nodes.index].values
         flow_n_0 = pd.DataFrame(index=market_result.data.lines.index)
         flow_n_0["t0001"] = n_0_rel.mean(axis=1).multiply(market_result.data.lines.maxflow)
         flow_n_0 = flow_n_0["t0001"]
@@ -83,6 +80,7 @@ class BokehPlot():
                            market_result.data.nodes,
                            market_result.data.dclines,
                            inj, flow_n_0, flow_n_1, f_dc,
+                           redispatch=gen, 
                            option=0)
 
     def add_market_result(self, market_result, name):

@@ -125,8 +125,9 @@ class InputProcessing(object):
         for es_plant in self.data.plants.index[condition]:
             if es_plant not in tmp.columns:
                 tmp[es_plant] = 0
-        self.data.inflows = pd.melt(tmp.reset_index(), id_vars=["timestep"], value_name="inflow")
+        self.data.inflows = pd.melt(tmp.reset_index(), id_vars=["timestep"], value_name="inflow").dropna()
 
+        
     def process_net_export(self):
         """Process net export timeseries.
 
@@ -159,7 +160,10 @@ class InputProcessing(object):
                                                 columns=self.data.nodes.index,
                                                 data=0)
         else:
+            
             net_export_raw = self.data.net_export.copy()
+            self.data.net_export_raw = self.data.net_export.copy()
+
             self.data.net_export = pd.DataFrame(index=self.data.demand_el.timestep.unique())
             for zones in set([(from_zone,to_zone) \
                               for (from_zone,to_zone) in zip(net_export_raw.from_zone,
