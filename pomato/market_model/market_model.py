@@ -1,6 +1,12 @@
-"""
-    This is the Julia Interface. It Does:
-    Read and save the relevant data into julia/data
+"""The market model of PMAOT
+
+
+This module creates the interface between the data, the grid representaiton and 
+the market model written in julia. This is done by saving the relevant data as csv,
+run the model in a subprocess which provides the results in folder as csv files. 
+
+The Modes is initionaled empty and then filled with data seperately. This makes it 
+easy to change the data and rerun without re-initializing everything again. 
 
     Object Status:
         - empty: initalized but no data loaded

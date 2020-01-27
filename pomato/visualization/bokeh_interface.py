@@ -52,36 +52,65 @@ class BokehPlot():
         self.bokeh_thread = None
         self._bokeh_pid = None
 
-    def create_static_plot(self, market_result, gen=None):
-        """Create static bokeh plot of the market result.
-
+    def create_static_plot(self, market_results):
+        """Create static bokeh plot of the market results.
+        
+        Creates a fairly interactive geographic plot of the provided market 
+        results. It creates either a single plot if one market result is provided
+        or multiples if the provided dict contrains more. 
+        If the dict contains two market results, that correspond to naming of 
+        the redispatch model, it will create a plot for the market result and 
+        another including the redispatched generation units. 
+        
+        Parameters
+        ----------
+        market_results : dict of :class:`~pomato.data.DataProcessing`
+            The *result* attribute of the DataManagement is provided to be
+            plottet.
         """
+        if len(market_results) == 1:
+            market_result = list(market_results)[0]
+            folder = market_results[market_result].result_attributes["source"]
+            self.logger.info("initializing bokeh plot with from folder: %s", str(folder))
+            plots = [(market_result, None)]
 
-        n_0 = market_result.n_0_flow()
-        n_1 = market_result.n_1_flow()
-        n_1.loc[:, n_0.columns] = n_1.loc[:, n_0.columns].abs()
-        n_1 = n_1.groupby("cb").max().loc[market_result.data.lines.index, n_0.columns]
-        n_0_rel = n_0.divide(market_result.data.lines.maxflow, axis=0).abs()
-        n_1_rel = n_1.divide(market_result.data.lines.maxflow, axis=0).abs()
-        inj = market_result.INJ.groupby("n").mean().loc[market_result.data.nodes.index].values
-        flow_n_0 = pd.DataFrame(index=market_result.data.lines.index)
-        flow_n_0["t0001"] = n_0_rel.mean(axis=1).multiply(market_result.data.lines.maxflow)
-        flow_n_0 = flow_n_0["t0001"]
-        flow_n_1 = pd.DataFrame(index=market_result.data.lines.index)
-        flow_n_1["t0001"] = n_1_rel.mean(axis=1).multiply(market_result.data.lines.maxflow)
-        flow_n_1 = flow_n_1["t0001"]
+        elif len(market_results) == 2:
+            redisp_result = market_results[next(r for r in list(market_results) if "redispatch" in r)]
+            market_result = market_results[next(r for r in list(market_results) if "market_result" in r)]
+            gen = pd.merge(market_result.data.plants[["plant_type", "fuel", "node"]],
+                           market_result.G, left_index=True, right_on="p")
+            gen = pd.merge(gen, redisp_result.G, on=["p", "t"], suffixes=("_market", "_redispatch"))
+            gen["delta"] = gen["G_redispatch"] - gen["G_market"]
+            gen["delta_abs"] = gen["delta"].abs()
+            plots = [(market_result, None), (redisp_result, gen), ]
 
-        f_dc = pd.DataFrame(index=market_result.data.dclines.index)
-        f_dc["t0001"] = market_result.F_DC.pivot(index="dc", columns="t",
-                                                 values="F_DC").fillna(0).abs().mean(axis=1)
-        f_dc = f_dc.loc[market_result.data.dclines.index, "t0001"].fillna(0)
+        else:
+            plots = []
+            for result in list(market_results):
+                plots.append((market_results[result], None))
 
-        create_static_plot(market_result.data.lines,
-                           market_result.data.nodes,
-                           market_result.data.dclines,
-                           inj, flow_n_0, flow_n_1, f_dc,
-                           redispatch=gen, 
-                           option=0)
+        for plot_result, gen in plots: 
+            n_0 = plot_result.n_0_flow()
+            n_1 = plot_result.n_1_flow()
+            n_1.loc[:, n_0.columns] = n_1.loc[:, n_0.columns].abs()
+            n_1 = n_1.groupby("cb").max().loc[plot_result.data.lines.index, n_0.columns]
+            n_0_rel = n_0.divide(plot_result.data.lines.maxflow, axis=0).abs()
+            n_1_rel = n_1.divide(plot_result.data.lines.maxflow, axis=0).abs()
+            inj = plot_result.INJ.groupby("n").mean().loc[plot_result.data.nodes.index].values
+            flow_n_0 = pd.DataFrame(index=plot_result.data.lines.index)
+            flow_n_0 = n_0_rel.mean(axis=1).multiply(plot_result.data.lines.maxflow)
+            flow_n_1 = pd.DataFrame(index=plot_result.data.lines.index)
+            flow_n_1 = n_1_rel.mean(axis=1).multiply(plot_result.data.lines.maxflow)
+            f_dc = market_result.F_DC.pivot(index="dc", columns="t", values="F_DC") \
+                    .fillna(0).abs().mean(axis=1)
+
+            create_static_plot(plot_result.data.lines,
+                               plot_result.data.nodes,
+                               plot_result.data.dclines,
+                               inj, flow_n_0, flow_n_1, f_dc,
+                               redispatch=gen, option=0,
+                               title=plot_result.result_attributes["source"].name)
+
 
     def add_market_result(self, market_result, name):
         """Create data set for bokeh plot from julia market_result-object

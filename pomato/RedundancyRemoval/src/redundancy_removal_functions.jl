@@ -162,7 +162,7 @@ function parallel_filter(A::Array{Float64}, b::Vector{Float64},
 		withlock(lock) do
 			indices = union(indices, idx)
 		end
-		println("Nonredundant ", length(idx), " from process ", Threads.threadid())
+		@info("Nonredundant ", length(idx), " from process ", Threads.threadid())
 	end
 	println("Length of m: ", length(indices))
 	return indices
@@ -201,8 +201,13 @@ function main_parallel(A::Array{Float64}, b::Vector{Float64},
 	end
 	lock = SpinLock()
 	I = Array{Int, 1}()
-	ranges = split_m(filtered_m, Threads.nthreads())
+
+	number_ranges = maximum(Int, [floor(Int, length(filtered_m)/1000),
+								  Threads.nthreads()])
+
+	ranges = split_m(filtered_m, number_ranges)
 	Threads.@threads for r in ranges
+		@info("LP Test with length ", length(r), " on proc id: ", Threads.threadid())
 		kk = zeros(Bool, length(r))
 		model_copy = build_model(size(A, 2), A[filtered_m,:], b[filtered_m], x_bounds)
 		for k in 1:length(r)

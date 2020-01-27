@@ -40,10 +40,10 @@ class DataManagement():
         All input and model data is available as an attribute of this method.
         ``data_attributes`` is used to initialize them and to track if this data
         is loaded from file as indicated by the dict{attr, bool}.
-    results : :obj:`~pomato.data.ResultProcessing`
-        Module that allows to attach and process results from the market model
+    results : dict(str, :obj:`~pomato.data.ResultProcessing`)
+        The ResultProcessing module allows to attach and process results from the market model
         alongside the DataManagement module. This ensures consitency of the data
-        and results.
+        and results. The dict reuslts can store mutiple results.
     """
 
     def __init__(self, options, wdir):
