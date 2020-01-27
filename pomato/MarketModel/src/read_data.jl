@@ -60,7 +60,7 @@ mutable struct RAW
         raw.net_position = CSV.read(data_dir*"net_position.csv")
         raw.net_export = CSV.read(data_dir*"net_export.csv")
         raw.inflows = CSV.read(data_dir*"inflows.csv")
-        raw.reference_flows = CSV.read(data_dir*"reference_flows.csv");
+        # raw.reference_flows = CSV.read(data_dir*"reference_flows.csv");
         raw.grid = CSV.read(data_dir*"cbco.csv")
         raw.slack_zones = CSV.read(data_dir*"slack_zones.csv")
         raw.model_horizon = DataFrame(index=collect(1:size(unique(raw.demand_el[:, :timestep]), 1)),

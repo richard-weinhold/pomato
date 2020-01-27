@@ -433,7 +433,7 @@ def create_nodes_source(nodes):
     return nodes_dict
 
 def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
-                       redispatch=None, option=0):
+                       redispatch=None, option=0, title=None):
 
     coords_x, coords_y, lat, lon = [], [], [], []
     for i in nodes.index:
@@ -537,7 +537,7 @@ def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
                   ("(lat,lon)", "(@lat, @lon)"),
                   ("Inj", "@inj")]
 
-    fig = figure(tools="pan,wheel_zoom", active_scroll="wheel_zoom",
+    fig = figure(tools="pan,wheel_zoom", active_scroll="wheel_zoom", title=title,
                  x_range=(x_range), y_range=(y_range), plot_height=700, plot_width=800)
 
     STAMEN_LITE = get_tilesource()

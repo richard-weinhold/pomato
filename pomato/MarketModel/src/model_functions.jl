@@ -121,7 +121,7 @@ end
 
 function add_electricity_storage_constraints!(pomato::POMATO)
 	model, n, map, data, options = pomato.model, pomato.n, pomato.map, pomato.data, pomato.options
-	D_es, L_es = model[:D_es], model[:L_es]
+	D_es, L_es, G = model[:D_es], model[:L_es], model[:G]
 
 	# Electricity Storage Equations
 	storage_start = options["parameters"]["storage_start"]
@@ -152,37 +152,10 @@ function add_electricity_generation_constraints!(pomato::POMATO)
 	G_Node, G_Zone = model[:G_Node], model[:G_Zone]
 	D_Node, D_Zone = model[:D_Node], model[:D_Zone]
 	RES_Node, RES_Zone = model[:RES_Node], model[:RES_Zone]
-	## Required Paramters
-	# Create incidence matrix for dc-lines
-	dc_incidence = spzeros(Int, n.nodes, n.dc)
-	for dc in 1:n.dc
-	    dc_incidence[data.dc_lines[dc].node_i, dc] =  1
-	    dc_incidence[data.dc_lines[dc].node_j, dc] =  -1
-	end
 
 	# G Upper Bound
 	@constraint(model, [t=1:n.t],
 		G[t, :] .<= [data.plants[p].g_max for p in 1:n.plants])
-
-	# Zonal Energy Balance
-	@constraint(model, EB_zonal[t=1:n.t, z=1:n.zones],
-	    data.zones[z].demand[t] ==
-	    + data.zones[z].net_export[t]
-	    + G_Zone[t, z] + RES_Zone[t, z] - D_Zone[t, z]
-	    - sum(EX[t, z, zz] for zz in 1:n.zones)
-	    + sum(EX[t, zz, z] for zz in 1:n.zones)
-		+ INFEAS_EL_Z_POS[t, z] - INFEAS_EL_Z_NEG[t, z]
-	    )
-
-	# Nodal Energy Balance
-	@constraint(model, EB_nodal[t=1:n.t, node=1:n.nodes],
-	    data.nodes[node].demand[t] ==
-	    + data.nodes[node].net_export[t]
-	    + G_Node[t, node] + RES_Node[t, node] - D_Node[t, node]
-	    - sum(dc_incidence[node, dc]*F_DC[t, dc] for dc in 1:n.dc)
-	    - INJ[t, node]
-	    + INFEAS_EL_N_POS[t, node] - INFEAS_EL_N_NEG[t, node]
-	    )
 
 	# DC Lines Constraints
 	@constraint(model, [t=1:n.t],
@@ -193,6 +166,46 @@ function add_electricity_generation_constraints!(pomato::POMATO)
 	# Balance Net Injections within Slacks Zones
 	@constraint(model, [t=1:n.t, slack=map.slack],
 	    0 == sum(INJ[t, n] for n in data.nodes[slack].slack_zone))
+end
+
+function add_electricity_energy_balance!(pomato::POMATO)
+	model, n, data = pomato.model, pomato.n, pomato.data
+
+	G_Zone, G_Node = model[:G_Zone], model[:G_Node]
+	RES_Zone, RES_Node = model[:RES_Zone], model[:RES_Node]
+	D_Zone, D_Node = model[:D_Zone], model[:D_Node]
+	INFEAS_EL_Z_POS, INFEAS_EL_Z_NEG = model[:INFEAS_EL_Z_POS], model[:INFEAS_EL_Z_NEG]
+	INFEAS_EL_N_POS, INFEAS_EL_N_NEG = model[:INFEAS_EL_N_POS], model[:INFEAS_EL_N_NEG]
+	INJ = model[:INJ]
+	F_DC = model[:F_DC]
+	EX = model[:EX]
+
+	# Create incidence matrix for dc-lines
+	dc_incidence = spzeros(Int, n.nodes, n.dc)
+	for dc in 1:n.dc
+		dc_incidence[data.dc_lines[dc].node_i, dc] =  1
+		dc_incidence[data.dc_lines[dc].node_j, dc] =  -1
+	end
+
+	# Zonal Energy Balance
+	@constraint(model, EB_zonal[t=1:n.t, z=1:n.zones],
+		data.zones[z].demand[t] ==
+		+ data.zones[z].net_export[t]
+		+ G_Zone[t, z] + RES_Zone[t, z] - D_Zone[t, z]
+		- sum(EX[t, z, zz] for zz in 1:n.zones)
+		+ sum(EX[t, zz, z] for zz in 1:n.zones)
+		+ INFEAS_EL_Z_POS[t, z] - INFEAS_EL_Z_NEG[t, z]
+		)
+
+	# Nodal Energy Balance
+	@constraint(model, EB_nodal[t=1:n.t, node=1:n.nodes],
+		data.nodes[node].demand[t] ==
+		+ data.nodes[node].net_export[t]
+		+ G_Node[t, node] + RES_Node[t, node] - D_Node[t, node]
+		- sum(dc_incidence[node, dc]*F_DC[t, dc] for dc in 1:n.dc)
+		- INJ[t, node]
+		+ INFEAS_EL_N_POS[t, node] - INFEAS_EL_N_NEG[t, node]
+		)
 end
 
 function add_heat_generation_constraints!(pomato::POMATO)
@@ -389,11 +402,12 @@ function redispatch_model!(pomato::POMATO, market_model_results::Dict, redispatc
 	n = pomato.n
 	data = pomato.data
 	model = pomato.model
+	map = pomato.map
 	g_market, d_es_market, d_ph_market = market_model_results["g_market"], market_model_results["d_es_market"], market_model_results["d_ph_market"]
 	infeas_neg_market, infeas_pos_market = market_model_results["infeas_neg_market"], market_model_results["infeas_pos_market"]
 
-	redispatch_zone_plants = data.zones[findfirst(z -> z.name == redispatch_zone, data.zones)].plants
-	redispatch_zone_nodes = data.zones[findfirst(z -> z.name == redispatch_zone, data.zones)].nodes
+	redispatch_zone_plants = setdiff(data.zones[findfirst(z -> z.name == redispatch_zone, data.zones)].plants, map.es)
+	redispatch_zone_nodes = setdiff(data.zones[findfirst(z -> z.name == redispatch_zone, data.zones)].nodes, map.es)
 
 	## Build Redispatch model
 	@variable(model, G_redispatch[1:n.t, redispatch_zone_plants] >= 0) # El. power generation per plant p
@@ -468,19 +482,11 @@ function redispatch_model!(pomato::POMATO, market_model_results::Dict, redispatc
 		add_to_expression!(COST_G, sum(sum(data.renewables[res].mu * data.renewables[res].mc_el for res in 1:n.res)));
 	end
 
-	@expression(model, COST_REDISPATCH, (sum(G_redispatch_pos) + sum(G_redispatch_neg))*1e3);
+	@expression(model, COST_REDISPATCH, (sum(G_redispatch_pos) + sum(G_redispatch_neg))*pomato.options["redispatch"]["cost"]);
 	@expression(model, COST_EX, sum(EX)*1e-1);
-	@expression(model, COST_INFEAS_EL, (sum(INFEAS_EL_N_POS) + sum(INFEAS_EL_N_NEG))*1e4);
+	@expression(model, COST_INFEAS_EL, (sum(INFEAS_EL_N_POS) + sum(INFEAS_EL_N_NEG))*pomato.options["infeasibility"]["electricity"]["cost"]);
 	@expression(model, COST_CURT, GenericAffExpr{Float64, VariableRef}(0));
 	@expression(model, COST_INFEAS_H, GenericAffExpr{Float64, VariableRef}(0));
-
-	## Required Paramters
-	# Create incidence matrix for dc-lines
-	dc_incidence = spzeros(Int, n.nodes, n.dc)
-	for dc in 1:n.dc
-		dc_incidence[data.dc_lines[dc].node_i, dc] =  1
-		dc_incidence[data.dc_lines[dc].node_j, dc] =  -1
-	end
 
 	# G Upper Bound
 	@constraint(model, [t=1:n.t, p=redispatch_zone_plants],
@@ -488,35 +494,14 @@ function redispatch_model!(pomato::POMATO, market_model_results::Dict, redispatc
 
 	@constraint(model, [t=1:n.t, p=redispatch_zone_plants],
 		G_redispatch[t, p] - g_market[t, p] == G_redispatch_pos[t, p] - G_redispatch_neg[t, p])
-
-	# Zonal Energy Balance
-	@constraint(model, EB_zonal[t=1:n.t, z=1:n.zones],
-	    data.zones[z].demand[t] ==
-	    + data.zones[z].net_export[t]
-	    + G_Zone[t, z] + RES_Zone[t, z] - D_Zone[t, z]
-	    - sum(EX[t, z, zz] for zz in 1:n.zones)
-	    + sum(EX[t, zz, z] for zz in 1:n.zones)
-		+ INFEAS_EL_Z_POS[t, z] - INFEAS_EL_Z_NEG[t, z]
-	    )
-
-	# Nodal Energy Balance
-	@constraint(model, EB_nodal[t=1:n.t, node=1:n.nodes],
-	    data.nodes[node].demand[t] ==
-	    + data.nodes[node].net_export[t]
-	    + G_Node[t, node] + RES_Node[t, node] - D_Node[t, node]
-	    - sum(dc_incidence[node, dc]*F_DC[t, dc] for dc in 1:n.dc)
-	    - INJ[t, node]
-	    + INFEAS_EL_N_POS[t, node] - INFEAS_EL_N_NEG[t, node]
-	    )
-
-	# DC Lines Constraints
+		# DC Lines Constraints
 	@constraint(model, [t=1:n.t],
 		F_DC[t, :] .<= [data.dc_lines[dc].maxflow for dc in 1:n.dc])
 	@constraint(model, [t=1:n.t],
 		-F_DC[t, :] .<= [data.dc_lines[dc].maxflow for dc in 1:n.dc])
 
 	# Balance Net Injections within Slacks Zones
-	@constraint(model, [t=1:n.t, slack=pomato.map.slack],
+	@constraint(model, [t=1:n.t, slack=map.slack],
 		0 == sum(INJ[t, n] for n in data.nodes[slack].slack_zone))
 
 	redispatch_zone_grid = filter(cb -> data.grid[cb].zone == redispatch_zone, 1:n.cb)

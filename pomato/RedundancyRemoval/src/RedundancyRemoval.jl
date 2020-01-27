@@ -3,8 +3,7 @@ module RedundancyRemoval
 using CSV, DataFrames, Dates, Logging
 using LinearAlgebra
 using JuMP, Gurobi
-using Base.Threads
-using BenchmarkTools, ThreadTools
+using Base.Threads, ThreadTools
 
 include("redundancy_removal_functions.jl")
 

@@ -162,9 +162,9 @@ function parallel_filter(A::Array{Float64}, b::Vector{Float64},
 		withlock(lock) do
 			indices = union(indices, idx)
 		end
-		println("Nonredundant ", length(indices[end]), " from process ", Threads.threadid())
+		@info("Nonredundant ", length(idx), " from process ", Threads.threadid())
 	end
-	println("Length of m: ", length(union(indices...)))
+	println("Length of m: ", length(indices))
 	return indices
 end
 
@@ -201,8 +201,13 @@ function main_parallel(A::Array{Float64}, b::Vector{Float64},
 	end
 	lock = SpinLock()
 	I = Array{Int, 1}()
-	ranges = split_m(filtered_m, Threads.nthreads())
+
+	number_ranges = maximum(Int, [floor(Int, length(filtered_m)/1000),
+								  Threads.nthreads()])
+
+	ranges = split_m(filtered_m, number_ranges)
 	Threads.@threads for r in ranges
+		@info("LP Test with length ", length(r), " on proc id: ", Threads.threadid())
 		kk = zeros(Bool, length(r))
 		model_copy = build_model(size(A, 2), A[filtered_m,:], b[filtered_m], x_bounds)
 		for k in 1:length(r)
@@ -280,11 +285,11 @@ function run_parallel(file_suffix::String)
 	@info("Preprocessing...")
 	@info("Removing duplicate rows...")
 	# Remove douplicates
-	condition_unique = .!nonunique(DataFrame(hcat(A,b)))
+	# condition_unique = .!nonunique(DataFrame(hcat(A,b)))
 	@info("Removing all zero rows...")
 	# Remove cb = co rows
-	condition_zero = vcat([!all(A[i, :] .== 0) for i in 1:length(b)])
-	m = m[condition_unique .& condition_zero]
+	# condition_zero = vcat([!all(A[i, :] .== 0) for i in 1:length(b)])
+	# m = m[condition_unique .& condition_zero]
 	@info("Removed $(length(b) - length(m)) rows in preprocessing!")
 	# Interior point z = zero
 	z = zeros(size(A, 2))

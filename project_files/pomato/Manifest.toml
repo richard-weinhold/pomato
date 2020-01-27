@@ -296,7 +296,7 @@ deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[RedundancyRemoval]]
-deps = ["BenchmarkTools", "CSV", "DataFrames", "Dates", "GLPK", "Gurobi", "JuMP", "LinearAlgebra", "Logging"]
+deps = ["BenchmarkTools", "CSV", "DataFrames", "Dates", "GLPK", "Gurobi", "JuMP", "LinearAlgebra", "Logging", "ThreadTools"]
 path = "../../pomato/RedundancyRemoval"
 uuid = "32e2fdb4-8fda-4538-bf20-57de85f2491f"
 version = "0.1.0"
@@ -383,6 +383,11 @@ version = "0.2.11"
 [[Test]]
 deps = ["Distributed", "InteractiveUtils", "Logging", "Random"]
 uuid = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+
+[[ThreadTools]]
+git-tree-sha1 = "c0c07f8630736c8e38c4efdf89be503d28797c7e"
+uuid = "dbf13d8f-d36e-4350-8970-f3a99faba1a8"
+version = "0.1.1"
 
 [[UUIDs]]
 deps = ["Random", "SHA"]

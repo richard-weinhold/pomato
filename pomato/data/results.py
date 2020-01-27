@@ -39,15 +39,14 @@ class ResultProcessing():
     data : :class:`~pomato.data.DataManagement`
         An instance of the DataManagement class with the processed input data
         that is the basis of the loaded results.
-    grid : :class:`~pomato.grid.GridModel`, optional
+    grid : :class:`~pomato.grid.GridModel`,
         An instance of the GridModel class, to provide its functionality to the
-        results. Because it is sometimes not possible to provide the GridModel
-        immediately, it can be set separately.
+        results.
     result_folder : pathlib.Path
         Folder with the results of the market model in .csv files.
     """
 
-    def __init__(self, data, result_folder, grid=None):
+    def __init__(self, data, grid, result_folder):
         self.logger = logging.getLogger('Log.MarketModel.DataManagement.ResultData')
         self.data = data
         self.grid = grid
@@ -130,7 +129,7 @@ class ResultProcessing():
             self.result_attributes = {**self.result_attributes,
                                       **self.data.options["optimization"]}
 
-        if self.data.options["optimization"]["gams"]:
+        if self.result_attributes["gams"]:
             model_stat = self.result_attributes["objective"]["Solve Status"]
             model_stat_str = tools.gams_modelstat_dict(model_stat)
             self.result_attributes["objective"]["Solve Status"] = model_stat_str
@@ -546,7 +545,7 @@ class ResultProcessing():
             # if not specifie use full model horizon
             timesteps = self.result_attributes["model_horizon"]
 
-        n_1_flow = self.data.results.n_1_flow(timesteps=timesteps, sensitivity=sensitivity)
+        n_1_flow = self.n_1_flow(timesteps=timesteps, sensitivity=sensitivity)
         n_1_load = n_1_flow.copy()
 
         self.logger.info("Processing Flows")

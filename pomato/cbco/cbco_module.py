@@ -177,6 +177,7 @@ class CBCOModule():
                                    data=np.round(self.grid.ptdf, decimals=4))
             ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
             self.grid_representation["cbco"] = ptdf_df
+            self._add_zone_to_grid_representation()
 
     def process_zonal(self):
         """Process grid information for zonal N-0 representation.

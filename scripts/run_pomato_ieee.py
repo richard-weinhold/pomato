@@ -21,13 +21,15 @@ plants = mato.data.plants
 
 # %%
 
-# mato.options["optimization"]["type"] = "nodal"
-# mato.create_grid_representation()
-# mato.init_market_model()
-# mato.run_market_model()
+mato.options["optimization"]["type"] = "nodal"
+mato.create_grid_representation()
+mato.init_market_model()
+mato.run_market_model()
 
-# df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
-# df3, df4 = mato.data.results.overloaded_lines_n_0()
+result_folder = mato.market_model.result_folders[0]
+result = mato.data.results[result_folder.name]
+df1, df2 = result.overloaded_lines_n_1(sensitivity=0)
+df3, df4 = result.overloaded_lines_n_0()
 
 # %%
 
@@ -35,11 +37,15 @@ mato.options["optimization"]["type"] = "cbco_nodal"
 mato.create_grid_representation()
 mato.update_market_model_data()
 mato.run_market_model()
-df1, df2 = mato.data.results.overloaded_lines_n_1(sensitivity=0)
-df3, df4 = mato.data.results.overloaded_lines_n_0()
+
+result_folder = mato.market_model.result_folders[0]
+result = mato.data.results[result_folder.name]
+df1, df2 = result.overloaded_lines_n_1(sensitivity=0)
+df3, df4 = result.overloaded_lines_n_0()
 
 # %%
 
+# mato.data.results
 mato.init_bokeh_plot(name="IEEE")
 
 # %%

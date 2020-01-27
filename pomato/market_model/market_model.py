@@ -1,6 +1,12 @@
-"""
-    This is the Julia Interface. It Does:
-    Read and save the relevant data into julia/data
+"""The market model of PMAOT
+
+
+This module creates the interface between the data, the grid representaiton and 
+the market model written in julia. This is done by saving the relevant data as csv,
+run the model in a subprocess which provides the results in folder as csv files. 
+
+The Modes is initionaled empty and then filled with data seperately. This makes it 
+easy to change the data and rerun without re-initializing everything again. 
 
     Object Status:
         - empty: initalized but no data loaded
@@ -22,7 +28,7 @@ class MarketModel():
     """ Class to interface the Julia model with the python Market and Grid Model"""
     def __init__(self, wdir, options):
         # Import Logger
-        self.status = 'empty'
+
         self.logger = logging.getLogger('Log.MarketModel.JuliaInterface')
         self.logger.info("Initializing MarketModel...")
         self.options = options
@@ -40,6 +46,11 @@ class MarketModel():
         self.data = None
         self.grid_representation = None
         self.model_horizon = None
+
+        # attributes to signal sucessfull model run
+        self.status = 'empty'
+        self.result_folder = None
+
 
     def update_data(self, data, options, grid_representation):
         # Init Datamangement, Grid Data and Model Set-up
@@ -114,18 +125,22 @@ class MarketModel():
                 solved = True
 
         if solved:
-            # find latest folder created in julia result folder
+            # find latest folders created in julia result folder 
+            # last for normal dispatch, last 2 for redispatch
             folders = pd.DataFrame()
             folders["folder"] = [i for i in self.data_dir.joinpath("results").iterdir()]
             folders["time"] = [i.lstat().st_mtime \
                           for i in self.data_dir.joinpath("results").iterdir()]
-            folder = folders.folder[folders.time.idxmax()]
 
-            with open(folder.joinpath("optionfile.json"), 'w') as file:
-                json.dump(self.options, file, indent=2)
+            if self.options["optimization"]["redispatch"]: 
+                self.result_folders = list(folders.nlargest(2, "time").folder)
+            else:
+                self.result_folders = list(folders.nlargest(1, "time").folder)
 
-            self.data.process_results(folder, self.options["optimization"])
-            self.data.results.check_infeasibilities()
+            for folder in self.result_folders:
+                with open(folder.joinpath("optionfile.json"), 'w') as file:
+                    json.dump(self.options, file, indent=2)
+            
             self.status = 'solved'
         else:
             self.logger.warning("Process not terminated successfully!")
@@ -142,7 +157,11 @@ class MarketModel():
 
         for data in self.data.model_structure:
             cols = [col for col in self.data.model_structure[data].attributes if col != "index"]
-            getattr(self.data, data)[cols].to_csv(str(csv_path.joinpath(f'{data}.csv')), index_label='index')
+            if "timestep" in cols:
+                getattr(self.data, data).loc[getattr(self.data, data)["timestep"].isin(self.model_horizon), cols] \
+                    .to_csv(str(csv_path.joinpath(f'{data}.csv')), index_label='index')
+            else:
+                getattr(self.data, data)[cols].to_csv(str(csv_path.joinpath(f'{data}.csv')), index_label='index')
 
         plant_types = pd.DataFrame(index=self.data.plants.plant_type.unique())
         for ptype in self.options["optimization"]["plant_types"]:
