@@ -113,7 +113,7 @@ Parameter
 *                                 UPLOAD
 *###############################################################################
 
-$call gams %wdir%\pomato\ENS_pomato_gms\dataimport --data_type=%data_type% --data_folder=%data_folder% suppress=1
+$call gams %wdir%\pomato\ENS_pomato_gms\dataimport --data_folder=%data_folder% suppress=1
 
 $gdxin %data_folder%\%dataset%
 $load t p n z ha dc

@@ -101,8 +101,8 @@ class BokehPlot():
             flow_n_0 = n_0_rel.mean(axis=1).multiply(plot_result.data.lines.maxflow)
             flow_n_1 = pd.DataFrame(index=plot_result.data.lines.index)
             flow_n_1 = n_1_rel.mean(axis=1).multiply(plot_result.data.lines.maxflow)
-            f_dc = market_result.F_DC.pivot(index="dc", columns="t", values="F_DC") \
-                    .fillna(0).abs().mean(axis=1)
+            f_dc = plot_result.F_DC.pivot(index="dc", columns="t", values="F_DC") \
+                .abs().mean(axis=1).reindex(plot_result.data.dclines.index).fillna(0)
 
             create_static_plot(plot_result.data.lines,
                                plot_result.data.nodes,

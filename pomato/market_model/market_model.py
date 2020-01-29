@@ -1,12 +1,12 @@
 """The market model of PMAOT
 
 
-This module creates the interface between the data, the grid representaiton and 
+This module creates the interface between the data, the grid representaiton and
 the market model written in julia. This is done by saving the relevant data as csv,
-run the model in a subprocess which provides the results in folder as csv files. 
+run the model in a subprocess which provides the results in folder as csv files.
 
-The Modes is initionaled empty and then filled with data seperately. This makes it 
-easy to change the data and rerun without re-initializing everything again. 
+The Modes is initionaled empty and then filled with data seperately. This makes it
+easy to change the data and rerun without re-initializing everything again.
 
     Object Status:
         - empty: initalized but no data loaded
@@ -125,14 +125,14 @@ class MarketModel():
                 solved = True
 
         if solved:
-            # find latest folders created in julia result folder 
+            # find latest folders created in julia result folder
             # last for normal dispatch, last 2 for redispatch
             folders = pd.DataFrame()
             folders["folder"] = [i for i in self.data_dir.joinpath("results").iterdir()]
             folders["time"] = [i.lstat().st_mtime \
                           for i in self.data_dir.joinpath("results").iterdir()]
 
-            if self.options["optimization"]["redispatch"]: 
+            if self.options["optimization"]["redispatch"]:
                 self.result_folders = list(folders.nlargest(2, "time").folder)
             else:
                 self.result_folders = list(folders.nlargest(1, "time").folder)
@@ -140,7 +140,7 @@ class MarketModel():
             for folder in self.result_folders:
                 with open(folder.joinpath("optionfile.json"), 'w') as file:
                     json.dump(self.options["optimization"], file, indent=2)
-            
+
             self.status = 'solved'
         else:
             self.logger.warning("Process not terminated successfully!")
@@ -171,8 +171,11 @@ class MarketModel():
         plant_types.to_csv(str(csv_path.joinpath('plant_types.csv')), index_label='index')
 
         # Optional data
-        self.grid_representation["cbco"] \
-            .to_csv(str(csv_path.joinpath('cbco.csv')), index_label='index')
+        if self.grid_representation["cbco"].empty:
+            pd.DataFrame(columns=["ram"]).to_csv(str(csv_path.joinpath('cbco.csv')), index_label='index')
+        else:
+            self.grid_representation["cbco"] \
+                .to_csv(str(csv_path.joinpath('cbco.csv')), index_label='index')
 
         slack_zones = pd.DataFrame(index=self.data.nodes.index)
         for slack in self.grid_representation["slack_zones"]:

@@ -1,7 +1,6 @@
 
 *$if not set data_folder          $set data_folder C:\Users\B036017\Documents\ramses_model\pomato\data_temp\gms_files\data
 $if not set data_folder          $set data_folder C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data
-$if not set data_type            $set data_type nodal
 
 Sets
 t        Hour
@@ -243,18 +242,16 @@ $load cb=*
 
 $call csv2gdx %data_folder%\cbco.csv output=%data_folder%\cbco.gdx id=cbco_data Index=(1) Values=(2..LastCol) UseHeader=Y StoreZero=Y
 $gdxin %data_folder%\cbco.gdx
-$load cbco_data
+*$load cbco_data=cbco_data
 ;
 
+set tmp_ram /ram/;
 if (card(cb)>0,
-   execute_load "%data_folder%\cbco.gdx", cbco_data=cbco_data;
-         ram(cb) = cbco_data(cb, 'ram');
-
-
+         execute_load "%data_folder%\cbco.gdx", cbco_data=cbco_data;
+         ram(cb) = cbco_data(cb, "ram");
+         ptdf(cb, z) = cbco_data(cb, z);
+         ptdf(cb, n) = cbco_data(cb, n);
 );
-
-$if %data_type% == zonal ptdf(cb, z) = cbco_data(cb, z);
-$if %data_type% == nodal ptdf(cb, n) = cbco_data(cb, n);
 
 
 $call csv2gdx %data_folder%\dclines.csv output=%data_folder%\dclines.gdx id=dclines_data Index=(1) Values=(LastCol) UseHeader=Y
