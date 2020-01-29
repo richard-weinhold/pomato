@@ -79,8 +79,8 @@ class MarketModel():
             if not Path.is_dir(result_folder):
                 Path.mkdir(result_folder)
 
-            args = ["gams", str(self.wdir.joinpath("pomato/ENS_pomato/model.gms")),
-                    # "--wdir=" + str(self.wdir),
+            args = ["gams", str(self.wdir.joinpath("pomato/ENS_pomato_gms/model.gms")),
+                    "--wdir=" + str(self.wdir),
                     "--rdir=" + str(result_folder),
                     "--model_type=" + self.options["optimization"]["type"],
                     "--infeasibility_electricity=" + str(self.options["optimization"]["infeasibility"]["electricity"]["include"]),
@@ -139,7 +139,7 @@ class MarketModel():
 
             for folder in self.result_folders:
                 with open(folder.joinpath("optionfile.json"), 'w') as file:
-                    json.dump(self.options, file, indent=2)
+                    json.dump(self.options["optimization"], file, indent=2)
             
             self.status = 'solved'
         else:

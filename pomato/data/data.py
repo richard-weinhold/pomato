@@ -61,7 +61,7 @@ class DataManagement():
         self.data_attributes = {data: False for data in set(list(self.data_structure)
                                                             + list(self.model_structure))}
 
-
+        self.data_source = None
         # All data as Attributes of DataManagement Module
         for attr in self.data_attributes:
             setattr(self, attr, pd.DataFrame())
@@ -102,14 +102,17 @@ class DataManagement():
         if self.wdir.joinpath(filepath).is_file():
             DataWorker(self, self.wdir.joinpath(filepath))
             self.process_input()
+            self.data_source = filepath
 
         elif self.wdir.joinpath(f"data_input/{filepath}").is_file():
             DataWorker(self, self.wdir.joinpath(f"data/{filepath}"))
             self.process_input()
+            self.data_source = filepath
 
         elif self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat").is_file():
             DataWorker(self, self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat"))
             self.process_input()
+            self.data_source = filepath
         else:
             self.logger.error("Data File not found!")
 

@@ -96,11 +96,11 @@ class DataWorker(object):
         Returns
         -------
         caseinfo : str
-            Matpower case information, i.e. case name. 
+            Matpower case information, i.e. case name.
         busname : list like
             List of bus names. These are sometimes provided with the casedata, returns empty if not.
-        baseMVA : 
-            BaseMVA for the system. 
+        baseMVA :
+            BaseMVA for the system.
         bus_df : pd.DataFrame
             DataFrame containing the bus/nodes data.
         gen_df : pd.DataFrame
@@ -161,26 +161,26 @@ class DataWorker(object):
 
     def read_m_file(self, m_filepath):
         """Read .m file at speciefied filepath.
-        
+
         Reading a .m file with the providing the same return as
         method read_mat_file.
-        
+
         Returns the nessesary data in DataFrames to be processes in
         :meth:`~process_matpower_case`.
-        
+
         Parameters
         ----------
         m_filepath : pathlib.Path
             Filepath to input matpower .m casefile file.
-        
+
         Returns
         -------
         caseinfo : str
-            Matpower case information, i.e. case name. 
+            Matpower case information, i.e. case name.
         busname : list like
             List of bus names. These are sometimes provided with the casedata, returns empty if not.
-        baseMVA : 
-            BaseMVA for the system. 
+        baseMVA :
+            BaseMVA for the system.
         bus_df : pd.DataFrame
             DataFrame containing the bus/nodes data.
         gen_df : pd.DataFrame
@@ -190,7 +190,6 @@ class DataWorker(object):
         gencost_df : pd.DataFrame
             DataFrame containing the generation costs.
         """
-        
         with open(m_filepath) as mfile:
             raw_text = mfile.read()
 
@@ -233,14 +232,14 @@ class DataWorker(object):
 
     def process_matpower_case(self, casefile, m_type):
         """Process Matpower Case.
-        
+
         Based on the read data, processing the matpower case data into somthing
         compadible with pomato. This is a fairly manual process, but it should work
         with most .mat/.m as the structure is the same (most of the time).
 
-        This methods populates the DataManagement instance with the corresponding data. 
-        Additionally it can add coordinates if a correspnonding file is provided. 
-        
+        This methods populates the DataManagement instance with the corresponding data.
+        Additionally it can add coordinates if a correspnonding file is provided.
+
         Parameters
         ----------
         casefile : pathlib.Path

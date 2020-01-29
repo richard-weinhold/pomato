@@ -83,7 +83,7 @@ from pathlib import Path
 import logging
 import json
 
-from pomato.data import DataManagement, ResultProcessing
+from pomato.data import DataManagement, ResultProcessing, ENSResultProcessing
 from pomato.grid import GridModel
 from pomato.market_model import MarketModel
 from pomato.cbco.cbco_module import CBCOModule
@@ -279,6 +279,7 @@ class POMATO():
             self.init_market_model()
         else:
             self.market_model.update_data(self.data, self.options, self.grid_representation)
+            
     def initialize_market_results(self, result_folders):
         """Initionalizes market results from a list of folders.
         
@@ -287,8 +288,13 @@ class POMATO():
         result_folders : list
             List of folders containing market resaults.
         """
-        for folder in result_folders:
-            self.data.results[folder.name] = ResultProcessing(self.data, self.grid, folder)
+        if self.options["data"]["data_type"] == "ramses":
+            for folder in result_folders:
+                self.data.results[folder.name] = ENSResultProcessing(self.data, self.grid, folder)
+        else:
+            for folder in result_folders:
+                self.data.results[folder.name] = ResultProcessing(self.data, self.grid, folder)
+
 
     def run_market_model(self):
         """Run the market model."""

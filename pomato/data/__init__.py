@@ -4,7 +4,7 @@ This module is divided into one main and three sub-modules:
     * :obj:`~pomato.data.DataManagement` : The main hub for the data. An
       instance of this class is attached to the POMATO main module to provide
       access to all relevant data. It manages the read in of raw data,
-      processing and validating the raw data and the means to store, process, 
+      processing and validating the raw data and the means to store, process,
       analyses and access the results.
 This is done within the three sub-modules:
     - :obj:`~pomato.data.DataWorker` : Reading in data from an excel or matpower file.
@@ -22,3 +22,4 @@ from pomato.data.data import DataManagement
 from pomato.data.input import InputProcessing
 from pomato.data.worker import DataWorker
 from pomato.data.results import ResultProcessing
+from pomato.data.ENS_results import ENSResultProcessing

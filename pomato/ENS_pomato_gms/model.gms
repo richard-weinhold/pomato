@@ -1,13 +1,13 @@
 
 
 *$if not set wdir                         $set wdir C:\Users\B036017\Documents\ramses_model\pomato
-$if not set wdir                         $set wdir C:/Users/riw/tubCloud/Uni/Market_Tool/pomato
+$if not set wdir                         $set wdir C:\Users\riw\tubCloud\Uni\Market_Tool\pomato
 
-$if set ddir                             $set data_folder %wdir%/data_temp/gms_files/data/%ddir%
+$if set ddir                             $set data_folder %wdir%\data_temp\gms_files\data\%ddir%
 $if set rdir                             $set result_folder %rdir%
 
-$if not set ddir                         $set data_folder %wdir%/data_temp/gms_files/data
-$if not set rdir                         $set result_folder %wdir%/data_temp/gms_files/results/default
+$if not set ddir                         $set data_folder %wdir%\data_temp\gms_files\data
+$if not set rdir                         $set result_folder %wdir%\data_temp\gms_files\results\default
 
 $if not set threads                      $set threads 4
 $if not set dataset                      $set dataset dataset.gdx
@@ -113,9 +113,9 @@ Parameter
 *                                 UPLOAD
 *###############################################################################
 
-$call gams %wdir%\pomato_gms\dataimport --data_type=%data_type% --data_folder=%data_folder% suppress=1
+$call gams %wdir%\pomato\ENS_pomato_gms\dataimport --data_type=%data_type% --data_folder=%data_folder% suppress=1
 
-$gdxin %data_folder%/%dataset%
+$gdxin %data_folder%\%dataset%
 $load t p n z ha dc
 $load chp co he ho cd ph es ts hs bp et bb
 $load cb slack map_pn map_nz map_pha map_ns
@@ -124,7 +124,7 @@ $load ntc ptdf ram dc_max inc_dc net_export
 $gdxin
 ;
 
-
+*$stop
 set t_end(t);
 t_end(t) = No;
 t_end(t)$(ord(t) eq card(t)) = Yes;
@@ -263,7 +263,7 @@ DEF_COST_DC..                                          COST_DC =E= sum((dc, t), 
 
 Gen_Max_El(t,p)$(not (he(p) or ts(p)))..               G(t,p) =l= g_max(p)
 ;
-Gen_Max_H(t,he)..                                       H(t,he) =l= h_max(he)
+Gen_Max_H(t,he)..                                      H(t,he) =l= h_max(he)
 ;
 Gen_Max_ET(t,et)..                                     G(t,et) =l= g_max(et)-(cv(et)*H(t,et))
 ;
@@ -427,5 +427,5 @@ CON_Slack
 model_%model_type%.optfile = 1;
 Solve model_%model_type% min COST using lp;
 
-$include %wdir%/pomato_gms/result_export
+$include %wdir%\pomato\ENS_pomato_gms\result_export
 

@@ -61,7 +61,7 @@ class ResultProcessing():
                                                       "INJ", "EX",
                                                       "D_ph", "F_DC"]}
 
-        dual_variables = {variable: False for variable in ["EB_nodal", "EB_zonal"]}
+        dual_variables = {variable: False for variable in ["EB_nodal", "EB_zonal", "EB_heat"]}
 
         infeasibility_variables = {variable: False
                                    for variable in ["INFEAS_H_POS", "INFEAS_H_NEG",
@@ -163,6 +163,23 @@ class ResultProcessing():
 
         price["marginal"] = -(price.EB_zonal + price.EB_nodal)
         return price[["t", "n", "z", "marginal"]]
+
+    def heat_price(self):
+        """Return heat price.
+
+        Returns the dual of the heat balance. 
+
+        Returns
+        -------
+        price : DataFrame
+            Price DataFrame with columns timestep (t), heatarea (ha) and
+            price (marginal).
+        """
+        eb_heat = self.EB_heat.copy()
+        eb_heat.loc[abs(eb_heat.EB_heat) < 1E-3, "EB_heat"] = 0
+        eb_heat["marginal"] = -eb_heat.EB_heat
+
+        return eb_heat[["t", "ha", "marginal"]]
 
     def commercial_exchange(self, timestep):
         """Return commercial exchange for a specific timestep.

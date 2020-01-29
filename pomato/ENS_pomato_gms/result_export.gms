@@ -28,9 +28,9 @@ execute 'gdxdump %result_folder%/result.gdx output=%result_folder%/INFEAS_LINES.
 
 execute 'gdxdump %result_folder%/result.gdx output=%result_folder%/EB_nodal.csv symb=EB_nodal format=csv CSVAllFields EpsOut=0 header="t,n,Level,EB_nodal,Lower,Upper,Scale"'
 execute 'gdxdump %result_folder%/result.gdx output=%result_folder%/EB_zonal.csv symb=EB_zonal format=csv CSVAllFields EpsOut=0 header="t,z,Level,EB_zonal,Lower,Upper,Scale"'
+execute 'gdxdump %result_folder%/result.gdx output=%result_folder%/EB_heat.csv symb=EB_heat format=csv CSVAllFields EpsOut=0 header="t,ha,Level,EB_heat,Lower,Upper,Scale"'
 
-$if not set json_file  $set json_file %result_folder%\misc_results.json
-File results / json_file /;
+File results /%result_folder%\misc_results.json /
 put results;
 put '{"Objective Value":', COST.L,
     ', "COST_G":', COST_G.L,
@@ -42,5 +42,6 @@ put '{"Objective Value":', COST.L,
     ', "Solve Status":', model_%model_type%.modelstat,
     '}'/;
 putclose;
+
 
 

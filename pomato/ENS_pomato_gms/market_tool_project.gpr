@@ -1293,7 +1293,7 @@ Squeeze=1
 SqTrail0=0
 Order=3,1,2
 Decim=7
-PlaneRownr=-1
+PlaneRownr=1
 PlaneFilter1=Marginal
 
 [GDXDISP: map_nsz Set 2]
@@ -1511,7 +1511,7 @@ Squeeze=0
 SqTrail0=0
 Order=3,2,1
 Decim=7
-PlaneRownr=-1
+PlaneRownr=1
 PlaneFilter1=Marginal
 
 [RP:_GAMS_PY_GJO1]
@@ -2873,45 +2873,49 @@ PlaneRownr=-1
 [RP:CLUSTER_GDX_EB_MARGINAL]
 1=
 
+[RP:MODEL]
+1=--model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=10000 ---threads=4 -gdx asd
+2=--model_type=ntc --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=10000 ---threads=4 -gdx asd
+3=--dataset=dataset_2030_demand_low --model_type=ntc --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=10000 ---threads=4 -gdx asd
+4=--dataset dataset_2030_demand_low --model_type=ntc --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=10000 ---threads=4 -gdx asd
+5=--dataset dataset_2030_demand_low --model_type=ntc --infeasibility_electricity=True --rdir=ntc--infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=10000 ---threads=4 -gdx asd
+6=--dataset dataset_2030_demand_low--model_type=ntc --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=10000 ---threads=4 -gdx asd
+7=--dataset dataset_dec.gdx --model_type=ntc --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=100000 ---threads=4 -gdx asd
+8=--dataset dataset_dec.gdx --model_type=ntc --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=100000 ---threads=4
+9=--dataset dataset_dec.gdx --model_type=nodal
+10=--dataset dataset_dec.gdx
+11=
+12=--rdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\test --wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibil
+13=--rdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\esults\test --wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibili
+14=--rdir=/net/work/wein/pomato/data_temp/gms_files/results/test --wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=100000 --chp_
+15=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=100000 --chp_efficiency=0.15 --curtailment_heat=0 --curtailment_electricity
+16=--model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=100000 --chp_efficiency=0.15 --curtailment_heat=0 --curtailment_electricity=0.8
+17=--wdir=/net/work/wein/pomato --rdir=/net/work/wein/pomato/data_temp/gms_files/results/test --model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=100000 --chp_efficiency=0.15 --curta
+18=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato -gdx asd --model_type=nodal
+19=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato -gdx asd --model_type=ntc
+20=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato -gdx asd --model_type=cbco_nodal
+
 [RP:RESULT_EXPORT]
 1=
 
+[MRUFILES]
+1=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\misc_results.json
+2=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\asd.gdx
+3=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato_gms\model.gms
+4=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\demand_2030_hi\result.gdx
+5=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\demand_2030_hi/tmp_result.gdx
+6=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data\dataset_2040.gdx
+7=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\asd.gdx
+8=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\ntc_2040_1012\result.gdx
+
 [OPENWINDOW_1]
-MAXIM=0
-TOP=295
-LEFT=223
+FILE0=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\2801_1424\result.gdx
+FILE1=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\json_file
+FILE2=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\model.gms
+FILE3=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\result_export.gms
+FILE4=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\model.gms
+MAXIM=1
+TOP=51
+LEFT=71
 HEIGHT=856
 WIDTH=1639
-
-[RP:MODEL]
-1=--model_type=ntc --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=10000 ---threads=4 -gdx asd
-2=--dataset=dataset_2030_demand_low --model_type=ntc --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=10000 ---threads=4 -gdx asd
-3=--dataset dataset_2030_demand_low --model_type=ntc --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=10000 ---threads=4 -gdx asd
-4=--dataset dataset_2030_demand_low --model_type=ntc --infeasibility_electricity=True --rdir=ntc--infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=10000 ---threads=4 -gdx asd
-5=--dataset dataset_2030_demand_low--model_type=ntc --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=10000 ---threads=4 -gdx asd
-6=--dataset dataset_dec.gdx --model_type=ntc --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=100000 ---threads=4 -gdx asd
-7=--dataset dataset_dec.gdx --model_type=ntc --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=100000 ---threads=4
-8=--dataset dataset_dec.gdx --model_type=nodal
-9=--dataset dataset_dec.gdx
-10=
-11=--rdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\test --wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibil
-12=--rdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\esults\test --wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibili
-13=--rdir=/net/work/wein/pomato/data_temp/gms_files/results/test --wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=100000 --chp_
-14=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=100000 --chp_efficiency=0.15 --curtailment_heat=0 --curtailment_electricity
-15=--model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=100000 --chp_efficiency=0.15 --curtailment_heat=0 --curtailment_electricity=0.8
-16=--wdir=/net/work/wein/pomato --rdir=/net/work/wein/pomato/data_temp/gms_files/results/test --model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=100000 --chp_efficiency=0.15 --curta
-17=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato -gdx asd --model_type=nodal
-18=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato -gdx asd --model_type=ntc
-19=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato -gdx asd --model_type=cbco_nodal
-20=--wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato -gdx asd --model_type=cbco_zonal
-
-[MRUFILES]
-1=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato_gms\model.gms
-2=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\demand_2030_hi\result.gdx
-3=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\demand_2030_hi/tmp_result.gdx
-4=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data\dataset_2040.gdx
-5=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\asd.gdx
-6=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\ntc_2040_1012\result.gdx
-7=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data\dataset_2040_hi_ntc.gdx
-8=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\nodal_2040_hi_ntc_1012\misc_results.json
-9=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\dataimport.lst
