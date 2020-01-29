@@ -2854,24 +2854,44 @@ Order=1,2
 Decim=7
 PlaneRownr=-1
 
-[RP:DATAIMPORT]
-1=-gdx asd --data_type=nodal
-2=-gdx asd --data_type=zonal
-3=-gdx asd --data_type=none
-4=-gdx asd
-5=
-6=-wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --rdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\2208_1144 --model_type=nodal --infeas_el_nodal=True --infeas_lines=False --infeas_heat=True --infeasibility_bound=100000 lo=
-7=--data_folder="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data" -gdx asd
-8=--data_folder="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data"
-9=--model_type="zonal" -gdx asd
-10=--model_type="nodal" -gdx asd
-11=--model_type = zonal -gdx asd
-12=--model_type = zonal
-13=--model_type = "zonal"
-14=--model_type == "zonal"
-
 [RP:CLUSTER_GDX_EB_MARGINAL]
 1=
+
+[GDXDISP: par_cb Set 1]
+PlaneDim=0
+RowDim=1
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[GDXDISP: cbco_data Par 1]
+PlaneDim=0
+RowDim=1
+Squeeze=1
+SqTrail0=0
+Order=1
+Decim=7
+PlaneRownr=-1
+
+[RP:DATAIMPORT]
+1=-gdx asd
+2=-gdx asd --data_type=zonal --model_type=nodal
+3=-gdx asd --data_type=zonal --model_type=ntc
+4=-gdx asd --data_type=zonal
+5=-gdx asd --data_type=nodal
+6=-gdx asd --data_type=none
+7=
+8=-wdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato --rdir=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\2208_1144 --model_type=nodal --infeas_el_nodal=True --infeas_lines=False --infeas_heat=True --infeasibility_bound=100000 lo=
+9=--data_folder="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data" -gdx asd
+10=--data_folder="C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data"
+11=--model_type="zonal" -gdx asd
+12=--model_type="nodal" -gdx asd
+13=--model_type = zonal -gdx asd
+14=--model_type = zonal
+15=--model_type = "zonal"
+16=--model_type == "zonal"
 
 [RP:MODEL]
 1=--model_type=nodal --infeasibility_electricity=True --infeasibility_lines=False --infeasibility_heat=True --infeasibility_bound=10000 ---threads=4 -gdx asd
@@ -2899,21 +2919,20 @@ PlaneRownr=-1
 1=
 
 [MRUFILES]
-1=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\misc_results.json
-2=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\asd.gdx
-3=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato_gms\model.gms
-4=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\demand_2030_hi\result.gdx
-5=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\demand_2030_hi/tmp_result.gdx
-6=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data\dataset_2040.gdx
-7=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\code_gms\asd.gdx
-8=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\ntc_2040_1012\result.gdx
+1=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\result_export.gms
+2=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\dataimport.gms
+3=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\asd.gdx
+4=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data\cbco.gdx
+5=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\misc_results.json
+6=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato_gms\model.gms
+7=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\demand_2030_hi\result.gdx
+8=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\demand_2030_hi/tmp_result.gdx
 
 [OPENWINDOW_1]
-FILE0=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\2801_1424\result.gdx
-FILE1=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\json_file
+FILE0=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\data\dataset.gdx
+FILE1=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\data_temp\gms_files\results\2801_1424\result.gdx
 FILE2=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\model.gms
-FILE3=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\result_export.gms
-FILE4=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\model.gms
+FILE3=C:\Users\riw\tubCloud\Uni\Market_Tool\pomato\pomato\ENS_pomato_gms\model.gms
 MAXIM=1
 TOP=51
 LEFT=71

@@ -13,3 +13,7 @@ data_input/old/
 docs/build/
 pomato/logs/
 docs/_build/
+*.lst
+*.opt
+pomato/ENS_pomato_gms/model.log
+*.lxi
