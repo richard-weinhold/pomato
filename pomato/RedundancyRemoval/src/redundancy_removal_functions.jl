@@ -150,36 +150,54 @@ function split_m(m::Vector{Int}, splits::Int)
  	return m_segments
 end
 
+function split_m_indices(m::Vector{Int}, splits::Int)
+	m_segments = []
+	segment_length = Int(floor(length(m)/splits))
+	for i in 1:splits - 1
+		push!(m_segments, collect((i-1)*segment_length + 1:i*segment_length))
+	end
+	push!(m_segments, collect((splits-1)*segment_length + 1:length(m)))
+ 	return m_segments
+end
+
+
 function parallel_filter(A::Array{Float64}, b::Vector{Float64},
 						 m::Vector{Int}, x_bounds::Vector{Float64},
 						 z::Vector{Float64}, splits::Int)
 
 	m_segments = split_m(m, Int(splits))
+	m_segments = split_m_indices(m, Int(splits))
 	lock = SpinLock()
-	indices = Array{Int, 1}()
+	indices = zeros(Bool, length(m))
 	Threads.@threads for m_seg in m_segments
-		idx = main(A, b, m_seg, Array{Int, 1}(), x_bounds, z)
-		withlock(lock) do
-			indices = union(indices, idx)
-		end
-		@info("Nonredundant ", length(idx), " from process ", Threads.threadid())
+		idx = main(A[m[m_seg], :], b[m[m_seg]], collect(1:length(m_seg)), Array{Int, 1}(), x_bounds, z)
+		@inbounds indices[m_seg[idx]] .= true
+		@info("Nonredundant ", length(m_seg[idx]), " from process ", Threads.threadid())
 	end
-	println("Length of m: ", length(indices))
+	println("Length of m: ", length(m[indices]))
+	return m[indices]
+end
+
+function solve_parallel(A::Array{Float64}, b::Vector{Float64},
+						filtered_m::Vector{Int}, x_bounds::Vector{Float64},
+					   	r::Vector{Int})
+
+	indices = zeros(Bool, length(r))
+	model = build_model(size(A, 2), A[filtered_m, :], b[filtered_m], x_bounds)
+	for k in 1:length(r)
+		model_index = findfirst(x -> x == filtered_m[r[k]], filtered_m)
+		@objective(model, Max, A[filtered_m[r[k]], :]' * model[:x])
+		JuMP.delete(model, model[:con][model_index])
+		JuMP.optimize!(model)
+		if !(JuMP.objective_value(model) <  b[filtered_m[r[k]]])
+			@constraint(model, sum(A[filtered_m[r[k]], :] .* model[:x]) <= b[filtered_m[r[k]]])
+			indices[k] = true
+		end
+		@info("Idx: ", k, " on proc: ", Threads.threadid())
+	end
 	return indices
 end
 
-function solve_parallel!(model::JuMP.Model, constraint::Vector{Float64},
-						rhs::Float64, k::Int)
-	@objective(model, Max, constraint' * model[:x])
-	JuMP.delete(model, model[:con][k])
-	JuMP.optimize!(model)
-	if JuMP.objective_value(model) < rhs
-		return false
-	else
-		@constraint(model, sum(constraint .* model[:x]) <= rhs)
-		return true
-	end
-end
 
 function main_parallel(A::Array{Float64}, b::Vector{Float64},
 					   m::Vector{Int}, I::Vector{Int}, x_bounds::Vector{Float64},
@@ -190,7 +208,7 @@ function main_parallel(A::Array{Float64}, b::Vector{Float64},
 	while true
 		tmp_m = parallel_filter(A, b, filtered_m, x_bounds, z, Int(filter_splits))
 		println("m ", length(filtered_m), " m new: ", length(tmp_m))
-		if Int(filter_splits) == Threads.nthreads()/2
+		if Int(filter_splits) <= Threads.nthreads()/2
 			println("breaking..")
 			filtered_m = tmp_m
 			break
@@ -199,25 +217,24 @@ function main_parallel(A::Array{Float64}, b::Vector{Float64},
 		end
 		filtered_m = tmp_m
 	end
-	lock = SpinLock()
-	I = Array{Int, 1}()
+	I = zeros(Bool, length(filtered_m))
 
-	number_ranges = maximum(Int, [floor(Int, length(filtered_m)/1000),
+	@info("Number of non-redundant constraints after parallel filter: $(length(filtered_m))" )
+	save_to_file(filtered_m, "cbco_filtered_backup_"*Dates.format(now(), "ddmm_HHMM"))
+	@info("Everything Done!")
+
+	number_ranges = maximum(Int, [floor(Int, length(filtered_m)/100),
 								  Threads.nthreads()])
+	ranges = split_m_indices(filtered_m, number_ranges)
+	@info("Run final LP Test in ", number_ranges, " Segements.")
 
-	ranges = split_m(filtered_m, number_ranges)
 	Threads.@threads for r in ranges
 		@info("LP Test with length ", length(r), " on proc id: ", Threads.threadid())
-		kk = zeros(Bool, length(r))
-		model_copy = build_model(size(A, 2), A[filtered_m,:], b[filtered_m], x_bounds)
-		for k in 1:length(r)
-			@inbounds kk[k] = solve_parallel!(model_copy, A[r[k], :], b[r[k]], findfirst(x -> x == r[k], filtered_m))
-		end
-		withlock(lock) do
-			I = union(I, r[kk])
-		end
+		indices = solve_parallel(A, b, filtered_m, x_bounds, r)
+		@inbounds I[r[indices]] .= true
+		@info("Done with LP Test on proc id: ", Threads.threadid())
 	end
-	return I
+	return filtered_m[I]
 end
 
 function save_to_file(Indices, filename::String)
@@ -296,7 +313,6 @@ function run_parallel(file_suffix::String)
 	I = union(I)
 	m = setdiff(m, I)
 	I_result = main_parallel(A, b, m, I, x_bounds, z)
-
 	@info("Number of non-redundant constraints: $(length(I_result))" )
 	save_to_file(I_result, "cbco_"*file_suffix*"_"*Dates.format(now(), "ddmm_HHMM"))
 	@info("Everything Done!")

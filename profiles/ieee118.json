@@ -39,7 +39,7 @@
     },
     "grid": {
         "cbco_option": "clarkson_base",
-        "precalc_filename": "",
+        "precalc_filename": "cbco_ieee_base_jan_3001_1627",
         "senstitivity": 5e-2,
         "capacity_multiplier": 0.95,
         "preprocess": true,

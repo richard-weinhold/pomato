@@ -97,8 +97,8 @@ class MarketModel():
                 # shell=false needed for mac (and for Unix in general I guess)
                 with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as programm:
                     for line in programm.stdout:
-                        log.write(line.decode())
-                        self.logger.info(line.decode().strip())
+                        log.write(line.decode(errors="ignore"))
+                        self.logger.info(line.decode(errors="ignore").strip())
 
             t_end = datetime.datetime.now()
             self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
