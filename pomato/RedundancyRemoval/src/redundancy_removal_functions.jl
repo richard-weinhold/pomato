@@ -172,9 +172,9 @@ function parallel_filter(A::Array{Float64}, b::Vector{Float64},
 	Threads.@threads for m_seg in m_segments
 		idx = main(A[m[m_seg], :], b[m[m_seg]], collect(1:length(m_seg)), Array{Int, 1}(), x_bounds, z)
 		@inbounds indices[m_seg[idx]] .= true
-		@info("Nonredundant ", length(m_seg[idx]), " from process ", Threads.threadid())
+		@info("Nonredundant indices $(length(m_seg[idx])) from process: $(Threads.threadid())")
 	end
-	println("Length of m: ", length(m[indices]))
+	@info("Length of m: $(length(m[indices]))")
 	return m[indices]
 end
 
@@ -184,6 +184,7 @@ function solve_parallel(A::Array{Float64}, b::Vector{Float64},
 
 	indices = zeros(Bool, length(r))
 	model = build_model(size(A, 2), A[filtered_m, :], b[filtered_m], x_bounds)
+	@debug("Done building the model on proc: $(Threads.threadid())")
 	for k in 1:length(r)
 		model_index = findfirst(x -> x == filtered_m[r[k]], filtered_m)
 		@objective(model, Max, A[filtered_m[r[k]], :]' * model[:x])
@@ -193,7 +194,7 @@ function solve_parallel(A::Array{Float64}, b::Vector{Float64},
 			@constraint(model, sum(A[filtered_m[r[k]], :] .* model[:x]) <= b[filtered_m[r[k]]])
 			indices[k] = true
 		end
-		@info("Idx: ", k, " on proc: ", Threads.threadid())
+		@debug("Idx: $(k) on proc: $(Threads.threadid())")
 	end
 	return indices
 end
@@ -207,13 +208,13 @@ function main_parallel(A::Array{Float64}, b::Vector{Float64},
 	filter_splits = Threads.nthreads()*2
 	while true
 		tmp_m = parallel_filter(A, b, filtered_m, x_bounds, z, Int(filter_splits))
-		println("m ", length(filtered_m), " m new: ", length(tmp_m))
+		@info("Size of m $(length(filtered_m)) reduced to m* $(length(tmp_m))")
 		if Int(filter_splits) <= Threads.nthreads()/2
-			println("breaking..")
+			@info("Finshied with parallel filter!")
 			filtered_m = tmp_m
 			break
 		else
-			filter_splits = Int(filter_splits/2)
+			filter_splits = floor(Int, filter_splits/2)
 		end
 		filtered_m = tmp_m
 	end
@@ -221,18 +222,17 @@ function main_parallel(A::Array{Float64}, b::Vector{Float64},
 
 	@info("Number of non-redundant constraints after parallel filter: $(length(filtered_m))" )
 	save_to_file(filtered_m, "cbco_filtered_backup_"*Dates.format(now(), "ddmm_HHMM"))
-	@info("Everything Done!")
 
 	number_ranges = maximum(Int, [floor(Int, length(filtered_m)/100),
 								  Threads.nthreads()])
 	ranges = split_m_indices(filtered_m, number_ranges)
-	@info("Run final LP Test in ", number_ranges, " Segements.")
+	@info("Run final LP Test in $(number_ranges) Segements.")
 
 	Threads.@threads for r in ranges
-		@info("LP Test with length ", length(r), " on proc id: ", Threads.threadid())
+		@info("LP Test with length $(length(r)) on proc id: $(Threads.threadid())")
 		indices = solve_parallel(A, b, filtered_m, x_bounds, r)
 		@inbounds I[r[indices]] .= true
-		@info("Done with LP Test on proc id: ", Threads.threadid())
+		@info("Done with LP Test on proc id: $(Threads.threadid())")
 	end
 	return filtered_m[I]
 end
@@ -242,7 +242,6 @@ function save_to_file(Indices, filename::String)
 	@info("Writing File "*filename*" .... ")
 	CSV.write(wdir*"/data_temp/julia_files/cbco_data/"*filename*".csv",
 	  	 	  DataFrame(constraints = Indices.-1))
-	@info("done! ")
 end
 
 function read_data(file_suffix::String)
@@ -262,7 +261,6 @@ function read_data(file_suffix::String)
 					    delim=',', header=false, types=Dict(1=>Float64))
 	# Read X Bounds or set as empty Vector
 	x_bounds = size(x_bounds, 2) > 0 ? x_bounds[:,1] : Array{Float64, 1}()
-	# x_bounds = Array{Float64, 1}()
 
 	# I data contrains previsouly identified non-redundant indices
 	I_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/I_"*file_suffix*".csv",
@@ -302,11 +300,11 @@ function run_parallel(file_suffix::String)
 	@info("Preprocessing...")
 	@info("Removing duplicate rows...")
 	# Remove douplicates
-	# condition_unique = .!nonunique(DataFrame(hcat(A,b)))
+	condition_unique = .!nonunique(DataFrame(hcat(A,b)))
 	@info("Removing all zero rows...")
 	# Remove cb = co rows
-	# condition_zero = vcat([!all(A[i, :] .== 0) for i in 1:length(b)])
-	# m = m[condition_unique .& condition_zero]
+	condition_zero = vcat([!all(A[i, :] .== 0) for i in 1:length(b)])
+	m = m[condition_unique .& condition_zero]
 	@info("Removed $(length(b) - length(m)) rows in preprocessing!")
 	# Interior point z = zero
 	z = zeros(size(A, 2))

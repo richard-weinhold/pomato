@@ -177,6 +177,10 @@ class MarketModel():
             self.grid_representation["cbco"] \
                 .to_csv(str(csv_path.joinpath('cbco.csv')), index_label='index')
 
+        if self.options["optimization"]["redispatch"]["include"]:
+            self.grid_representation["cbco"] \
+                .to_csv(str(csv_path.joinpath('redispatch_cbco.csv')), index_label='index')
+
         slack_zones = pd.DataFrame(index=self.data.nodes.index)
         for slack in self.grid_representation["slack_zones"]:
             slack_zones[slack] = 0

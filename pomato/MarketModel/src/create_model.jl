@@ -55,8 +55,8 @@ function run_market_model(data::Data, options::Dict{String, Any})
 	# 	println("Adding NEX Constraints...")
 	# 	add_net_position_constraints!(pomato)
 	# end
-
 	add_electricity_energy_balance!(pomato::POMATO)
+
 	println("Adding Objective Function...")
 	add_objective!(pomato)
 

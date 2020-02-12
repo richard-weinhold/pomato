@@ -134,6 +134,8 @@ class CBCOModule():
 
         if self.options["optimization"]["type"] == "ntc":
             self.process_ntc()
+            if self.options["optimization"]["redispatch"]["include"]:
+                self.process_nodal()
         elif self.options["optimization"]["type"] == "nodal":
             self.process_nodal()
         elif self.options["optimization"]["type"] == "zonal":

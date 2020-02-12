@@ -80,7 +80,7 @@ class FBMCDomain():
 
 class FBMCModule():
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, grid_object, data, cbco_list=None):
+    def __init__(self, wdir, grid_object, data, basecase_name=None, cbco_list=None):
         # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
@@ -96,9 +96,13 @@ class FBMCModule():
 
         self.data = data
         if not data.results:
-            self.logger.error("Results not initialzed!")
+            self.logger.error("No results not initialzed!")
+        elif len(data.results) == 1:
+            self.basecase = data.results[next(r for r in list(data.results))]
+        elif len(data.results) > 1 and basecase_name:
+            self.basecase = data.results[basecase_name]
         else:
-            self.results = data.results
+            self.logger.error("More results available as basecase. Please specify argument basecase_name!")
 
         self.fbmc_plots = {}
         self.nodal_fbmc_ptdf, self.domain_info = self.create_fbmc_info()
@@ -160,14 +164,14 @@ class FBMCModule():
         """returns GSK, either flat or gmax"""
         gsk = pd.DataFrame(index=self.nodes.index)
 
-        plant_types = self.results.data.options["optimization"]["plant_types"]
-        condition = (~self.results.data.plants.plant_type.isin(plant_types["ts"])) & \
-                    (~self.results.data.plants.plant_type.isin(plant_types["es"]))
+        plant_types = self.basecase.data.options["optimization"]["plant_types"]
+        condition = (~self.basecase.data.plants.plant_type.isin(plant_types["ts"])) & \
+                    (~self.basecase.data.plants.plant_type.isin(plant_types["es"]))
         
-        gmax_per_node = self.results.data.plants.loc[condition, ["g_max", "node"]] \
+        gmax_per_node = self.basecase.data.plants.loc[condition, ["g_max", "node"]] \
                         .groupby("node").sum()
 
-        for zone in self.results.data.zones.index:
+        for zone in self.basecase.data.zones.index:
             nodes_in_zone = self.nodes.index[self.nodes.zone == zone]
             gsk[zone] = 0
             gmax_in_zone = gmax_per_node[gmax_per_node.index.isin(nodes_in_zone)]
@@ -191,7 +195,7 @@ class FBMCModule():
         gsk = self.create_gsk(gsk_strategy)
         zonal_ptdf = np.dot(self.grid.ptdf, gsk)
         zonal_ptdf_df = pd.DataFrame(index=self.lines.index,
-                                     columns=self.results.data.zones.index,
+                                     columns=self.basecase.data.zones.index,
                                      data=zonal_ptdf)
 
         z2z_ptdf_df = pd.DataFrame(index=self.lines.index)
@@ -265,7 +269,7 @@ class FBMCModule():
         nodal_fbmc_ptdf = np.concatenate(full_ptdf)
         nodal_fbmc_ptdf = nodal_fbmc_ptdf.reshape(len(label_lines), len(list(self.nodes.index)))
 
-        domain_info = pd.DataFrame(columns=list(self.results.data.zones.index))
+        domain_info = pd.DataFrame(columns=list(self.basecase.data.zones.index))
         domain_info["cb"] = label_lines
         domain_info["co"] = label_outages
 
@@ -286,21 +290,21 @@ class FBMCModule():
         frm_fav = pd.DataFrame(index=self.domain_info.cb.unique())
         frm_fav["value"] = self.lines.maxflow[frm_fav.index]*.2
 
-        injection = self.results.INJ.INJ[self.results.INJ.t == timestep].values
+        injection = self.basecase.INJ.INJ[self.basecase.INJ.t == timestep].values
 
         f_ref_base_case = np.dot(self.nodal_fbmc_ptdf, injection)
         gsk = self.create_gsk(gsk_strategy)
         zonal_fbmc_ptdf = np.dot(self.nodal_fbmc_ptdf, gsk)
 
         # F Day Ahead (eigentlich mit LTNs)
-        net_position = self.results.net_position() * 1
+        net_position = self.basecase.net_position() * 1
         # net_position.loc[:, ~net_position.columns.isin(self.flowbased_region)] = 0
 
         f_da = np.dot(zonal_fbmc_ptdf, net_position.loc[timestep].values)
         # f_ref_nonmarket = f_ref_base_case
         f_ref_nonmarket = f_ref_base_case - f_da
 
-        capacity_multiplier = self.results.data.options["grid"]["capacity_multiplier"]
+        capacity_multiplier = self.basecase.data.options["grid"]["capacity_multiplier"]
 
         ram = np.subtract(self.lines.maxflow[self.domain_info.cb]/capacity_multiplier - \
                           frm_fav.value[self.domain_info.cb],
@@ -312,11 +316,10 @@ class FBMCModule():
             ram[ram<100] = 10000
 
 
-        self.domain_info[list(self.results.data.zones.index)] = zonal_fbmc_ptdf
+        self.domain_info[list(self.basecase.data.zones.index)] = zonal_fbmc_ptdf
         self.domain_info["ram"] = ram
         self.domain_info["timestep"] = timestep
         self.domain_info["gsk_strategy"] = gsk_strategy
-
         self.logger.info("Done!")
 
         # return A, b
@@ -517,14 +520,13 @@ class FBMCModule():
         cbco = CBCOModule(self.wdir, self.grid, self.data, self.data.options)
         cbco.options["optimization"]["type"] = "cbco_zonal"
         cbco.options["grid"]["cbco_option"] = "clarkson"
-        for timestep in self.results.INJ.t.unique():
+        for timestep in self.basecase.INJ.t.unique():
             cbco.A, cbco.b = self.create_flowbased_ptdf("gmax", timestep)
             cbco.cbco_info = self.domain_info
             cbco.x_bounds = np.array([])
             cbco.cbco_index = np.array([])
             cbco.cbco_index = cbco.clarkson_algorithm()
             fbmc_paramters[timestep] = cbco.return_cbco()
-
 
         fbmc_rep = pd.concat([fbmc_paramters[t] for t in fbmc_paramters.keys()], ignore_index=True)
         fbmc_rep.set_index(fbmc_rep.cb + "_" + fbmc_rep.co, inplace=True)

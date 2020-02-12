@@ -66,7 +66,7 @@ class BokehPlot():
         ----------
         market_results : dict of :class:`~pomato.data.DataProcessing`
             The *result* attribute of the DataManagement is provided to be
-            plottet.
+            plotted.
         """
         if len(market_results) == 1:
             market_result = list(market_results)[0]
@@ -188,7 +188,7 @@ class BokehPlot():
         return generation_by_fuel
 
     def process_demand_data(self, market_result):
-        """bring the data from julia/gams in the right format and store it"""
+        """Process total nodal demand composed of load data and market results of storage/heatpump usage."""
 
         map_pn = market_result.data.plants.node.reset_index()
         map_pn.columns = ['p', 'n']

@@ -367,15 +367,15 @@ function add_chance_constraints!(pomato::POMATO; fixed_alpha=true)
 	if options["cc"]["fixed_alpha"]
 		@expression(model, Alpha[t=1:n.t, alpha=1:n.alpha],
 				data.plants[map.alpha[alpha]].g_max/(sum(pp.g_max for pp in data.plants[map.alpha])))
-		@expression(model, Alpha_Nodes[t=1:n.t, n=1:n.nodes],
-			size(intersect(map.alpha, data.nodes[n].plants), 1) > 0 ?
-			sum(Alpha[t, alpha] for alpha in findall(x -> x in intersect(map.alpha, data.nodes[n].plants), map.alpha)) :
+		@expression(model, Alpha_Nodes[t=1:n.t, node=1:n.nodes],
+			size(intersect(map.alpha, data.nodes[node].plants), 1) > 0 ?
+			sum(Alpha[t, alpha] for alpha in findall(x -> x in intersect(map.alpha, data.nodes[node].plants), map.alpha)) :
 				 0)
 	else
 		@variable(model, Alpha[1:n.t, 1:n.alpha] >= 0)
-		@expression(model, Alpha_Nodes[t=1:n.t, n=1:n.nodes],
-			size(intersect(map.alpha, data.nodes[n].plants), 1) > 0 ?
-			sum(Alpha[t, alpha] for alpha in findall(x -> x in intersect(map.alpha, data.nodes[n].plants), map.alpha)) :
+		@expression(model, Alpha_Nodes[t=1:n.t, node=1:n.nodes],
+			size(intersect(map.alpha, data.nodes[node].plants), 1) > 0 ?
+			sum(Alpha[t, alpha] for alpha in findall(x -> x in intersect(map.alpha, data.nodes[node].plants), map.alpha)) :
 				 0)
 	end
 
@@ -421,8 +421,8 @@ function redispatch_model!(pomato::POMATO, market_model_results::Dict, redispatc
 	@variable(model, 0 <= INFEAS_NEG[1:n.t, redispatch_zone_nodes]) # <= 100*pomato.options["infeasibility"]["bound"])
 	@variable(model, 0 <= INFEAS_POS[1:n.t, redispatch_zone_nodes]) # <= 100*pomato.options["infeasibility"]["bound"])
 	#
-	@expression(model, INFEAS_EL_N_NEG[t=1:n.t, n=1:n.nodes],  GenericAffExpr{Float64, VariableRef}(0));
-	@expression(model, INFEAS_EL_N_POS[t=1:n.t, n=1:n.nodes],  GenericAffExpr{Float64, VariableRef}(0));
+	@expression(model, INFEAS_EL_N_NEG[t=1:n.t, node=1:n.nodes],  GenericAffExpr{Float64, VariableRef}(0));
+	@expression(model, INFEAS_EL_N_POS[t=1:n.t, node=1:n.nodes],  GenericAffExpr{Float64, VariableRef}(0));
 
 	for node in 1:n.nodes, t in 1:n.t
 		add_to_expression!(INFEAS_EL_N_NEG[t, node], node in redispatch_zone_nodes
@@ -447,11 +447,10 @@ function redispatch_model!(pomato::POMATO, market_model_results::Dict, redispatc
 		add_to_expression!(G[t, p], p in redispatch_zone_plants ? G_redispatch[t,p] : g_market[t, p])
 	end
 
-	@expression(model, G_Node[t=1:n.t, n=1:n.nodes],
-		size(data.nodes[n].plants, 1) > 0 ? sum(G[t, plant] for plant in data.nodes[n].plants) : 0);
+	@expression(model, G_Node[t=1:n.t, node=1:n.nodes],
+		size(data.nodes[node].plants, 1) > 0 ? sum(G[t, plant] for plant in data.nodes[node].plants) : 0);
 
-	@expression(model, D_Node[t=1:n.t, n=1:n.nodes], GenericAffExpr{Float64, VariableRef}(0))
-
+	@expression(model, D_Node[t=1:n.t, node=1:n.nodes], GenericAffExpr{Float64, VariableRef}(0))
 	for es in 1:n.es, t in 1:n.t
 		add_to_expression!(D_Node[t, data.plants[es].node], d_es_market[t, es])
 	end
@@ -467,9 +466,9 @@ function redispatch_model!(pomato::POMATO, market_model_results::Dict, redispatc
 
 	@expression(model, G_RES[t=1:n.t, res=1:n.res], data.renewables[res].mu[t]);
 
-	@expression(model, RES_Node[t=1:n.t, n=1:n.nodes],
-		size(data.nodes[n].res_plants, 1) > 0
-		? sum(data.renewables[res].mu[t] for res in data.nodes[n].res_plants)
+	@expression(model, RES_Node[t=1:n.t, node=1:n.nodes],
+		size(data.nodes[node].res_plants, 1) > 0
+		? sum(data.renewables[res].mu[t] for res in data.nodes[node].res_plants)
 		: 0);
 
 	@expression(model, RES_Zone[t=1:n.t, z=1:n.zones],

@@ -47,13 +47,13 @@ function run_redispatch(wdir, data_dir; redispatch_zones=["DE"], return_result=f
 						"result_dir" => wdir*"/data_temp/julia_files/results/"*Dates.format(now(), "dmm_HHMM"))
 	create_folder(data.folders["result_dir"])
 
-	options["curtailment"]["cost"] = 100
-	options["infeasibility"]["electricity"]["bound"] = 10000
+	# options["curtailment"]["cost"] = 100
+	# options["infeasibility"]["electricity"]["bound"] = 10000
 	pomato_results = run_redispatch_model(data, options, redispatch_zones)
-	println("Everything Done!")
 	for result in keys(pomato_results)
 		save_result(pomato_results[result], data.folders["result_dir"]*"_"*result)
 	end
+	println("Everything Done!")
 	if return_result
 		return pomato_results
 	end

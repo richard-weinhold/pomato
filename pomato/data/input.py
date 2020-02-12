@@ -53,7 +53,7 @@ class InputProcessing(object):
             self.marginal_costs()
             self.process_net_position()
             self.process_inflows()
-
+            
         if "availability" in self.options["data"]["process"]:
                 self.process_availability()
 

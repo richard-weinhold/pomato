@@ -20,7 +20,6 @@ zones = mato.data.zones
 plants = mato.data.plants
 
 # %%
-
 mato.options["optimization"]["type"] = "nodal"
 mato.create_grid_representation()
 mato.init_market_model()
