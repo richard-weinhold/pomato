@@ -84,6 +84,7 @@ class CBCOModule():
         Julia process that is initialized when used the first time and then kept to be able to
         easily re-run the redundancy algorithm without restarting a julia process.
     """
+
     def __init__(self, wdir, grid, data, option):
         # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.CBCOModule')
@@ -117,19 +118,22 @@ class CBCOModule():
             - *option*: The chosen option of grid representation.
             - *mult_slacks*: Bool indicator if there are multiple slacks.
             - *slack_zones*: dict to map each node to a slack/reference node.
-            - *cbco*: DataFrame including the ptdf for each line/outage,
+            - *grid*: DataFrame including the ptdf for each line/outage,
               depending on chosen option, including line capacities and
               regional information.
+            - *redispatch_grid*: DataFrame including the ptdf for the redispatch. 
+              As default this is nodal but could also be an N-1 ptdf, similar to
+              *grid*.  
             - *ntc*: DataFrame with the zonal commercial exchange capacities.
 
         All values are set according the chosen option and might remain empty.
         """
-
         # Data Structure of grid_representation dict
         self.grid_representation["option"] = self.options["optimization"]["type"]
         self.grid_representation["mult_slacks"] = self.grid.mult_slack
         self.grid_representation["slack_zones"] = self.grid.slack_zones()
-        self.grid_representation["cbco"] = pd.DataFrame()
+        self.grid_representation["grid"] = pd.DataFrame()
+        self.grid_representation["redispatch_grid"] = pd.DataFrame()
         self.grid_representation["ntc"] = pd.DataFrame()
 
         if self.options["optimization"]["type"] == "ntc":
@@ -147,18 +151,20 @@ class CBCOModule():
         else:
             self.logger.info("No grid represenation needed for dispatch model")
 
+        if self.options["optimization"]["redispatch"]["include"]:
+            self.add_redispatch_grid()
+
     def process_nodal(self):
         """Process grid information for nodal N-0 representation.
 
-        Here *grid_representation["cbco"]* consists of the N-0 ptdf.
+        Here *grid_representation["grid"]* consists of the N-0 ptdf.
 
         There is the option to try to reduce this ptdf, however the number of
         redundant constraints is expected to be very low.
 
         """
-
         grid_option = self.options["grid"]
-        if grid_option["cbco_option"] == "clarkson":
+        if grid_option["cbco_option"] == "nodal_clarkson":
             A = self.grid.ptdf
             b = self.grid.lines.maxflow.values.reshape(len(self.grid.lines.index), 1)
             info = pd.DataFrame(columns=self.grid.nodes.index, data=A)
@@ -170,16 +176,28 @@ class CBCOModule():
             self.A, self.b, self.cbco_info = A, b, info
             self.nodal_injection_limits = self.create_nodal_injection_limits()
             self.cbco_index = self.clarkson_algorithm()
-            self.grid_representation["cbco"] = self.return_cbco()
-            self.grid_representation["cbco"].ram *= grid_option["capacity_multiplier"]
+            self.grid_representation["grid"] = self.return_cbco()
+            self.grid_representation["grid"].ram *= grid_option["capacity_multiplier"]
 
         else:
             ptdf_df = pd.DataFrame(index=self.grid.lines.index,
                                    columns=self.grid.nodes.index,
                                    data=np.round(self.grid.ptdf, decimals=4))
             ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
-            self.grid_representation["cbco"] = ptdf_df
-            self._add_zone_to_grid_representation()
+            self.grid_representation["grid"] = ptdf_df
+            self.grid_representation["grid"] = self._add_zone_to_grid_representation(self.grid_representation["grid"])
+
+    def add_redispatch_grid(self):
+        """Add nodal N-0 grid representation as redispatch grid.
+
+        Here *grid_representation["redispatch_grid"]* consists of the N-0 ptdf.
+        """
+        ptdf_df = pd.DataFrame(index=self.grid.lines.index,
+                               columns=self.grid.nodes.index,
+                               data=np.round(self.grid.ptdf, decimals=4))
+        ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
+        self.grid_representation["redispatch_grid"] = ptdf_df
+        self.grid_representation["redispatch_grid"] = self._add_zone_to_grid_representation(self.grid_representation["redispatch_grid"])
 
     def process_zonal(self):
         """Process grid information for zonal N-0 representation.
@@ -199,7 +217,7 @@ class CBCOModule():
 
         if grid_option["cbco_option"] == "clarkson":
             A = self.grid.ptdf
-            ## nodal -> zonal ptdf via gsk
+            # nodal -> zonal ptdf via gsk
             A = np.dot(A, self.create_gsk(gsk))
             b = self.grid.lines.maxflow.values.reshape(len(self.grid.lines.index), 1)
             df_info = pd.DataFrame(columns=self.data.zones.index, data=A)
@@ -211,8 +229,8 @@ class CBCOModule():
             self.A, self.b, self.cbco_info = A, b, df_info
             self.nodal_injection_limits = np.array([])
             self.cbco_index = self.clarkson_algorithm()
-            self.grid_representation["cbco"] = self.return_cbco()
-            self.grid_representation["cbco"].ram *= grid_option["capacity_multiplier"]
+            self.grid_representation["grid"] = self.return_cbco()
+            self.grid_representation["grid"].ram *= grid_option["capacity_multiplier"]
 
         else:
             ptdf = np.dot(self.grid.ptdf, self.create_gsk(gsk))
@@ -221,11 +239,11 @@ class CBCOModule():
                                    data=np.round(ptdf, decimals=4))
 
             ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
-            self.grid_representation["cbco"] = ptdf_df
+            self.grid_representation["grid"] = ptdf_df
         self.create_ntc()
 
     def process_cbco_zonal(self):
-        """Process grid information for zonal N-1 representation
+        """Process grid information for zonal N-1 representation.
 
         Based on chosen sensitivity and GSK the return of
         :meth:`~pomato.cbco.create_cbco_data` runs the redundancy removal
@@ -249,31 +267,29 @@ class CBCOModule():
         else:
             self.cbco_index = self.reduce_cbco_convex_hull()
 
-        self.grid_representation["cbco"] = self.return_cbco()
-        self.grid_representation["cbco"].ram *= grid_option["capacity_multiplier"]
+        self.grid_representation["grid"] = self.return_cbco()
+        self.grid_representation["grid"].ram *= grid_option["capacity_multiplier"]
         self.create_ntc()
 
-
-    def _add_zone_to_grid_representation(self):
-        """ Add information in which country a line is located"""
-
-        self.grid_representation["cbco"]["zone"] = ""
+    def _add_zone_to_grid_representation(self, grid_representation):
+        """Add information in which country a line is located."""
+        grid_representation["zone"] = ""
         for zone in self.data.zones.index:
             nodes_in_zones = self.grid.nodes.index[self.grid.nodes.zone == zone]
-            lines_in_zone = list(self.grid.lines.index[(self.grid.lines.node_i.isin(nodes_in_zones)& \
-                                                       (self.grid.lines.node_j.isin(nodes_in_zones)))])
+            lines_in_zone = list(self.grid.lines.index[(self.grid.lines.node_i.isin(nodes_in_zones) &
+                                                        (self.grid.lines.node_j.isin(nodes_in_zones)))])
             lines_in_zone.append("basecase")
-            if "cb" in self.grid_representation["cbco"].columns:
-                condition = (self.grid_representation["cbco"].cb.isin(lines_in_zone)&  \
-                            (self.grid_representation["cbco"].co.isin(lines_in_zone)))
+            if "cb" in grid_representation.columns:
+                condition = (grid_representation.cb.isin(lines_in_zone) &
+                             (grid_representation.co.isin(lines_in_zone)))
             else:
-                condition = self.grid_representation["cbco"].index.isin(lines_in_zone)
-
-            self.grid_representation["cbco"].loc[condition, "zone"] = zone
-
+                condition = grid_representation.index.isin(lines_in_zone)
+            grid_representation.loc[condition, "zone"] = zone
+        
+        return grid_representation
 
     def process_cbco_nodal(self):
-        """Process grid information for nodal N-1 representation
+        """Process grid information for nodal N-1 representation.
 
         Based on chosen sensitivity and GSK the return of
         :meth:`~pomato.cbco.create_cbco_data` runs the redundancy removal
@@ -306,9 +322,10 @@ class CBCOModule():
                 if len(precalc_cbco.columns) > 1:
                     condition = self.cbco_info[["cb", "co"]].apply(tuple, axis=1) \
                                     .isin(precalc_cbco[["cb", "co"]].apply(tuple, axis=1))
+                    # self.cbco_index = list(self.cbco_info.index[condition])
+                    self.cbco_index = list(self.cbco_info.reset_index().index[condition])
 
-                    self.cbco_index = list(self.cbco_info.index[condition])
-                    self.logger.info("Number of CBCOs from pre-calc: %s", str(len(self.cbco_index)))
+                    self.logger.info("Number of CBCOs from pre-calc: %s", str(len(self.cbco_index))) 
                 else:
                     self.cbco_index = list(precalc_cbco.constraints.values)
                     self.logger.info("Number of CBCOs from pre-calc: %s", str(len(self.cbco_index)))
@@ -340,9 +357,10 @@ class CBCOModule():
             else:
                 self.logger.warning("No valid cbco_option set!")
 
-        self.grid_representation["cbco"] = self.return_cbco()
-        self._add_zone_to_grid_representation()
-        self.grid_representation["cbco"].ram *= self.options["grid"]["capacity_multiplier"]
+
+        self.grid_representation["grid"] = self.return_cbco()
+        self.grid_representation["grid"] = self._add_zone_to_grid_representation(self.grid_representation["grid"])
+        self.grid_representation["grid"].ram *= self.options["grid"]["capacity_multiplier"]
 
     def create_cbco_data(self, sensitivity=5e-2, preprocess=True, gsk=None):
         """Create all relevant N-1 ptdf's in the form of Ax<b (ptdf x < ram).
@@ -386,7 +404,7 @@ class CBCOModule():
             b = b[np.sort(idx)]
             info = info.loc[np.sort(idx), :]
 
-        if gsk: # replace nodal ptdf by zonal ptdf
+        if gsk:  # replace nodal ptdf by zonal ptdf
             A = np.dot(A, gsk)
             info = pd.concat((info.loc[:, ["cb", "co", "ram"]],
                               pd.DataFrame(columns=self.data.zones.index,
@@ -429,8 +447,7 @@ class CBCOModule():
         self.logger.info("Saved everything to folder: \n %s", str(folder))
 
     def create_nodal_injection_limits(self):
-        """Create nodal injection limits
-
+        """Create nodal injection limits.
 
         For each node the nodal injection limits depend on the installed
         capacity and availability/load timeseries. Additionally, each node can
@@ -458,18 +475,18 @@ class CBCOModule():
             condition_el_heat = (self.data.plants.node == node) & \
                                 (self.data.plants.plant_type.isin(plant_types["ph"]))
 
-            max_dc_inj = self.data.dclines.maxflow[(self.data.dclines.node_i == node) | \
+            max_dc_inj = self.data.dclines.maxflow[(self.data.dclines.node_i == node) |
                                                    (self.data.dclines.node_j == node)].sum()
 
-            upper = max(self.data.plants.g_max[self.data.plants.node == node].sum() \
-                        - self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].min() \
-                        + max_dc_inj \
+            upper = max(self.data.plants.g_max[self.data.plants.node == node].sum()
+                        - self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].min()
+                        + max_dc_inj
                         + infeas_upperbound, 0)
 
-            lower = max(self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].max() \
-                        + self.data.plants.g_max[condition_storage].sum() \
-                        + self.data.plants.g_max[condition_el_heat].sum() \
-                        + max_dc_inj \
+            lower = max(self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].max()
+                        + self.data.plants.g_max[condition_storage].sum()
+                        + self.data.plants.g_max[condition_el_heat].sum()
+                        + max_dc_inj
                         + infeas_upperbound, 0)
 
             nodal_injection_limits.append(max(upper, lower))
@@ -478,7 +495,7 @@ class CBCOModule():
         return nodal_injection_limits
 
     def clarkson_algorithm(self):
-        """ Run the redundancy removal algorithm.
+        """Run the redundancy removal algorithm.
 
         The redundancy removal algorithm is run by writing the necessary data
         to disk with "_py" suffix, starting a julia instance and running the
@@ -491,8 +508,7 @@ class CBCOModule():
             List of the essential indices, i.e. the indices of the non-redundant
             cbco's.
         """
-
-        ## save A,b to csv
+        # save A,b to csv
         self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")
 
         if not self.julia_instance:
@@ -500,7 +516,10 @@ class CBCOModule():
 
         t_start = dt.datetime.now()
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
-        self.julia_instance.run('RedundancyRemoval.run_parallel("py")')
+        if np.size(self.A, 1) < 25:
+            self.julia_instance.run('RedundancyRemoval.run("py")')
+        else:
+            self.julia_instance.run('RedundancyRemoval.run_parallel("py")')
         t_end = dt.datetime.now()
         self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
         self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")
@@ -516,7 +535,6 @@ class CBCOModule():
             self.logger.critical("Error in Julia code")
             cbco = None
         return cbco
-
 
     def reduce_cbco_convex_hull(self):
         """[LEGACY] Reduce Ax <= b using the ConvexHull algorithm.
@@ -562,7 +580,7 @@ class CBCOModule():
         return cbco_index
 
     def return_cbco(self):
-        """Return only the cbco's of the info attribute DataFrame)
+        """Return only the cbco's of the info attribute DataFrame.
 
         Returns
         -------
@@ -571,7 +589,6 @@ class CBCOModule():
             based on the cbco indices resulting from the redundancy removal algorithm.
 
         """
-
         cbco_info = self.cbco_info.iloc[self.cbco_index].copy()
         cbco_info.loc[:, "index"] = cbco_info.cb + "_" + cbco_info.co
         cbco_info = cbco_info.set_index("index")
@@ -586,11 +603,11 @@ class CBCOModule():
         Based on the argument this method creates a gsk either *flat*, all nodes weighted
         equally or *gmax* with nodes weighted according to the installed conventional capacity.
 
-
         Parameters
         ----------
         option : str, optional
             Deciding how nodal injections are weighted. Currently *flat* or *gmax*.
+
         Returns
         -------
         gsk : np.ndarrays
@@ -599,9 +616,8 @@ class CBCOModule():
             ptdf matrix.
 
         """
-
         gsk = pd.DataFrame(index=self.data.nodes.index)
-        condition = (self.data.plants.plant_type == "ts")&(self.data.plants.plant_type != "es")
+        condition = (self.data.plants.plant_type == "ts") & (self.data.plants.plant_type != "es")
         gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]].groupby("node").sum()
 
         for zone in self.data.zones.index:
@@ -631,7 +647,7 @@ class CBCOModule():
             self.grid_representation["ntc"] = self.data.ntc
 
     def create_ntc(self):
-        """Creates NTC data.
+        """Create NTC data.
 
         The ntc's generated in this methods are high (10.000) or zero. This is useful
         to limit commercial exchange to connected zones or when the model uses a
@@ -651,8 +667,8 @@ class CBCOModule():
             condition_i_to = self.data.lines.node_i.isin(to_nodes)
             condition_j_from = self.data.lines.node_j.isin(from_nodes)
 
-            lines += list(self.data.lines.index[condition_i_from&condition_j_to])
-            lines += list(self.data.lines.index[condition_i_to&condition_j_from])
+            lines += list(self.data.lines.index[condition_i_from & condition_j_to])
+            lines += list(self.data.lines.index[condition_i_to & condition_j_from])
 
             dclines = []
             condition_i_from = self.data.dclines.node_i.isin(from_nodes)
@@ -661,8 +677,8 @@ class CBCOModule():
             condition_i_to = self.data.dclines.node_i.isin(to_nodes)
             condition_j_from = self.data.dclines.node_j.isin(from_nodes)
 
-            dclines += list(self.data.dclines.index[condition_i_from&condition_j_to])
-            dclines += list(self.data.dclines.index[condition_i_to&condition_j_from])
+            dclines += list(self.data.dclines.index[condition_i_from & condition_j_to])
+            dclines += list(self.data.dclines.index[condition_i_to & condition_j_from])
 
             if lines or dclines:
                 tmp.append([from_zone, to_zone, 1e5])
@@ -670,5 +686,4 @@ class CBCOModule():
             else:
                 tmp.append([from_zone, to_zone, 0])
                 tmp.append([to_zone, from_zone, 0])
-
         self.grid_representation["ntc"] = pd.DataFrame(tmp, columns=["zone_i", "zone_j", "ntc"])

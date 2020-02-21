@@ -54,14 +54,14 @@ class BokehPlot():
 
     def create_static_plot(self, market_results):
         """Create static bokeh plot of the market results.
-        
-        Creates a fairly interactive geographic plot of the provided market 
+
+        Creates a fairly interactive geographic plot of the provided market
         results. It creates either a single plot if one market result is provided
-        or multiples if the provided dict contrains more. 
-        If the dict contains two market results, that correspond to naming of 
-        the redispatch model, it will create a plot for the market result and 
-        another including the redispatched generation units. 
-        
+        or multiples if the provided dict contrains more.
+        If the dict contains two market results, that correspond to naming of
+        the redispatch model, it will create a plot for the market result and
+        another including the redispatched generation units.
+
         Parameters
         ----------
         market_results : dict of :class:`~pomato.data.DataProcessing`
@@ -72,9 +72,9 @@ class BokehPlot():
             market_result = list(market_results)[0]
             folder = market_results[market_result].result_attributes["source"]
             self.logger.info("initializing bokeh plot with from folder: %s", str(folder))
-            plots = [(market_result, None)]
+            plots = [(market_results[market_result], None)]
 
-        elif len(market_results) == 2:
+        elif (len(market_results) == 2) and any(["redispatch" in result for result in market_results]):
             redisp_result = market_results[next(r for r in list(market_results) if "redispatch" in r)]
             market_result = market_results[next(r for r in list(market_results) if "market_result" in r)]
             gen = pd.merge(market_result.data.plants[["plant_type", "fuel", "node"]],
@@ -89,7 +89,7 @@ class BokehPlot():
             for result in list(market_results):
                 plots.append((market_results[result], None))
 
-        for plot_result, gen in plots: 
+        for plot_result, gen in plots:
             n_0 = plot_result.n_0_flow()
             n_1 = plot_result.n_1_flow()
             n_1.loc[:, n_0.columns] = n_1.loc[:, n_0.columns].abs()

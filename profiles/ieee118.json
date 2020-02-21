@@ -5,7 +5,10 @@
         "gams": false,
         "model_horizon": [0, 2],
         "heat_model": false,
-        "redispatch": false,
+        "redispatch": {
+            "include": false,
+            "cost": 1
+            },
         "infeasibility": {
             "heat": {
                 "include": false,
@@ -39,7 +42,7 @@
     },
     "grid": {
         "cbco_option": "clarkson_base",
-        "precalc_filename": "",
+        "precalc_filename": "cbco_py_2002_1507",
         "senstitivity": 5e-2,
         "capacity_multiplier": 0.95,
         "preprocess": true,

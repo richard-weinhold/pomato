@@ -35,7 +35,7 @@ class InputProcessing(object):
     Attributes
     ----------
     data : :class:`~pomato.data.DataManagement`
-       An instance of the DataManagement class, including all (rqw) input data.
+       An instance of the DataManagement class, including all (raw) input data.
     options : dict
         The options from DataManagement persist in the InputProcessing.
     """

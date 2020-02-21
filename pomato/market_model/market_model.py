@@ -1,20 +1,13 @@
-"""The market model of PMAOT
+"""The market model of POMATO
 
-
-This module creates the interface between the data, the grid representaiton and
+This module creates the interface between the data, grid representaiton and
 the market model written in julia. This is done by saving the relevant data as csv,
 run the model in a subprocess which provides the results in folder as csv files.
 
 The Modes is initionaled empty and then filled with data seperately. This makes it
 easy to change the data and rerun without re-initializing everything again.
 
-    Object Status:
-        - empty: initalized but no data loaded
-        - ready_to_solve: data loaded and files build in the respective folders
-        - solved: model with the current data has been solved succesfully and results-files
-                  have been saved in the Julia folder
-        - solve_error: something went wrong while trying to run Julia
- """
+"""
 import logging
 import subprocess
 import json
@@ -24,11 +17,47 @@ import pomato.tools as tools
 from pathlib import Path
 # import re
 
-class MarketModel():
-    """ Class to interface the Julia model with the python Market and Grid Model"""
-    def __init__(self, wdir, options):
-        # Import Logger
 
+class MarketModel():
+    """Class to interface the MarketModel in Julia with the python based Data and Grid models.
+
+    This module is initialized empty and only initializes the interactive julia process used to run
+    the market model. Once started the model can be easily re-run with changed options or data.
+    The option file serves as an argumant to distinguish possible market model implementations which
+    would be initialized differently.
+
+    Parameters
+    ----------
+    wdir : pathlib.Path
+        Working directory
+    options : dict
+        The options from POMATO main method persist in the MarketModel.
+
+    Attributes
+    ----------
+    wdir : pathlib.Path
+        Working directory
+    options : dict
+        The options from POMATO main method persist in the MarketModel.
+    data_dir : pathlib.Path
+        Subdirectory of working directory to store the data in.
+    julia_model : :class:`~pomato.tools.InteractiveJuliaProcess`
+        Interactive julia process which is used to run the market model.
+    data : :class:`~pomato.data.DataManagement`
+       An instance of the DataManagement class with processed input data.
+    grid_representation : dict
+        Grid representation resulting from of :class:`~pomato.cbco.CBCOModule`. Contains a
+        suitable grid represenation based on the chosen options.
+    model_horizon : list
+        List containing all timesteps part of the model horizon.
+    status : str
+        Attribute indicating the model status: Empty, Solved, Error.
+    result_folders : list(pathlib.Path)
+        List of sub-directories containing the results in case of successful solve.
+        Can be multiples for redispatch calculations or FBMC application.
+    """
+
+    def __init__(self, wdir, options):
         self.logger = logging.getLogger('Log.MarketModel.JuliaInterface')
         self.logger.info("Initializing MarketModel...")
         self.options = options
@@ -49,14 +78,27 @@ class MarketModel():
 
         # attributes to signal sucessfull model run
         self.status = 'empty'
-        self.result_folder = None
-
+        self.result_folders = None
 
     def update_data(self, data, options, grid_representation):
-        # Init Datamangement, Grid Data and Model Set-up
+        """Initialise or update the underlying data of the market model.
+
+        Updates all data used to run the market model: input data, grid representation, options and
+        model horizon by running :meth:`~data_to_csv`.
+
+        Parameters
+        ----------
+        data : :class:`~pomato.data.DataManagement`
+           Instance of the DataManagement class with processed input data.
+        options : dict
+            While already part of the init, re-runs with changed options are often utilized.
+        grid_representation : dict
+            Grid representation resulting from of :class:`~pomato.cbco.CBCOModule`. Contains a
+            suitable grid represenation based on the chosen options.
+        """
         self.data = data
         self.grid_representation = grid_representation
-        self.option = options
+        self.options = options
 
         model_horizon_range = range(options["optimization"]["model_horizon"][0],
                                     options["optimization"]["model_horizon"][1])
@@ -70,7 +112,15 @@ class MarketModel():
         self.logger.info("MarketModel Initialized!")
 
     def run(self):
-        """Run the julia Programm via command Line"""
+        """Run the julia Programm via command Line.
+
+        Uses :class:`~pomato.tools.InteractiveJuliaProcess` from the attribite *julia_model* to
+        run the market model. If the model is not initialized, it will be done here onece. The
+        model run depends on the supplied options.
+        In the case of successful completion, the resul folders are stores in the *result_folders*
+        attribute for further processing thje in :class:`~pomato.data.ResultProcessing` module.
+
+        """
         t_start = datetime.datetime.now()
 
         solved = False
@@ -110,10 +160,10 @@ class MarketModel():
             if not self.julia_model:
                 self.julia_model = tools.InteractiveJuliaProcess(self.wdir, self.logger, "market_model")
 
-            if self.options["optimization"]["redispatch"]:
-                command = 'MarketModel.run_redispatch("'+ str(self.wdir.as_posix()) + '", "/data/")'
+            if self.options["optimization"]["redispatch"]["include"]:
+                command = 'MarketModel.run_redispatch("' + str(self.wdir.as_posix()) + '", "/data/")'
             else:
-                command = 'MarketModel.run("'+ str(self.wdir.as_posix()) + '", "/data/")'
+                command = 'MarketModel.run("' + str(self.wdir.as_posix()) + '", "/data/")'
 
             self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
             self.julia_model.run(command)
@@ -129,10 +179,11 @@ class MarketModel():
             # last for normal dispatch, last 2 for redispatch
             folders = pd.DataFrame()
             folders["folder"] = [i for i in self.data_dir.joinpath("results").iterdir()]
-            folders["time"] = [i.lstat().st_mtime \
-                          for i in self.data_dir.joinpath("results").iterdir()]
+            folders["time"] = [i.lstat().st_mtime for i in self.data_dir.joinpath("results").iterdir()]
 
-            if self.options["optimization"]["redispatch"]:
+            # if redispatch, take last two folders (this might have to be generalized to take folders with
+            # the same base date.)
+            if self.options["optimization"]["redispatch"]["include"]: 
                 self.result_folders = list(folders.nlargest(2, "time").folder)
             else:
                 self.result_folders = list(folders.nlargest(1, "time").folder)
@@ -144,17 +195,18 @@ class MarketModel():
             self.status = 'solved'
         else:
             self.logger.warning("Process not terminated successfully!")
+            self.status = 'error'
 
     def data_to_csv(self):
-        """
-        Export Data to csv files file in the jdir/data
-        Some json also needs to be written
+        """Export input data to csv files in the ddir sub-directory.
+
+        Writes all data specified in the *model stucture* attribute of DataMangement to csv.
+        Additionally stores a comprehensive table of plant types, relevant to distinguish between
+        certain generation constraints (storages, res etc.), table of slack zones, the grid
+        represenation and the options.
 
         """
-
-        model_structure = self.data.model_structure
         csv_path = self.data_dir.joinpath('data')
-
         for data in self.data.model_structure:
             cols = [col for col in self.data.model_structure[data].attributes if col != "index"]
             if "timestep" in cols:
@@ -171,15 +223,17 @@ class MarketModel():
         plant_types.to_csv(str(csv_path.joinpath('plant_types.csv')), index_label='index')
 
         # Optional data
-        if self.grid_representation["cbco"].empty:
+        if self.grid_representation["grid"].empty:
             pd.DataFrame(columns=["ram"]).to_csv(str(csv_path.joinpath('cbco.csv')), index_label='index')
         else:
-            self.grid_representation["cbco"] \
-                .to_csv(str(csv_path.joinpath('cbco.csv')), index_label='index')
+            self.grid_representation["grid"] \
+                .to_csv(str(csv_path.joinpath('grid.csv')), index_label='index')
 
-        if self.options["optimization"]["redispatch"]["include"]:
-            self.grid_representation["cbco"] \
-                .to_csv(str(csv_path.joinpath('redispatch_cbco.csv')), index_label='index')
+        if self.grid_representation["redispatch_grid"].empty:
+            pd.DataFrame(columns=["ram"]).to_csv(str(csv_path.joinpath('cbco.csv')), index_label='index')
+        else:
+            self.grid_representation["redispatch_grid"] \
+                .to_csv(str(csv_path.joinpath('redispatch_grid.csv')), index_label='index')
 
         slack_zones = pd.DataFrame(index=self.data.nodes.index)
         for slack in self.grid_representation["slack_zones"]:
@@ -191,10 +245,3 @@ class MarketModel():
 
         with open(csv_path.joinpath('options.json'), 'w') as file:
             json.dump(self.options["optimization"], file, indent=2)
-
-        try:
-            with open(csv_path.joinpath('slack_zones.json'), 'w') as file:
-                json.dump(self.grid_representation["slack_zones"], file)
-        except:
-            self.logger.warning("slack_zones.json not found - Check if relevant for the model")
-

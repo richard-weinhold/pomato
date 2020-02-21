@@ -11,7 +11,6 @@ from pomato import POMATO
 
 mato = POMATO(wdir=Path.cwd().parent, options_file="profiles/de.json")
 mato.load_data(r'data_input\dataset_de_short.xlsx')
-
 n = mato.data.nodes
 p = mato.data.plants
 l = mato.grid.lines
@@ -28,7 +27,10 @@ a = mato.data.availability
 # %%
 
 # mato.options["optimization"]["type"] = "ntc"
+mato.data.results = {}
 mato.create_grid_representation()
+
+# mato.grid_representation["redispatch_grid"]["cbco"].loc[:, "zone"] = "DE"
 mato.update_market_model_data()
 mato.run_market_model()
 
@@ -56,8 +58,9 @@ gen[["fuel", "t", "G_redispatch"]].groupby(["t", "fuel"]).sum().reset_index().pi
 gen.delta.sum()
 gen.delta_abs.sum()/20
 
-# Bokeh PLot
-mato.init_bokeh_plot(name="DE")
 
+# %% Bokeh PLot
+# mato.init_bokeh_plot(name="DE")
+# df1, df2 = redisp_result.overloaded_lines_n_1()
 
-
+# df1["# of overloads"].sum()

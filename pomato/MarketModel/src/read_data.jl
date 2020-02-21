@@ -4,7 +4,7 @@
 # Created by Robert Mieth and Richard Weinhold
 # Licensed under LGPL v3
 #
-# Language: Julia, v1.1. (required)
+# Language: Julia, v1.3. (required)
 # ----------------------------------
 #
 # This file:
@@ -61,7 +61,7 @@ mutable struct RAW
         raw.net_export = CSV.read(data_dir*"net_export.csv")
         raw.inflows = CSV.read(data_dir*"inflows.csv")
         # raw.reference_flows = CSV.read(data_dir*"reference_flows.csv");
-        raw.grid = CSV.read(data_dir*"cbco.csv")
+        raw.grid = CSV.read(data_dir*"grid.csv")
         raw.slack_zones = CSV.read(data_dir*"slack_zones.csv")
         raw.model_horizon = DataFrame(index=collect(1:size(unique(raw.demand_el[:, :timestep]), 1)),
                                       timesteps=unique(raw.demand_el[:, :timestep]))
@@ -264,7 +264,7 @@ end
 
 function load_redispatch_grid!(pomato::POMATO)
     grid = Vector{Grid}()
-    grid_data = CSV.read(pomato.data.folders["data_dir"]*"redispatch_cbco.csv")
+    grid_data = CSV.read(pomato.data.folders["data_dir"]*"redispatch_grid.csv")
     # grid_data = CSV.read(pomato.data.folders["data_dir"]*"redispatch_nodal.csv")
     for cbco in 1:nrow(grid_data)
         index = cbco

@@ -20,8 +20,8 @@ class InteractiveJuliaProcess():
     def __init__(self, wdir, logger, julia_model):
 
         self.julia_process = popen_spawn.PopenSpawn('julia --project=project_files/pomato', 
-                                                            cwd=wdir, timeout=100000, 
-                                                            logfile=FileAdapter(logger))
+                                                    cwd=wdir, timeout=100000, 
+                                                    logfile=FileAdapter(logger))
         self.logger = logger
         self.solved = False 
 
@@ -175,7 +175,15 @@ def options():
         "gams": False,
         "model_horizon": [0, 2],
         "heat_model": False,
-        "redispatch": False,
+        "split_timeseries": True,
+        "redispatch": {
+            "include": True,
+            "cost": 1},
+        "curtailment": {
+            "include": False,
+            "cost": 1E2},
+        "parameters": {
+            "storage_start": 0.65},
         "infeasibility": {
             "heat": {
                 "include": False,
@@ -183,17 +191,12 @@ def options():
                 "bound": 20},
             "electricity": {
                 "include": True,
-                "cost": 1E2,
+                "cost": 1E3,
                 "bound": 20},
             "lines": {
                 "include": False,
                 "cost": 1E3,
                 "bound": 20}},
-        "curtailment": {
-            "include": False,
-            "cost": 1E3},
-        "parameters": {
-            "storage_start": 0.65},
         "plant_types": {
             "es": ["hydro_res", "hydro_psp"],
             "hs": [],

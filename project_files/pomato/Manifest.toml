@@ -189,6 +189,11 @@ uuid = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 [[Logging]]
 uuid = "56ddb016-857b-54e1-b83d-db4d58db5568"
 
+[[LoggingExtras]]
+git-tree-sha1 = "c867b50bfc564f0beded1c566f4fc66cfd8b5418"
+uuid = "e6f89c97-d47a-5376-807f-9c37f3926c36"
+version = "0.4.0"
+
 [[Markdown]]
 deps = ["Base64"]
 uuid = "d6f4376e-aef5-505a-96c1-9c027394607a"
@@ -239,9 +244,9 @@ version = "0.3.3"
 
 [[OpenBLAS_jll]]
 deps = ["Libdl", "Pkg"]
-git-tree-sha1 = "3a6e5767e8ae022871c19162cc3ecd80748bd3dc"
+git-tree-sha1 = "e2551d7c25d52f35b76d86a50917a3ba8988f519"
 uuid = "4536629a-c528-5b80-bd46-f80d51c5b363"
-version = "0.3.7+4"
+version = "0.3.7+5"
 
 [[OpenSpecFun_jll]]
 deps = ["Libdl", "Pkg"]
@@ -296,7 +301,7 @@ deps = ["Serialization"]
 uuid = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 
 [[RedundancyRemoval]]
-deps = ["BenchmarkTools", "CSV", "DataFrames", "Dates", "GLPK", "Gurobi", "JuMP", "LinearAlgebra", "Logging", "ThreadTools"]
+deps = ["BenchmarkTools", "CSV", "DataFrames", "Dates", "Distributed", "GLPK", "Gurobi", "JuMP", "LinearAlgebra", "Logging", "LoggingExtras", "SharedArrays", "ThreadTools"]
 path = "../../pomato/RedundancyRemoval"
 uuid = "32e2fdb4-8fda-4538-bf20-57de85f2491f"
 version = "0.1.0"

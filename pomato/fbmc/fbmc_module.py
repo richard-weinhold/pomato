@@ -14,7 +14,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy import spatial
 import tools as tools
-from pomato.cbco_module import CBCOModule
+from pomato.cbco import CBCOModule
 
 # kriterien für cb auswahl
 # # n-0 last
@@ -466,7 +466,7 @@ class FBMCModule():
         list_coord = np.take(list_coord, unique_rows_idx, axis=0)
         return(list_coord[:, 0], list_coord[:, 1], intersection_x, intersection_y)
 
-    def plot_fbmc(self, domain_x, domain_y, gsk_strategy, timestep, filename_suffix=None):
+    def generate_flowbased_domain(self, domain_x, domain_y, gsk_strategy, timestep, filename_suffix=None):
         """
         Combines previous functions to actually plot the FBMC Domain with the
         hull
@@ -530,4 +530,8 @@ class FBMCModule():
 
         fbmc_rep = pd.concat([fbmc_paramters[t] for t in fbmc_paramters.keys()], ignore_index=True)
         fbmc_rep.set_index(fbmc_rep.cb + "_" + fbmc_rep.co, inplace=True)
+        
         return fbmc_rep
+
+
+

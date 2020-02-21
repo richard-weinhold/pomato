@@ -143,6 +143,8 @@ class ResultProcessing():
         Returns the dual of the energy balances (nodal and zonal). Since
         the model can be cleared with constraints on both simultaneously, the
         resulting nodal price is the sum of the zonal and nodal components.
+        The dual is obtained from Julia/JuMP with the dual function and therefore
+        multiplied with -1.
 
         Returns
         -------
@@ -167,7 +169,7 @@ class ResultProcessing():
     def heat_price(self):
         """Return heat price.
 
-        Returns the dual of the heat balance. 
+        Returns the dual of the heat balance.
 
         Returns
         -------

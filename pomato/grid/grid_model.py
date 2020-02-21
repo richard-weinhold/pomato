@@ -395,7 +395,7 @@ class GridModel():
             self.logger.exception('error:create_n_1_ptdf_co')
 
     def create_n_1_ptdf_cbco(self, line, outage):
-        """Create N-1 ptdf for one specific line and one specific outage.
+        r"""Create N-1 ptdf for one specific line and one specific outage.
 
         Parameters
         ----------

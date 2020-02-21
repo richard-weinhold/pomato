@@ -76,7 +76,6 @@ function run_market_model(data::Data, options::Dict{String, Any})
 	return pomato
 end
 
-
 function run_redispatch_model(data::Data, options::Dict{String, Any}, redispatch_zones::Vector{String})
 	pomato = run_market_model(data, options)
 	redispatch_results = Dict{String, Result}()

@@ -1,4 +1,8 @@
 
+global optimizer = with_optimizer(Gurobi.Optimizer, OutputFlag=0, Method=0,
+			   					  Presolve=0, PreDual=0, Aggregate=0)
+
+
 function is_redundant(model::JuMP.Model, constraint::Vector{Float64}, rhs::Float64)
 	temp = @constraint(model, constraint' * model[:x] <= rhs + 1)
 	@objective(model, Max, constraint' * model[:x])
@@ -16,14 +20,15 @@ end
 function build_model(dim::Int, A::Array{Float64},
     				 b::Vector{Float64}, x_bounds::Vector{Float64})
 	# model = Model(with_optimizer(GLPK.Optimizer, msg_lev=GLPK.OFF))
-	model = Model(with_optimizer(Gurobi.Optimizer, OutputFlag=0, Method=0,
-				  Presolve=0, PreDual=0, Aggregate=0))
+	global optimizer
+	model = Model(optimizer)
 	if size(x_bounds, 1) > 0
 		@info("Building Model with bounds on x!")
 		@variable(model, x[i=1:dim], lower_bound=-x_bounds[i], upper_bound=x_bounds[i])
 	else
 		@info("Building Model with x free!")
-		@variable(model, x[i=1:dim])
+		@variable(model, x[i=1:dim], lower_bound=-1E6, upper_bound=1E6)
+		# @variable(model, x[i=1:dim])
 	end
 
 	@constraint(model, con[i=1:size(A, 1)], A[i,:]' * x <= b[i])
@@ -160,14 +165,12 @@ function split_m_indices(m::Vector{Int}, splits::Int)
  	return m_segments
 end
 
-
 function parallel_filter(A::Array{Float64}, b::Vector{Float64},
 						 m::Vector{Int}, x_bounds::Vector{Float64},
 						 z::Vector{Float64}, splits::Int)
 
 	m_segments = split_m(m, Int(splits))
 	m_segments = split_m_indices(m, Int(splits))
-	lock = SpinLock()
 	indices = zeros(Bool, length(m))
 	Threads.@threads for m_seg in m_segments
 		idx = main(A[m[m_seg], :], b[m[m_seg]], collect(1:length(m_seg)), Array{Int, 1}(), x_bounds, z)
@@ -178,28 +181,29 @@ function parallel_filter(A::Array{Float64}, b::Vector{Float64},
 	return m[indices]
 end
 
-function solve_parallel(A::Array{Float64}, b::Vector{Float64},
+function solve_parallel(model::JuMP.Model, A::Array{Float64}, b::Vector{Float64},
 						filtered_m::Vector{Int}, x_bounds::Vector{Float64},
 					   	r::Vector{Int})
-
+	global optimizer
+	JuMP.set_optimizer(model, optimizer)
 	indices = zeros(Bool, length(r))
-	model = build_model(size(A, 2), A[filtered_m, :], b[filtered_m], x_bounds)
-	@debug("Done building the model on proc: $(Threads.threadid())")
+	@info("Start wit LPTest on proc: $(Threads.threadid())")
 	for k in 1:length(r)
 		model_index = findfirst(x -> x == filtered_m[r[k]], filtered_m)
-		@objective(model, Max, A[filtered_m[r[k]], :]' * model[:x])
+		@objective(model, Max, A[k, :]' * model[:x])
 		JuMP.delete(model, model[:con][model_index])
 		JuMP.optimize!(model)
-		if !(JuMP.objective_value(model) <  b[filtered_m[r[k]]])
-			@constraint(model, sum(A[filtered_m[r[k]], :] .* model[:x]) <= b[filtered_m[r[k]]])
+		if !(JuMP.objective_value(model) <  b[k])
+			@constraint(model, sum(A[k, :] .* model[:x]) <= b[k])
 			indices[k] = true
 		end
-		@debug("Idx: $(k) on proc: $(Threads.threadid())")
+		if k%10 == 0
+			timestamp = Dates.format(now(), "dd.mm - HH:MM:SS")
+			@info("$(k) constraints done on proc: $(Threads.threadid()) - $(timestamp)")
+		end
 	end
 	return indices
 end
-
-
 function main_parallel(A::Array{Float64}, b::Vector{Float64},
 					   m::Vector{Int}, I::Vector{Int}, x_bounds::Vector{Float64},
 					   z::Vector{Float64})
@@ -223,15 +227,15 @@ function main_parallel(A::Array{Float64}, b::Vector{Float64},
 	@info("Number of non-redundant constraints after parallel filter: $(length(filtered_m))" )
 	save_to_file(filtered_m, "cbco_filtered_backup_"*Dates.format(now(), "ddmm_HHMM"))
 
-	number_ranges = maximum(Int, [floor(Int, length(filtered_m)/100),
+	number_ranges = maximum(Int, [floor(Int, length(filtered_m)/500),
 								  Threads.nthreads()])
 	ranges = split_m_indices(filtered_m, number_ranges)
 	@info("Run final LP Test in $(number_ranges) Segements.")
-
-	Threads.@threads for r in ranges
-		@info("LP Test with length $(length(r)) on proc id: $(Threads.threadid())")
-		indices = solve_parallel(A, b, filtered_m, x_bounds, r)
-		@inbounds I[r[indices]] .= true
+	base_model = build_model(size(A, 2), A[filtered_m, :], b[filtered_m], x_bounds)
+	Threads.@threads for range in ranges
+		@info("LP Test with length $(length(range)) on proc id: $(Threads.threadid())")
+		indices = solve_parallel(copy(base_model), A[filtered_m[range], :], b[filtered_m[range]], filtered_m, x_bounds, range)
+		@inbounds I[range[indices]] .= true
 		@info("Done with LP Test on proc id: $(Threads.threadid())")
 	end
 	return filtered_m[I]
