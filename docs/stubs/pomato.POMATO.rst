@@ -11,7 +11,7 @@ pomato.POMATO
    .. autosummary::
    
       ~POMATO.create_grid_representation
-      ~POMATO.init_bokeh_plot
+      ~POMATO.create_geo_plot
       ~POMATO.init_market_model
       ~POMATO.initialize_options
       ~POMATO.load_data
