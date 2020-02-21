@@ -90,6 +90,7 @@ from pomato.cbco.cbco_module import CBCOModule
 from pomato.visualization.bokeh_interface import BokehPlot
 import pomato.tools as tools
 
+
 def _logging_setup(wdir, webapp):
     # Logging setup
     logger = logging.getLogger('Log.MarketModel')
@@ -317,7 +318,7 @@ class POMATO():
         self.cbco_module.create_grid_representation()
         self.grid_representation = self.cbco_module.grid_representation
 
-    def init_bokeh_plot(self, name="default", bokeh_type="static", results=None):
+    def create_geo_plot(self, name="default", bokeh_type="static", results=None):
         """Initialize bokeh plot based on the dataset and a market result.
 
         Parameters
@@ -331,7 +332,7 @@ class POMATO():
             requires to run a bokeh server, which is generally more involved.
             Defaults to static, which outputs a html version of the map with
             average loads.
-        results : dict of :class:`~pomato.data.DataProcessing
+        results : dict(str, :obj:`~pomato.data.ResultProcessing`)
             Optionally specify a subset of results to plot.
         """
         self.bokeh_plot = BokehPlot(self.wdir, bokeh_type=bokeh_type)
