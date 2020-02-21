@@ -124,55 +124,23 @@ class MarketModel():
         t_start = datetime.datetime.now()
 
         solved = False
-        if self.options["optimization"]["gams"]:
-            result_folder = self.wdir.joinpath("data_temp/gms_files/results/" + t_start.strftime("%d%m_%H%M"))
-            if not Path.is_dir(result_folder):
-                Path.mkdir(result_folder)
+        
+        if not self.julia_model:
+            self.julia_model = tools.InteractiveJuliaProcess(self.wdir, self.logger, "market_model")
 
-            args = ["gams", str(self.wdir.joinpath("pomato/ENS_pomato_gms/model.gms")),
-                    "--wdir=" + str(self.wdir),
-                    "--rdir=" + str(result_folder),
-                    "--model_type=" + self.options["optimization"]["type"],
-                    "--infeasibility_electricity=" + str(self.options["optimization"]["infeasibility"]["electricity"]["include"]),
-                    "--infeasibility_lines=" + str(self.options["optimization"]["infeasibility"]["lines"]["include"]),
-                    "--infeasibility_heat=" + str(self.options["optimization"]["infeasibility"]["heat"]["include"]),
-                    "--infeasibility_bound=" + str(self.options["optimization"]["infeasibility"]["electricity"]["bound"]),
-                    "lo=3",
-                    "curDir=" + str(result_folder)]
-
-            print(" ".join(args))
-
-            self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
-            with open(self.wdir.joinpath("logs").joinpath('market_model.log'), 'w') as log:
-                # shell=false needed for mac (and for Unix in general I guess)
-                with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE, stderr=subprocess.STDOUT) as programm:
-                    for line in programm.stdout:
-                        log.write(line.decode(errors="ignore"))
-                        self.logger.info(line.decode(errors="ignore").strip())
-
-            t_end = datetime.datetime.now()
-            self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
-            self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")
-            if programm.returncode == 0:
-                solved = True
-
+        if self.options["optimization"]["redispatch"]["include"]:
+            command = 'MarketModel.run_redispatch("' + str(self.wdir.as_posix()) + '", "/data/")'
         else:
-            if not self.julia_model:
-                self.julia_model = tools.InteractiveJuliaProcess(self.wdir, self.logger, "market_model")
+            command = 'MarketModel.run("' + str(self.wdir.as_posix()) + '", "/data/")'
 
-            if self.options["optimization"]["redispatch"]["include"]:
-                command = 'MarketModel.run_redispatch("' + str(self.wdir.as_posix()) + '", "/data/")'
-            else:
-                command = 'MarketModel.run("' + str(self.wdir.as_posix()) + '", "/data/")'
+        self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
+        self.julia_model.run(command)
+        t_end = datetime.datetime.now()
+        self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
+        self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")
 
-            self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
-            self.julia_model.run(command)
-            t_end = datetime.datetime.now()
-            self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
-            self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")
-
-            if self.julia_model.solved:
-                solved = True
+        if self.julia_model.solved:
+            solved = True
 
         if solved:
             # find latest folders created in julia result folder

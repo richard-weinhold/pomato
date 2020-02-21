@@ -6,7 +6,6 @@
 *DEV*
 */__pycache__
 *.sublime* 
-*.gdx
 data_input/old/
 *__pycache__*
 *.pylint.d*
@@ -15,6 +14,5 @@ pomato/logs/
 docs/_build/
 *.lst
 *.opt
-pomato/ENS_pomato_gms/model.log
 *.lxi
-*ENS*
+

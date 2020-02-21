@@ -129,11 +129,6 @@ class ResultProcessing():
             self.result_attributes = {**self.result_attributes,
                                       **self.data.options["optimization"]}
 
-        if self.result_attributes["gams"]:
-            model_stat = self.result_attributes["objective"]["Solve Status"]
-            model_stat_str = tools.gams_modelstat_dict(model_stat)
-            self.result_attributes["objective"]["Solve Status"] = model_stat_str
-
         # self.result_attributes["objective"] = data["Objective Value"]
         self.result_attributes["model_horizon"] = list(self.INJ.t.unique())
 
