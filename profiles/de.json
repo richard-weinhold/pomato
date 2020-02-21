@@ -2,7 +2,6 @@
     "optimization": {
         "type": "nodal",
         "solver": "gurobi",
-        "gams": false,
         "model_horizon": [0, 20],
         "heat_model": false,
         "redispatch": {

@@ -28,7 +28,7 @@ and julia runs the economic dispatch and N-1 redundancy removal algorithm. The f
 ``/project_files`` contains environment files for python (3.6, anaconda, pip) and julia (1.3).
 Note julia has to be available on the PATH for POMATO to run.
 
-After the python enviroment is setup the provided julia environment has to be instantiated. 
+After the python enviroment is setup the provided julia environment has to be instantiated.
 This can be done by running the following commands from the pomato root folder:
 
 .. code-block:: julia
@@ -64,12 +64,12 @@ on the provided functionality and its results.
 Release Status
 --------------
 
-This release covers all features and a big part of the documentation. The FBMCModule is stil 
+This release covers all features and a big part of the documentation. The FBMCModule is stil
 changing very often and is not documented. The julia code also lacks documentation until we figure
-out how to include both julia and python code into one shpinx script. 
+out how to include both julia and python code into one shpinx script.
 
 POMATO is part of my PhD and actively developed by Robert and myself. WE are notsoftware engineers,
-thus the "program" is not written with robustness in mind. Expect errors, bug, funky behavior, 
+thus the "program" is not written with robustness in mind. Expect errors, bug, funky behavior,
 stupid code structures, hard-coded mess and lack of obvious features.
 
 Related Publications
@@ -83,7 +83,7 @@ from pathlib import Path
 import logging
 import json
 
-from pomato.data import DataManagement, ResultProcessing, ENSResultProcessing
+from pomato.data import DataManagement, ResultProcessing
 from pomato.grid import GridModel
 from pomato.market_model import MarketModel
 from pomato.cbco.cbco_module import CBCOModule
@@ -279,22 +279,17 @@ class POMATO():
             self.init_market_model()
         else:
             self.market_model.update_data(self.data, self.options, self.grid_representation)
-            
+
     def initialize_market_results(self, result_folders):
         """Initionalizes market results from a list of folders.
-        
+
         Parameters
         ----------
         result_folders : list
             List of folders containing market resaults.
         """
-        if self.options["data"]["data_type"] == "ramses":
-            for folder in result_folders:
-                self.data.results[folder.name] = ENSResultProcessing(self.data, self.grid, folder)
-        else:
-            for folder in result_folders:
-                self.data.results[folder.name] = ResultProcessing(self.data, self.grid, folder)
-
+        for folder in result_folders:
+            self.data.results[folder.name] = ResultProcessing(self.data, self.grid, folder)
 
     def run_market_model(self):
         """Run the market model."""
@@ -322,9 +317,9 @@ class POMATO():
         self.cbco_module.create_grid_representation()
         self.grid_representation = self.cbco_module.grid_representation
 
-    def init_bokeh_plot(self, name="default", bokeh_type="static", gen=None):
+    def init_bokeh_plot(self, name="default", bokeh_type="static", results=None):
         """Initialize bokeh plot based on the dataset and a market result.
-        
+
         Parameters
         ----------
         name : str, optional
@@ -332,16 +327,19 @@ class POMATO():
             market result in the plot itself and to name the folder within
             the ``data_temp/bokeh_files`` folder.
         bokeh_type : str, optional
-            Specifies if a static or dynamic plot is generated. A dynamic plot 
-            requires to run a bokeh server, which is generally more involved. 
-            Defaults to static, which outputs a html version of the map with 
+            Specifies if a static or dynamic plot is generated. A dynamic plot
+            requires to run a bokeh server, which is generally more involved.
+            Defaults to static, which outputs a html version of the map with
             average loads.
+        results : dict of :class:`~pomato.data.DataProcessing
+            Optionally specify a subset of results to plot.
         """
         self.bokeh_plot = BokehPlot(self.wdir, bokeh_type=bokeh_type)
 
-        if not self.data.results: # if results dict is empty
+        if (not self.data.results) and (not results):  # if results dict is empty
             self.logger.warning("No result available form market model!")
+        elif results:
+            self.bokeh_plot.create_static_plot(results)
         else:
             self.bokeh_plot.create_static_plot(self.data.results)
-
 

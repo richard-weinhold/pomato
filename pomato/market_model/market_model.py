@@ -64,11 +64,8 @@ class MarketModel():
 
         # Create Folders
         self.wdir = wdir
-        if self.options["optimization"]["gams"]:
-            self.data_dir = wdir.joinpath("data_temp/gms_files")
-        else:
-            self.data_dir = wdir.joinpath("data_temp/julia_files")
-            self.julia_model = None
+        self.data_dir = wdir.joinpath("data_temp/julia_files")
+        self.julia_model = None
 
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)
@@ -124,7 +121,7 @@ class MarketModel():
         t_start = datetime.datetime.now()
 
         solved = False
-        
+
         if not self.julia_model:
             self.julia_model = tools.InteractiveJuliaProcess(self.wdir, self.logger, "market_model")
 
@@ -151,7 +148,7 @@ class MarketModel():
 
             # if redispatch, take last two folders (this might have to be generalized to take folders with
             # the same base date.)
-            if self.options["optimization"]["redispatch"]["include"]: 
+            if self.options["optimization"]["redispatch"]["include"]:
                 self.result_folders = list(folders.nlargest(2, "time").folder)
             else:
                 self.result_folders = list(folders.nlargest(1, "time").folder)

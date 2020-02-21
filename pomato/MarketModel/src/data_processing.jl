@@ -1,73 +1,4 @@
-# -------------------------------------------------------------------------------------------------
-# POMATO - Power Market Tool (C) 2018
-# Current Version: Pre-Release-2018
-# Created by Robert Mieth and Richard Weinhold
-# Licensed under LGPL v3
-#
-# Language: Julia, v1.3. (required)
-# ----------------------------------
-#
-# This file:
-# POMATO optimization kernel
-# Called by julia_interface.py, reads pre-processed data from /julia/data/
-# Output: Optimization results saved in /julia/results/
-# -----------------------------------------------------------------------
-
-# Read Data into Data Frame
-# Input: Pre-Processed data from /julia/data/
-# Output: Ordered Dicts of Types as definded in typedefinitions.jl (Plants, Node, Heatareas, Grid etc.)
-mutable struct RAW
-    options::Dict{String, Any}
-    model_horizon::DataFrame
-    plant_types::Dict{String, Any}
-    nodes::DataFrame
-    zones::DataFrame
-    heatareas::DataFrame
-    plants::DataFrame
-    res_plants::DataFrame
-    availability::DataFrame
-    demand_el::DataFrame
-    demand_h::DataFrame
-    dc_lines::DataFrame
-    ntc::DataFrame
-    net_position::DataFrame
-    net_export::DataFrame
-    inflows::DataFrame
-    reference_flows::DataFrame
-    grid::DataFrame
-    slack_zones::DataFrame
-    function RAW(data_dir)
-        raw = new()
-        raw.options = JSON.parsefile(data_dir*"options.json"; dicttype=Dict)
-        raw.plant_types = raw.options["plant_types"]
-
-        raw.nodes = CSV.read(data_dir*"nodes.csv")
-        raw.nodes[!, :int_idx] = collect(1:nrow(raw.nodes))
-        raw.zones = CSV.read(data_dir*"zones.csv")
-        raw.zones[!, :int_idx] = collect(1:nrow(raw.zones))
-        raw.heatareas = CSV.read(data_dir*"heatareas.csv")
-        raw.heatareas[!, :int_idx] = collect(1:nrow(raw.heatareas))
-        plants = CSV.read(data_dir*"plants.csv")
-        raw.plants =  filter(row -> !(row[:plant_type] in raw.plant_types["ts"]), plants)
-        raw.res_plants =  filter(row -> row[:plant_type] in raw.plant_types["ts"], plants)
-        raw.plants[!, :int_idx] = collect(1:nrow(raw.plants))
-        raw.res_plants[!, :int_idx] = collect(1:nrow(raw.res_plants))
-        raw.availability = CSV.read(data_dir*"availability.csv")
-        raw.demand_el = CSV.read(data_dir*"demand_el.csv")
-        raw.demand_h = CSV.read(data_dir*"demand_h.csv")
-        raw.dc_lines = CSV.read(data_dir*"dclines.csv")
-        raw.ntc = CSV.read(data_dir*"ntc.csv")
-        raw.net_position = CSV.read(data_dir*"net_position.csv")
-        raw.net_export = CSV.read(data_dir*"net_export.csv")
-        raw.inflows = CSV.read(data_dir*"inflows.csv")
-        # raw.reference_flows = CSV.read(data_dir*"reference_flows.csv");
-        raw.grid = CSV.read(data_dir*"grid.csv")
-        raw.slack_zones = CSV.read(data_dir*"slack_zones.csv")
-        raw.model_horizon = DataFrame(index=collect(1:size(unique(raw.demand_el[:, :timestep]), 1)),
-                                      timesteps=unique(raw.demand_el[:, :timestep]))
-        return raw
-    end
-end
+"""Data input processing"""
 
 function read_model_data(data_dir::String)
     println("Reading Model Data from: ", data_dir)
@@ -89,13 +20,13 @@ function read_model_data(data_dir::String)
     dc_lines = fetch(task_dc_lines)
     grid = fetch(task_grid)
 
-    timesteps = popolate_timesteps(raw)
+    timesteps = populate_timesteps(raw)
 
     println("Data Prepared")
     return raw.options, Data(nodes, zones, heatareas, plants, res_plants, grid, dc_lines, timesteps)
 end # end of function
 
-function popolate_timesteps(raw::RAW)
+function populate_timesteps(raw::RAW)
     timesteps = Vector{Timestep}()
     for t in 1:nrow(raw.model_horizon)
         index = t
@@ -262,19 +193,24 @@ function populate_grid(raw::RAW)
     return grid
 end
 
-function load_redispatch_grid!(pomato::POMATO)
-    grid = Vector{Grid}()
-    grid_data = CSV.read(pomato.data.folders["data_dir"]*"redispatch_grid.csv")
-    # grid_data = CSV.read(pomato.data.folders["data_dir"]*"redispatch_nodal.csv")
-    for cbco in 1:nrow(grid_data)
-        index = cbco
-        name = grid_data[cbco, :index]
-        ptdf = [grid_data[cbco, Symbol(node.name)] for node in pomato.data.nodes]
-        ram = grid_data[cbco, :ram]*1.
-        newcbco = Grid(index, name, ptdf, ram)
-        newcbco.zone = coalesce(grid_data[cbco, :zone], nothing)
-        push!(grid, newcbco)
-    end
-    pomato.data.grid = grid
-    return grid
+function set_model_horizon!(data)
+	timesteps = [t.index for t in data.t]
+	for n in data.nodes
+		n.demand = n.demand[timesteps]
+		n.net_export = n.net_export[timesteps]
+	end
+	for z in data.zones
+		z.demand = z.demand[timesteps]
+		if any([isdefined(z, :net_position) for z in data.zones])
+			z.net_position = z.net_position[timesteps]
+		end
+		z.net_export = z.net_export[timesteps]
+	end
+
+	for res in data.renewables
+		res.mu = res.mu[timesteps]
+		res.mu_heat = res.mu_heat[timesteps]
+		res.sigma = res.sigma[timesteps]
+		res.sigma_heat = res.sigma_heat[timesteps]
+	end
 end

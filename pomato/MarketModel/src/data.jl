@@ -222,8 +222,6 @@ mutable struct Timestep
     end
 end
 
-
-
 mutable struct Data
     # Attributes
     nodes::Vector{Node}

@@ -3,7 +3,6 @@ asd
 
 """
 
-
 function run_market_model(data::Data, options::Dict{String, Any})
 
 	if in(options["type"] , ["chance_constrained"])
@@ -108,7 +107,7 @@ function run_redispatch_model(data::Data, options::Dict{String, Any}, redispatch
 							data, options)
 
 			redispatch_model!(pomato, market_result, redispatch_zone);
-			add_curtailment_constraints!(pomato);
+			add_curtailment_constraints!(pomato, redispatch_zone);
 			add_electricity_energy_balance!(pomato);
 
 			# add_objective!(pomato)

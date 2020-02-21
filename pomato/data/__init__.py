@@ -22,4 +22,3 @@ from pomato.data.data import DataManagement
 from pomato.data.input import InputProcessing
 from pomato.data.worker import DataWorker
 from pomato.data.results import ResultProcessing
-from pomato.data.ENS_results import ENSResultProcessing

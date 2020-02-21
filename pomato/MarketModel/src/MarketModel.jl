@@ -19,13 +19,16 @@ using DataFrames, CSV, JSON, Dates, Base.Threads
 using LinearAlgebra, Distributions, SparseArrays
 using JuMP, Mosek, MosekTools, Gurobi, GLPK
 
-include("data_structs.jl")
-include("model_structs.jl")
-include("read_data.jl")
-include("tools.jl")
+include("data.jl")
+include("pomato.jl")
+include("result.jl")
+include("data_io.jl")
+include("data_processing.jl")
+include("pomato.jl")
+include("pomato_models.jl")
 include("model_functions.jl")
-include("create_model.jl")
-include("run_model.jl")
+include("main.jl")
+
 
 export run, run_redispatch
 

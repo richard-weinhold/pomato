@@ -121,9 +121,9 @@ class CBCOModule():
             - *grid*: DataFrame including the ptdf for each line/outage,
               depending on chosen option, including line capacities and
               regional information.
-            - *redispatch_grid*: DataFrame including the ptdf for the redispatch. 
+            - *redispatch_grid*: DataFrame including the ptdf for the redispatch.
               As default this is nodal but could also be an N-1 ptdf, similar to
-              *grid*.  
+              *grid*.
             - *ntc*: DataFrame with the zonal commercial exchange capacities.
 
         All values are set according the chosen option and might remain empty.
@@ -285,7 +285,7 @@ class CBCOModule():
             else:
                 condition = grid_representation.index.isin(lines_in_zone)
             grid_representation.loc[condition, "zone"] = zone
-        
+
         return grid_representation
 
     def process_cbco_nodal(self):
@@ -325,14 +325,16 @@ class CBCOModule():
                     # self.cbco_index = list(self.cbco_info.index[condition])
                     self.cbco_index = list(self.cbco_info.reset_index().index[condition])
 
-                    self.logger.info("Number of CBCOs from pre-calc: %s", str(len(self.cbco_index))) 
+                    self.logger.info("Number of CBCOs from pre-calc: %s", str(len(self.cbco_index)))
                 else:
                     self.cbco_index = list(precalc_cbco.constraints.values)
                     self.logger.info("Number of CBCOs from pre-calc: %s", str(len(self.cbco_index)))
 
             except FileNotFoundError:
                 self.logger.warning("FileNotFound: No Precalc available")
-                self.logger.warning("Running nomal CBCO Algorithm - ConvexHull only")
+                self.logger.warning("Running ConvexHull Algorithm onl, which is not good!")
+                self.cbco_index = self.reduce_cbco_convex_hull()
+
         else:
             # 3 valid args supported for cbco_option:
             # clarkson, clarkson_base, convex_hull, full (default)

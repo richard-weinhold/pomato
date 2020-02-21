@@ -259,6 +259,27 @@ function add_heat_generation_constraints!(pomato::POMATO)
 	    .+ INFEAS_H_POS[t, :] .- INFEAS_H_NEG[t, :])
 end
 
+function add_curtailment_constraints!(pomato::POMATO, zone::String)
+	model, n, map, data = pomato.model, pomato.n, pomato.map, pomato.data
+	zone_idx = findfirst(z -> z.name == zone, data.zones)
+	res_in_zone = findall(r -> r.node in data.zones[zone_idx].nodes, data.renewables)
+	@variable(model, CURT[1:n.t, res_in_zone] >= 0)
+	G_RES = model[:G_RES]
+	RES_Node = model[:RES_Node]
+	RES_Zone = model[:RES_Zone]
+	for t in 1:n.t
+		for res in res_in_zone
+			add_to_expression!(G_RES[t, res],  -CURT[t, res])
+		 	add_to_expression!(RES_Node[t, data.renewables[res].node], -CURT[t, res])
+		 	add_to_expression!(RES_Zone[t, data.nodes[data.renewables[res].node].zone], -CURT[t, res])
+	 	end
+	 end
+ 	@constraint(model, [t=1:n.t, res=res_in_zone], CURT[t, res] <= data.renewables[res].mu[t])
+	COST_CURT = model[:COST_CURT]
+
+	add_to_expression!(COST_CURT, sum(CURT*pomato.options["curtailment"]["cost"]))
+end
+
 function add_curtailment_constraints!(pomato::POMATO)
 	model, n, map, data = pomato.model, pomato.n, pomato.map, pomato.data
 	@variable(model, CURT[1:n.t, 1:n.res] >= 0)
