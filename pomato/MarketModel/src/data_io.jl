@@ -72,11 +72,11 @@ end
 function save_result(result::Result, folder::String)
 	create_folder(folder)
 	println("Saving results to folder "*folder*"...")
-	for (field, fieldtype) in zip(fieldnames(Result), fieldtypes(Result))
-		if fieldtype == DataFrame
+	for (field, field_type) in zip(fieldnames(Result), fieldtypes(Result))
+		if field_type == DataFrame
 			CSV.write(folder*"/"*String(field)*".csv",
 					  DataFrame(getfield(result, field)))
-		elseif fieldtype == Dict
+		elseif field_type == Dict
 			open(folder*"/"*String(field)*".json", "w") do f
 					write(f, JSON.json(getfield(result, field), 2))
 			end

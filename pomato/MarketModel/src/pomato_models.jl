@@ -70,7 +70,6 @@ function run_market_model(data::Data, options::Dict{String, Any})
 		check_infeasibility(pomato.model)
 	end
 	add_result!(pomato)
-
 	println("Model Done!")
 	return pomato
 end
@@ -87,10 +86,9 @@ function run_redispatch_model(data::Data, options::Dict{String, Any}, redispatch
 	market_result["infeas_pos_market"] = value.(pomato.model[:INFEAS_EL_N_POS])
 	market_result["infeas_neg_market"] = value.(pomato.model[:INFEAS_EL_N_NEG])
 
-	load_redispatch_grid!(pomato);
+	load_redispatch_grid!(pomato)
 	data_copy = deepcopy(pomato.data)
 	market_result_copy = deepcopy(market_result)
-
 	for redispatch_zone in redispatch_zones
 		tmp_results = Dict{String, Result}()
 		for timesteps in [t.index:t.index for t in data_copy.t]
@@ -122,43 +120,9 @@ function run_redispatch_model(data::Data, options::Dict{String, Any}, redispatch
 			if JuMP.termination_status(pomato.model) != MOI.OPTIMAL
 				check_infeasibility(pomato.model)
 			end
-
 			tmp_results[data.t[1].name] = add_result!(pomato)
 		end
 		redispatch_results["redispatch_"*redispatch_zone] = concat_results(tmp_results)
 	end
 	return redispatch_results
 end
-
-#
-# tmp = join(redispatch_results[""].G, pomato.results["redispatch_DE"].G, on = [:p, :t], makeunique=true)
-# tmp[!, :delta] = tmp[:, :G_1] - tmp[:, :G]
-# by(tmp, :t, :delta => x -> sum(abs.(x)))
-#
-# save_results(pomato)
-
-# Objective: 4.570786289590631e6 var alpha t:1:2
-# Objective: 4.583418581323959e6 fixed alpha 1:2
-# check_infeasibility(pomato.model)
-# println("Saving results to results folder: ", result_folder)
-#
-# write_results(pomato, result_folder)
-#
-#
-# CSV.write(result_folder*"/"*"H"*".csv", df)
-#
-#
-# model_symbol_to_df(:F_DC, result_info, pomato)
-#
-# Objective: 4.570786289590631e6 var alpha t:1:2
-# Objective: 4.583418581323959e6 fixed alpha 1:2
-# check_infeasibility(pomato.model)
-# println("Saving results to results folder: ", result_folder)
-#
-# write_results(pomato, result_folder)
-#
-#
-# CSV.write(result_folder*"/"*"H"*".csv", df)
-#
-#
-# model_symbol_to_df(:F_DC, result_info, pomato)

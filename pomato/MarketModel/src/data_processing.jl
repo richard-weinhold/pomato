@@ -22,8 +22,10 @@ function read_model_data(data_dir::String)
 
     timesteps = populate_timesteps(raw)
 
+    options = raw.options
+    raw = nothing
     println("Data Prepared")
-    return raw.options, Data(nodes, zones, heatareas, plants, res_plants, grid, dc_lines, timesteps)
+    return options, Data(nodes, zones, heatareas, plants, res_plants, grid, dc_lines, timesteps)
 end # end of function
 
 function populate_timesteps(raw::RAW)

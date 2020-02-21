@@ -50,15 +50,14 @@ end
 
 function concat_results(results::Dict{String, Result})
 	r = Result()
-	for (field, fieldtype) in zip(fieldnames(Result), fieldtypes(Result))
-		if fieldtype == DataFrame
+	for (field, field_type) in zip(fieldnames(Result), fieldtypes(Result))
+		if field_type == DataFrame
 			setfield!(r, field, vcat([getfield(results[k], field) for k in keys(results)]...))
 		end
 	end
 
 	r.misc_results = Dict()
 	r.misc_results["Objective Value"] = sum([results[k].misc_results["Objective Value"] for k in keys(results)])
-
 	r.misc_results["COST_G"] = sum([results[k].misc_results["COST_G"] for k in keys(results)])
 	r.misc_results["COST_H"] = sum([results[k].misc_results["COST_H"] for k in keys(results)])
 	r.misc_results["COST_EX"] = sum([results[k].misc_results["COST_EX"] for k in keys(results)])

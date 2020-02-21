@@ -97,8 +97,10 @@ function add_variables_expressions!(pomato::POMATO)
 	end
 
 	@expression(model, COST_EX, sum(EX)*1e-1);
-	@expression(model, COST_INFEAS_EL, (sum(INFEAS_EL_N_POS) + sum(INFEAS_EL_N_NEG))*options["infeasibility"]["electricity"]["cost"]);
-	@expression(model, COST_INFEAS_H, (sum(INFEAS_H_POS) + sum(INFEAS_H_NEG))*options["infeasibility"]["heat"]["cost"]);
+	@expression(model, COST_INFEAS_EL, (sum(INFEAS_EL_N_POS)
+		+ sum(INFEAS_EL_N_NEG))*options["infeasibility"]["electricity"]["cost"]);
+	@expression(model, COST_INFEAS_H, (sum(INFEAS_H_POS)
+		+ sum(INFEAS_H_NEG))*options["infeasibility"]["heat"]["cost"]);
 	@expression(model, COST_CURT, GenericAffExpr{Float64, VariableRef}(0));
 end
 
@@ -330,7 +332,6 @@ function add_net_position_constraints!(pomato::POMATO)
 	@constraint(model, [t=1:n.t, z=nex_zones], sum(EX[t, z, zz] - EX[t, zz, z] for zz in 1:n.zones)
 		>= data.zones[z].net_position[t] - 0.2*abs(data.zones[z].net_position[t]))
 end
-
 
 function create_alpha_loadflow_constraint!(model::Model,
 										   ptdf::Array{Float64, 2},
