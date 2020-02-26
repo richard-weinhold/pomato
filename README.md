@@ -85,6 +85,7 @@ Related Publications
 
 - [Weinhold and Mieth (2019), Fast Security-Constrained Optimal Power Flow through 
    Low-Impact and Redundancy Screening](https://arxiv.org/abs/1910.09034)
+- [Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for generation shift keys (GSKs) on the flow-based market coupling domain: A model-based analysis of Central Western Europe](https://www.sciencedirect.com/science/article/pii/S0306261919317544)
 
 
 
