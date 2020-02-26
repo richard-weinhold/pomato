@@ -19,11 +19,11 @@ class FileAdapter():
 class InteractiveJuliaProcess():
     def __init__(self, wdir, logger, julia_model):
 
-        self.julia_process = popen_spawn.PopenSpawn('julia --project=project_files/pomato', 
-                                                    cwd=wdir, timeout=100000, 
+        self.julia_process = popen_spawn.PopenSpawn('julia --project=project_files/pomato',
+                                                    cwd=wdir, timeout=100000,
                                                     logfile=FileAdapter(logger))
         self.logger = logger
-        self.solved = False 
+        self.solved = False
 
         if julia_model == "market_model":
             self.julia_process.sendline('using MarketModel')
@@ -78,7 +78,7 @@ def create_folder_structure(base_path, logger=None):
                 if not Path.is_dir(base_path.joinpath(subfolder)):
                     if logger:
                         logger.info(f"creating folder {subfolder}")
-                    Path.mkdir(base_path.joinpath(subfolder))
+                    # Path.mkdir(base_path.joinpath(subfolder))
                 if folder[subfolder]:
                     for subsubfolder in folder[subfolder]:
                         subfolder_dict[subfolder + "/" + subsubfolder] = folder[subfolder][subsubfolder]
@@ -164,7 +164,7 @@ def _delete_empty_subfolders(folder):
             subfolder.rmdir()
 
 def options():
-    """Returns the default options of POMATO. 
+    """Returns the default options of POMATO.
 
 
     """
@@ -227,7 +227,7 @@ def options():
 
     return json.loads(json_str)
 
-def gams_modelstat_dict(modelstat): 
+def gams_modelstat_dict(modelstat):
     """ Returns GAMS ModelStat String for int input"""
     gams_status_dict = {1:   "Optimal",
                         2:   "Locally Optimal",

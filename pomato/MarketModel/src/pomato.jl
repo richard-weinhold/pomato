@@ -92,7 +92,7 @@ function POMATO(model::Model,
 	return m
 end
 
-function check_infeasibility(model)
+function check_infeasibility(model::Model)
 	Gurobi.compute_conflict(model.moi_backend.optimizer.model)
 	for constraint_types in list_of_constraint_types(model)
 		out = filter(x -> MOI.get(model.moi_backend, Gurobi.ConstraintConflictStatus(), x.index),

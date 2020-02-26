@@ -19,6 +19,7 @@ mutable struct RAW
     reference_flows::DataFrame
     grid::DataFrame
     slack_zones::DataFrame
+
     function RAW(data_dir)
         raw = new()
         raw.options = JSON.parsefile(data_dir*"options.json"; dicttype=Dict)

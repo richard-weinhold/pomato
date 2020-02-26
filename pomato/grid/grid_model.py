@@ -3,6 +3,8 @@ import sys
 import logging
 import numpy as np
 import pandas as pd
+import scipy
+
 
 class GridModel():
     """Grid Model of POMATO
@@ -83,26 +85,20 @@ class GridModel():
     def check_slack(self):
         """Check slack configuration from input data.
 
-        By checking:
-            - If no slack is set, first node is set as slack
-            - Unconnected nodes as additional slacks
-            - Logs info if > 1 slacks in data
-
+        By checking the components of the network, i.e. the Node-to-Node incidence matrix.
+        For Each component it is checked if a slack is defined, and if not the first node
+        will be set as a slack. Threfore each subnetwork will be balanced.
         """
-        if not any(self.nodes.slack):
-            self.logger.warning("No slack detected, setting first node as slack!")
-            self.nodes.loc[self.nodes.index[0], "slack"] = True
-
-        condition = ~(self.nodes.index.isin(self.lines.node_i) |
-                      self.nodes.index.isin(self.lines.node_j))
-        if any(condition):
-            self.logger.warning(f"{sum(condition)} unconnected nodes detected, "
-                                "set as slacks!")
-        self.nodes.loc[condition, "slack"] = True
-
+        A = self.create_incidence_matrix()
+        network_componends = scipy.sparse.csgraph.connected_components(np.dot(A.T, A))
+        self.logger.info("The network consits of %d components. Making sure a slack is set for each.",
+                         network_componends[0])
+        for i in range(0, network_componends[0]):
+            condition_subnetwork = network_componends[1] == i
+            if not any(self.nodes.loc[condition_subnetwork, "slack"]):
+                # self.nodes.loc[condition_subnetwork, "slack"][0] = True
+                self.nodes.loc[self.nodes.index[np.argmax(condition_subnetwork)], "slack"] = True
         self.mult_slack = bool(len(self.nodes.index[self.nodes.slack]) > 1)
-        if self.mult_slack:
-            self.logger.info("Multiple Slacks Detected!")
 
     def check_grid_topology(self):
         """Check grid topology for radial nodes and lines.
@@ -223,10 +219,12 @@ class GridModel():
         (i.e. line susceptance).
         """
         try:
+
             # Find slack
             slack = list(self.nodes.index[self.nodes.slack])
             slack_idx = [self.nodes.index.get_loc(s) for s in slack]
             line_susceptance, node_susceptance = self.create_susceptance_matrices()
+
             # Create List without the slack and invert it
             list_wo_slack = [x for x in range(0, len(self.nodes.index)) if x not in slack_idx]
 

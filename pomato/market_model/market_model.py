@@ -189,13 +189,13 @@ class MarketModel():
 
         # Optional data
         if self.grid_representation["grid"].empty:
-            pd.DataFrame(columns=["ram"]).to_csv(str(csv_path.joinpath('cbco.csv')), index_label='index')
+            pd.DataFrame(columns=["ram"]).to_csv(str(csv_path.joinpath('grid.csv')), index_label='index')
         else:
             self.grid_representation["grid"] \
                 .to_csv(str(csv_path.joinpath('grid.csv')), index_label='index')
 
         if self.grid_representation["redispatch_grid"].empty:
-            pd.DataFrame(columns=["ram"]).to_csv(str(csv_path.joinpath('cbco.csv')), index_label='index')
+            pd.DataFrame(columns=["ram"]).to_csv(str(csv_path.joinpath('redispatch_grid.csv')), index_label='index')
         else:
             self.grid_representation["redispatch_grid"] \
                 .to_csv(str(csv_path.joinpath('redispatch_grid.csv')), index_label='index')
