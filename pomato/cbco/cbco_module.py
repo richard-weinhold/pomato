@@ -510,9 +510,7 @@ class CBCOModule():
             List of the essential indices, i.e. the indices of the non-redundant
             cbco's.
         """
-        # save A,b to csv
-        self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")
-
+        self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")  # save A,b to csv
         if not self.julia_instance:
             self.julia_instance = tools.InteractiveJuliaProcess(self.wdir, self.logger, "cbco")
 
@@ -527,10 +525,7 @@ class CBCOModule():
         self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")
 
         if self.julia_instance.solved:
-            df = pd.DataFrame()
-            df["files"] = [i for i in self.jdir.joinpath("cbco_data").iterdir()]
-            df["time"] = [i.lstat().st_mtime for i in self.jdir.joinpath("cbco_data").iterdir()]
-            file = df.files[df.time.idxmax()]
+            file = tools.newest_file_folder(self.jdir.joinpath("cbco_data"), keyword="cbco")
             self.logger.info("cbco list save for later use to: \n%s", file.stem + ".csv")
             cbco = list(pd.read_csv(file, delimiter=',').constraints.values)
         else:

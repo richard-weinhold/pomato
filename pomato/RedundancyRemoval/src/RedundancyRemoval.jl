@@ -11,7 +11,7 @@ export run, run_parallel
 
 function __init__()
 	global wdir = pwd()
-	# global global_logger(ConsoleLogger(stdout, Logging.Info))
+	# global_logger(ConsoleLogger(stdout, Logging.Info))
 	TeeLogger(MinLevelLogger(FileLogger(wdir*"/logs/RedundancyRemoval.log", append=true), Logging.Info),
 	          ConsoleLogger(stdout, Logging.Info)) |> global_logger
 	@info("No arguments passed or not running in repl, initializing in pwd()")
@@ -19,3 +19,4 @@ function __init__()
 end
 
 end # module
+ 

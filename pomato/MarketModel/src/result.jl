@@ -43,7 +43,8 @@ function Result(pomato::POMATO)
 	result.misc_results["COST_EX"] = JuMP.value(pomato.model[:COST_EX])
 	result.misc_results["COST_CURT"] = JuMP.value(pomato.model[:COST_CURT])
 	result.misc_results["COST_INEAS_EL"] = JuMP.value(pomato.model[:COST_INFEAS_EL])
-	result.misc_results["COST_INEAS_H"] = JuMP.value(pomato.model[:COST_INFEAS_H])
+	# result.misc_results["COST_INEAS_H"] = JuMP.value(pomato.model[:COST_INFEAS_H])
+	result.misc_results["COST_INEAS_H"] = typeof(pomato.model[:COST_INFEAS_H]) == GenericAffExpr{Float64, VariableRef} ?  JuMP.value(pomato.model[:COST_INFEAS_H]) : 0
 	result.misc_results["Solve Status"] = JuMP.termination_status(pomato.model)
 	return result
 end

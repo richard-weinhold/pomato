@@ -20,10 +20,6 @@ zones = mato.data.zones
 plants = mato.data.plants
 
 # %%
-mato.create_grid_representation()
-t = mato.grid_representation["grid"]
-
-# %%
 # mato.options["optimization"]["type"] = "nodal"
 # mato.create_grid_representation()
 # mato.init_market_model()
@@ -31,6 +27,7 @@ t = mato.grid_representation["grid"]
 
 # result_folder = mato.market_model.result_folders[0]
 # result = mato.data.results[result_folder.name]
+
 # df1, df2 = result.overloaded_lines_n_1(sensitivity=0)
 # df3, df4 = result.overloaded_lines_n_0()
 
@@ -38,22 +35,16 @@ t = mato.grid_representation["grid"]
 # %%
 mato.options["optimization"]["type"] = "cbco_nodal"
 mato.create_grid_representation()
-
 mato.update_market_model_data()
 mato.run_market_model()
 
-# %% 2202_1227
-
-result = mato.wdir.joinpath("data_temp\\julia_files\\results\\2202_1227")
-mato.initialize_market_results([result])
-
-# %%
 result_folder = mato.market_model.result_folders[0]
-result = mato.data.results["2202_1227"]
-
+result = mato.data.results[result_folder.name]
 df1, df2 = result.overloaded_lines_n_1()
 df3, df4 = result.overloaded_lines_n_0()
 
+
 # %%
-mato.init_bokeh_plot(name="IEEE")
+mato.create_geo_plot(name="IEEE")
+
 

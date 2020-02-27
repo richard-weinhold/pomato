@@ -6,11 +6,15 @@ asd
 function run_market_model(data::Data, options::Dict{String, Any})
 
 	if in(options["type"] , ["chance_constrained"])
-		pomato = POMATO(Model(with_optimizer(Mosek.Optimizer)), # logFile=data.folders["result_dir"]*"/log.txt")),
+		pomato = POMATO(Model(optimizer_with_attributes(Mosek.Optimizer)), # logFile=data.folders["result_dir"]*"/log.txt")),
 					   	data, options)
 	else
 		pomato = POMATO(Model(with_optimizer(Gurobi.Optimizer, LogFile=data.folders["result_dir"]*"/log.txt")),
-					   	data, options)
+					    data, options)
+
+		# pomato = POMATO(Model(optimizer_with_attributes(Gurobi.Optimizer, "LogFile" => data.folders["result_dir"]*"/log.txt")),
+		# 			   	data, options)
+
 		# pomato = POMATO(Model(with_optimizer(GLPK.Optimizer)), #LogFile=data.folders["result_dir"]*"/log.txt")),
 		# 			   	data, options)
 	end
@@ -100,9 +104,11 @@ function run_redispatch_model(data::Data, options::Dict{String, Any}, redispatch
 				market_result[key] = market_result_copy[key][timesteps, :]
 			end
 			println("Initializing Redispatch Model for zone $(redispatch_zone) Timestep $(data.t[1].name)")
-			pomato = POMATO(Model(with_optimizer(Gurobi.Optimizer,
-												 LogFile=data.folders["result_dir"]*"/log.txt")),
-							data, options)
+			pomato = POMATO(Model(with_optimizer(Gurobi.Optimizer, LogFile=data.folders["result_dir"]*"/log.txt")),
+						    data, options)
+			# pomato = POMATO(Model(optimizer_with_attributes(Gurobi.Optimizer,
+			# 					  "LogFile" => data.folders["result_dir"]*"/log.txt")),
+			# 			   	data, options)
 
 			redispatch_model!(pomato, market_result, redispatch_zone);
 			add_curtailment_constraints!(pomato, redispatch_zone);

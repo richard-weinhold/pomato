@@ -9,10 +9,10 @@ class FileAdapter():
         self.logger = logger
     def write(self, data):
         # NOTE: data can be a partial line, multiple lines
-        data = data.strip() # ignore leading/trailing whitespace
+        data = data.strip()  # ignore leading/trailing whitespace
         if data: # non-blank
-           # pass
-           self.logger.info(data.decode(errors="ignore"))
+            # pass
+            self.logger.info(data.decode(errors="ignore"))
     def flush(self):
         pass  # leave it to logging to flush properly
 
@@ -45,7 +45,60 @@ class InteractiveJuliaProcess():
         self.julia_process.close()
 
 
+def newest_file_folder(folder, keyword="", number_of_elm=1):
+    """Return newest (n) folders/files from a folder.
+
+    Plattform sensitive function to return the last file generated in a specified folder.
+
+    Parameters
+    ----------
+    folder : pathlib.Path
+        Folder to look for files in.
+    keyword : string, optional
+        A supplied string reduces the number of possibilities and makes it more robust.
+    number_of_files : int, optional
+        Specify the number of files or folders returned.
+    """
+    df = pd.DataFrame()
+    df["elm"] = [i for i in folder.iterdir() if keyword in i.name]
+
+    try:  # This should work in Windows
+        df["time"] = [i.lstat().st_ctime for i in folder.iterdir() if keyword in i.name]
+    except AttributeError:  # This should work in OSX
+        df["time"] = [i.lstat().st_birthtime for i in folder.iterdir() if keyword in i.name]
+    except AttributeError:  # Fallback option (linux, but the first try should work there as well)
+        df["time"] = [i.lstat().st_mtime for i in folder.iterdir() if keyword in i.name]
+
+    if number_of_elm > 1:
+        return list(df.nlargest(2, "time").elm)
+    else:
+        return df.elm[df.time.idxmax()]
+
+
 def create_folder_structure(base_path, logger=None):
+    """Create folder structure to run POMATO.
+
+    Since the repository does not conatin the empty folders for
+    temporary data, this function checks whether these exist and
+    creates them if nessesary. This is only valid if the process is
+    run from the pomato root folder, here checked by looking if the
+    pomato package folder exists.
+
+
+
+    Parameters
+    ----------
+    base_path : pathlib.Path
+        Pomato root folder.
+    logger : logger, optional
+        If a logger is supplied the status messages will be logged there.
+
+    Raises
+    ------
+    RuntimeError
+        If the base folder appearently does not coincide with the pomato base folder
+        an exception is raised.
+    """
     folder_structure = {
         "pomato": {},
         "data_input": {},
@@ -64,12 +117,19 @@ def create_folder_structure(base_path, logger=None):
                         "results": {},
                         },
                     },
-      "logs": {},
-      "profiles": {},
+        "logs": {},
+        "profiles": {},
     }
 
     if logger:
         logger.info("Creating Folder Structure")
+
+    if not base_path.joinpath("pomato").is_dir():
+        if logger:
+            logger.error("Process is not run from pomato root folder!")
+        else:
+            print("Process is not run from pomato root folder!")
+        raise RuntimeError
     try:
         folder = folder_structure
         while folder:
@@ -78,7 +138,7 @@ def create_folder_structure(base_path, logger=None):
                 if not Path.is_dir(base_path.joinpath(subfolder)):
                     if logger:
                         logger.info(f"creating folder {subfolder}")
-                    # Path.mkdir(base_path.joinpath(subfolder))
+                    Path.mkdir(base_path.joinpath(subfolder))
                 if folder[subfolder]:
                     for subsubfolder in folder[subfolder]:
                         subfolder_dict[subfolder + "/" + subsubfolder] = folder[subfolder][subsubfolder]

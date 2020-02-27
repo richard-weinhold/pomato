@@ -1,6 +1,6 @@
 
-global optimizer = with_optimizer(Gurobi.Optimizer, OutputFlag=0, Method=0,
-			   					  Presolve=0, PreDual=0, Aggregate=0)
+global optimizer = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0, "Method" => 0,
+			   					  			 "Presolve" => 0, "PreDual" => 0, "Aggregate" => 0)
 
 
 function is_redundant(model::JuMP.Model, constraint::Vector{Float64}, rhs::Float64)

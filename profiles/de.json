@@ -17,7 +17,7 @@
             "electricity": {
                 "include": true,
                 "cost": 2000,
-                "bound": 1000
+                "bound": 10000
             },
             "lines": {
                 "include": false,

@@ -142,16 +142,12 @@ class MarketModel():
         if solved:
             # find latest folders created in julia result folder
             # last for normal dispatch, last 2 for redispatch
-            folders = pd.DataFrame()
-            folders["folder"] = [i for i in self.data_dir.joinpath("results").iterdir()]
-            folders["time"] = [i.lstat().st_mtime for i in self.data_dir.joinpath("results").iterdir()]
-
-            # if redispatch, take last two folders (this might have to be generalized to take folders with
-            # the same base date.)
             if self.options["optimization"]["redispatch"]["include"]:
-                self.result_folders = list(folders.nlargest(2, "time").folder)
+                self.result_folders = tools.newest_file_folder(self.data_dir.joinpath("results"),
+                                                               number_of_elm=2)
             else:
-                self.result_folders = list(folders.nlargest(1, "time").folder)
+                self.result_folders = [tools.newest_file_folder(self.data_dir.joinpath("results"),
+                                                                number_of_elm=1)]
 
             for folder in self.result_folders:
                 with open(folder.joinpath("optionfile.json"), 'w') as file:
