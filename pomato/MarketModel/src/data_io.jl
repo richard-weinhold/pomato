@@ -79,7 +79,8 @@ function save_result(result::Result, folder::String)
 					  DataFrame(getfield(result, field)))
 		elseif field_type == Dict
 			open(folder*"/"*String(field)*".json", "w") do f
-					write(f, JSON.json(getfield(result, field), 2))
+				# write(f, JSON.json(getfield(result, field), 2))
+				JSON.print(f, getfield(result, field), 2)
 			end
 		else
 			println(field, " not Dict or DataFrame, cant save!")

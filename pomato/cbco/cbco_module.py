@@ -100,12 +100,14 @@ class CBCOModule():
         self.data = data
         self.grid_representation = {}
         # Additional attributes
+        
         self.cbco_info = None
         self.A = None
         self.b = None
+
         self.nodal_injection_limits = None
         self.cbco_index = None
-        self.julia_instance = None
+        self.julia_instance = tools.JuliaDeamon(self.logger, self.wdir, "redundancy_removal")
 
         self.logger.info("CBCOModule Initialized!")
 
@@ -479,15 +481,19 @@ class CBCOModule():
 
             max_dc_inj = self.data.dclines.maxflow[(self.data.dclines.node_i == node) |
                                                    (self.data.dclines.node_j == node)].sum()
-
+            nex_max = max(0, self.data.net_export.loc[self.data.net_export.node == node, "net_export"].max())
+            nex_min = -min(0, self.data.net_export.loc[self.data.net_export.node == node, "net_export"].min())
             upper = max(self.data.plants.g_max[self.data.plants.node == node].sum()
                         - self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].min()
+                        + nex_max
                         + max_dc_inj
-                        + infeas_upperbound, 0)
+                        + infeas_upperbound
+                        , 0)
 
             lower = max(self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].max()
                         + self.data.plants.g_max[condition_storage].sum()
                         + self.data.plants.g_max[condition_el_heat].sum()
+                        + nex_min
                         + max_dc_inj
                         + infeas_upperbound, 0)
 
@@ -512,14 +518,15 @@ class CBCOModule():
         """
         self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")  # save A,b to csv
         if not self.julia_instance:
-            self.julia_instance = tools.InteractiveJuliaProcess(self.wdir, self.logger, "cbco")
+            self.julia_instance = tools.JuliaDeamon(self.logger, self.wdir, "redundancy_removal")
+        if not self.julia_instance.julia_deamon.is_alive():
+            self.julia_instance = tools.JuliaDeamon(self.logger, self.wdir, "redundancy_removal")
 
         t_start = dt.datetime.now()
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
-        if np.size(self.A, 1) < 25:
-            self.julia_instance.run('RedundancyRemoval.run("py")')
-        else:
-            self.julia_instance.run('RedundancyRemoval.run_parallel("py")')
+
+        self.julia_instance.run(args={"file_siffix": "py"})
+
         t_end = dt.datetime.now()
         self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
         self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")

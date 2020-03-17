@@ -461,7 +461,8 @@ class ResultProcessing():
         # estimate size of array = nr_elements * bytes per element
         # (float64 + sep = 8 + 1) / (1024**2) MB
         estimate_size = len(label_lines)*len(self.grid.nodes.index)*(8 + 1)/(1024*1024)
-        if estimate_size > 5000:
+        if estimate_size > 10000:
+            self.logger.error("Estimated size of N-1 PTDF = %d", estimate_size)
             raise Exception('Matrix N-1 PTDF MAtrix too large! Use a higher sensitivity!')
 
         for line in self.grid.lines.index[self.grid.lines.contingency]:

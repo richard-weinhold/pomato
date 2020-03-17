@@ -7,7 +7,7 @@ using Base.Threads, ThreadTools
 
 include("redundancy_removal_functions.jl")
 
-export run, run_parallel
+export run_redundancy_removal_parallel, run_redundancy_removal
 
 function __init__()
 	global wdir = pwd()
@@ -17,6 +17,4 @@ function __init__()
 	@info("No arguments passed or not running in repl, initializing in pwd()")
 	@info("Initialized")
 end
-
 end # module
- 

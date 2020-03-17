@@ -9,9 +9,10 @@ function run_market_model(data::Data, options::Dict{String, Any})
 		pomato = POMATO(Model(optimizer_with_attributes(Mosek.Optimizer)), # logFile=data.folders["result_dir"]*"/log.txt")),
 					   	data, options)
 	else
-		pomato = POMATO(Model(with_optimizer(Gurobi.Optimizer, LogFile=data.folders["result_dir"]*"/log.txt")),
+		pomato = POMATO(Model(with_optimizer(Gurobi.Optimizer,
+						Method=0, LogFile=data.folders["result_dir"]*"/log.txt")),
 					    data, options)
-
+						# , Presolve=0
 		# pomato = POMATO(Model(optimizer_with_attributes(Gurobi.Optimizer, "LogFile" => data.folders["result_dir"]*"/log.txt")),
 		# 			   	data, options)
 
@@ -101,7 +102,7 @@ function run_redispatch_model(data::Data, options::Dict{String, Any}, redispatch
 			set_model_horizon!(data)
 			market_result = Dict()
 			for key in keys(market_result_copy)
-				market_result[key] = market_result_copy[key][timesteps, :]
+ 				market_result[key] = market_result_copy[key][timesteps, :]
 			end
 			println("Initializing Redispatch Model for zone $(redispatch_zone) Timestep $(data.t[1].name)")
 			pomato = POMATO(Model(with_optimizer(Gurobi.Optimizer, LogFile=data.folders["result_dir"]*"/log.txt")),

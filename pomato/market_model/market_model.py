@@ -15,6 +15,7 @@ import datetime
 import pandas as pd
 import pomato.tools as tools
 from pathlib import Path
+
 # import re
 
 
@@ -65,7 +66,7 @@ class MarketModel():
         # Create Folders
         self.wdir = wdir
         self.data_dir = wdir.joinpath("data_temp/julia_files")
-        self.julia_model = None
+        self.julia_model = tools.JuliaDeamon(self.logger, self.wdir, "market_model")
 
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)
@@ -131,7 +132,11 @@ class MarketModel():
             command = 'MarketModel.run("' + str(self.wdir.as_posix()) + '", "/data/")'
 
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
-        self.julia_model.run(command)
+
+        args = {"redispatch": self.options["optimization"]["redispatch"]["include"]}
+        self.julia_model.run(args=args)
+        
+        # self.julia_model.run(command)
         t_end = datetime.datetime.now()
         self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
         self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")

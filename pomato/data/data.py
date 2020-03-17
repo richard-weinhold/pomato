@@ -115,6 +115,7 @@ class DataManagement():
             self.data_source = filepath
         else:
             self.logger.error("Data File not found!")
+            raise FileNotFoundError
 
     def stack_data(self):
         """Stacks data that comes in a wide format.

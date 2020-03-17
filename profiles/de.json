@@ -1,6 +1,6 @@
 {
     "optimization": {
-        "type": "nodal",
+        "type": "cbco_nodal",
         "solver": "gurobi",
         "model_horizon": [0, 20],
         "heat_model": false,
@@ -17,7 +17,7 @@
             "electricity": {
                 "include": true,
                 "cost": 2000,
-                "bound": 10000
+                "bound": 1000
             },
             "lines": {
                 "include": false,
@@ -40,7 +40,7 @@
         }
     },
     "grid": {
-        "cbco_option": "save_base",
+        "cbco_option": "clarkson_base",
         "precalc_filename": "",
         "senstitivity": 5e-2,
         "capacity_multiplier": 0.95,
@@ -49,7 +49,7 @@
     },
     "data": {
         "data_type": "opsd",
-        "stacked": ["demand_el", "net_position"],
+        "stacked": ["demand_el"],
         "process": ["net_export", "availability", "net_position", "opsd"],
         "process_input": true,
         "unique_mc": false,

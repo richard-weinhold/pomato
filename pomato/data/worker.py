@@ -73,9 +73,7 @@ class DataWorker(object):
             Filepath to input excel file.
 
         """
-        self.logger.info("Reading Data from Excel File")
         xls = pd.ExcelFile(xls_filepath)
-
         for data in self.data.data_attributes:
             try:
                 setattr(self.data, data, xls.parse(data, index_col=0).infer_objects())

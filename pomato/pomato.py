@@ -253,8 +253,11 @@ class POMATO():
             Providing the name of a data file, usually located in the
             ``/input_data`` folder. Excel files and matpower cases are supported.
         """
+        self.data = DataManagement(self.options, self.wdir)
         self.data.load_data(filename)
         self.grid = GridModel(self.data.nodes, self.data.lines)
+        self.cbco_module = CBCOModule(self.wdir, self.grid, self.data, self.options)
+        self.market_model = MarketModel(self.wdir, self.options)
 
     def init_market_model(self):
         """Initialize the market model.
@@ -314,7 +317,9 @@ class POMATO():
 
         Creates grid representation to be used in the market model.
         """
-        self.cbco_module = CBCOModule(self.wdir, self.grid, self.data, self.options)
+        if not self.cbco_module:
+            self.cbco_module = CBCOModule(self.wdir, self.grid, self.data, self.options)
+
         self.cbco_module.create_grid_representation()
         self.grid_representation = self.cbco_module.grid_representation
 
@@ -344,3 +349,6 @@ class POMATO():
         else:
             self.bokeh_plot.create_static_plot(self.data.results)
 
+    def _join_julia_instances(self):
+        self.market_model.julia_model.join()
+        self.cbco_module.julia_instance.join()

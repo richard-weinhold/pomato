@@ -156,7 +156,7 @@ class InputProcessing(object):
 
         """
         if self.data.net_export.empty:
-            self.data.net_export = pd.DataFrame(index=self.data.demand_el.index,
+            self.data.net_export = pd.DataFrame(index=self.data.demand_el.timestep.unique(),
                                                 columns=self.data.nodes.index,
                                                 data=0)
         else:

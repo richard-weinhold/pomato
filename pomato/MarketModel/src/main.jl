@@ -1,6 +1,6 @@
 """ Run the models, defined in create_model.jl"""
 
-function run(wdir, data_dir, return_result=false)
+function run_market_model(wdir, data_dir, return_result=false)
 	println("wdir", wdir)
 	println("Read Model Data..")
 	options, data = read_model_data(wdir*"/data_temp/julia_files"*data_dir)
@@ -38,7 +38,7 @@ function run(wdir, data_dir, return_result=false)
 	end
 end
 
-function run_redispatch(wdir, data_dir; redispatch_zones=["DE"], return_result=false)
+function run_market_model_redispatch(wdir, data_dir; redispatch_zones=["DE"], return_result=false)
 	println("Read Model Data..")
 	options, data = read_model_data(wdir*"/data_temp/julia_files"*data_dir)
 	data.folders = Dict("wdir" => wdir,

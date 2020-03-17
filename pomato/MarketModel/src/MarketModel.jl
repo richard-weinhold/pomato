@@ -29,7 +29,7 @@ include("model_functions.jl")
 include("main.jl")
 
 
-export run, run_redispatch
+export run_market_model, run_market_model_redispatch
 
 function __init__()
 	# global_logger(ConsoleLogger(stdout, Logging.Info))

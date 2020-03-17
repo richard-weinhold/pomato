@@ -1,48 +1,172 @@
 import pandas as pd
 import json
 from pathlib import Path
-import pexpect
-from pexpect import popen_spawn
+# import pexpect
+# from pexpect import popen_spawn
+import threading, subprocess, time
 
-class FileAdapter():
-    def __init__(self, logger):
+class JuliaDeamon():
+    """Class to communicate with a julia deamon process.
+    
+    The RedundancyRemoval and MarketModel processes are written in Julia. 
+    This class's purpose is to comminucate with a deamon process in julia
+    that runs these processes on demand and allows to excecute them multiple times
+    without restarting the julia process, whic hwould require length precompile. 
+    
+    This is implemented by two deamon processes, one in python the other in julia, or more specifically
+    a threaded julia deamon is initialized in python. Therefore, a julia subprocess in a seperate thread. 
+    This allows start-up of the julia procecc while other pomato related processes are done. 
+    The communication is done through a json file in the data_temp/julia_files folder.
+
+    
+    Attributes
+    ----------
+    deamon_file : pathlib.Path
+        Path to json file for process management.
+    julia_deamon : Thread with julia subprocess.
+        Threaded subprocess of the julia deamon process.
+    julia_module : str
+        Defines wheather RedundancyRemoval or MarketModel is initialized/used.
+    julia_deamon_path : pathlib.Path
+        Description
+    solved : bool
+        Indicator if julia process has successfully concluded.
+    wdir : pathlib.Path
+        Workingdirectory, should  be pomato root directory.
+   
+    """
+    def __init__(self, logger, wdir, julia_module):
+
+        if not julia_module in ["market_model", "redundancy_removal"]:
+            raise TypeError
+
+        self.julia_module = julia_module
+
         self.logger = logger
-    def write(self, data):
-        # NOTE: data can be a partial line, multiple lines
-        data = data.strip()  # ignore leading/trailing whitespace
-        if data: # non-blank
-            # pass
-            self.logger.info(data.decode(errors="ignore"))
-    def flush(self):
-        pass  # leave it to logging to flush properly
+        self.wdir = wdir
+        self.deamon_file = wdir.joinpath(f"data_temp/julia_files/deamon_{julia_module}.json")
+        self.julia_deamon_path = wdir.joinpath("pomato/julia_deamon.jl")
 
-class InteractiveJuliaProcess():
-    def __init__(self, wdir, logger, julia_model):
-
-        self.julia_process = popen_spawn.PopenSpawn('julia --project=project_files/pomato',
-                                                    cwd=wdir, timeout=100000,
-                                                    logfile=FileAdapter(logger))
-        self.logger = logger
+        self.write_deamon_file(self.default_deamon_file())
+        # Start Julia deamon in a thread
+        self.julia_deamon = threading.Thread(target=self.julia_deamon, args=())
+        self.julia_deamon.start()
         self.solved = False
 
-        if julia_model == "market_model":
-            self.julia_process.sendline('using MarketModel')
-            self.julia_process.expect(["Initialized", "ERROR"])
-        elif julia_model == "cbco":
-            self.julia_process.sendline('using RedundancyRemoval')
-            self.julia_process.expect(["Initialized", "ERROR"])
-        else:
-            self.logger.error("Model Options not available!")
+    def julia_deamon(self):
+        """Stat julia deamon"""
+        args = ["julia", "--project=" + str(self.wdir.joinpath("project_files/pomato")),
+                str(self.julia_deamon_path), self.julia_module]
+        with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
+                              stderr=subprocess.STDOUT, cwd=self.wdir) as programm:
+            for line in programm.stdout:
+                if not any(w in line.decode(errors="ignore") for w in ["Academic license"]):
+                    # self.logger.info(line.decode(errors="ignore").lstrip("[ Info: ").strip())
+                    self.logger.info(line.decode(errors="ignore").replace("[ Info:", "").strip())
 
-    def run(self, command):
-        self.julia_process.sendline(command)
-        self.julia_process.expect(["Everything Done!", "ERROR"])
+    def join(self):
+        """Exit the julia deamon and join pyhton htreads"""
+        if self.julia_deamon.is_alive():
+            file = self.read_deamon_file()
+            file["break"] = True
+            self.write_deamon_file(file)
+            self.julia_deamon.join()
 
-        if self.julia_process.after != "ERROR":
-            self.solved = True
+    def default_deamon_file(self):
+        """Return default deamon file"""
+        file = {"processing": True,
+                "run": False,
+                "ready": False,
+                "type": self.julia_module,
+                "file_suffix": "py",
+                "redispatch": False,
+                "wdir": str(self.wdir),
+                "data_dir": "/data/",
+                "break": False}
 
-    def terminate(self):
-        self.julia_process.close()
+        return file
+
+    def write_deamon_file(self, file):
+        """Write (updated) file to disk"""
+        with open(self.deamon_file, 'w') as config:
+            json.dump(file, config, indent=2)
+        wdir = Path.cwd()
+
+    def read_deamon_file(self):
+        """Read deamon file from disk"""
+        with open(self.deamon_file, 'r') as jsonfile:
+            file = json.load(jsonfile)
+        return file
+
+    def halt_while_processing(self):
+        """Halt python main thread, while julia is processing.
+        Sometimes its better for the user to wait until julia is done.
+        """
+        progress_indicator = 1
+        while True:
+            time.sleep(2)
+            file = self.read_deamon_file()
+            if not file["processing"]:
+                self.logger.info("Programm Done")
+                break
+            else:
+                # self.logger.info("Waiting for processing to complete")
+                if progress_indicator < 0:
+                    dots = "\\"
+                else:
+                    dots = "/"
+                print("\r" + dots + "Waiting for processing to complete" + dots, end="")
+                progress_indicator *= -1
+
+
+    def halt_until_ready(self):
+        """Halt python main thread until julia is initialized.
+
+        Julias startup time can be fairly long, therefore its started immediately 
+        when pomato is initialized.
+
+        However, when a julia process is started it has to be ready. This method 
+        halts the main thread until julia is ready. 
+        """
+        progress_indicator = 1
+        while True:
+            time.sleep(2)
+            file = self.read_deamon_file()
+            if file["ready"]:
+                self.logger.info("Process ready!")
+                break
+            else:
+                # self.logger.info("Waiting for processing to complete")
+                if progress_indicator < 0:
+                    dots = "\\"
+                else:
+                    dots = "/"
+                print("\r" + dots + "Waiting until Julia is ready" + dots, end="")
+                progress_indicator *= -1
+        
+
+    def run(self, args=None):
+        """Run julia process.
+        Writes commards to deamon file, initiating start of a process. Halts while it is active
+        and set attribute solved as true.
+        
+        Parameters
+        ----------
+        args : dict, optional
+            Dictionalry with paris of values to change in the deamon file.       
+        """
+        self.solved = False
+        self.halt_until_ready()
+        file = self.read_deamon_file()
+        file["run"] = True
+        file["processing"] = True
+        if args:
+            for k,v in args.items():
+                file[k] = v
+        self.write_deamon_file(file)
+        time.sleep(5)
+        self.halt_while_processing()
+        self.solved = True
 
 
 def newest_file_folder(folder, keyword="", number_of_elm=1):

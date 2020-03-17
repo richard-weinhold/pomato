@@ -276,7 +276,8 @@ function add_curtailment_constraints!(pomato::POMATO, zone::String)
 		 	add_to_expression!(RES_Zone[t, data.nodes[data.renewables[res].node].zone], -CURT[t, res])
 	 	end
 	 end
- 	@constraint(model, [t=1:n.t, res=res_in_zone], CURT[t, res] <= data.renewables[res].mu[t])
+
+ 	@constraint(model, [t=1:n.t, res=res_in_zone], CURT[t, res] <= 0.2*data.renewables[res].mu[t])
 	COST_CURT = model[:COST_CURT]
 
 	add_to_expression!(COST_CURT, sum(CURT*pomato.options["curtailment"]["cost"]))
@@ -295,7 +296,7 @@ function add_curtailment_constraints!(pomato::POMATO)
 		 	add_to_expression!(RES_Zone[t, data.nodes[data.renewables[res].node].zone], -CURT[t, res])
 	 	end
 	 end
-	@constraint(model, [t=1:n.t], CURT[t, :] .<= [res.mu[t] for res in data.renewables])
+	@constraint(model, [t=1:n.t], CURT[t, :] .<= [0.2*res.mu[t] for res in data.renewables])
 	COST_CURT = model[:COST_CURT]
 	add_to_expression!(COST_CURT, sum(CURT*pomato.options["curtailment"]["cost"]))
 end

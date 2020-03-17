@@ -3,7 +3,7 @@
 # 			   					  			 "Presolve" => 0, "PreDual" => 0, "Aggregate" => 0)
 
 global optimizer = with_optimizer(Gurobi.Optimizer, OutputFlag=0, Method=0,
-                                     Presolve=0, PreDual=0, Aggregate=0)
+                                  Presolve=0, PreDual=0, Aggregate=0)
 
 function is_redundant(model::JuMP.Model, constraint::Vector{Float64}, rhs::Float64)
 	temp = @constraint(model, constraint' * model[:x] <= rhs + 1)
@@ -56,10 +56,13 @@ function RayShoot(A::Array{Float64}, b::Vector{Float64}, m::Vector{Int},
 	m_hat = m[findall(x-> x>0, A[m,:]*x_opt - b[m])]
 	# m_hat = m
 	if length(m_hat) == 0
-		 @info("WARNING: m_hat empty, possibly numerical error")
-		 @info("Moving further outside along the Ray")
+		 @debug("WARNING: m_hat empty, possibly numerical error")
+		 @debug("Moving further outside along the Ray")
 		 m_hat = m[findall(x-> x>=0, A[m,:]*x_opt*1.01 - b[m])]
-		 @info("m_hat $(m_hat), length = $(length(m_hat))!")
+		 @debug("m_hat $(m_hat), length = $(length(m_hat))!")
+		 if length(m_hat) == 0
+		 	@error("m_hat still empty. Numerical Error!")
+		 end
 	end
 
 	while true
@@ -206,9 +209,10 @@ function solve_parallel(model::JuMP.Model, A::Array{Float64}, b::Vector{Float64}
 	end
 	return indices
 end
-function main_parallel(A::Array{Float64}, b::Vector{Float64},
-					   m::Vector{Int}, I::Vector{Int}, x_bounds::Vector{Float64},
-					   z::Vector{Float64})
+
+function main_parallel_filter_lp(A::Array{Float64}, b::Vector{Float64},
+					   			 m::Vector{Int}, I::Vector{Int}, x_bounds::Vector{Float64},
+					   			 z::Vector{Float64})
 
 	filtered_m = copy(m)
 	filter_splits = Threads.nthreads()*2
@@ -243,6 +247,31 @@ function main_parallel(A::Array{Float64}, b::Vector{Float64},
 	return filtered_m[I]
 end
 
+function main_parallel_filter(A::Array{Float64}, b::Vector{Float64},
+					   		  m::Vector{Int}, I::Vector{Int}, x_bounds::Vector{Float64},
+					   		  z::Vector{Float64})
+	filtered_m = copy(m)
+	filter_splits = Threads.nthreads()*2
+	while true
+		tmp_m = parallel_filter(A, b, filtered_m, x_bounds, z, Int(filter_splits))
+		@info("Size of m $(length(filtered_m)) reduced to m* $(length(tmp_m))")
+		if Int(filter_splits) <= Threads.nthreads()/2
+			@info("Finshied with parallel filter!")
+			filtered_m = tmp_m
+			break
+		else
+			filter_splits = floor(Int, filter_splits/2)
+		end
+		filtered_m = tmp_m
+	end
+
+	@info("Number of non-redundant constraints after parallel filter: $(length(filtered_m))" )
+	save_to_file(filtered_m, "cbco_filtered_backup_"*Dates.format(now(), "ddmm_HHMM"))
+	@info("Run final RedundancyRemoval single threaded.")
+	I_result = main(A, b, filtered_m, Array{Int, 1}(), x_bounds, z)
+	return I_result
+end
+
 function save_to_file(Indices, filename::String)
 	# I_result.-1: Indices start at 0 (in python.... or any other decent programming language)
 	@info("Writing File "*filename*" .... ")
@@ -272,13 +301,12 @@ function read_data(file_suffix::String)
 	I_data = CSV.read(wdir*"/data_temp/julia_files/cbco_data/I_"*file_suffix*".csv",
 					  delim=',', types=Dict(1=>Int))
   	I = size(I_data, 2) > 0 ? I_data[:,1] : Array{Int, 1}()
-
 	return A, b, x_bounds, I
 end
 
-function run(file_suffix::String)
-	A, b, x_bounds, I = read_data(file_suffix)
+function run_redundancy_removal(file_suffix::String)
 
+	A, b, x_bounds, I = read_data(file_suffix)
 	m = collect(1:length(b))
 	@info("Preprocessing...")
 	@info("Removing duplicate rows...")
@@ -300,23 +328,29 @@ function run(file_suffix::String)
 	@info("Everything Done!")
 end
 
-function run_parallel(file_suffix::String)
+function run_redundancy_removal_parallel(file_suffix::String; filter_only::Bool=true)
 	A, b, x_bounds, I = read_data(file_suffix)
 	m = collect(1:length(b))
 	@info("Preprocessing...")
 	@info("Removing duplicate rows...")
 	# Remove douplicates
-	condition_unique = .!nonunique(DataFrame(hcat(A,b)))
+	# condition_unique = .!nonunique(DataFrame(hcat(A,b)))
 	@info("Removing all zero rows...")
 	# Remove cb = co rows
-	condition_zero = vcat([!all(A[i, :] .== 0) for i in 1:length(b)])
-	m = m[condition_unique .& condition_zero]
+	# condition_zero = vcat([!all(A[i, :] .== 0) for i in 1:length(b)])
+	# m = m[condition_unique .& condition_zero]
 	@info("Removed $(length(b) - length(m)) rows in preprocessing!")
 	# Interior point z = zero
 	z = zeros(size(A, 2))
 	I = union(I)
 	m = setdiff(m, I)
-	I_result = main_parallel(A, b, m, I, x_bounds, z)
+	if filter_only
+		@info("Running parallel: filter only")
+		I_result = main_parallel_filter(A, b, m, I, x_bounds, z)
+	else
+		@info("Running parallel: filter until Threads/2 then parallel LPTest")
+		I_result = main_parallel_filter_lp(A, b, m, I, x_bounds, z)
+	end
 	@info("Number of non-redundant constraints: $(length(I_result))" )
 	save_to_file(I_result, "cbco_"*file_suffix*"_"*Dates.format(now(), "ddmm_HHMM"))
 	@info("Everything Done!")
