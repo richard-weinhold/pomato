@@ -30,7 +30,8 @@ Requirements
 ------------
 
 Pomato is (until now) a console tool mainly written in python and therefore requires *Python 3*. 
-Its optimization kernel uses Julia. Julia needs to be installed and added to your system environment (it needs to be callable via console) manually. Pomato requires *Julia 1.1.0* or higher. Download the Julia Command line version from the [Julia-Website](https://julialang.org/). The folder *project_files* contains env for anaconda (python) and julia make set up easier. 
+Its optimization kernel uses Julia. Julia needs to be installed and added to your system environment (it needs to be callable via console) manually. Pomato requires *Julia 1.1.0* or higher. 
+Follow the instructions in the file readme_install.md to install Julia, Gurobi and the dependencies of Python and Julia.
 
 
 

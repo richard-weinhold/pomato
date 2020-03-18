@@ -1,0 +1,14 @@
+alabaster
+bokeh
+jinja2
+matplotlib
+numpy
+numpydoc
+openpyxl
+pandas
+pathlib
+psutil
+pyproj
+scikit-learn
+scipy
+xlrd
