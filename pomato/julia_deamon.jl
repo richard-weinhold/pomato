@@ -34,7 +34,7 @@ else
 end
 
 function run_redundancy_removal(file_suffix)
-    if Threads.nthreads() == 1
+    if Threads.nthreads() >= 2
         @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
         RedundancyRemoval.run_redundancy_removal(file_suffix, filter_only=true)
     else
