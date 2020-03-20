@@ -33,36 +33,36 @@ Comprehensive documentation is available at [pomato.readthedocs.io](https://poma
 Installation
 ------------
 POMATO is written in python and julia. Python takes care of the data processing
-and julia runs the economic dispatch and N-1 redundancy removal algorithm. The folder
-``/project_files`` contains environment files for python (3.6, anaconda, pip) and julia (1.3).
-Note julia has to be available on the PATH for POMATO to run.
+and julia runs the economic dispatch and N-1 redundancy removal algorithm. 
 
-After the python environment is set-up the provided julia environment has to be instantiated. 
-This can be done by running the following commands from the pomato root folder:
+The recommended way to install POMATO is through *pip* by creating a virtual environment and install pomato into it:
 
-    julia --project=project_files/pomato
-    ] instantiate
+    python -m venv pomato
+    .\pomato\Scripts\activate
+    pip install git+https://github.com/korpuskel91/pomato.git
 
-After this is completed pomato can be imported:
+After this is completed pomato can be imported in python:
 
-    import sys
-    sys.path.append(pomato_path)
     from pomato import POMATO
+
+Pomato functions from a *working directory*, ideally the project folder including the virtual environment, and creates additional folders for results, temporary data and logs. The way we use pomato is illustrated by the *examples* folder, cloning its contents into the *working directory* allows to run the included examples.
+
+Note: To install pomato in its current state, julia and gurobi must be available on the PATH. See [Gurobi.jl](https://github.com/JuliaOpt/Gurobi.jl) for notes on the installation. 
 
 Examples
 --------
-This release includes two examples:
+This release includes two examples in the *examples* folder. Including the contents of this folder into the pomato working directory will allow their execution:
 
   - The IEEE 118 bus network, which contains a singular timestep. The data is available under 
     open license at [https://power-grid-lib.github.io/](https://power-grid-lib.github.io/) and rehosted in this repository.
 
-        $ python /scripts/run_pomato_ieee.py
+        $ python /run_pomato_ieee.py
 
   - The DE case study, based on data from [ELMOD-DE](http://www.diw.de/elmod) which is openly available and
     described in detail in [DIW DataDocumentation 83](https://www.diw.de/documents/publikationen/73/diw_01.c.528927.de/diw_datadoc_2016-083.pdf) which represents a more complex system and can be run for longer model horizon (although 
     shortened to allow to host this data in this git).
 
-        $ python /scripts/run_pomato_de.py
+        $ python /run_pomato_de.py
 
 
 However, the functionality of POMATO is best utilized when running inside a

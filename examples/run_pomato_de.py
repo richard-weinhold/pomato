@@ -1,16 +1,11 @@
 """DE Test Case."""
 from pathlib import Path
-import sys
-pomato_path = Path.cwd().parent.joinpath("pomato")
-sys.path.append(str(pomato_path))
 from pomato import POMATO
 
-import numpy as np
-import pandas as pd
 
 # %% Init POMATO with the options file and the dataset
-mato = POMATO(wdir=Path.cwd().parent, options_file="profiles/de.json")
-mato.load_data(r'data_input\dataset_de.xlsx')
+mato = POMATO(wdir=Path.cwd(), options_file="profiles/de.json")
+mato.load_data(r'data_input/dataset_de.xlsx')
 
 # Acess the data pre-marketmodel.
 nodes = mato.data.nodes
