@@ -35,7 +35,7 @@ class JuliaDeamon():
         Workingdirectory, should  be pomato root directory.
    
     """
-    def __init__(self, logger, wdir, julia_module):
+    def __init__(self, logger, wdir, package_dir, julia_module):
 
         if not julia_module in ["market_model", "redundancy_removal"]:
             raise TypeError
@@ -44,8 +44,9 @@ class JuliaDeamon():
 
         self.logger = logger
         self.wdir = wdir
+        self.package_dir = package_dir
         self.deamon_file = wdir.joinpath(f"data_temp/julia_files/deamon_{julia_module}.json")
-        self.julia_deamon_path = wdir.joinpath("pomato/julia_deamon.jl")
+        self.julia_deamon_path = package_dir.joinpath("julia_deamon.jl")
 
         self.write_deamon_file(self.default_deamon_file())
         # Start Julia deamon in a thread
@@ -55,7 +56,7 @@ class JuliaDeamon():
 
     def julia_deamon(self):
         """Stat julia deamon"""
-        args = ["julia", "--project=" + str(self.wdir.joinpath("project_files/pomato")),
+        args = ["julia", "--project=" + str(self.package_dir.joinpath("init/pomato")),
                 str(self.julia_deamon_path), self.julia_module]
         with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, cwd=self.wdir) as programm:

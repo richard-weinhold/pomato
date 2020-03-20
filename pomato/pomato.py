@@ -83,6 +83,7 @@ from pathlib import Path
 import logging
 import json
 
+import pomato
 from pomato.data import DataManagement, ResultProcessing
 from pomato.grid import GridModel
 from pomato.market_model import MarketModel
@@ -199,8 +200,14 @@ class POMATO():
 
     """
 
-    def __init__(self, options_file=None, webapp=False, wdir=None):
-        self.wdir = wdir if wdir else Path.cwd()
+    def __init__(self, wdir, options_file=None, webapp=False):
+
+        self.wdir = wdir
+        self.package_dir = Path(pomato.__path__[0])
+
+        # print("wdir: ", self.wdir)
+        # print("package_dir: ", self.package_dir)
+
         self.logger = _logging_setup(self.wdir, webapp)
         self.logger.info("Market Tool Initialized")
         tools.create_folder_structure(self.wdir, self.logger)
@@ -208,7 +215,7 @@ class POMATO():
         # Core Attributes
         self.options = None
         self.initialize_options(options_file)
-
+        
         self.data = DataManagement(self.options, self.wdir)
         self.grid = None
         self.cbco_module = None
@@ -256,8 +263,8 @@ class POMATO():
         self.data = DataManagement(self.options, self.wdir)
         self.data.load_data(filename)
         self.grid = GridModel(self.data.nodes, self.data.lines)
-        self.cbco_module = CBCOModule(self.wdir, self.grid, self.data, self.options)
-        self.market_model = MarketModel(self.wdir, self.options)
+        self.cbco_module = CBCOModule(self.wdir, self.package_dir, self.grid, self.data, self.options)
+        self.market_model = MarketModel(self.wdir, self.package_dir, self.options)
 
     def init_market_model(self):
         """Initialize the market model.
@@ -270,7 +277,7 @@ class POMATO():
             self.create_grid_representation()
 
         if not self.market_model:
-            self.market_model = MarketModel(self.wdir, self.options)
+            self.market_model = MarketModel(self.wdir, self.package_dir)
             self.market_model.update_data(self.data, self.options, self.grid_representation)
 
     def update_market_model_data(self):

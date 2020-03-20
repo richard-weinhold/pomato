@@ -58,15 +58,16 @@ class MarketModel():
         Can be multiples for redispatch calculations or FBMC application.
     """
 
-    def __init__(self, wdir, options):
+    def __init__(self, wdir, package_dir, options):
         self.logger = logging.getLogger('Log.MarketModel.JuliaInterface')
         self.logger.info("Initializing MarketModel...")
         self.options = options
 
         # Create Folders
         self.wdir = wdir
+        self.package_dir = package_dir
         self.data_dir = wdir.joinpath("data_temp/julia_files")
-        self.julia_model = tools.JuliaDeamon(self.logger, self.wdir, "market_model")
+        self.julia_model = tools.JuliaDeamon(self.logger, self.wdir, self.package_dir, "market_model")
 
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)

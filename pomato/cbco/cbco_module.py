@@ -85,13 +85,14 @@ class CBCOModule():
         easily re-run the redundancy algorithm without restarting a julia process.
     """
 
-    def __init__(self, wdir, grid, data, option):
+    def __init__(self, wdir, package_dir, grid, data, option):
         # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.CBCOModule')
         self.logger.info("Initializing the CBCOModule....")
 
         self.options = option
         self.wdir = wdir
+        self.package_dir = package_dir
         self.jdir = wdir.joinpath("data_temp/julia_files")
         tools.create_folder_structure(self.wdir, self.logger)
 
@@ -107,7 +108,7 @@ class CBCOModule():
 
         self.nodal_injection_limits = None
         self.cbco_index = None
-        self.julia_instance = tools.JuliaDeamon(self.logger, self.wdir, "redundancy_removal")
+        self.julia_instance = tools.JuliaDeamon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
         self.logger.info("CBCOModule Initialized!")
 
@@ -518,9 +519,9 @@ class CBCOModule():
         """
         self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")  # save A,b to csv
         if not self.julia_instance:
-            self.julia_instance = tools.JuliaDeamon(self.logger, self.wdir, "redundancy_removal")
+            self.julia_instance = tools.JuliaDeamon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
         if not self.julia_instance.julia_deamon.is_alive():
-            self.julia_instance = tools.JuliaDeamon(self.logger, self.wdir, "redundancy_removal")
+            self.julia_instance = tools.JuliaDeamon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
         t_start = dt.datetime.now()
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))

@@ -16,3 +16,8 @@ docs/_build/
 *.opt
 *.lxi
 
+build/
+dist/
+pomato_riw.egg-info/top_level.txt
+*egg*
+pomato/
