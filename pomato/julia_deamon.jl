@@ -21,7 +21,7 @@ end
 global model_type = ARGS[1]
 # global model_type = "redundancy_removal"
 global wdir = pwd()
-global deamon_file = wdir*"\\data_temp\\julia_files\\deamon_"*model_type*".json"
+global deamon_file = wdir*"/data_temp/julia_files/deamon_"*model_type*".json"
 @info("reading from file $(deamon_file))")
 file = read_deamon_file()
 
