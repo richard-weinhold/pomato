@@ -1,22 +1,22 @@
 """This is the bokeh plot, consisting of the worst code ever"""
+import json
 # pylint: disable-msg=C0103
 import os.path
 import sys
 from pathlib import Path
-import json
 
 import numpy as np
 import pandas as pd
-
 from bokeh import palettes
 from bokeh.io import curdoc, show
 from bokeh.layouts import column, row, widgetbox
-from bokeh.plotting import figure, ColumnDataSource
-from bokeh.models import HoverTool, Select, WMTSTileSource, \
-                         LassoSelectTool, Circle, MultiLine, \
-                         Label, TapTool
+from bokeh.models import (
+    Circle, HoverTool, Label, LassoSelectTool, MultiLine, Select, TapTool,
+    WMTSTileSource)
 from bokeh.models.widgets import RadioButtonGroup, Slider
-from bokeh.tile_providers import get_provider, Vendors
+from bokeh.plotting import ColumnDataSource, figure
+from bokeh.tile_providers import Vendors, get_provider
+
 
 def get_tilesource(provider="STAMEN_TONER_BACKGROUND"):
   tile_source = get_provider(provider)
