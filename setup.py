@@ -28,7 +28,6 @@ def check_for_julia_and_gurobi():
     else:
         print("Gurobi Found!")
 
-        
 # https://stackoverflow.com/questions/20288711/post-install-script-with-python-setuptools
 class DevelopCommand(develop):
     """Pre-installation for development mode."""

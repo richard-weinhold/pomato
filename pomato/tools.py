@@ -56,7 +56,7 @@ class JuliaDeamon():
 
     def julia_deamon(self):
         """Stat julia deamon"""
-        args = ["julia", "--project=" + str(self.package_dir.joinpath("init/pomato")),
+        args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
                 str(self.julia_deamon_path), self.julia_module]
         with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, cwd=self.wdir) as programm:

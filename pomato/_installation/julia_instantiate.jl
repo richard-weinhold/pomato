@@ -1,14 +1,17 @@
 using Pkg
 
-Pkg.activate("pomato/_installation/pomato")
+if isdir("pomato/_installation/pomato")
+	rm("pomato/_installation/pomato", recursive=true)
+end
 
-# Pkg.develop("pomato/RedundancyRemoval")
+Pkg.activate("pomato/_installation/pomato")
 Pkg.develop(PackageSpec(path="pomato/RedundancyRemoval"))
 Pkg.develop(PackageSpec(path="pomato/MarketModel"))
 Pkg.add("JSON")
 Pkg.instantiate()
 
-print("precompiling")
+print("Precompiling...")
+
 using JSON
 using MarketModel
 using RedundancyRemoval

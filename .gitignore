@@ -13,4 +13,4 @@ docs/_build/
 build/
 dist/
 *egg*
-pomato/_installtion/pomato
+pomato/_installation/pomato/
