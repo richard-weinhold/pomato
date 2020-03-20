@@ -1,5 +1,5 @@
 include pomato/_installation/*
-include *.jl
+include pomato/*.jl
 include pomato/RedundancyRemoval/*
 include pomato/RedundancyRemoval/src/*
 include pomato/MarketModel/*
