@@ -169,7 +169,6 @@ class JuliaDeamon():
         self.halt_while_processing()
         self.solved = True
 
-
 def newest_file_folder(folder, keyword="", number_of_elm=1):
     """Return newest (n) folders/files from a folder.
 

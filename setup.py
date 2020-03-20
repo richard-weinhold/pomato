@@ -3,12 +3,13 @@ from setuptools import setup, find_packages
 from setuptools.command.develop import develop
 from setuptools.command.install import install
 
-import subprocess, sys
+import subprocess, sys, os
 
-def julia_instantiate():
-    args = ["julia", "pomato/_installation/julia_instantiate.jl"]
+def julia_instantiate(package_path):
+    args = ["julia", "pomato/_installation/julia_instantiate.jl"]   
+    # raise ImportError("package path %s", package_path)
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT) as programm:
+                          stderr=subprocess.STDOUT, cwd=package_path) as programm:
         for line in programm.stdout:
             print(line.decode(errors="ignore").strip())
 
@@ -34,14 +35,14 @@ class DevelopCommand(develop):
     def run(self):
         check_for_julia_and_gurobi()
         develop.run(self)
-        julia_instantiate()
+        julia_instantiate(self.install_lib)
 
 class InstallCommand(install):
     """Pre-installation for installation mode."""
     def run(self):
         check_for_julia_and_gurobi()
         install.run(self)
-        julia_instantiate()
+        julia_instantiate(self.install_lib)
 
 setup(name='pomato',
       version='0.0.1',

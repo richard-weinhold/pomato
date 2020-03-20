@@ -205,9 +205,6 @@ class POMATO():
         self.wdir = wdir
         self.package_dir = Path(pomato.__path__[0])
 
-        # print("wdir: ", self.wdir)
-        # print("package_dir: ", self.package_dir)
-
         self.logger = _logging_setup(self.wdir, webapp)
         self.logger.info("Market Tool Initialized")
         tools.create_folder_structure(self.wdir, self.logger)
@@ -359,3 +356,4 @@ class POMATO():
     def _join_julia_instances(self):
         self.market_model.julia_model.join()
         self.cbco_module.julia_instance.join()
+
