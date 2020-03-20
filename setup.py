@@ -6,7 +6,7 @@ from setuptools.command.install import install
 import subprocess, sys
 
 def julia_instantiate():
-    args = ["julia", "pomato/init/julia_instantiate.jl"]
+    args = ["julia", "pomato/_installation/julia_instantiate.jl"]
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT) as programm:
         for line in programm.stdout:
@@ -44,7 +44,7 @@ class InstallCommand(install):
         install.run(self)
         julia_instantiate()
 
-setup(name='pomato-riw',
+setup(name='pomato',
       version='0.0.1',
       description='Power Market Tool',
       author='Richard Weinhold',

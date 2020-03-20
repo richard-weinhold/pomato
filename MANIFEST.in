@@ -1,4 +1,4 @@
-include pomato/init/*
+include pomato/_installation/*
 include *.jl
 include pomato/RedundancyRemoval/*
 include pomato/RedundancyRemoval/src/*
