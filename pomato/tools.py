@@ -61,7 +61,7 @@ class JuliaDeamon():
         args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
                 str(self.julia_deamon_path), self.julia_module]
         with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, cwd=self.wdir) as programm:
+                              stderr=subprocess.STDOUT, cwd=str(self.wdir)) as programm:
             for line in programm.stdout:
                 if not any(w in line.decode(errors="ignore") for w in ["Academic license"]):
                     # self.logger.info(line.decode(errors="ignore").lstrip("[ Info: ").strip())

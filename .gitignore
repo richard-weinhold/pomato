@@ -14,3 +14,4 @@ build/
 dist/
 *egg*
 .vscode/settings.json
+pomato/_installation/pomato
