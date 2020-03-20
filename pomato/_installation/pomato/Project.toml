@@ -1,0 +1,4 @@
+[deps]
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+MarketModel = "a088966c-636e-444b-b123-634d2175ff26"
+RedundancyRemoval = "32e2fdb4-8fda-4538-bf20-57de85f2491f"
