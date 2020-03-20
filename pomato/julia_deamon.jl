@@ -34,8 +34,13 @@ else
 end
 
 function run_redundancy_removal(file_suffix)
-    @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
-    RedundancyRemoval.run_redundancy_removal_parallel(file_suffix, filter_only=true)
+    if Threads.nthreads() == 1
+        @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
+        RedundancyRemoval.run_redundancy_removal(file_suffix, filter_only=true)
+    else
+        @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
+        RedundancyRemoval.run_redundancy_removal_parallel(file_suffix, filter_only=true)
+    end
 end
 
 function run_market_model(wdir, data_dir, redispatch)

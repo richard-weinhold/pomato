@@ -40,7 +40,7 @@ class JuliaDeamon():
     def __init__(self, logger, wdir, package_dir, julia_module):
 
         if not julia_module in ["market_model", "redundancy_removal"]:
-            raise TypeError
+            raise TypeError("The JuliaDeamon has to be initialized with market_model or redundancy_removal")
 
         self.julia_module = julia_module
 
