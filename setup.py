@@ -11,7 +11,8 @@ def julia_instantiate(package_path):
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, cwd=package_path) as programm:
         for line in programm.stdout:
-            print(line.decode(errors="ignore").strip())
+          pass
+            # print(line.decode(errors="ignore").strip())
 
 def check_for_julia_and_gurobi():
     # Check of jula exists
