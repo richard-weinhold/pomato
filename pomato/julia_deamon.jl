@@ -36,10 +36,10 @@ end
 function run_redundancy_removal(file_suffix)
     if Threads.nthreads() >= 2
         @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
-        RedundancyRemoval.run_redundancy_removal(file_suffix, filter_only=true)
-    else
-        @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
         RedundancyRemoval.run_redundancy_removal_parallel(file_suffix, filter_only=true)
+    else
+        @info("Run case $(file_suffix) single threaded")
+        RedundancyRemoval.run_redundancy_removal(file_suffix, filter_only=true)
     end
 end
 
