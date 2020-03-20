@@ -26,12 +26,13 @@ from pomato.cbco import CBCOModule
 
 class FBMCModule():
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, grid_object, data, basecase_name=None, cbco_list=None):
+    def __init__(self, wdir, package_dir, grid_object, data, basecase_name=None, cbco_list=None):
         # Import Logger
         self.logger = logging.getLogger('Log.fbmc.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
 
         self.wdir = wdir
+        self.package_dir = package_dir
 
         self.grid = grid_object
         self.nodes = grid_object.nodes
@@ -156,7 +157,7 @@ class FBMCModule():
         for line in select_lines:
             outages = select_outages[line]
             tmp_ptdf = np.vstack([self.grid.create_n_1_ptdf_cbco(line, out) for out in outages])
-            full_ptdf.extend([tmp_ptdf, -tmp_ptdf])
+            full_ptdf.extend([tmp_ptdf, -1*tmp_ptdf])
             label_lines.extend([line for i in range(0, 2*len(outages))])
             label_outages.extend(outages*2)
 
@@ -202,7 +203,7 @@ class FBMCModule():
 
         ram = np.subtract(self.lines.maxflow[self.domain_info.cb]/capacity_multiplier - \
                           frm_fav.value[self.domain_info.cb],
-                          f_ref_nonmarket).values
+                          f_ref_nonmarket) # .values
         ram = ram.reshape(len(ram), 1)
 
         if any(ram < 0):
@@ -231,8 +232,7 @@ class FBMCModule():
                            list_zones.index(zone[1])] for zone in [domain_x, domain_y]]
             A = np.vstack([np.dot(A[:, domain], np.array([1, -1])) for domain in domain_idx]).T
         else:
-            self.logger.warning("Domains not set in the right way!")
-            raise
+            raise ZeroDivisionError("Domains not set in the right way!")
 
         #Clean reduce Ax=b only works if b_i != 0 for all i,
         #which should be but sometimes wierd stuff comes up
@@ -246,7 +246,7 @@ class FBMCModule():
     def create_flowbased_parameters(self):
 
         fbmc_paramters = {}
-        cbco = CBCOModule(self.wdir, self.grid, self.data, self.data.options)
+        cbco = CBCOModule(self.wdir, self.package_dir, self.grid, self.data, self.data.options)
         cbco.options["optimization"]["type"] = "cbco_zonal"
         cbco.options["grid"]["cbco_option"] = "clarkson"
         for timestep in self.basecase.INJ.t.unique():

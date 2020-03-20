@@ -2,13 +2,15 @@
 
 import logging
 from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 
-from pomato.data.worker import DataWorker
 from pomato.data.input import InputProcessing
 from pomato.data.results import ResultProcessing
+from pomato.data.worker import DataWorker
+
 
 class DataManagement():
     """The DataManagement class provides processed data to all other modules in POMATO
@@ -273,7 +275,7 @@ class DataManagement():
 
     def process_results(self, result_folder, grid=None):
         """Initialize :class:`~pomato.data.ResultProcessing` with `results_folder` and the own instance."""
-        self.results = ResultProcessing(self, result_folder, grid=grid)
+        self.results = ResultProcessing(self, result_folder, grid)
 
     def return_results(self, symb):
         """Interface method to allow access to results from :class:`~pomato.data.ResultProcessing`."""

@@ -1,15 +1,17 @@
 """Bokeh Plot Interface."""
 
-import re
-import logging
 import json
+import logging
+import re
 import subprocess
 import threading
+
 import pandas as pd
 import psutil
 
 import pomato.tools as tools
 from pomato.visualization.plot import create_static_plot
+
 
 class BokehPlot():
     """Interface market data and the creation of a geographic plot.

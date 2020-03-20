@@ -6,13 +6,14 @@ OUTPUT: RESULTS
 
 """
 
-import logging
 import datetime as dt
-import numpy as np
-import pandas as pd
+import logging
 
 import matplotlib.pyplot as plt
-from scipy import spatial
+import numpy as np
+import pandas as pd
+from scipy.spacial import ConvexHull
+
 import pomato.tools as tools
 from pomato.cbco import CBCOModule
 from pomato.fbmc import FBMCModule
@@ -89,10 +90,10 @@ class FBMCDomainPlots(FBMCModule):
         super().__init__(wdir, grid_object, data, basecase_name)
 
         self.fbmc_plots = {}
-        # if not fbmc_grid_represenation:
-        #     self.flowbased_parameters = super().create_flowbased_parameters()
-        # else:
-        #     self.flowbased_parameters = flowbased_parameters
+        if not flowbased_parameters:
+            self.flowbased_parameters = super().create_flowbased_parameters()
+        else:
+            self.flowbased_parameters = flowbased_parameters
 
         # set-up: dont show the graphs when created
         plt.ioff()
@@ -159,8 +160,7 @@ class FBMCDomainPlots(FBMCModule):
                            list_zones.index(zone[1])] for zone in [domain_x, domain_y]]
             A = np.vstack([np.dot(A[:, domain], np.array([1, -1])) for domain in domain_idx]).T
         else:
-            self.logger.warning("Domains not set in the right way!")
-            raise
+            raise ZeroDivisionError("Domains not set in the right way!")
 
         #Clean reduce Ax=b only works if b_i != 0 for all i,
         #which should be but sometimes wierd stuff comes up
@@ -182,7 +182,7 @@ class FBMCDomainPlots(FBMCModule):
         A = np.array(A, dtype=np.float)
         b = np.array(b, dtype=np.float).reshape(len(b), 1)
         D = A/b
-        k = spatial.ConvexHull(D, qhull_options="QJ")
+        k = ConvexHull(D, qhull_options="QJ")
         self.logger.info("Done!")
         return k.vertices
 
@@ -338,6 +338,3 @@ class FBMCDomainPlots(FBMCModule):
                                self.domain_info.copy())
 
         self.fbmc_plots[fbmc_plot.title] = fbmc_plot
-
-
-

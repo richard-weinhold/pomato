@@ -79,17 +79,17 @@ Related Publications
 
 """
 
-from pathlib import Path
-import logging
 import json
+import logging
+from pathlib import Path
 
 import pomato
+import pomato.tools as tools
+from pomato.cbco.cbco_module import CBCOModule
 from pomato.data import DataManagement, ResultProcessing
 from pomato.grid import GridModel
 from pomato.market_model import MarketModel
-from pomato.cbco.cbco_module import CBCOModule
 from pomato.visualization.bokeh_interface import BokehPlot
-import pomato.tools as tools
 
 
 def _logging_setup(wdir, webapp):
@@ -238,7 +238,7 @@ class POMATO():
 
         except FileNotFoundError:
             self.logger.warning("No or invalid options file provided, using default options")
-            self.options = tools.default_options()
+            self.options = tools.options()
             opt_str = "Optimization Options:" + json.dumps(self.options, indent=2) + "\n"
             self.logger.info(opt_str)
         except BaseException as unknown_exception:
@@ -274,7 +274,7 @@ class POMATO():
             self.create_grid_representation()
 
         if not self.market_model:
-            self.market_model = MarketModel(self.wdir, self.package_dir)
+            self.market_model = MarketModel(self.wdir, self.package_dir, self.options)
             self.market_model.update_data(self.data, self.options, self.grid_representation)
 
     def update_market_model_data(self):
@@ -314,7 +314,7 @@ class POMATO():
     def _clear_data(self):
         """Reset DataManagement Class."""
         self.logger.info("Resetting Data Object")
-        self.data = DataManagement()
+        self.data = DataManagement(self.options, self.wdir)
 
     def create_grid_representation(self):
         """Grid Representation as property.
@@ -322,7 +322,7 @@ class POMATO():
         Creates grid representation to be used in the market model.
         """
         if not self.cbco_module:
-            self.cbco_module = CBCOModule(self.wdir, self.grid, self.data, self.options)
+            self.cbco_module = CBCOModule(self.wdir, self.package_dir, self.grid, self.data, self.options)
 
         self.cbco_module.create_grid_representation()
         self.grid_representation = self.cbco_module.grid_representation
@@ -356,4 +356,3 @@ class POMATO():
     def _join_julia_instances(self):
         self.market_model.julia_model.join()
         self.cbco_module.julia_instance.join()
-

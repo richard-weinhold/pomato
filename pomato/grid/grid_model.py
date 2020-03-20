@@ -296,7 +296,7 @@ class GridModel():
             return lodf
 
         except:
-            self.logger.exception("error in create_lodf_matrix ", sys.exc_info()[0])
+            # self.logger.exception("error in create_lodf_matrix ", sys.exc_info()[0])
             raise ZeroDivisionError('LODFError: Check Slacks, radial Lines/Nodes')
 
     def lodf_filter(self, line, sensitivity=5e-2, as_index=False):
@@ -461,7 +461,7 @@ class GridModel():
             label_lines = list(self.lines.index)
             label_outages = ["basecase" for i in range(0, len(self.lines.index))]
 
-            for idx, line in enumerate(self.lines.index[self.lines.contingency]):
+            for line in self.lines.index[self.lines.contingency]:
                 outages = list(self.lodf_filter(line, sensitivity))
                 label_lines.extend([line for i in range(0, len(outages))])
                 label_outages.extend(outages)
@@ -470,9 +470,9 @@ class GridModel():
             estimate_size = len(label_lines)*len(self.nodes.index)*32/(8*1e6)
             self.logger.info(f"Estimated size in RAM for A is: {estimate_size} MB")
             if estimate_size > 3000:
-                raise
+                raise ArithmeticError("Estimated Size of A too large!")
 
-            for idx, line in enumerate(self.lines.index[self.lines.contingency]):
+            for line in self.lines.index[self.lines.contingency]:
                 outages = list(self.lodf_filter(line, sensitivity))
                 tmp_ptdf = np.vstack([self.create_n_1_ptdf_cbco(line, o) for o in outages])
                 A.append(tmp_ptdf)

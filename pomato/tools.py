@@ -1,9 +1,11 @@
-import pandas as pd
 import json
+import subprocess
+import threading
+import time
 from pathlib import Path
-# import pexpect
-# from pexpect import popen_spawn
-import threading, subprocess, time
+
+import pandas as pd
+
 
 class JuliaDeamon():
     """Class to communicate with a julia deamon process.
@@ -50,11 +52,11 @@ class JuliaDeamon():
 
         self.write_deamon_file(self.default_deamon_file())
         # Start Julia deamon in a thread
-        self.julia_deamon = threading.Thread(target=self.julia_deamon, args=())
+        self.julia_deamon = threading.Thread(target=self.start_julia_deamon, args=())
         self.julia_deamon.start()
         self.solved = False
 
-    def julia_deamon(self):
+    def start_julia_deamon(self):
         """Stat julia deamon"""
         args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
                 str(self.julia_deamon_path), self.julia_module]
@@ -91,7 +93,6 @@ class JuliaDeamon():
         """Write (updated) file to disk"""
         with open(self.deamon_file, 'w') as config:
             json.dump(file, config, indent=2)
-        wdir = Path.cwd()
 
     def read_deamon_file(self):
         """Read deamon file from disk"""
@@ -337,7 +338,7 @@ def array2latex(array):
         row = []
         for j in i:
             row.append(str(round(j,3)))
-        print(' & '.join(row) + ' \\\ ')
+        print(' & '.join(row) + ' \\')
 
 
 def _delete_empty_subfolders(folder):
@@ -349,7 +350,6 @@ def _delete_empty_subfolders(folder):
 
 def options():
     """Returns the default options of POMATO.
-
 
     """
     options_dict = {"optimization": {}, "grid": {}, "data": {}}
@@ -408,8 +408,7 @@ def options():
         "co2_price": 20,
         }
 
-
-    return json.loads(json_str)
+    return json.loads(options_dict)
 
 def gams_modelstat_dict(modelstat):
     """ Returns GAMS ModelStat String for int input"""

@@ -1,10 +1,11 @@
+import logging
 import sys
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
-from pathlib import Path
-import scipy.io as sio
-import logging
 import pyproj
+import scipy.io as sio
 
 
 def _mpc_data_pu_to_real(lines,  base_kv, base_mva):
@@ -358,4 +359,3 @@ class DataWorker(object):
         self.data.data_attributes["plants"] = True
         self.data.data_attributes["zones"] = True
         self.data.data_attributes["demand_el"] = True
-

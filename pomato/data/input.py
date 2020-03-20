@@ -4,11 +4,12 @@ This module could definately be a set of functioons or be completely seperate fr
 package itself. However this would require perfectly formatted input data which does not exists.
 So here we are.
 """
-# import sys
-import numpy as np
-import pandas as pd
 # import matplotlib.pyplot as plt
 import logging
+
+import numpy as np
+import pandas as pd
+
 
 class InputProcessing(object):
     """Process input data to bring the raw data into the right format.
@@ -322,9 +323,9 @@ class InputProcessing(object):
         is technically wrong, it works with linear load flow, as it only relies on the
         conceptual "conductance"/"resistance" of each circuit/line in relation to others.
         """
-        tmp = self.lines[['length', 'type', 'b']][self.lines.b.isnull()]
-        tmp.b = self.lines.length/(self.lines.type)
-        self.lines.b[self.lines.b.isnull()] = tmp.b
+        tmp = self.data.lines[['length', 'type', 'b']][self.data.lines.b.isnull()]
+        tmp.b = self.data.lines.length/(self.data.lines.type)
+        self.data.lines.b[self.data.lines.b.isnull()] = tmp.b
 
     def _clean_names(self):
         """Clean raw data of special character or names that didnt encode well.

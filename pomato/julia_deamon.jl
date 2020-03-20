@@ -35,7 +35,6 @@ end
 
 function run_redundancy_removal(file_suffix)
     @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
-    println("Here")
     RedundancyRemoval.run_redundancy_removal_parallel(file_suffix, filter_only=true)
 end
 

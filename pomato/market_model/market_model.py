@@ -8,13 +8,15 @@ The Modes is initionaled empty and then filled with data seperately. This makes 
 easy to change the data and rerun without re-initializing everything again.
 
 """
+import datetime
+import json
 import logging
 import subprocess
-import json
-import datetime
-import pandas as pd
-import pomato.tools as tools
 from pathlib import Path
+
+import pandas as pd
+
+import pomato.tools as tools
 
 # import re
 
@@ -125,12 +127,7 @@ class MarketModel():
         solved = False
 
         if not self.julia_model:
-            self.julia_model = tools.InteractiveJuliaProcess(self.wdir, self.logger, "market_model")
-
-        if self.options["optimization"]["redispatch"]["include"]:
-            command = 'MarketModel.run_redispatch("' + str(self.wdir.as_posix()) + '", "/data/")'
-        else:
-            command = 'MarketModel.run("' + str(self.wdir.as_posix()) + '", "/data/")'
+            self.julia_model = tools.JuliaDeamon(self.logger, self.wdir, self.package_dir, "market_model")
 
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
 

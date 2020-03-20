@@ -1,13 +1,15 @@
 """ResultsProcessing of POMATO."""
 
+import json
+import logging
+
+import matplotlib.pyplot as plt
 # import sys
 import numpy as np
 import pandas as pd
-import logging
-import json
-import matplotlib.pyplot as plt
 
 import pomato.tools as tools
+
 # pylint: disable-msg=E1101
 
 
