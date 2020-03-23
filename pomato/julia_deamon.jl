@@ -55,7 +55,7 @@ function run_redundancy_removal(file_suffix)
         RedundancyRemoval.run_redundancy_removal_parallel(file_suffix, filter_only=true)
     else
         @info("Run case $(file_suffix) single threaded")
-        RedundancyRemoval.run_redundancy_removal(file_suffix, filter_only=true)
+        RedundancyRemoval.run_redundancy_removal(file_suffix)
     end
 end
 
