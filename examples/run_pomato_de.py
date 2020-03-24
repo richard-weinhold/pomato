@@ -1,13 +1,17 @@
 """DE Test Case."""
+import sys
 from pathlib import Path
-from pomato import POMATO
 
+import numpy as np
+import pandas as pd
+
+from pomato import POMATO
 
 # %% Init POMATO with the options file and the dataset
 mato = POMATO(wdir=Path.cwd(), options_file="profiles/de.json")
 mato.load_data(r'data_input/dataset_de.xlsx')
 
-# Acess the data pre-marketmodel.
+# Acess the data.
 nodes = mato.data.nodes
 lines = mato.grid.lines
 dclines = mato.data.dclines
@@ -15,7 +19,6 @@ demand = mato.data.demand_el
 zones = mato.data.zones
 plants = mato.data.plants
 availability = mato.data.availability
-
 
 # %% Potentially alter the input data, e.g. remove Phillipsburg since its offline from Jan 2020.
 # p657 n261 1402 0 0.33 steam  uran  9.252722 8.435436  Kernkraftwerk Philippsburg 2 Philippsburg
@@ -58,3 +61,4 @@ gen.delta_abs.sum()/20
 
 # %% Bokeh PLot
 mato.create_geo_plot(name="DE")
+mato._join_julia_instances()

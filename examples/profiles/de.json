@@ -1,8 +1,8 @@
 {
     "optimization": {
-        "type": "cbco_nodal",
+        "type": "ntc",
         "solver": "gurobi",
-        "model_horizon": [0, 20],
+        "model_horizon": [0, 24],
         "heat_model": false,
         "redispatch": {
                 "include": true,

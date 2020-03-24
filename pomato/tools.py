@@ -199,7 +199,6 @@ def newest_file_folder(folder, keyword="", number_of_elm=1):
     else:
         return df.elm[df.time.idxmax()]
 
-
 def create_folder_structure(base_path, logger=None):
     """Create folder structure to run POMATO.
 
@@ -245,7 +244,6 @@ def create_folder_structure(base_path, logger=None):
         "logs": {},
         "profiles": {},
     }
-
     if logger:
         logger.info("Creating Folder Structure")
 
