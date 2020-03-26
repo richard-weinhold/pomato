@@ -40,7 +40,7 @@ class JuliaDeamon():
     def __init__(self, logger, wdir, package_dir, julia_module):
 
         if not julia_module in ["market_model", "redundancy_removal"]:
-            raise TypeError
+            raise TypeError("The JuliaDeamon has to be initialized with market_model or redundancy_removal")
 
         self.julia_module = julia_module
 
@@ -61,7 +61,7 @@ class JuliaDeamon():
         args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
                 str(self.julia_deamon_path), self.julia_module]
         with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, cwd=self.wdir) as programm:
+                              stderr=subprocess.STDOUT, cwd=str(self.wdir)) as programm:
             for line in programm.stdout:
                 if not any(w in line.decode(errors="ignore") for w in ["Academic license"]):
                     # self.logger.info(line.decode(errors="ignore").lstrip("[ Info: ").strip())
@@ -83,7 +83,7 @@ class JuliaDeamon():
                 "type": self.julia_module,
                 "file_suffix": "py",
                 "redispatch": False,
-                "wdir": str(self.wdir),
+                # "wdir": str(self.wdir),
                 "data_dir": "/data/",
                 "break": False}
 
@@ -199,7 +199,6 @@ def newest_file_folder(folder, keyword="", number_of_elm=1):
     else:
         return df.elm[df.time.idxmax()]
 
-
 def create_folder_structure(base_path, logger=None):
     """Create folder structure to run POMATO.
 
@@ -245,7 +244,6 @@ def create_folder_structure(base_path, logger=None):
         "logs": {},
         "profiles": {},
     }
-
     if logger:
         logger.info("Creating Folder Structure")
 
@@ -263,7 +261,7 @@ def create_folder_structure(base_path, logger=None):
                 if not Path.is_dir(base_path.joinpath(subfolder)):
                     if logger:
                         logger.info(f"creating folder {subfolder}")
-                    Path.mkdir(base_path.joinpath(subfolder))
+                    # Path.mkdir(base_path.joinpath(subfolder))
                 if folder[subfolder]:
                     for subsubfolder in folder[subfolder]:
                         subfolder_dict[subfolder + "/" + subsubfolder] = folder[subfolder][subsubfolder]

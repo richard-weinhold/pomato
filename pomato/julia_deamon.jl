@@ -5,17 +5,33 @@ using JSON
 
 function write_deamon_file(file)
     global deamon_file
-    io = open(deamon_file, "w")
-    JSON.print(io, file, 2)
-    close(io)
+    while true
+        try
+            io = open(deamon_file, "w")
+            JSON.print(io, file, 2)
+            close(io)
+            break
+        catch e
+            @info("Failed to write to file $(deamon_file))")
+        end
+        sleep(1)
+    end
 end
 
 function read_deamon_file()
     global deamon_file
-    io = open(deamon_file, "r")
-    file = JSON.parse(io)
-    close(io)
-    return file
+    while true
+        try
+            io = open(deamon_file, "r")
+            file = JSON.parse(io)
+            close(io)
+            return file
+        catch e
+            @info("Failed to read from file $(deamon_file))")
+        end
+        sleep(1)
+    end
+    
 end
 
 global model_type = ARGS[1]
@@ -34,8 +50,13 @@ else
 end
 
 function run_redundancy_removal(file_suffix)
-    @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
-    RedundancyRemoval.run_redundancy_removal_parallel(file_suffix, filter_only=true)
+    if Threads.nthreads() >= 2
+        @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
+        RedundancyRemoval.run_redundancy_removal_parallel(file_suffix, filter_only=true)
+    else
+        @info("Run case $(file_suffix) single threaded")
+        RedundancyRemoval.run_redundancy_removal(file_suffix)
+    end
 end
 
 function run_market_model(wdir, data_dir, redispatch)
@@ -65,7 +86,8 @@ while true
             run_redundancy_removal(file_suffix)
         end
         if file["type"] == "market_model"
-            wdir = file["wdir"]
+            # wdir = file["wdir"]
+            global wdir
             redispatch = file["redispatch"]
             data_dir = file["data_dir"]
             run_market_model(wdir, data_dir, redispatch)

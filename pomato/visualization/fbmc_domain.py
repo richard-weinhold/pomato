@@ -12,7 +12,7 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from scipy.spacial import ConvexHull
+from scipy import spatial
 
 import pomato.tools as tools
 from pomato.cbco import CBCOModule
@@ -168,7 +168,6 @@ class FBMCDomainPlots(FBMCModule):
         if not (b > 0).all():
             b[(b < 0)] = 0.1
             self.logger.warning('some b is not right (possibly < 0)')
-
         return(A, b)
 
 
@@ -182,7 +181,7 @@ class FBMCDomainPlots(FBMCModule):
         A = np.array(A, dtype=np.float)
         b = np.array(b, dtype=np.float).reshape(len(b), 1)
         D = A/b
-        k = ConvexHull(D, qhull_options="QJ")
+        k = spatial.ConvexHull(D, qhull_options="QJ")
         self.logger.info("Done!")
         return k.vertices
 

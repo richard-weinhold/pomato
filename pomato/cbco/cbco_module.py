@@ -526,7 +526,7 @@ class CBCOModule():
         t_start = dt.datetime.now()
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
 
-        self.julia_instance.run(args={"file_siffix": "py"})
+        self.julia_instance.run(args={"file_suffix": "py"})
 
         t_end = dt.datetime.now()
         self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))

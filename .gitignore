@@ -14,5 +14,6 @@ build/
 dist/
 *egg*
 .vscode/settings.json
-pomato/_installation/pomato/Project.toml
-pomato/_installation/pomato/Manifest.toml
+pomato/_installation/pomato
+pomato/cbco/.pylint.d/pomato.cbco.cbco_module1.stats
+pomato.sublime-workspace
