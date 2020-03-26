@@ -14,3 +14,5 @@ build/
 dist/
 *egg*
 .vscode/settings.json
+pomato/_installation/pomato/Project.toml
+pomato/_installation/pomato/Manifest.toml
