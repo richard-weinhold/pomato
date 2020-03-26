@@ -77,7 +77,7 @@ class JuliaDeamon():
 
     def default_deamon_file(self):
         """Return default deamon file"""
-        file = {"processing": True,
+        file = {"processing": False,
                 "run": False,
                 "ready": False,
                 "type": self.julia_module,
@@ -273,6 +273,7 @@ def create_folder_structure(base_path, logger=None):
             print("Cound not create folder structure!")
 
 def find_xy_limits(list_plots):
+    """Find max/min of a list of coordinates, i.e. a canvas where all ponts fir."""
     try:
         x_max = 0
         x_min = 0
@@ -296,6 +297,7 @@ def find_xy_limits(list_plots):
         print('error:find_xy_limits')
 
 def split_length_in_ranges(step_size, length):
+    """Split a range 1:N in a list of ranges with specified langth."""
     ranges = []
     if step_size > length:
         ranges.append(range(0, length))

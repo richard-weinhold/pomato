@@ -38,7 +38,7 @@ global model_type = ARGS[1]
 # global model_type = "redundancy_removal"
 global wdir = pwd()
 global deamon_file = wdir*"/data_temp/julia_files/deamon_"*model_type*".json"
-@info("reading from file $(deamon_file))")
+@info("reading from file $(deamon_file)")
 file = read_deamon_file()
 
 if model_type == "redundancy_removal"
@@ -67,6 +67,7 @@ function run_market_model(wdir, data_dir, redispatch)
         @info("Run market model")
         MarketModel.run_market_model(wdir, data_dir)
     end
+    @info("Done with market model.")
 end
 
 @info("Done with Initialization. Starting deamon process $(file["type"])!")
@@ -76,6 +77,7 @@ while true
         @info("EXIT")
         break
     end
+    sleep(1)
     if file["run"]
         file["run"] = false
         file["processing"] = true
@@ -95,10 +97,12 @@ while true
         file["processing"] = false
         write_deamon_file(file)
     end
-    if file["processing"]
-        file["processing"] = false
-        write_deamon_file(file)
-    end
+    # sleep(1)
+    # if file["processing"]
+    #     file["processing"] = false
+    #     write_deamon_file(file)
+    # end
+    sleep(1)
     if !file["ready"]
         file["ready"] = true
         write_deamon_file(file)

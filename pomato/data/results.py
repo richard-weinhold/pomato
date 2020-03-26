@@ -118,9 +118,12 @@ class ResultProcessing():
                     self.logger.warning("%s not in results folder %s", var, folder_name)
 
         # Manual setting of attributes:
-        with open(str(folder.joinpath("misc_results.json")), "r") as jsonfile:
-            self.result_attributes["objective"] = json.load(jsonfile)
-
+        try:
+            with open(str(folder.joinpath("misc_results.json")), "r") as jsonfile:
+                self.result_attributes["objective"] = json.load(jsonfile)
+        except FileNotFoundError:
+            self.logger.warning("Results Not Found. This is an Error")
+            
         try:
             with open(str(folder.joinpath("optionfile.json")), "r") as jsonfile:
                 self.result_attributes = {**self.result_attributes,

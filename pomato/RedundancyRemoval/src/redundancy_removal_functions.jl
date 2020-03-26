@@ -2,28 +2,43 @@
 # global optimizer = optimizer_with_attributes(Gurobi.Optimizer, "OutputFlag" => 0, "Method" => 0,
 # 			   					  			 "Presolve" => 0, "PreDual" => 0, "Aggregate" => 0)
 
-global optimizer = with_optimizer(Gurobi.Optimizer, OutputFlag=0, Method=0,
-                                  Presolve=0, PreDual=0, Aggregate=0)
+# function return_optimizer()
+# 	@info("Using Clp optimizer")
+# 	return with_optimizer(Clp.Optimizer, LogLevel=0)
+# end
+
+function return_optimizer()
+	@info("Using Gurobi optimizer")
+	return with_optimizer(Gurobi.Optimizer, OutputFlag=0, Method=0,
+						  Presolve=0, PreDual=0, Aggregate=0)
+	# return with_optimizer(Clp.Optimizer, LogLevel=0)
+	# return with_optimizer(ECOS.Optimizer, VERBOSE=false)
+end
 
 function is_redundant(model::JuMP.Model, constraint::Vector{Float64}, rhs::Float64)
-	temp = @constraint(model, constraint' * model[:x] <= rhs + 1)
+	tmp_constraint = @constraint(model, constraint' * model[:x] <= rhs + 1)
 	@objective(model, Max, constraint' * model[:x])
 	JuMP.optimize!(model)
-	JuMP.delete(model, temp)
-	@debug("Solition", JuMP.value.(model[:x]))
-	if JuMP.objective_value(model) > rhs
-		# result = JuMP.value.(model[:x])
-		return true, JuMP.value.(model[:x]), model
+
+	@debug("Solution", JuMP.value.(model[:x]))
+	@debug("Obj Value", JuMP.objective_value(model))
+
+	objective_value = JuMP.objective_value(model)
+	x_opt = JuMP.value.(model[:x])
+	JuMP.delete(model, tmp_constraint)
+	if objective_value > rhs
+		return true, x_opt, model
 	else
-		return false, JuMP.value.(model[:x]), model
+		return false, x_opt, model
 	end
 end
 
 function build_model(dim::Int, A::Array{Float64},
     				 b::Vector{Float64}, x_bounds::Vector{Float64})
-	# model = Model(with_optimizer(GLPK.Optimizer, msg_lev=GLPK.OFF))
-	global optimizer
-	model = Model(optimizer)
+
+	model = Model(return_optimizer())
+	MOI.set(model, MOI.Silent(), true)
+
 	if size(x_bounds, 1) > 0
 		@info("Building Model with bounds on x!")
 		@variable(model, x[i=1:dim], lower_bound=-x_bounds[i], upper_bound=x_bounds[i])
@@ -189,8 +204,7 @@ end
 function solve_parallel(model::JuMP.Model, A::Array{Float64}, b::Vector{Float64},
 						filtered_m::Vector{Int}, x_bounds::Vector{Float64},
 					   	r::Vector{Int})
-	global optimizer
-	JuMP.set_optimizer(model, optimizer)
+	JuMP.set_optimizer(model, return_optimizer())
 	indices = zeros(Bool, length(r))
 	@info("Start wit LPTest on proc: $(Threads.threadid())")
 	for k in 1:length(r)

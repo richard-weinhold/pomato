@@ -7,8 +7,6 @@ using Base.Threads, ThreadTools
 
 include("redundancy_removal_functions.jl")
 
-export run_redundancy_removal_parallel, run_redundancy_removal
-
 function __init__()
 	global wdir = pwd()
 	# global_logger(ConsoleLogger(stdout, Logging.Info))
@@ -20,8 +18,18 @@ function __init__()
 		TeeLogger(ConsoleLogger(stdout, Logging.Info)) |> global_logger
 		println("No logfile Found, logging only to console.")
 	end
-	println("Initialized")
+
+	# @require Gurobi="2e9cd046-0924-5485-92f1-d5272153d98b" begin
+	# 	println("Gurobi Init.")
+	# 	function return_optimizer()
+	# 		@info("Using Gurobi optimizer")
+	# 		return with_optimizer(Gurobi.Optimizer, OutputFlag=0, Method=0,
+	# 							  Presolve=0, PreDual=0, Aggregate=0)
+	# 	end
+	# end
+	# println("Initialized")
 end
+
+export run_redundancy_removal_parallel, run_redundancy_removal
+
 end # module
-
-

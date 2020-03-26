@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 import pyproj
 import scipy.io as sio
-
+import xlrd
 
 def _mpc_data_pu_to_real(lines,  base_kv, base_mva):
     """Convert pu to actual units for the mpc case."""
@@ -79,7 +79,7 @@ class DataWorker(object):
             try:
                 setattr(self.data, data, xls.parse(data, index_col=0).infer_objects())
                 self.data.data_attributes[data] = True
-            except:
+            except xlrd.XLRDError:
                 self.logger.warning(f"{data} not in excel file")
 
     def read_mat_file(self, mat_filepath):
