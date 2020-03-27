@@ -261,7 +261,7 @@ def create_folder_structure(base_path, logger=None):
                 if not Path.is_dir(base_path.joinpath(subfolder)):
                     if logger:
                         logger.info(f"creating folder {subfolder}")
-                    # Path.mkdir(base_path.joinpath(subfolder))
+                    Path.mkdir(base_path.joinpath(subfolder))
                 if folder[subfolder]:
                     for subsubfolder in folder[subfolder]:
                         subfolder_dict[subfolder + "/" + subsubfolder] = folder[subfolder][subsubfolder]

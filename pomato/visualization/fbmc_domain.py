@@ -181,7 +181,7 @@ class FBMCDomainPlots(FBMCModule):
         A = np.array(A, dtype=np.float)
         b = np.array(b, dtype=np.float).reshape(len(b), 1)
         D = A/b
-        k = spatial.ConvexHull(D, qhull_options="QJ")
+        k = spatial.ConvexHull(D, qhull_options="QJ") #pylint: disable=no-member
         self.logger.info("Done!")
         return k.vertices
 

@@ -82,7 +82,7 @@ class DataManagement():
             Filepath to an xlsx file, should include file extension.
         """
         self.logger.info("Writing Data to Excel File %s", str(filepath))
-        with pd.ExcelWriter(filepath) as writer:
+        with pd.ExcelWriter(filepath) as writer: #pylint: disable=abstract-class-instantiated
             for data in self.data_attributes["data"]:
                 getattr(self, data).to_excel(writer, sheet_name=data)
 
@@ -279,7 +279,7 @@ class DataManagement():
 
     def return_results(self, symb):
         """Interface method to allow access to results from :class:`~pomato.data.ResultProcessing`."""
-        if self.results and symb in self.result.__dict__.keys():
+        if self.results and symb in self.results.__dict__.keys():
             return_value = getattr(self.results, symb)
         else:
             if not self.results:
