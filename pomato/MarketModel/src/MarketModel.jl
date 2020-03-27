@@ -18,7 +18,7 @@ module MarketModel
 using DataFrames, CSV, JSON, Dates, Base.Threads
 using LinearAlgebra, Distributions, SparseArrays
 using JuMP, Gurobi
-using Mosek, MosekTools
+# using Mosek, MosekTools
 
 include("data.jl")
 include("pomato.jl")
