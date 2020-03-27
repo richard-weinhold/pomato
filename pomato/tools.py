@@ -246,13 +246,7 @@ def create_folder_structure(base_path, logger=None):
     }
     if logger:
         logger.info("Creating Folder Structure")
-
-    if not base_path.joinpath("pomato").is_dir():
-        if logger:
-            logger.error("Process is not run from pomato root folder!")
-        else:
-            print("Process is not run from pomato root folder!")
-        raise RuntimeError
+        
     try:
         folder = folder_structure
         while folder:
