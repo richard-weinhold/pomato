@@ -245,18 +245,6 @@ version = "0.4.3"
 [[Mmap]]
 uuid = "a63ad114-7e13-5084-954f-fe012c677804"
 
-[[Mosek]]
-deps = ["Libdl", "Pkg", "Printf", "SparseArrays"]
-git-tree-sha1 = "82b0df8ba94a086a11615f8103f0db3ca45cc02c"
-uuid = "6405355b-0ac2-5fba-af84-adbd65488c0e"
-version = "1.1.1"
-
-[[MosekTools]]
-deps = ["MathOptInterface", "Mosek", "Printf"]
-git-tree-sha1 = "2d5b26efcf1352485c967a8a570ceab83118ebbc"
-uuid = "1ec41992-ff65-5c91-ac43-2df89e9693a4"
-version = "0.9.1"
-
 [[MutableArithmetics]]
 deps = ["LinearAlgebra", "SparseArrays", "Test"]
 git-tree-sha1 = "e028134a24f45c5d2c2cbd98bfd4c9fa50cf7752"

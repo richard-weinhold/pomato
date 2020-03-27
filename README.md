@@ -47,7 +47,7 @@ After this is completed pomato can be imported in python:
 
 Pomato functions from a *working directory*, ideally the project folder including the virtual environment, and creates additional folders for results, temporary data and logs. The way we use pomato is illustrated by the *examples* folder, cloning its contents into the *working directory* allows to run the included examples.
 
-Note: To install pomato in its current state, julia and gurobi must be available on the PATH. See [Gurobi.jl](https://github.com/JuliaOpt/Gurobi.jl) for notes on the installation. 
+Note: To install pomato in its current state, julia and gurobi must be available on the PATH within the venv/project. See [Gurobi.jl](https://github.com/JuliaOpt/Gurobi.jl) for notes on the installation. 
 
 Examples
 --------
