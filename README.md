@@ -87,5 +87,11 @@ Related Publications
    Low-Impact and Redundancy Screening](https://arxiv.org/abs/1910.09034)
 - [Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for generation shift keys (GSKs) on the flow-based market coupling domain: A model-based analysis of Central Western Europe](https://www.sciencedirect.com/science/article/pii/S0306261919317544)
 
+Acknowledgments
+---------------
 
+Richard and Robert would like to aknowledge the support of Reiner Lemoine-Foundation, the Danish Energy Agency and Federal Ministry for 
+Economic Affairs and Energy (BMWi).
+Robert Mieth is funded by the Reiner Lemoine-Foundation scholarship. Richard Weinhold is funded by the Danish Energy Agency.
+The development of POMATO and its applications was funded by BMWi in the project “Long-term Planning and Short-term Optimization of the German Electricity System Within the European Context” (LKD-EU, 03ET4028A).
 
