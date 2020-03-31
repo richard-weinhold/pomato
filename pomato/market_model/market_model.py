@@ -44,7 +44,7 @@ class MarketModel():
         The options from POMATO main method persist in the MarketModel.
     data_dir : pathlib.Path
         Subdirectory of working directory to store the data in.
-    julia_model : :class:`~pomato.tools.InteractiveJuliaProcess`
+    julia_model : :class:`~pomato.tools.JuliaDeamon`
         Interactive julia process which is used to run the market model.
     data : :class:`~pomato.data.DataManagement`
        An instance of the DataManagement class with processed input data.

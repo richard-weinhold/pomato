@@ -76,14 +76,19 @@ class JuliaDeamon():
             self.julia_deamon.join()
 
     def default_deamon_file(self):
-        """Return default deamon file"""
+        """Return default deamon file
+        
+        Returns
+        -------
+        file : dict
+            Deamon file as dictionary. 
+        """
         file = {"processing": False,
                 "run": False,
                 "ready": False,
                 "type": self.julia_module,
                 "file_suffix": "py",
                 "redispatch": False,
-                # "wdir": str(self.wdir),
                 "data_dir": "/data/",
                 "break": False}
 
@@ -165,6 +170,7 @@ class JuliaDeamon():
         if args:
             for k,v in args.items():
                 file[k] = v
+                
         self.write_deamon_file(file)
         time.sleep(5)
         self.halt_while_processing()

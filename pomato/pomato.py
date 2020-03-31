@@ -24,37 +24,50 @@ The model is structured in three interconnected parts:
 Installation
 ------------
 POMATO is written in python and julia. Python takes care of the data processing
-and julia runs the economic dispatch and N-1 redundancy removal algorithm. The folder
-``/project_files`` contains environment files for python (3.6, anaconda, pip) and julia (1.3).
-Note julia has to be available on the PATH for POMATO to run.
+and julia runs the economic dispatch and N-1 redundancy removal algorithm. 
 
-After the python enviroment is setup the provided julia environment has to be instantiated.
-This can be done by running the following commands from the pomato root folder:
+The recommended way to install POMATO is through *pip* by creating a virtual 
+environment and install pomato into it::
 
-.. code-block:: julia
+    python -m venv pomato && /pomato/Scripts/activate
+    pip install git+https://github.com/korpuskel91/pomato.git
 
-    julia --project=project_files/pomato
-    ] instantiate
+After this is completed pomato can be imported in python::
 
-After this is completed pomato can be imported:
-
-.. code-block:: python
-
-    import sys
-    sys.path.append(pomato_path)
     from pomato import POMATO
+
+Pomato functions from a *working directory*, ideally the project folder including 
+the virtual environment, and creates additional folders for results, temporary 
+data and logs. The way we use pomato is illustrated by the *examples* folder, 
+cloning its contents into the *working directory* allows to run the included examples.
+
+Note: To install pomato in its current state, julia and gurobi must be available on 
+the PATH within the venv/project. See [Gurobi.jl](https://github.com/JuliaOpt/Gurobi.jl) 
+for notes on the installation. 
 
 Examples
 --------
-This release includes two examples :
-    - The IEEE 118 bus network, which contains a singular timestep
+This release includes two examples in the *examples* folder. Including the contents of 
+this folder into the pomato working directory will allow their execution:
 
-          $ python /scripts/run_pomato_ieee.py
+  - The IEEE 118 bus network, which contains a singular timestep. The data is available under 
+    open license at [https://power-grid-lib.github.io/](https://power-grid-lib.github.io/) 
+    and rehosted in this repository.::
+    
+        $ python /run_pomato_ieee.py
 
-    - The DE case study, based on data from DIW DataDoc [insert more description]
-      which is more complex and can be run for much longer timeframes
+  - The DE case study, based on data from [ELMOD-DE](http://www.diw.de/elmod) which is 
+    openly available and described in detail in 
+    [DIW DataDocumentation 83](https://www.diw.de/documents/publikationen/73/diw_01.c.528927.de/diw_datadoc_2016-083.pdf) which represents a more complex system and can be run for longer model horizon (although 
+    shortened to allow to host this data in this git).::
 
-          $ python /scripts/run_pomato_de.py
+        $ python /run_pomato_de.py
+
+
+However, the functionality of POMATO is best utilized when running inside a
+IDE (e.g. Spyder) to access POMATO objects and develop a personal script based
+on the provided functionality and its results.
+
 
 
 However, the functionality of POMATO is best utilized when running inside a
@@ -75,8 +88,21 @@ stupid code structures, hard-coded mess and lack of obvious features.
 Related Publications
 --------------------
 
-- `Weinhold and Mieth (2019), Fast Security-Constrained Optimal Power Flow through Low-Impact and Redundancy Screening <https://arxiv.org/abs/1910.09034>`_
+- [Weinhold and Mieth (2019), Fast Security-Constrained Optimal Power Flow through 
+   Low-Impact and Redundancy Screening](https://arxiv.org/abs/1910.09034)
+- [Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for 
+  generation shift keys (GSKs) on the flow-based market coupling domain: A model-based analysis 
+  of Central Western Europe](https://www.sciencedirect.com/science/article/pii/S0306261919317544)
 
+Acknowledgments
+---------------
+
+Richard and Robert would like to aknowledge the support of Reiner Lemoine-Foundation, the Danish 
+Energy Agency and Federal Ministry for Economic Affairs and Energy (BMWi).
+Robert Mieth is funded by the Reiner Lemoine-Foundation scholarship. Richard Weinhold is funded 
+by the Danish Energy Agency. The development of POMATO and its applications was funded by 
+BMWi in the project “Long-term Planning and Short-term Optimization of the German Electricity 
+System Within the European Context” (LKD-EU, 03ET4028A).
 """
 
 import json

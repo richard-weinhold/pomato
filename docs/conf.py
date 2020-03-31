@@ -16,11 +16,11 @@ sys.path.insert(0, os.path.abspath('../'))
 
 # -- Project information -----------------------------------------------------
 project = 'POMATO'
-copyright = '2019, riw'
+copyright = '2020, riw'
 author = 'riw, rom'
 
 # The full version, including alpha/beta/rc tags
-release = '0.2'
+release = '0.2.1'
 
 # -- General configuration ---------------------------------------------------
 

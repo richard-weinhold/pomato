@@ -1,4 +1,4 @@
-"""Data Management of POMATO, which glues all components together.
+"""Data Management of POMATO which interfaces all components.
 
 This module is divided into one main and three sub-modules:
     * :obj:`~pomato.data.DataManagement` : The main hub for the data. An

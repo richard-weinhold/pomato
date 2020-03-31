@@ -45,13 +45,13 @@ After this is completed pomato can be imported in python:
 
     from pomato import POMATO
 
-Pomato functions from a *working directory*, ideally the project folder including the virtual environment, and creates additional folders for results, temporary data and logs. The way we use pomato is illustrated by the *examples* folder, cloning its contents into the *working directory* allows to run the included examples.
+Pomato functions from a *working directory*, ideally the project folder includes the virtual environment, and creates additional folders for results, temporary data and logs. The way we use pomato is illustrated by the *examples* folder, cloning its contents as a *working directory* allows to run the included examples.
 
 Note: To install pomato in its current state, julia and gurobi must be available on the PATH within the venv/project. See [Gurobi.jl](https://github.com/JuliaOpt/Gurobi.jl) for notes on the installation. 
 
 Examples
 --------
-This release includes two examples in the *examples* folder. Including the contents of this folder into the pomato working directory will allow their execution:
+This release includes two examples in the *examples* folder. Including the contents of this folder into a pomato working directory will allow their execution:
 
   - The IEEE 118 bus network, which contains a singular timestep. The data is available under 
     open license at [https://power-grid-lib.github.io/](https://power-grid-lib.github.io/) and rehosted in this repository.
@@ -72,13 +72,9 @@ on the provided functionality and its results.
 Release Status
 --------------
 
-This release covers all features and a big part of the documentation. The FBMCModule is still
-changing very often and is not documented. The julia code also lacks documentation until we figure
-out how to include both julia and python code into one sphinx script. 
+The current release covers all features and a big part of the documentation. The FBMCModule is still changing very often and is not documented. The julia code also lacks documentation until we figure out how to include both julia and python code into one sphinx script. 
 
-POMATO is part of my PhD and actively developed by Robert and myself. WE are not software engineers,
-thus the "program" is not written with robustness in mind. Expect errors, bug, funky behavior, 
-stupid code structures, hard-coded mess and lack of obvious features.
+POMATO is part of my PhD and actively developed by Robert and myself. Through this repository we want to encourage exchgange and promote transparency towards our research. However, we are not software engineers, thus the "program" is not written with robustness in mind. Even though we have recently improved the installation procedure through *pip*, expect errors, bug, funky behavior, stupid code structures, hard-coded mess and lack of obvious features. Please contact us if you are trying to make it fly but encounter problems and unintuitive behavior. 
 
 Related Publications
 --------------------

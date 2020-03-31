@@ -80,7 +80,7 @@ class CBCOModule():
         Array containung absolute bounds for each nodal injections.
     cbco_index : list, np.ndarray
         Essential indices of the defined power flow problem Ax <= b.
-    julia_instance : :class:`~pomato.tools.InteractiveJuliaProcess`
+    julia_instance : :class:`~pomato.tools.JuliaDeamon`
         Julia process that is initialized when used the first time and then kept to be able to
         easily re-run the redundancy algorithm without restarting a julia process.
     """

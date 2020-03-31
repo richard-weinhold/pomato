@@ -16,6 +16,7 @@ Description of the Modules
  	grid
     cbco
     market_model
+    tools
     
 .. toctree::
 	:hidden:
