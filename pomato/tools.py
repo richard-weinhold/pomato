@@ -1,3 +1,9 @@
+"""Collection of tools potentially used by multiple components of POMATO.
+
+This collection is characterized by a certain degree of generality and they cannot be 
+attributed to a specified component of pomato.
+"""
+
 import json
 import subprocess
 import threading
@@ -7,29 +13,29 @@ from pathlib import Path
 import pandas as pd
 
 
-class JuliaDeamon():
-    """Class to communicate with a julia deamon process.
+class JuliaDaemon():
+    """Class to communicate with a julia daemon process.
     
     The RedundancyRemoval and MarketModel processes are written in Julia. 
-    This class's purpose is to comminucate with a deamon process in julia
+    This class's purpose is to communicate with a daemon process in julia
     that runs these processes on demand and allows to excecute them multiple times
-    without restarting the julia process, whic hwould require length precompile. 
+    without restarting the julia process, which would require length precompile. 
     
-    This is implemented by two deamon processes, one in python the other in julia, or more specifically
-    a threaded julia deamon is initialized in python. Therefore, a julia subprocess in a seperate thread. 
-    This allows start-up of the julia procecc while other pomato related processes are done. 
+    This is implemented by two daemon processes, one in python the other in julia, or more specifically
+    a threaded julia daemon is initialized in python. Therefore, a julia subprocess in a separate thread. 
+    This allows start-up of the julia process while other pomato related processes are done. 
     The communication is done through a json file in the data_temp/julia_files folder.
 
     
     Attributes
     ----------
-    deamon_file : pathlib.Path
+    daemon_file : pathlib.Path
         Path to json file for process management.
-    julia_deamon : Thread with julia subprocess.
-        Threaded subprocess of the julia deamon process.
+    julia_daemon : Thread with julia subprocess.
+        Threaded subprocess of the julia daemon process.
     julia_module : str
-        Defines wheather RedundancyRemoval or MarketModel is initialized/used.
-    julia_deamon_path : pathlib.Path
+        Defines whether RedundancyRemoval or MarketModel is initialized/used.
+    julia_daemon_path : pathlib.Path
         Description
     solved : bool
         Indicator if julia process has successfully concluded.
@@ -40,48 +46,47 @@ class JuliaDeamon():
     def __init__(self, logger, wdir, package_dir, julia_module):
 
         if not julia_module in ["market_model", "redundancy_removal"]:
-            raise TypeError("The JuliaDeamon has to be initialized with market_model or redundancy_removal")
+            raise TypeError("The JuliaDaemon has to be initialized with market_model or redundancy_removal")
 
         self.julia_module = julia_module
 
         self.logger = logger
         self.wdir = wdir
         self.package_dir = package_dir
-        self.deamon_file = wdir.joinpath(f"data_temp/julia_files/deamon_{julia_module}.json")
-        self.julia_deamon_path = package_dir.joinpath("julia_deamon.jl")
+        self.daemon_file = wdir.joinpath(f"data_temp/julia_files/daemon_{julia_module}.json")
+        self.julia_daemon_path = package_dir.joinpath("julia_daemon.jl")
 
-        self.write_deamon_file(self.default_deamon_file())
-        # Start Julia deamon in a thread
-        self.julia_deamon = threading.Thread(target=self.start_julia_deamon, args=())
-        self.julia_deamon.start()
+        self.write_daemon_file(self.default_daemon_file())
+        # Start Julia daemon in a thread
+        self.julia_daemon = threading.Thread(target=self.start_julia_daemon, args=())
+        self.julia_daemon.start()
         self.solved = False
 
-    def start_julia_deamon(self):
-        """Stat julia deamon"""
+    def start_julia_daemon(self):
+        """Stat julia daemon"""
         args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
-                str(self.julia_deamon_path), self.julia_module]
+                str(self.julia_daemon_path), self.julia_module]
         with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, cwd=str(self.wdir)) as programm:
             for line in programm.stdout:
                 if not any(w in line.decode(errors="ignore") for w in ["Academic license"]):
-                    # self.logger.info(line.decode(errors="ignore").lstrip("[ Info: ").strip())
                     self.logger.info(line.decode(errors="ignore").replace("[ Info:", "").strip())
 
     def join(self):
-        """Exit the julia deamon and join pyhton htreads"""
-        if self.julia_deamon.is_alive():
-            file = self.read_deamon_file()
+        """Exit the julia daemon and join python threads"""
+        if self.julia_daemon.is_alive():
+            file = self.read_daemon_file()
             file["break"] = True
-            self.write_deamon_file(file)
-            self.julia_deamon.join()
+            self.write_daemon_file(file)
+            self.julia_daemon.join()
 
-    def default_deamon_file(self):
-        """Return default deamon file
+    def default_daemon_file(self):
+        """Return default daemon file
         
         Returns
         -------
         file : dict
-            Deamon file as dictionary. 
+            daemon file as dictionary. 
         """
         file = {"processing": False,
                 "run": False,
@@ -94,14 +99,14 @@ class JuliaDeamon():
 
         return file
 
-    def write_deamon_file(self, file):
+    def write_daemon_file(self, file):
         """Write (updated) file to disk"""
-        with open(self.deamon_file, 'w') as config:
+        with open(self.daemon_file, 'w') as config:
             json.dump(file, config, indent=2)
 
-    def read_deamon_file(self):
-        """Read deamon file from disk"""
-        with open(self.deamon_file, 'r') as jsonfile:
+    def read_daemon_file(self):
+        """Read daemon file from disk"""
+        with open(self.daemon_file, 'r') as jsonfile:
             file = json.load(jsonfile)
         return file
 
@@ -112,7 +117,7 @@ class JuliaDeamon():
         progress_indicator = 1
         while True:
             time.sleep(2)
-            file = self.read_deamon_file()
+            file = self.read_daemon_file()
             if not file["processing"]:
                 self.logger.info("Programm Done")
                 break
@@ -138,7 +143,7 @@ class JuliaDeamon():
         progress_indicator = 1
         while True:
             time.sleep(2)
-            file = self.read_deamon_file()
+            file = self.read_daemon_file()
             if file["ready"]:
                 self.logger.info("Process ready!")
                 break
@@ -154,24 +159,24 @@ class JuliaDeamon():
 
     def run(self, args=None):
         """Run julia process.
-        Writes commards to deamon file, initiating start of a process. Halts while it is active
+        Writes commands to daemon file, initiating start of a process. Halts while it is active
         and set attribute solved as true.
         
         Parameters
         ----------
         args : dict, optional
-            Dictionalry with paris of values to change in the deamon file.       
+            Dictionary with pairs of values to change in the daemon file.       
         """
         self.solved = False
         self.halt_until_ready()
-        file = self.read_deamon_file()
+        file = self.read_daemon_file()
         file["run"] = True
         file["processing"] = True
         if args:
             for k,v in args.items():
                 file[k] = v
-                
-        self.write_deamon_file(file)
+
+        self.write_daemon_file(file)
         time.sleep(5)
         self.halt_while_processing()
         self.solved = True
@@ -179,7 +184,7 @@ class JuliaDeamon():
 def newest_file_folder(folder, keyword="", number_of_elm=1):
     """Return newest (n) folders/files from a folder.
 
-    Plattform sensitive function to return the last file generated in a specified folder.
+    Platform sensitive function to return the last file generated in a specified folder.
 
     Parameters
     ----------
@@ -208,9 +213,9 @@ def newest_file_folder(folder, keyword="", number_of_elm=1):
 def create_folder_structure(base_path, logger=None):
     """Create folder structure to run POMATO.
 
-    Since the repository does not conatin the empty folders for
+    Since the repository does not contain the empty folders for
     temporary data, this function checks whether these exist and
-    creates them if nessesary. This is only valid if the process is
+    creates them if necessary. This is only valid if the process is
     run from the pomato root folder, here checked by looking if the
     pomato package folder exists.
 
@@ -223,11 +228,6 @@ def create_folder_structure(base_path, logger=None):
     logger : logger, optional
         If a logger is supplied the status messages will be logged there.
 
-    Raises
-    ------
-    RuntimeError
-        If the base folder appearently does not coincide with the pomato base folder
-        an exception is raised.
     """
     folder_structure = {
         "pomato": {},
@@ -268,12 +268,12 @@ def create_folder_structure(base_path, logger=None):
             folder = subfolder_dict.copy()
     except:
         if logger:
-            logger.error("Cound not create folder structure!")
+            logger.error("Could not create folder structure!")
         else:
             print("Cound not create folder structure!")
 
 def find_xy_limits(list_plots):
-    """Find max/min of a list of coordinates, i.e. a canvas where all ponts fir."""
+    """Find max/min of a list of coordinates, i.e. a canvas where all points are included."""
     try:
         x_max = 0
         x_min = 0
@@ -297,7 +297,7 @@ def find_xy_limits(list_plots):
         print('error:find_xy_limits')
 
 def split_length_in_ranges(step_size, length):
-    """Split a range 1:N in a list of ranges with specified langth."""
+    """Split a range 1:N in a list of ranges with specified length."""
     ranges = []
     if step_size > length:
         ranges.append(range(0, length))

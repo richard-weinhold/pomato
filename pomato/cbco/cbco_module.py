@@ -80,7 +80,7 @@ class CBCOModule():
         Array containung absolute bounds for each nodal injections.
     cbco_index : list, np.ndarray
         Essential indices of the defined power flow problem Ax <= b.
-    julia_instance : :class:`~pomato.tools.JuliaDeamon`
+    julia_instance : :class:`~pomato.tools.JuliaDaemon`
         Julia process that is initialized when used the first time and then kept to be able to
         easily re-run the redundancy algorithm without restarting a julia process.
     """
@@ -108,7 +108,7 @@ class CBCOModule():
 
         self.nodal_injection_limits = None
         self.cbco_index = None
-        self.julia_instance = tools.JuliaDeamon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
+        self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
         self.logger.info("CBCOModule Initialized!")
 
@@ -519,9 +519,9 @@ class CBCOModule():
         """
         self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")  # save A,b to csv
         if not self.julia_instance:
-            self.julia_instance = tools.JuliaDeamon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
-        if not self.julia_instance.julia_deamon.is_alive():
-            self.julia_instance = tools.JuliaDeamon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
+            self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
+        if not self.julia_instance.julia_daemon.is_alive():
+            self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
         t_start = dt.datetime.now()
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))

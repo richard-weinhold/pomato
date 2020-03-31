@@ -44,7 +44,7 @@ class MarketModel():
         The options from POMATO main method persist in the MarketModel.
     data_dir : pathlib.Path
         Subdirectory of working directory to store the data in.
-    julia_model : :class:`~pomato.tools.JuliaDeamon`
+    julia_model : :class:`~pomato.tools.JuliaDaemon`
         Interactive julia process which is used to run the market model.
     data : :class:`~pomato.data.DataManagement`
        An instance of the DataManagement class with processed input data.
@@ -69,7 +69,7 @@ class MarketModel():
         self.wdir = wdir
         self.package_dir = package_dir
         self.data_dir = wdir.joinpath("data_temp/julia_files")
-        self.julia_model = tools.JuliaDeamon(self.logger, self.wdir, self.package_dir, "market_model")
+        self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model")
 
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)
@@ -127,7 +127,7 @@ class MarketModel():
         solved = False
 
         if not self.julia_model:
-            self.julia_model = tools.JuliaDeamon(self.logger, self.wdir, self.package_dir, "market_model")
+            self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model")
 
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
 

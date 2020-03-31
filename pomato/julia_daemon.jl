@@ -3,31 +3,31 @@ using JSON
 # using RedundancyRemoval
 # using MarketModel
 
-function write_deamon_file(file)
-    global deamon_file
+function write_daemon_file(file)
+    global daemon_file
     while true
         try
-            io = open(deamon_file, "w")
+            io = open(daemon_file, "w")
             JSON.print(io, file, 2)
             close(io)
             break
         catch e
-            @info("Failed to write to file $(deamon_file))")
+            @info("Failed to write to file $(daemon_file))")
         end
         sleep(1)
     end
 end
 
-function read_deamon_file()
-    global deamon_file
+function read_daemon_file()
+    global daemon_file
     while true
         try
-            io = open(deamon_file, "r")
+            io = open(daemon_file, "r")
             file = JSON.parse(io)
             close(io)
             return file
         catch e
-            @info("Failed to read from file $(deamon_file))")
+            @info("Failed to read from file $(daemon_file))")
         end
         sleep(1)
     end
@@ -37,9 +37,9 @@ end
 global model_type = ARGS[1]
 # global model_type = "redundancy_removal"
 global wdir = pwd()
-global deamon_file = wdir*"/data_temp/julia_files/deamon_"*model_type*".json"
-@info("reading from file $(deamon_file)")
-file = read_deamon_file()
+global daemon_file = wdir*"/data_temp/julia_files/daemon_"*model_type*".json"
+@info("reading from file $(daemon_file)")
+file = read_daemon_file()
 
 if model_type == "redundancy_removal"
     using RedundancyRemoval
@@ -70,9 +70,9 @@ function run_market_model(wdir, data_dir, redispatch)
     @info("Done with market model.")
 end
 
-@info("Done with Initialization. Starting deamon process $(file["type"])!")
+@info("Done with Initialization. Starting daemon process $(file["type"])!")
 while true
-    file = read_deamon_file()
+    file = read_daemon_file()
     if file["break"]
         @info("EXIT")
         break
@@ -81,7 +81,7 @@ while true
     if file["run"]
         file["run"] = false
         file["processing"] = true
-        write_deamon_file(file)
+        write_daemon_file(file)
         @info("Starting with $(file["type"])")
         if file["type"] == "redundancy_removal"
             file_suffix = file["file_suffix"]
@@ -95,17 +95,17 @@ while true
             run_market_model(wdir, data_dir, redispatch)
         end
         file["processing"] = false
-        write_deamon_file(file)
+        write_daemon_file(file)
     end
     # sleep(1)
     # if file["processing"]
     #     file["processing"] = false
-    #     write_deamon_file(file)
+    #     write_daemon_file(file)
     # end
     sleep(1)
     if !file["ready"]
         file["ready"] = true
-        write_deamon_file(file)
+        write_daemon_file(file)
     end
     # println("sleepy")
     sleep(1)
