@@ -1,0 +1,6 @@
+include pomato/_installation/*
+include pomato/*.jl
+include pomato/RedundancyRemoval/*
+include pomato/RedundancyRemoval/src/*
+include pomato/MarketModel/*
+include pomato/MarketModel/src/*
