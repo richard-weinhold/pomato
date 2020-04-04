@@ -9,5 +9,5 @@ before_install:
 install:
   - pip install -r requirements.txt
   - pip install pytest coverage pytest-cov
-script: pytest
+script: pytest --cov=./
 after_success: codecov
