@@ -62,6 +62,10 @@ class JuliaDaemon():
         self.julia_daemon.start()
         self.solved = False
 
+    @property
+    def is_alive(self):
+        return self.julia_daemon.is_alive()
+        
     def start_julia_daemon(self):
         """Stat julia daemon"""
         args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
@@ -219,8 +223,6 @@ def create_folder_structure(base_path, logger=None):
     run from the pomato root folder, here checked by looking if the
     pomato package folder exists.
 
-
-
     Parameters
     ----------
     base_path : pathlib.Path
@@ -230,7 +232,6 @@ def create_folder_structure(base_path, logger=None):
 
     """
     folder_structure = {
-        "pomato": {},
         "data_input": {},
         "data_output": {},
         "data_temp": {
@@ -309,7 +310,6 @@ def split_length_in_ranges(step_size, length):
         ranges.append(range((i+1)*step_size, length))
     return ranges
 
-
 def from_named_range(wb, name):
     position_obj = wb.name_map[name]
     address = position_obj[0].__dict__['formula_text'].split('!')
@@ -348,15 +348,13 @@ def _delete_empty_subfolders(folder):
         if subfolder not in non_empty_subfolders:
             subfolder.rmdir()
 
-def options():
+def default_options():
     """Returns the default options of POMATO.
 
     """
     options_dict = {"optimization": {}, "grid": {}, "data": {}}
-    options_dict["optimization"]: {
+    options_dict["optimization"] = {
         "type": "cbco_nodal",
-        "solver": "glpk",
-        "gams": False,
         "model_horizon": [0, 2],
         "heat_model": False,
         "split_timeseries": True,
@@ -382,11 +380,12 @@ def options():
                 "cost": 1E3,
                 "bound": 20}},
         "plant_types": {
-            "es": ["hydro_res", "hydro_psp"],
+            "es": [],
             "hs": [],
-            "ts": ["wind", "solar"],
+            "ts": [],
             "ph": [],}
         }
+
     options_dict["grid"] = {
             "cbco_option": "full",
             "precalc_filename": "",
@@ -408,7 +407,7 @@ def options():
         "co2_price": 20,
         }
 
-    return json.loads(options_dict)
+    return options_dict
 
 def gams_modelstat_dict(modelstat):
     """ Returns GAMS ModelStat String for int input"""

@@ -257,14 +257,14 @@ class POMATO():
 
         """
         try:
-            with open(self.wdir.joinpath(options_file)) as ofile:
-                self.options = json.load(ofile)
+            with open(self.wdir.joinpath(options_file)) as opt_file:
+                self.options = json.load(opt_file)
                 opt_str = "Optimization Options:" + json.dumps(self.options, indent=2) + "\n"
             self.logger.info(opt_str)
 
         except FileNotFoundError:
             self.logger.warning("No or invalid options file provided, using default options")
-            self.options = tools.options()
+            self.options = tools.default_options()
             opt_str = "Optimization Options:" + json.dumps(self.options, indent=2) + "\n"
             self.logger.info(opt_str)
         except BaseException as unknown_exception:
@@ -286,9 +286,11 @@ class POMATO():
         self.data = DataManagement(self.options, self.wdir)
         self.data.load_data(filename)
         self.grid = GridModel(self.data.nodes, self.data.lines)
+        
         self.cbco_module = CBCOModule(self.wdir, self.package_dir, self.grid, self.data, self.options)
-        self.market_model = MarketModel(self.wdir, self.package_dir, self.options)
 
+        self.market_model = MarketModel(self.wdir, self.package_dir, self.options)
+        self._start_julia_instances()
     def init_market_model(self):
         """Initialize the market model.
 
@@ -373,7 +375,8 @@ class POMATO():
         self.bokeh_plot = BokehPlot(self.wdir, bokeh_type=bokeh_type)
 
         if (not self.data.results) and (not results):  # if results dict is empty
-            self.logger.warning("No result available form market model!")
+            self.logger.info("No result available from market model!")
+            self.bokeh_plot.create_empty_static_plot(self.data)
         elif results:
             self.bokeh_plot.create_static_plot(results)
         else:
@@ -382,3 +385,7 @@ class POMATO():
     def _join_julia_instances(self):
         self.market_model.julia_model.join()
         self.cbco_module.julia_instance.join()
+
+    def _start_julia_instances(self):
+        self.cbco_module._start_julia_daemon()
+        self.market_model._start_julia_daemon()

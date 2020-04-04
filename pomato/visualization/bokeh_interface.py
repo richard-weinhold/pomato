@@ -54,6 +54,17 @@ class BokehPlot():
         self.bokeh_thread = None
         self._bokeh_pid = None
 
+    def create_empty_static_plot(self, data):
+        """Create a geo plot without injection or line flows"""
+
+        inj = pd.Series(index=data.nodes.index, data=0).values
+        flow_n_0 = pd.Series(index=data.lines.index, data=0)
+        flow_n_1 = pd.Series(index=data.lines.index, data=0)
+        f_dc = pd.Series(index=data.dclines.index, data=0)
+
+        create_static_plot(data.lines, data.nodes, data.dclines,
+                           inj, flow_n_0, flow_n_1, f_dc)
+
     def create_static_plot(self, market_results):
         """Create static bokeh plot of the market results.
 
@@ -73,15 +84,19 @@ class BokehPlot():
         if len(market_results) == 1:
             market_result = list(market_results)[0]
             folder = market_results[market_result].result_attributes["source"]
-            self.logger.info("initializing bokeh plot with from folder: %s", str(folder))
+            self.logger.info(
+                "initializing bokeh plot with from folder: %s", str(folder))
             plots = [(market_results[market_result], None)]
 
         elif (len(market_results) == 2) and any(["redispatch" in result for result in market_results]):
-            redisp_result = market_results[next(r for r in list(market_results) if "redispatch" in r)]
-            market_result = market_results[next(r for r in list(market_results) if "market_result" in r)]
+            redisp_result = market_results[next(
+                r for r in list(market_results) if "redispatch" in r)]
+            market_result = market_results[next(
+                r for r in list(market_results) if "market_result" in r)]
             gen = pd.merge(market_result.data.plants[["plant_type", "fuel", "node"]],
                            market_result.G, left_index=True, right_on="p")
-            gen = pd.merge(gen, redisp_result.G, on=["p", "t"], suffixes=("_market", "_redispatch"))
+            gen = pd.merge(gen, redisp_result.G, on=[
+                           "p", "t"], suffixes=("_market", "_redispatch"))
             gen["delta"] = gen["G_redispatch"] - gen["G_market"]
             gen["delta_abs"] = gen["delta"].abs()
             plots = [(market_result, None), (redisp_result, gen), ]
@@ -95,14 +110,18 @@ class BokehPlot():
             n_0 = plot_result.n_0_flow()
             n_1 = plot_result.n_1_flow()
             n_1.loc[:, n_0.columns] = n_1.loc[:, n_0.columns].abs()
-            n_1 = n_1.groupby("cb").max().loc[plot_result.data.lines.index, n_0.columns]
+            n_1 = n_1.groupby("cb").max(
+            ).loc[plot_result.data.lines.index, n_0.columns]
             n_0_rel = n_0.divide(plot_result.data.lines.maxflow, axis=0).abs()
             n_1_rel = n_1.divide(plot_result.data.lines.maxflow, axis=0).abs()
-            inj = plot_result.INJ.groupby("n").mean().loc[plot_result.data.nodes.index].values
+            inj = plot_result.INJ.groupby("n").mean(
+            ).loc[plot_result.data.nodes.index].values
             flow_n_0 = pd.DataFrame(index=plot_result.data.lines.index)
-            flow_n_0 = n_0_rel.mean(axis=1).multiply(plot_result.data.lines.maxflow)
+            flow_n_0 = n_0_rel.mean(axis=1).multiply(
+                plot_result.data.lines.maxflow)
             flow_n_1 = pd.DataFrame(index=plot_result.data.lines.index)
-            flow_n_1 = n_1_rel.mean(axis=1).multiply(plot_result.data.lines.maxflow)
+            flow_n_1 = n_1_rel.mean(axis=1).multiply(
+                plot_result.data.lines.maxflow)
             f_dc = plot_result.F_DC.pivot(index="dc", columns="t", values="F_DC") \
                 .abs().mean(axis=1).reindex(plot_result.data.dclines.index).fillna(0)
 
@@ -112,7 +131,6 @@ class BokehPlot():
                                inj, flow_n_0, flow_n_1, f_dc,
                                redispatch=gen, option=0,
                                title=plot_result.result_attributes["source"].name)
-
 
     def add_market_result(self, market_result, name):
         """Create data set for bokeh plot from julia market_result-object
@@ -149,10 +167,12 @@ class BokehPlot():
         n_0_flows.to_csv(str(data_path.joinpath('n_0_flows.csv')))
 
         generation_by_fuel = self.process_generation_data(market_result)
-        generation_by_fuel.to_csv(str(data_path.joinpath('g_by_fuel.csv')), index_label='index')
+        generation_by_fuel.to_csv(
+            str(data_path.joinpath('g_by_fuel.csv')), index_label='index')
 
         demand = self.process_demand_data(market_result)
-        demand.to_csv(str(data_path.joinpath('demand.csv')), index_label='index')
+        demand.to_csv(str(data_path.joinpath('demand.csv')),
+                      index_label='index')
 
         t_first = market_result.data.result_attributes["model_horizon"][0]
         t_last = market_result.data.result_attributes["model_horizon"][-1]
@@ -167,7 +187,8 @@ class BokehPlot():
 
     def process_grid_data(self, market_result):
         """precalculatting the line flows for the bokeh plot"""
-        self.logger.info("Precalculatting line flows and saving them to file...")
+        self.logger.info(
+            "Precalculatting line flows and saving them to file...")
         n_0_flows = market_result.n_0_flow()
         n_1_flows = market_result.n_1_flow()
 
@@ -183,10 +204,11 @@ class BokehPlot():
     def process_generation_data(self, market_result):
         """Prepare Generation Data for Bokeh Plot"""
         generation = market_result.G
-        ## Save relevant variables from market result
+        # Save relevant variables from market result
         generation = pd.merge(generation, market_result.data.plants[["node", "fuel"]],
                               how="left", left_on="p", right_index=True)
-        generation_by_fuel = generation.groupby(["t", "fuel", "node"], as_index=False).sum()
+        generation_by_fuel = generation.groupby(
+            ["t", "fuel", "node"], as_index=False).sum()
         return generation_by_fuel
 
     def process_demand_data(self, market_result):
@@ -195,38 +217,50 @@ class BokehPlot():
         map_pn = market_result.data.plants.node.reset_index()
         map_pn.columns = ['p', 'n']
 
-        demand = market_result.data.demand_el[market_result.data.demand_el.node.isin(market_result.data.nodes.index)].copy()
-        demand.rename(columns={"node": "n", "timestep": "t", "demand_el": "d_el"}, inplace=True)
+        demand = market_result.data.demand_el[market_result.data.demand_el.node.isin(
+            market_result.data.nodes.index)].copy()
+        demand.rename(columns={"node": "n", "timestep": "t",
+                               "demand_el": "d_el"}, inplace=True)
         demand_d = market_result.D_d
         demand_ph = market_result.D_ph
         demand_es = market_result.D_es
 
         if not demand_d.empty:
-            demand_d = pd.merge(demand_d, map_pn[["p", "n"]], how="left", left_on="d", right_on="p")
+            demand_d = pd.merge(
+                demand_d, map_pn[["p", "n"]], how="left", left_on="d", right_on="p")
             demand_d = demand_d.groupby(["n", "t"], as_index=False).sum()
         else:
             demand_d = pd.DataFrame(columns=["d", "t", "D_d"])
-            demand_d = pd.merge(demand_d, map_pn[["p", "n"]], how="left", left_on="d", right_on="p")
+            demand_d = pd.merge(
+                demand_d, map_pn[["p", "n"]], how="left", left_on="d", right_on="p")
 
         if not demand_ph.empty:
-            demand_ph = pd.merge(demand_ph, map_pn[["p", "n"]], how="left", on="p")
+            demand_ph = pd.merge(
+                demand_ph, map_pn[["p", "n"]], how="left", on="p")
             demand_ph = demand_ph.groupby(["n", "t"], as_index=False).sum()
         else:
             demand_ph = pd.DataFrame(columns=["p", "t", "D_ph"])
-            demand_ph = pd.merge(demand_ph, map_pn[["p", "n"]], how="left", on="p")
+            demand_ph = pd.merge(
+                demand_ph, map_pn[["p", "n"]], how="left", on="p")
 
         if not demand_es.empty:
-            demand_es = pd.merge(demand_es, map_pn[["p", "n"]], how="left", on="p")
+            demand_es = pd.merge(
+                demand_es, map_pn[["p", "n"]], how="left", on="p")
             demand_es = demand_es.groupby(["n", "t"], as_index=False).sum()
         else:
             demand_es = pd.DataFrame(columns=["p", "t", "D_es"])
-            demand_es = pd.merge(demand_es, map_pn[["p", "n"]], how="left", on="p")
+            demand_es = pd.merge(
+                demand_es, map_pn[["p", "n"]], how="left", on="p")
 
-        demand = pd.merge(demand, demand_d[["D_d", "n", "t"]], how="outer", on=["n", "t"])
-        demand = pd.merge(demand, demand_ph[["D_ph", "n", "t"]], how="outer", on=["n", "t"])
-        demand = pd.merge(demand, demand_es[["D_es", "n", "t"]], how="outer", on=["n", "t"])
+        demand = pd.merge(
+            demand, demand_d[["D_d", "n", "t"]], how="outer", on=["n", "t"])
+        demand = pd.merge(
+            demand, demand_ph[["D_ph", "n", "t"]], how="outer", on=["n", "t"])
+        demand = pd.merge(
+            demand, demand_es[["D_es", "n", "t"]], how="outer", on=["n", "t"])
         demand.fillna(value=0, inplace=True)
-        demand["d_total"] = demand.d_el + demand.D_d + demand.D_ph + demand.D_es
+        demand["d_total"] = demand.d_el + \
+            demand.D_d + demand.D_ph + demand.D_es
 
         return demand[["n", "t", "d_total"]]
 
@@ -247,7 +281,8 @@ class BokehPlot():
 
     def start_server(self):
         """Run the Bokeh server via command Line."""
-        self.logger.info("Starting Bokeh Server - Close Browser Window to Terminate")
+        self.logger.info(
+            "Starting Bokeh Server - Close Browser Window to Terminate")
         args_list = ["bokeh", "serve", "--show",
                      str(self.wdir.joinpath("code_py/bokeh_plot.py")),
                      "--args", str(self.bokeh_dir)]

@@ -9,23 +9,6 @@ from scipy import spatial
 from sklearn.decomposition import PCA
 import pomato.tools as tools
 
-def _split_length_in_ranges(step_size, length):
-    """Split range 1:length into a list of ranges with length stepsize.
-
-    [1,..,length] in [1,..., 1 + step_size], [step_size+1,..., 1+2*step_size], etc
-
-    """
-    ranges = []
-    if step_size > length:
-        ranges.append(range(0, length))
-    else:
-        ranges = []
-        step_size = int(step_size)
-        for i in range(0, int(length/step_size)):
-            ranges.append(range(i*step_size, (i+1)*step_size))
-        ranges.append(range((i+1)*step_size, length))
-    return ranges
-
 class CBCOModule():
     """CBCO module of POMATO, creating a grid representation for the market model.
 
@@ -108,9 +91,11 @@ class CBCOModule():
 
         self.nodal_injection_limits = None
         self.cbco_index = None
-        self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
-
+        self.julia_instance = None
         self.logger.info("CBCOModule Initialized!")
+
+    def _start_julia_daemon(self):
+        self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
     def create_grid_representation(self):
         """Create grid representation based on model type.
@@ -185,7 +170,7 @@ class CBCOModule():
         else:
             ptdf_df = pd.DataFrame(index=self.grid.lines.index,
                                    columns=self.grid.nodes.index,
-                                   data=np.round(self.grid.ptdf, decimals=4))
+                                   data=self.grid.ptdf)
             ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
             self.grid_representation["grid"] = ptdf_df
             self.grid_representation["grid"] = self._add_zone_to_grid_representation(self.grid_representation["grid"])
@@ -197,7 +182,7 @@ class CBCOModule():
         """
         ptdf_df = pd.DataFrame(index=self.grid.lines.index,
                                columns=self.grid.nodes.index,
-                               data=np.round(self.grid.ptdf, decimals=4))
+                               data=self.grid.ptdf)
         ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
         self.grid_representation["redispatch_grid"] = ptdf_df
         self.grid_representation["redispatch_grid"] = self._add_zone_to_grid_representation(self.grid_representation["redispatch_grid"])
@@ -264,11 +249,8 @@ class CBCOModule():
         self.A, self.b, self.cbco_info = self.create_cbco_data(grid_option["senstitivity"],
                                                                preprocess=True,
                                                                gsk=grid_option["gsk"])
-        if grid_option["cbco_option"] == "clarkson":
-            self.nodal_injection_limits = np.array([])
-            self.cbco_index = self.clarkson_algorithm()
-        else:
-            self.cbco_index = self.reduce_cbco_convex_hull()
+        self.nodal_injection_limits = np.array([])
+        self.cbco_index = self.clarkson_algorithm()
 
         self.grid_representation["grid"] = self.return_cbco()
         self.grid_representation["grid"].ram *= grid_option["capacity_multiplier"]
@@ -308,9 +290,8 @@ class CBCOModule():
         *clarkson_base*. This runs the redundancy removal algorithm including
         bounds on the nodal injections, which are calculated based on
         installed capacity and availability/load timeseries. The other options
-        are: *clarkson* redundancy removal without bounds on nodal injections,
-        *convex_hull* running qhull on a lower dimensional projection of the
-        N-1 ptdf, "save" saving the relevant files for the redundacy removal
+        are: *clarkson* redundancy removal without bounds on nodal injections
+        and "save" saving the relevant files for the redundacy removal
         algorithm so that it can be run separately from the python POMATO.
 
         """
@@ -335,17 +316,15 @@ class CBCOModule():
 
             except FileNotFoundError:
                 self.logger.warning("FileNotFound: No Precalc available")
-                self.logger.warning("Running ConvexHull Algorithm onl, which is not good!")
-                self.cbco_index = self.reduce_cbco_convex_hull()
+                self.logger.warning("Running with full N-1 representation (subject to the lodf filter)")
+                self.cbco_index = self.cbco_index = list(range(0, len(self.b)))
 
         else:
             # 3 valid args supported for cbco_option:
-            # clarkson, clarkson_base, convex_hull, full (default)
+            # clarkson, clarkson_base, full (default)
             if self.options["grid"]["cbco_option"] == "full":
                 self.cbco_index = list(range(0, len(self.b)))
 
-            elif self.options["grid"]["cbco_option"] == "convex_hull":
-                self.cbco_index = self.reduce_cbco_convex_hull()
 
             elif self.options["grid"]["cbco_option"] == "clarkson_base":
                 self.nodal_injection_limits = self.create_nodal_injection_limits()
@@ -518,9 +497,10 @@ class CBCOModule():
             cbco's.
         """
         self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")  # save A,b to csv
+        
         if not self.julia_instance:
             self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
-        if not self.julia_instance.julia_daemon.is_alive():
+        if not self.julia_instance.is_alive:
             self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
         t_start = dt.datetime.now()
@@ -540,49 +520,6 @@ class CBCOModule():
             self.logger.critical("Error in Julia code")
             cbco = None
         return cbco
-
-    def reduce_cbco_convex_hull(self):
-        """[LEGACY] Reduce Ax <= b using the ConvexHull algorithm.
-
-        The ConvexHull algorithm only works well in low (N<10) dimensions.
-        Therefore this implementation project the N-1 ptdf to a low (N = 8)
-        dimension to be able to run it. However this limits the number of
-        vertices found and will not find all non-redundant constraint and
-        therefore not guaranteeing SCOPF.
-
-        cbco : list
-            List of the essential indices, i.e. the indices of the non-redundant
-            cbco's.
-        """
-        ranges = _split_length_in_ranges(5e4, len(self.b))
-        self.logger.info("Splitting A in %d segments", len(ranges))
-        vertices = []
-        for r in ranges:
-            A, b = self.A[r], self.b[r].reshape(len(self.b[r]), 1)
-            D = A[:, A.any(axis=0)]/b
-            if np.size(D, 1) > 9:
-                model = PCA(n_components=8).fit(D)
-                D = model.transform(D)
-
-            k = spatial.qhull.ConvexHull(D, qhull_options="Qx")
-            # k = ConvexHull(D, qhull_options="Qx")
-            vertices.extend(k.vertices + r[0])
-            self.logger.info("BeepBeepBoopBoop")
-
-        if len(ranges) > 1:
-            self.logger.info("Final ConvexHull with %d indices", len(vertices))
-            A, b = self.A[vertices], self.b[vertices].reshape(len(self.b[vertices]), 1)
-            D = A[:, A.any(axis=0)]/b
-            if np.size(D, 1) > 10:
-                model = PCA(n_components=9).fit(D)
-                D = model.transform(D)
-            k = spatial.qhull.ConvexHull(D, qhull_options="Qx")
-            cbco_index = [vertices[idx] for idx in k.vertices]
-
-        else:
-            cbco_index = vertices
-        self.logger.info("Number of vertices: %d", len(cbco_index))
-        return cbco_index
 
     def return_cbco(self):
         """Return only the cbco's of the info attribute DataFrame.

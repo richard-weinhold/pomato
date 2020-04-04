@@ -62,7 +62,7 @@ class GridModel():
     psdf : np.ndarray
         psdf (phase shifting distribution factor) matrix :math:`(L \\times L)`.
     lodf : np.ndarray
-        lodf (load outage distribution factor) matrix :math:`(L \\times L)`.
+        N-1 lodf (load outage distribution factor) matrix :math:`(L \\times L)`.
     """
 
     numpy_settings = np.seterr(divide="raise")
@@ -75,11 +75,15 @@ class GridModel():
         self.lines = lines
         self.check_slack()
         self.logger.info("Calculating PTDF and PSDF Matrices!")
+        self.incidence_matrix = self.create_incidence_matrix()
         self.ptdf = self.create_ptdf_matrix()
         self.psdf = self.create_psdf_matrix()
         self.check_grid_topology()
         self.logger.info("Calculating LODF Matrix!")
-        self.lodf = self.create_lodf_matrix()
+        self.lodf = self.create_n_1_lodf_matrix()
+        # self.combined_contingencies = None
+        self.combined_contingencies = self.create_contingency_groups()
+
         self.logger.info("GridModel initialized!")
 
     def check_slack(self):
@@ -145,6 +149,50 @@ class GridModel():
         self.logger.info("Total number of Lines: %d", len(self.lines.index))
         self.logger.info("Total number of contingencies: %d", len(self.lines[self.lines.contingency]))
 
+    def add_number_of_systems(self):
+        """Add number of systems to lines dataframe, i.e. how many systems a line is part of."""
+
+        tmp = self.lines[["node_i", "node_j"]].copy()
+        tmp.loc[:, "systems"] = 1
+        tmp = tmp.groupby(["node_i", "node_j"]).sum()
+        tmp = tmp.reset_index()
+        self.lines.loc[:, "systems"] = 1
+        self.lines.loc[:, "no"] = 1
+        for node_i, node_j, systems in zip(tmp.node_i, tmp.node_j, tmp.systems):
+            condition = (self.lines.node_i == node_i)&(self.lines.node_j == node_j)
+            self.lines.loc[condition, "systems"] = systems
+            self.lines.loc[condition, "no"] = np.array([nr for nr in range(0, systems)])
+
+    def create_contingency_groups(self, option="double_lines"):
+        """Create contingency groups i.e. contingencies that occur together.
+        
+        This can be done by evaluating high lodf values or by topology, i.e. double lines are affected. 
+        However, contingency groups still cannot disconnect the network. 
+
+        Parameters
+        ----------
+        option : (float, string), optional
+            Rule of what outages are grouped. Options are: double lines (default), by value or none.
+
+        """
+        combined_contingencies = {line : [] for line in self.lines.index}
+        if isinstance(option, (int, float)):
+            for idx, line in enumerate(self.lines.index):
+                combined_contingencies[line] = list(self.lines.index[np.abs(self.lodf[idx, :]) > option])
+                # combined_contingencies[line].remove(line)          
+
+        if option == "double_lines": # double lines
+            if "systems" not in self.lines.columns:
+                self.add_number_of_systems()
+            for line in self.lines.index:
+                if self.lines.loc[line, "systems"] == 2:
+                    combined_contingencies[line] = list(self.lines[self.lines[["node_i", "node_j"]].apply(tuple, axis=1) == tuple(self.lines.loc[line, ["node_i", "node_j"]])].index)
+                    # combined_contingencies[line].remove(line)
+                else:
+                    combined_contingencies[line] = [line]
+
+        return combined_contingencies
+
     def slack_zones(self):
         """Return nodes that are balanced through each slack.
 
@@ -202,7 +250,7 @@ class GridModel():
             Node susceptance matrix.
         """
         suceptance_vector = self.lines.b
-        incidence = self.create_incidence_matrix()
+        incidence = self.incidence_matrix
         susceptance_diag = np.diag(suceptance_vector)
         line_susceptance = np.dot(susceptance_diag, incidence)
         node_susceptance = np.dot(np.dot(incidence.transpose(1, 0), susceptance_diag), incidence)
@@ -218,26 +266,22 @@ class GridModel():
         The ptdf matrix is calculated based on the topology and line parameters
         (i.e. line susceptance).
         """
-        try:
+        # Find slack
+        slack = list(self.nodes.index[self.nodes.slack])
+        slack_idx = [self.nodes.index.get_loc(s) for s in slack]
+        line_susceptance, node_susceptance = self.create_susceptance_matrices()
 
-            # Find slack
-            slack = list(self.nodes.index[self.nodes.slack])
-            slack_idx = [self.nodes.index.get_loc(s) for s in slack]
-            line_susceptance, node_susceptance = self.create_susceptance_matrices()
+        # Create List without the slack and invert it
+        list_wo_slack = [x for x in range(0, len(self.nodes.index)) if x not in slack_idx]
 
-            # Create List without the slack and invert it
-            list_wo_slack = [x for x in range(0, len(self.nodes.index)) if x not in slack_idx]
-
-            node_susceptance_wo_slack = node_susceptance[np.ix_(list_wo_slack, list_wo_slack)]
-            inv = np.linalg.inv(node_susceptance_wo_slack)
-            # sort slack back in to get nxn
-            node_susc_inv = np.zeros((len(self.nodes), len(self.nodes)))
-            node_susc_inv[np.ix_(list_wo_slack, list_wo_slack)] = inv
-            # calculate ptdfs
-            ptdf = np.dot(line_susceptance, node_susc_inv)
-            return ptdf
-        except:
-            self.logger.exception('error:create_ptdf_matrix')
+        node_susceptance_wo_slack = node_susceptance[np.ix_(list_wo_slack, list_wo_slack)]
+        inv = np.linalg.inv(node_susceptance_wo_slack)
+        # sort slack back in to get nxn
+        node_susc_inv = np.zeros((len(self.nodes), len(self.nodes)))
+        node_susc_inv[np.ix_(list_wo_slack, list_wo_slack)] = inv
+        # calculate ptdfs
+        ptdf = np.dot(line_susceptance, node_susc_inv)
+        return ptdf
 
     def create_psdf_matrix(self):
         """Calculate psdf (phase-shifting distribution matrix, LxLL).
@@ -267,32 +311,80 @@ class GridModel():
         # recalc ptdf and lodf
         shift_matrix = np.multiply(self.psdf, shift)
         self.ptdf += np.dot(shift_matrix, self.ptdf)
-        self.lodf = self.create_lodf_matrix()
+        self.lodf = self.create_n_1_lodf_matrix()
 
-    def create_lodf_matrix(self):
-        """Create ptdf matrix.
+    def create_n_1_lodf_matrix(self):
+        """Create N-1 LODF matrix.
 
         The lodf matrix represents a line to line sensitivity in the case of
         an outage. In other words, how does the flow on a line distribute on
-        other lines in the case of an outage.
+        other lines in the case of an outage. 
+        This method returns a LxL matrix, representing how each line is affected by 
+        the outage of all other lines. 
 
-        The ZeroDivisionError is important to catch as it indicates that the
-        slack is not chosen correctly.
+        This LODF matrix therefore representes the N-1 case, as only one outage 
+        is considered per case. Multiple contingencies have to be explicitly calculted 
+        with the more general :meth:`~create_lodf` method.
+        """
+        
+        lodf = np.hstack([self.create_lodf([line for line in range(0, len(self.lines))], 
+                                           [outage]) for outage in range(0, len(self.lines))])   
+        return lodf
+
+    def create_lodf(self, lines, outages):
+        """Creates load outages distribution factor (lodf) for lines under outages.
+
+        This method creates specific lodf's for all lines in lines and simultanious 
+        outages in outages.
+
+        This is calulated by (Bl * A_l * Bhat * A_lc)*(I - Blc * Bhat * A_lc)^-1 as
+        discussed in `Fast Security-Constrained Optimal Power Flow through Low-Impact
+        and Redundancy Screening <https://arxiv.org/abs/1910.09034>`_.
+        
+        Note that the returned array has the dimension lines x outages, therefore the
+        curation of a general lodf matrix, including combined/multiple contingencies
+        is not possible. 
+
+        Parameters
+        ----------
+        lines : list(int), list(string)
+            List of lines which are affected by the outages.
+        outages : list(int), list(string)
+            List of lines that conists the contingency case. 
+        
+        Returns
+        -------
+        lodf
+            The returned lodf can be used to calculate the contingency ptdf (c_ptdf) 
+            from the pre-contingency ptdf (ptdf): c_ptdf = ptdf[lines] + lodf * ptdf[outages, :] 
+        
+        Raises
+        ------
+        ZeroDivisionError
+            Indicates error in configuration of slack(s) or contingencies.
         """
         try:
-            incidence = self.create_incidence_matrix()
-            H = np.dot(self.ptdf, incidence.T)
-            h = np.diag(H).reshape(len(self.lines), 1)
-            # Avoid division by zero because of radial nodes and lines
-            con = self.lines.contingency.values.astype(int).reshape(len(self.lines), 1)
-            h = np.multiply(h, con)
-            lodf = np.divide(H,
-                    (np.ones((len(self.lines), len(self.lines))) \
-                     - np.dot(np.ones((len(self.lines), 1)), h.T)))
-
-            lodf = lodf - np.diag(np.diag(lodf)) - np.eye(len(self.lines), len(self.lines))
-            # explicitly set line-line sensitivity to 0 for contingency==False
-            lodf = np.multiply(lodf, np.ones((len(self.lines), 1))*self.lines.contingency.values)
+            A = self.incidence_matrix            
+            # LODF LxO matrix
+            lodf = np.zeros((len(lines), len(outages)))
+            
+            # Invalid contingencies, i.e. lines that connot be outated remain 0 in lodf
+            outages = [outage for outage in outages if self.lines.iloc[outage].contingency]
+        
+            # LODF for outated line is set to -1
+            outages_in_lines = [line in outages for line in lines]
+            lines_in_outages = [outage in lines for outage in outages]
+            lodf[outages_in_lines, lines_in_outages] = -1
+            
+            # For all lines that are not outaged as part of the contingency the LODF is calulated
+            valid_lines = [line not in outages for line in lines]
+            lines = [line for line in lines if not line in outages]
+         
+            if len(outages) > 0:        
+                lodf[valid_lines, :] = np.dot(self.ptdf[lines, :] @ A[outages, :].reshape(len(outages), len(self.nodes)).T,
+                                             np.linalg.inv(np.eye(len(outages)) - (self.ptdf[outages, :] 
+                                                @ A[outages,:].reshape(len(outages), len(self.nodes)).T)))
+                
             return lodf
 
         except:
@@ -352,28 +444,28 @@ class GridModel():
         ptdf : np.ndarray
             Returns ptdf matrix (LxN) where for a N-dim vector of nodal
             injections INJ, the dot-product :math:`PTDF \\cdot INJ` results
-            in the flows on the specified line for each other line as outages.
+            in the flows on the specified line for each other line as outages. 
+            Includes the N-0 case. 
         """
-        try:
-            if not isinstance(line, int):
-                line = self.lines.index.get_loc(line)
 
-            n_1_ptdf_line = np.vstack([self.ptdf[line, :]] +
-                                      [self.ptdf[line, :] +
-                                       np.dot(self.lodf[line, outage], self.ptdf[outage, :])
-                                       for outage in range(0, len(self.lines))])
-            return n_1_ptdf_line
-        except:
-            self.logger.exception('error:create_n_1_ptdf_cb')
+        if not isinstance(line, int):
+            line = self.lines.index.get_loc(line)
 
-    def create_n_1_ptdf_outage(self, outage):
-        """Create N-1 ptdf for all lines under a specific outage..
+
+        n_1_ptdf_line = np.vstack([self.ptdf[line, :]] +
+                                  [self.ptdf[line, :] +
+                                    np.dot(self.create_lodf([line], [outage]), self.ptdf[outage, :])
+                                        for outage in range(0, len(self.lines))])
+        return n_1_ptdf_line
+
+    def create_n_1_ptdf_outage(self, outages):
+        """Create N-1 ptdf for all lines under a specific outage.
 
         Parameters
         ----------
-        outage : lines.index, int
-            line index (DataFrame index or integer).
-
+        outages : lines.index, int, list(lines.index), list(int)
+            Line index (DataFrame index or integer).
+    
         Returns
         -------
         ptdf : np.ndarray
@@ -381,16 +473,19 @@ class GridModel():
             injections INJ, the dot-product :math:`PTDF \\cdot INJ`
             results in the flows on each line under the specified outage.
         """
-        try:
-            if not isinstance(outage, int):
-                outage = self.lines.index.get_loc(outage)
-            n_1_ptdf = np.array(self.ptdf, dtype=np.float) + \
-                np.vstack([np.dot(self.lodf[lx, outage], self.ptdf[outage, :])
-                           for lx in range(0, len(self.lines))])
-            return n_1_ptdf
+        if not isinstance(outages, list):
+            outages = [outages]
+        if not all([isinstance(outage, int) for outage in outages]):
+            outages = [self.lines.index.get_loc(outage) for outage in outages]
 
-        except:
-            self.logger.exception('error:create_n_1_ptdf_co')
+        combines_outages = []
+        for outage in outages:
+            tmp = self.combined_contingencies[self.lines.index[outage]]
+            combines_outages.extend([self.lines.index.get_loc(line) for line in tmp])
+
+        lodf = self.create_lodf([line for line in range(0, len(self.lines))], combines_outages)
+        n_1_ptdf = self.ptdf + np.dot(lodf, self.ptdf[combines_outages, :].reshape(len(combines_outages), len(self.nodes)))
+        return n_1_ptdf
 
     def create_n_1_ptdf_cbco(self, line, outage):
         r"""Create N-1 ptdf for one specific line and one specific outage.
@@ -399,7 +494,7 @@ class GridModel():
         ----------
         line : lines.index, int
             Line index (DataFrame index or integer).
-        outage : lines.index, int
+        outages : lines.index, int, list(lines.index), list(int)
             Line index (DataFrame index or integer).
 
         Returns
@@ -409,17 +504,15 @@ class GridModel():
             injections INJ, the dot-product :math:`PTDF \\cdot INJ` results
             in the flow on the specified line under the specified outage.
         """
-        try:
-            if not isinstance(outage, int):
-                outage = self.lines.index.get_loc(outage)
-            if not isinstance(line, int):
-                line = self.lines.index.get_loc(line)
+        if not isinstance(outage, int):
+            outage = self.lines.index.get_loc(outage)
+        if not isinstance(line, int):
+            line = self.lines.index.get_loc(line)
 
-            n_1_ptdf_cbco = self.ptdf[line, :] + np.dot(self.lodf[line, outage],
-                                                        self.ptdf[outage, :])
-            return n_1_ptdf_cbco
-        except:
-            self.logger.exception('error:create_n_1_ptdf_cbco')
+        outages = [self.lines.index.get_loc(line) for line in self.combined_contingencies[self.lines.index[outage]]]
+
+        n_1_ptdf_cbco = self.ptdf[line, :] + np.dot(self.create_lodf([line], outages), self.ptdf[outages, :])
+        return n_1_ptdf_cbco
 
     def create_filtered_n_1_ptdf(self, sensitivity=5e-2):
         """Create a N-1 ptdf/info containing all lines under outages with significant impact.

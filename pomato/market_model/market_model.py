@@ -81,6 +81,10 @@ class MarketModel():
         self.status = 'empty'
         self.result_folders = None
 
+    def _start_julia_daemon(self):
+        """Start julia subprocess."""
+        self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model")
+
     def update_data(self, data, options, grid_representation):
         """Initialise or update the underlying data of the market model.
 

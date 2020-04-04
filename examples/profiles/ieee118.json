@@ -1,7 +1,6 @@
 {
     "optimization": {
         "type": "cbco_nodal",
-        "solver": "glpk",
         "model_horizon": [0, 2],
         "heat_model": false,
         "redispatch": {
