@@ -11,7 +11,6 @@ import pandas as pd
 from context import pomato
 
 # pylint: disable-msg=E1101
-
 class TestPomatoData(unittest.TestCase):
     
     def setUp(self):
@@ -32,7 +31,6 @@ class TestPomatoData(unittest.TestCase):
             self.assertTrue(self.data.nodes.loc[self.data.nodes[data].isna(), :].empty)
         for data in ["node_i", "node_j", "b", "maxflow", "contingency"]:
             self.assertTrue(self.data.lines.loc[self.data.lines[data].isna(), :].empty)
-
 
 class TestPomatoGrid(unittest.TestCase):
     
@@ -216,7 +214,6 @@ class TestPomatoGridRepresentation(unittest.TestCase):
         self.cbco_module.options["grid"]["cbco_option"] = "full"
         self.cbco_module.create_grid_representation()
         pd.testing.assert_frame_equal(c_ptdf_fallback, self.cbco_module.grid_representation["grid"])
-
 
     def test_cbco_nodal_clarkson(self):
         my_file = self.wdir.parent.joinpath('tests/test_data/ieee_cbco.csv')
