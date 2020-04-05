@@ -172,14 +172,16 @@ class GridModel():
         Parameters
         ----------
         option : (float, string), optional
-            Rule of what outages are grouped. Options are: double lines (default), by value or none.
+            Rule of what outages are grouped. Options are: double_lines (default), by value or none.
 
         """
-        combined_contingencies = {line : [] for line in self.lines.index}
+        combined_contingencies = {line : [line] for line in self.lines.index}
+        
         if isinstance(option, (int, float)):
+            combined_contingencies = {line : [line] for line in self.lines.index}
             for idx, line in enumerate(self.lines.index):
-                combined_contingencies[line] = list(self.lines.index[np.abs(self.lodf[idx, :]) > option])
-                # combined_contingencies[line].remove(line)          
+                combined_contingencies[line].extend(list(self.lines.index[np.abs(self.lodf[idx, :]) > option]))
+                combined_contingencies[line] = list(set(combined_contingencies[line]))    
 
         if option == "double_lines": # double lines
             if "systems" not in self.lines.columns:
@@ -187,11 +189,10 @@ class GridModel():
             for line in self.lines.index:
                 if self.lines.loc[line, "systems"] == 2:
                     combined_contingencies[line] = list(self.lines[self.lines[["node_i", "node_j"]].apply(tuple, axis=1) == tuple(self.lines.loc[line, ["node_i", "node_j"]])].index)
-                    # combined_contingencies[line].remove(line)
-                else:
-                    combined_contingencies[line] = [line]
+                combined_contingencies[line] = list(set(combined_contingencies[line]))
 
         return combined_contingencies
+
 
     def slack_zones(self):
         """Return nodes that are balanced through each slack.
