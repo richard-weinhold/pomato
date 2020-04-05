@@ -231,7 +231,7 @@ class ResultProcessing():
                 if any(tmp[col] > 1e-3):
                     self.logger.warning("Infeasibilites in %s", col)
 
-    def check_courtailment(self):
+    def check_curtailment(self):
         """[Deprecated] Check for curtailment of plants of type ts (i.e. with availabilities).
 
         Deprecated: changed curtailment to explicit variable.
@@ -262,16 +262,22 @@ class ResultProcessing():
         self.logger.info("%s MWh curtailed in market model results!", curtailment)
         return gen
 
-    def res_share(self):
+    def res_share(self, res_tech=None, res_fuel=None):
         """Calculate the share of renewables.
-
+        
         Returns
         -------
         res_share : float
             Share of reneable generation in the resulting dispatch.
         """
-        res_tech = ["wind", "sun", "water", "biomass"]
-        res_plants = self.data.plants[self.data.plants.fuel.isin(res_tech)]
+        if (not res_tech) and (not res_fuel):
+            raise AttributeError("Submit renewable fuels or technologies!")
+
+        if res_tech:
+            res_plants = self.data.plants[self.data.plants.fuel.isin(res_fuel)]
+        if res_fuel:
+            res_plants = self.data.plants[self.data.plants.tech.isin(res_tech)]
+        
         gen = self.G
         gen_res = gen[gen.p.isin(res_plants.index)]
         res_share = gen_res.G.sum()/gen.G.sum()
@@ -299,67 +305,61 @@ class ResultProcessing():
         if not self.output_folder.is_dir():
             self.output_folder.mkdir()
 
-        generation = pd.merge(self.G, self.data.plants[["node", "fuel", "tech"]],
-                              how="left", left_on="p", right_index=True)
+        plant_columns = [col for col in ["node", "fuel", "tech", "plant_type"] if col in self.data.plants.columns]
+
+        generation = pd.merge(self.G, self.data.plants[plant_columns],                      
+                            how="left", left_on="p", right_index=True)
+
         generation = pd.merge(generation, self.data.nodes.zone.to_frame(),
-                              how="left", left_on="node", right_index=True)
+                            how="left", left_on="node", right_index=True)
         model_horizon = self.result_attributes["model_horizon"]
 
-        # By Fuel
+
         fig, ax = plt.subplots()
-        g_by_fuel = generation.groupby(["t", "fuel"], as_index=False).sum()
-        g_by_fuel.pivot(index="t", columns="fuel",
+        group_by = "plant_type"
+        gen_plot = generation.groupby(["t", group_by], as_index=False).sum()
+        gen_plot.pivot(index="t", columns=group_by,
                         values="G").plot.area(ax=ax,
-                                              xticks=[x for x in range(0, len(model_horizon))],
-                                              figsize=(20, 10), rot=45)
+                                            xticks=[x for x in range(0, len(model_horizon))],
+                                            figsize=(20, 10), rot=45)
         ax.legend(loc='upper right')
         ax.margins(x=0)
-        fig.savefig(str(self.output_folder.joinpath("gen_fuel.png")))
+        fig.savefig(str(self.output_folder.joinpath("gen_type.png")))
 
         # Aggregated example
         fig, ax = plt.subplots()
-        g_by_fuel.groupby("fuel").sum().plot.pie(ax=ax, y="G", figsize=(20, 20),)
+        gen_plot.groupby(group_by).sum().plot.pie(ax=ax, y="G", figsize=(20, 20),)
         ax.legend(loc='upper right')
         ax.margins(x=0)
         fig.savefig(str(self.output_folder.joinpath("gen_fuel_pichart.png")))
 
-        # By Tech
-        fig, ax = plt.subplots()
-        g_by_tech = generation.groupby(["t", "tech"], as_index=False).sum()
-        g_by_tech.pivot(index="t", columns="tech",
-                        values="G").plot.area(ax=ax,
-                                              xticks=[x for x in range(0, len(model_horizon))],
-                                              figsize=(20, 10), rot=45)
-        ax.legend(loc='upper right')
-        ax.margins(x=0)
-        fig.savefig(str(self.output_folder.joinpath("gen_tech.png")))
-
         # Renewables generation
         fig, ax = plt.subplots()
-        res_gen = generation[generation.fuel.isin(["sun", "wind"])].groupby(["t", "fuel"],
-                                                                            as_index=False).sum()
-        res_gen.pivot(index="t", columns="fuel",
-                      values="G").plot(ax=ax, xticks=[x for x in range(0, len(model_horizon))],
-                                       figsize=(20, 10), rot=45)
+        res_type = self.data.options["optimization"]["plant_types"]["ts"]
 
-        ax.legend(loc='upper right')
-        ax.margins(x=0)
-        fig.savefig(str(self.output_folder.joinpath("gen_res.png")))
+        res_gen = (generation[generation.plant_type.isin(res_type)]
+                .groupby(["t", "fuel"], as_index=False).sum())
+        if not res_gen.empty:
+            res_gen.pivot(index="t", columns="fuel",
+                        values="G").plot(ax=ax, xticks=[x for x in range(0, len(model_horizon))],
+                                        figsize=(20, 10), rot=45)
+            ax.legend(loc='upper right')
+            ax.margins(x=0)
+            fig.savefig(str(self.output_folder.joinpath("gen_res.png")))
 
         # Storage Generation, Demand and LEvel
         fig, ax = plt.subplots()
         stor_d = self.D_es.groupby(["t"], as_index=True).sum()
         stor_l = self.L_es.groupby(["t"], as_index=True).sum()
-        stor_tech = ["reservoir", "psp"]
-        stor_g = generation[generation.tech.isin(stor_tech)].groupby(["t"], as_index=True).sum()
-        pd.concat([stor_d, stor_l, stor_g],
-                  axis=1).plot(ax=ax,
-                               xticks=[x for x in range(0, len(model_horizon))],
-                               figsize=(20, 10), rot=45)
-
-        ax.legend(loc='upper right')
-        ax.margins(x=0)
-        fig.savefig(str(self.output_folder.joinpath("storage.png")))
+        stor_type = self.data.options["optimization"]["plant_types"]["ts"]
+        stor_g = generation[generation.plant_type.isin(stor_type)].groupby(["t"], as_index=True).sum()
+        if not all([data.empty for data in [stor_d, stor_l, stor_g]]):
+            (pd.concat([stor_d, stor_l, stor_g], axis=1)
+            .plot(ax=ax, xticks=[x for x in range(0, len(model_horizon))],
+                figsize=(20, 10), rot=45))
+            ax.legend(loc='upper right')
+            ax.margins(x=0)
+            fig.savefig(str(self.output_folder.joinpath("storage.png")))
 
         # Close all Figures
         fig.clf()

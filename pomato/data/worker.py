@@ -330,10 +330,15 @@ class DataWorker(object):
         self.data.demand_el = pd.DataFrame(index=["t0001", "t0002"], data=self.data.nodes.Pd.to_dict())
         self.data.demand_el = self.data.demand_el.stack().reset_index()
         self.data.demand_el.columns = ["timestep", "node", "demand_el"]
+        
         self.data.plants = self.data.plants[["g_max", "mc_el", "node"]]
+        
         cond = [i%2==0 for i in range(0, len(self.data.plants))]
         self.data.plants.loc[cond, "plant_type"] = "type 1"
         self.data.plants.loc[~np.array(cond), "plant_type"] = "type 2"
+        self.data.plants.loc[cond, "fuel"] = "fuel 1"
+        self.data.plants.loc[~np.array(cond), "fuel"] = "fuel 2"
+
         
         self.data.net_export = self.data.demand_el.copy()
         self.data.net_export.columns = ["timestep", "node", "net_export"]

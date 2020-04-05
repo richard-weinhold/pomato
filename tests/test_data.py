@@ -59,6 +59,16 @@ class TestPomatoData(unittest.TestCase):
         system_balance = self.system_balance(result)
         self.assertAlmostEqual(system_balance, 0)
 
+    def test_misc_result_methods(self):
+        grid  = pomato.grid.GridModel(self.data.nodes, self.data.lines)
+        folder = self.wdir.parent.joinpath("tests/test_data/scopf_result")
+        result = pomato.data.ResultProcessing(self.data, grid, folder)
+
+        result.check_infeasibilities()
+        result.check_curtailment()
+
+        self.assertRaises(AttributeError, result.res_share)
+        result.default_plots()
 
     def test_results_uniform_pricing(self):
         # obj 186053.45909199998
