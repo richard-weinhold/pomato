@@ -273,9 +273,9 @@ class DataManagement():
                     self.logger.warning("Attribute %s not in %s, initialized as %s", attr, data, str(default_value))
                 setattr(self, data, tmp)
 
-    def process_results(self, result_folder, grid=None):
+    def process_results(self, result_folder, grid):
         """Initialize :class:`~pomato.data.ResultProcessing` with `results_folder` and the own instance."""
-        self.results = ResultProcessing(self, result_folder, grid)
+        self.results[result_folder.name] = ResultProcessing(self, grid, result_folder)
 
     def return_results(self, symb):
         """Interface method to allow access to results from :class:`~pomato.data.ResultProcessing`."""
@@ -295,7 +295,7 @@ class DataManagement():
         for att in attr:
             delattr(self, att)
 
-    def visulize_inputdata(self, folder, show_plot=True):
+    def visualize_inputdata(self, folder, show_plot=True):
         """Create default Plots for Input Data.
 
         This methods is currently not maintained, but was thought to provide standard figures
@@ -310,28 +310,30 @@ class DataManagement():
         else:
             plt.ioff()
         # Demand by Zone
-        demand_zonal = pd.DataFrame(index=self.demand_el.index)
+        demand_zonal = pd.DataFrame(index=self.demand_el.timestep.unique())
+
         for zone in self.zones.index:
             nodes_in_zone = self.nodes.index[self.nodes.zone == zone]
-            demand_zonal[zone] = self.demand_el[nodes_in_zone].sum(axis=1)
+            cond_node_in_zone = self.demand_el.node.isin(nodes_in_zone)
+            demand_zonal[zone] = self.demand_el[cond_node_in_zone].groupby("timestep").sum()
+            
         fig_demand, ax_demand = plt.subplots()
-        demand_zonal.plot.area(ax=ax_demand, xticks=np.arange(0, len(demand_zonal.index), step=10))
+        demand_zonal.plot.area(ax=ax_demand, xticks=np.arange(0, len(demand_zonal.index), 
+                               step=len(demand_zonal.index)/10))
         ax_demand.legend(loc='upper right')
         ax_demand.margins(x=0)
         fig_demand.savefig(str(folder.joinpath("zonal_demand.png")))
 
         # Plot Installed Capacity by....
-        plants_zone = pd.merge(self.plants, self.nodes.zone,
-                               how="left", left_on="node", right_on="index")
+        plants_zone = pd.merge(self.plants, self.nodes.zone, how="left", 
+                            left_on="node", right_index=True)
 
-        for elm in ["fuel", "tech"]:
-            inst_capacity = plants_zone[["g_max", "zone", elm]].groupby([elm, "zone"],
-                                                                        as_index=False).sum()
-            fig_gen, ax_gen = plt.subplots()
-            inst_capacity.pivot(index="zone",
-                                columns=elm,
-                                values="g_max").plot.bar(stacked=True, ax=ax_gen)
+        inst_capacity = (plants_zone[["g_max", "zone", "plant_type"]]
+                         .groupby(["plant_type", "zone"], as_index=False).sum())
+        fig_gen, ax_gen = plt.subplots()
+        inst_capacity.pivot(index="zone", columns="plant_type",
+                            values="g_max").plot.bar(stacked=True, ax=ax_gen)
 
-            ax_gen.legend(loc='upper right')
-            ax_gen.margins(x=0)
-            fig_gen.savefig(str(folder.joinpath(f"installed_capacity_by_{elm}.png")))
+        ax_gen.legend(loc='upper right')
+        ax_gen.margins(x=0)
+        fig_gen.savefig(str(folder.joinpath(f"installed_capacity_by_type.png")))

@@ -1,0 +1,23 @@
+
+Gurobi 8.1.1 (win64) logging started 04/05/20 15:55:27
+
+
+Gurobi 8.1.1 (win64) logging started 04/05/20 15:55:27
+
+Warning for adding constraints: zero or small (< 1e-13) coefficients, ignored
+Optimize a model with 2438 rows, 748 columns and 243154 nonzeros
+Coefficient statistics:
+  Matrix range     [6e-08, 1e+00]
+  Objective range  [1e-01, 1e+02]
+  Bounds range     [2e+01, 2e+01]
+  RHS range        [2e+00, 4e+03]
+Presolve removed 1226 rows and 10 columns
+Presolve time: 0.05s
+Presolved: 1212 rows, 1334 columns, 111622 nonzeros
+
+Iteration    Objective       Primal Inf.    Dual Inf.      Time
+       0    5.0233394e+05   3.962553e+02   2.345496e+07      0s
+    1105    2.4419224e+05   0.000000e+00   0.000000e+00      0s
+
+Solved in 1105 iterations and 0.09 seconds
+Optimal objective  2.441922386e+05

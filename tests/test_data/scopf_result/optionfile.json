@@ -1,0 +1,51 @@
+{
+  "type": "cbco_nodal",
+  "solver": "glpk",
+  "model_horizon": [
+    0,
+    2
+  ],
+  "heat_model": false,
+  "redispatch": {
+    "include": false,
+    "cost": 1
+  },
+  "infeasibility": {
+    "heat": {
+      "include": false,
+      "cost": 1000.0,
+      "bound": 20
+    },
+    "electricity": {
+      "include": true,
+      "cost": 100.0,
+      "bound": 20
+    },
+    "lines": {
+      "include": false,
+      "cost": 1000.0,
+      "bound": 20
+    }
+  },
+  "curtailment": {
+    "include": false,
+    "cost": 1000.0
+  },
+  "parameters": {
+    "storage_start": 0.65
+  },
+  "plant_types": {
+    "es": [
+      "hydro_res",
+      "hydro_psp"
+    ],
+    "hs": [],
+    "ts": [
+      "wind",
+      "solar"
+    ],
+    "ph": []
+  },
+  "t_start": "t0001",
+  "t_end": "t0002"
+}

@@ -69,7 +69,7 @@ class MarketModel():
         self.wdir = wdir
         self.package_dir = package_dir
         self.data_dir = wdir.joinpath("data_temp/julia_files")
-        self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model")
+        self.julia_model = None
 
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)
@@ -129,7 +129,6 @@ class MarketModel():
         t_start = datetime.datetime.now()
 
         solved = False
-
         if not self.julia_model:
             self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model")
 
