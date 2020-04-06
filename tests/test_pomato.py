@@ -28,7 +28,6 @@ def copytree(src, dst, symlinks=False, ignore=None):
         else:
             shutil.copy2(s, d)
             
-
 # pylint: disable-msg=E1101
 class TestPomatoMarketModel(unittest.TestCase):
     def setUp(self):
@@ -40,11 +39,26 @@ class TestPomatoMarketModel(unittest.TestCase):
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
 
-    def test_run_ieee(self):
-        """Simply run the model"""
-        mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/ieee118.json",
+    def test_run_ieee_init_invalid_option(self):
+        mato = pomato.POMATO(wdir=self.wdir, options_file="INVALID_PATH",
                              logging_level=logging.ERROR)
+        self.assertTrue(mato.options == pomato.tools.default_options())
+
+    def test_run_ieee_init_no_option(self):
+        mato = pomato.POMATO(wdir=self.wdir,
+                             logging_level=logging.ERROR)
+        self.assertTrue(mato.options == pomato.tools.default_options())
+
+    def test_run_ieee_init_invalid_data(self):
+        mato = pomato.POMATO(wdir=self.wdir, 
+                             logging_level=logging.ERROR)
+        self.assertRaises(FileNotFoundError, mato.load_data, "INVALID_PATH")
+
+    def test_run_ieee(self):
+        """Simply run the ieee case"""
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
         mato.load_data('data_input/pglib_opf_case118_ieee.m')
+        mato.create_geo_plot(name="IEEE_blank", show=False)
 
         ### Set Mock Julia Model and copy precalculated results
         mato.cbco_module.julia_instance = JuliaMockup()
@@ -65,11 +79,11 @@ class TestPomatoMarketModel(unittest.TestCase):
         
         # df1, df2 = result.overloaded_lines_n_1()
         # df3, df4 = result.overloaded_lines_n_0()
-
-        mato.create_geo_plot(name="IEEE", show=False)
+        mato._clear_data()
 
     def test_run_de(self):
         """Simply run the DE case"""
+
         mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/de.json",
                              logging_level=logging.ERROR)
         mato.load_data('data_input/dataset_de.xlsx')
@@ -86,6 +100,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         copytree(prepared_result_market, to_folder_market)
         copytree(prepared_result_redispatch, to_folder_redispatch)
 
+        # Init Model 
         mato.create_grid_representation()
         mato.update_market_model_data()
         mato.run_market_model()
@@ -97,11 +112,10 @@ class TestPomatoMarketModel(unittest.TestCase):
 
         redisp_result.default_plots()
         market_result.default_plots()
-
+        print(redisp_result, redisp_result)
         # # Check for Overloaded lines N-0, N-1 (should be non for N-0, but plenty for N-1)
         # df1, df2 = redisp_result.overloaded_lines_n_1()
         # df3, df4 = redisp_result.overloaded_lines_n_0()
-        # %% Bokeh PLot
         mato.create_geo_plot(name="DE", show=False)
 
 

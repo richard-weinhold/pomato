@@ -236,8 +236,10 @@ class POMATO():
         tools.create_folder_structure(self.wdir, self.logger)
 
         # Core Attributes
-        self.options = None
-        self.initialize_options(options_file)
+        if not options_file:
+            self.options = tools.default_options()        
+        else: 
+            self.initialize_options(options_file)
         
         self.data = DataManagement(self.options, self.wdir)
         self.grid = None
@@ -256,6 +258,7 @@ class POMATO():
             folder. If not provided, using default options as defined in tools.
 
         """
+
         try:
             with open(self.wdir.joinpath(options_file)) as opt_file:
                 self.options = json.load(opt_file)
