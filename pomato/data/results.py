@@ -301,7 +301,6 @@ class ResultProcessing():
         """
         if show_plot:
             plt.ion()
-
         if not self.output_folder.is_dir():
             self.output_folder.mkdir()
 

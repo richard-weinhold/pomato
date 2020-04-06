@@ -31,11 +31,11 @@ class TestPomatoMarketModel(unittest.TestCase):
 
         self.market_model = pomato.market_model.MarketModel(self.wdir, Path("dummy"), self.options)
 
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
+    # @classmethod
+    # def tearDownClass(cls):
+    #     shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
+    #     shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
+    #     shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
 
     def test_init(self):
         self.cbco_module.options["optimization"]["type"] = "ntc"
@@ -61,4 +61,3 @@ class TestPomatoMarketModel(unittest.TestCase):
         
         self.market_model.run()
         self.assertTrue(self.market_model.status == "solved")
-        self.assertTrue(all([folder.is_dir() for folder in self.market_model.result_folders]))

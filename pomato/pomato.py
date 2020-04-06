@@ -118,10 +118,10 @@ from pomato.market_model import MarketModel
 from pomato.visualization.bokeh_interface import BokehPlot
 
 
-def _logging_setup(wdir, webapp):
+def _logging_setup(wdir, webapp, logging_level=logging.INFO):
     # Logging setup
     logger = logging.getLogger('Log.MarketModel')
-    logger.setLevel(logging.INFO)
+    logger.setLevel(logging_level)
     if len(logger.handlers) < 2:
         # create file handler which logs even debug messages
         if not wdir.joinpath("logs").is_dir():
@@ -226,12 +226,12 @@ class POMATO():
 
     """
 
-    def __init__(self, wdir, options_file=None, webapp=False):
+    def __init__(self, wdir, options_file=None, webapp=False, logging_level=logging.INFO):
 
         self.wdir = wdir
         self.package_dir = Path(pomato.__path__[0])
 
-        self.logger = _logging_setup(self.wdir, webapp)
+        self.logger = _logging_setup(self.wdir, webapp, logging_level)
         self.logger.info("Market Tool Initialized")
         tools.create_folder_structure(self.wdir, self.logger)
 
@@ -288,9 +288,8 @@ class POMATO():
         self.grid = GridModel(self.data.nodes, self.data.lines)
         
         self.cbco_module = CBCOModule(self.wdir, self.package_dir, self.grid, self.data, self.options)
-
         self.market_model = MarketModel(self.wdir, self.package_dir, self.options)
-        self._start_julia_instances()
+       
     def init_market_model(self):
         """Initialize the market model.
 
@@ -386,6 +385,6 @@ class POMATO():
         self.market_model.julia_model.join()
         self.cbco_module.julia_instance.join()
 
-    def _start_julia_instances(self):
+    def start_julia_instances(self):
         self.cbco_module._start_julia_daemon()
         self.market_model._start_julia_daemon()

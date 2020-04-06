@@ -186,10 +186,17 @@ class GridModel():
         if option == "double_lines": # double lines
             if "systems" not in self.lines.columns:
                 self.add_number_of_systems()
-            for line in self.lines.index:
-                if self.lines.loc[line, "systems"] == 2:
-                    combined_contingencies[line] = list(self.lines[self.lines[["node_i", "node_j"]].apply(tuple, axis=1) == tuple(self.lines.loc[line, ["node_i", "node_j"]])].index)
-                combined_contingencies[line] = list(set(combined_contingencies[line]))
+          
+        double_lines = list(self.lines[self.lines.systems == 2].index)
+        for line in double_lines:
+            cond = (self.lines.loc[double_lines, ["node_i", "node_j"]].apply(tuple, axis=1) == tuple(self.lines.loc[line, ["node_i", "node_j"]])).values
+            double_line = list(self.lines.loc[double_lines][cond].index)
+            double_line_idx = [self.lines.index.get_loc(line) for line in double_line]
+            
+            # However if the double line is radial, do not consider a combined outage
+            if not any(np.sum(np.around(np.abs(self.ptdf[double_line_idx, :]), decimals=3), axis=0) == 1):
+                combined_contingencies[line] = double_line
+            # combined_contingencies[line] = list(set(combined_contingencies[line]))
 
         return combined_contingencies
 
@@ -383,8 +390,8 @@ class GridModel():
          
             if len(outages) > 0:        
                 lodf[valid_lines, :] = np.dot(self.ptdf[lines, :] @ A[outages, :].reshape(len(outages), len(self.nodes)).T,
-                                             np.linalg.inv(np.eye(len(outages)) - (self.ptdf[outages, :] 
-                                                @ A[outages,:].reshape(len(outages), len(self.nodes)).T)))
+                                              np.linalg.inv(np.eye(len(outages)) - (self.ptdf[outages, :] 
+                                                            @ A[outages,:].reshape(len(outages), len(self.nodes)).T)))
                 
             return lodf
 

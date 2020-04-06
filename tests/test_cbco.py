@@ -35,7 +35,7 @@ class TestPomatoGridRepresentation(unittest.TestCase):
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
 
-    def test_ntc(self):
+    def tessht_ntc(self):
         self.cbco_module.options["optimization"]["type"] = "ntc"
         self.cbco_module.create_grid_representation()
         grid_representation = self.cbco_module.grid_representation

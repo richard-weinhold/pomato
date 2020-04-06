@@ -63,9 +63,12 @@ class TestPomatoData(unittest.TestCase):
         grid  = pomato.grid.GridModel(self.data.nodes, self.data.lines)
         folder = self.wdir.parent.joinpath("tests/test_data/scopf_result")
         result = pomato.data.ResultProcessing(self.data, grid, folder)
-
+        result.output_folder = self.wdir.joinpath("data_output")
+        
         result.check_infeasibilities()
         result.check_curtailment()
+        result.net_position()
+        result.commercial_exchange("t0001")
 
         self.assertRaises(AttributeError, result.res_share)
         result.default_plots()
