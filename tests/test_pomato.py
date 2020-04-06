@@ -66,7 +66,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         # df1, df2 = result.overloaded_lines_n_1()
         # df3, df4 = result.overloaded_lines_n_0()
 
-        mato.create_geo_plot(name="IEEE")
+        mato.create_geo_plot(name="IEEE", show=False)
 
     def test_run_de(self):
         """Simply run the DE case"""
@@ -102,6 +102,6 @@ class TestPomatoMarketModel(unittest.TestCase):
         # df1, df2 = redisp_result.overloaded_lines_n_1()
         # df3, df4 = redisp_result.overloaded_lines_n_0()
         # %% Bokeh PLot
-        mato.create_geo_plot(name="DE")
+        mato.create_geo_plot(name="DE", show=False)
 
 

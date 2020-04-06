@@ -566,7 +566,6 @@ def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
 
     fig.add_tools(HoverTool(renderers=[n], tooltips=hover_node))
 
-    show(fig)
     return fig
 
 if __name__ == "__main__":

@@ -7,6 +7,7 @@ import subprocess
 import threading
 
 import pandas as pd
+from bokeh.io import show
 import psutil
 
 import pomato.tools as tools
@@ -53,6 +54,11 @@ class BokehPlot():
         self.bokeh_server = None
         self.bokeh_thread = None
         self._bokeh_pid = None
+        self.static_plot = None
+
+    def show_plot(self):
+        """Show Plot"""
+        show(self.static_plot)
 
     def create_empty_static_plot(self, data):
         """Create a geo plot without injection or line flows"""
@@ -62,8 +68,9 @@ class BokehPlot():
         flow_n_1 = pd.Series(index=data.lines.index, data=0)
         f_dc = pd.Series(index=data.dclines.index, data=0)
 
-        create_static_plot(data.lines, data.nodes, data.dclines,
-                           inj, flow_n_0, flow_n_1, f_dc)
+        self.static_plot = create_static_plot(data.lines, data.nodes, 
+                                              data.dclines, inj, flow_n_0, 
+                                              flow_n_1, f_dc)
 
     def create_static_plot(self, market_results):
         """Create static bokeh plot of the market results.
@@ -125,12 +132,12 @@ class BokehPlot():
             f_dc = plot_result.F_DC.pivot(index="dc", columns="t", values="F_DC") \
                 .abs().mean(axis=1).reindex(plot_result.data.dclines.index).fillna(0)
 
-            create_static_plot(plot_result.data.lines,
-                               plot_result.data.nodes,
-                               plot_result.data.dclines,
-                               inj, flow_n_0, flow_n_1, f_dc,
-                               redispatch=gen, option=0,
-                               title=plot_result.result_attributes["source"].name)
+            self.static_plot = create_static_plot(plot_result.data.lines,
+                                                  plot_result.data.nodes,
+                                                  plot_result.data.dclines,
+                                                  inj, flow_n_0, flow_n_1, f_dc,
+                                                  redispatch=gen, option=0,
+                                                  title=plot_result.result_attributes["source"].name)
 
     def add_market_result(self, market_result, name):
         """Create data set for bokeh plot from julia market_result-object

@@ -354,7 +354,7 @@ class POMATO():
         self.cbco_module.create_grid_representation()
         self.grid_representation = self.cbco_module.grid_representation
 
-    def create_geo_plot(self, name="default", bokeh_type="static", results=None):
+    def create_geo_plot(self, name="default", bokeh_type="static", results=None, show=True):
         """Initialize bokeh plot based on the dataset and a market result.
 
         Parameters
@@ -380,6 +380,9 @@ class POMATO():
             self.bokeh_plot.create_static_plot(results)
         else:
             self.bokeh_plot.create_static_plot(self.data.results)
+
+        if show:
+            self.bokeh_plot.show_plot()
 
     def _join_julia_instances(self):
         self.market_model.julia_model.join()
