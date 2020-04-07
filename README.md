@@ -1,6 +1,7 @@
 [![PomatoLogo](https://github.com/korpuskel91/pomato/blob/master/docs/pomatologo_small.png "Pomato Soup")](#) POMATO - Power Market Tool
 =====================================================================================================================================
 [![Documentation Status](https://readthedocs.org/projects/pomato/badge/?version=latest)](https://pomato.readthedocs.io/en/latest/?badge=latest)
+[![Build Status](https://travis-ci.org/korpuskel91/pomato.svg?branch=master)](https://travis-ci.org/korpuskel91/pomato)
 
 
 Overview
