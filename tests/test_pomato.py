@@ -42,6 +42,14 @@ class TestPomatoMarketModel(unittest.TestCase):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
         self.assertRaises(FileNotFoundError, mato.load_data, "INVALID_PATH")
 
+    def test_init_ieee_mfile(self):
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato.load_data('data_input/pglib_opf_case118_ieee.m')
+
+    def test_init_ieee_matfile(self):
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato.load_data('data_input/pglib_opf_case118_ieee.mat')
+
     def test_run_ieee(self):
         """Simply run the ieee case"""
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)

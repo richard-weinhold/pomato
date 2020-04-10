@@ -112,29 +112,19 @@ class DataWorker(object):
 
         self.logger.info("Reading MatPower Casefile")
 
-        MPCOLNAMES = {'bus_keys': np.array(['bus_i', 'type', 'Pd',
-                                            'Qd', 'Gs', 'Bs', 'area',
-                                            'Vm', 'Va', 'baseKV',
-                                            'zone', 'Vmax', 'Vmin']),
-
-                      'gen_keys': np.array(['bus', 'Pg', 'Qg', 'Qmax',
-                                            'Qmin', 'Vg', 'mBase',
-                                            'status', 'Pmax', 'Pmin',
-                                            'Pc1', 'Pc2', 'Qc1min',
-                                            'Qc1max', 'Qc2min', 'Qc2max',
-                                            'ramp_agc', 'ramp_10',
-                                            'ramp_30', 'ramp_q', 'apf']),
-
-                        'branch_keys': np.array(['fbus', 'tbus', 'r', 'x',
-                                                 'b', 'rateA', 'rateB',
-                                                 'rateC', 'ratio', 'angle',
-                                                 'status', 'angmin', 'angmax']),
-
-                        'gencost_keys': np.array(['model', 'startup',
-                                                  'shutdown', 'n'])}
+        MPCOLNAMES = {'bus_keys': 
+                        np.array(['bus_i', 'type', 'Pd', 'Qd', 'Gs', 'Bs', 'area',
+                                  'Vm', 'Va', 'baseKV', 'zone', 'Vmax', 'Vmin']),
+                     'gen_keys': 
+                        np.array(["bus", "Pg", "Qg", "Qmax", "Qmin", "Vg", "mBase", 
+                                  "status", "Pmax", "Pmin"]),
+                     'branch_keys':
+                        np.array(['fbus', 'tbus', 'r', 'x', 'b', 'rateA', 'rateB',
+                                  'rateC', 'ratio', 'angle', 'status', 'angmin', 'angmax']),
+                     'gencost_keys': np.array(['model', 'startup', 'shutdown', 'n'])}
 
         case_raw = sio.loadmat(mat_filepath)
-        mpc = case_raw['mpc']
+        mpc = case_raw['mpcn']
         bus = mpc['bus'][0,0]
         gen = mpc['gen'][0,0]
         baseMVA = mpc['baseMVA'][0,0][0][0]
