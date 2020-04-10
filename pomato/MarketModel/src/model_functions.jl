@@ -93,6 +93,8 @@ function add_variables_expressions!(pomato::POMATO)
 
 	if n.res > 0
 		add_to_expression!(COST_G, sum(sum(data.renewables[res].mu * data.renewables[res].mc_el for res in 1:n.res)));
+	end
+	if (n.res > 0)&(n.he > 0)
 		add_to_expression!(COST_H, sum(sum(data.renewables[res].mu_heat * data.renewables[res].mc_heat for res in 1:n.res)));
 	end
 
@@ -325,13 +327,13 @@ end
 function add_net_position_constraints!(pomato::POMATO)
 	model, n, map, data = pomato.model, pomato.n, pomato.map, pomato.data
 	EX = model[:EX]
-	nex_zones = [z.index for z in data.zones if any(z.net_position .!= 0)]
+	nex_zones = [z.index for z in data.zones if any(z.net_position .!== missing)]
 	println("including NEX Constraints for: "*join([data.zones[z].name*", " for z in  nex_zones])[1:end-2])
 	# # Applies to nodal model for basecase calculation:
 	@constraint(model, [t=1:n.t, z=nex_zones], sum(EX[t, z, zz] - EX[t, zz, z] for zz in 1:n.zones)
-		<= data.zones[z].net_position[t] + 0.2*abs(data.zones[z].net_position[t]))
+		<= data.zones[z].net_position[t] + 0.1*abs(data.zones[z].net_position[t]))
 	@constraint(model, [t=1:n.t, z=nex_zones], sum(EX[t, z, zz] - EX[t, zz, z] for zz in 1:n.zones)
-		>= data.zones[z].net_position[t] - 0.2*abs(data.zones[z].net_position[t]))
+		>= data.zones[z].net_position[t] - 0.1*abs(data.zones[z].net_position[t]))
 end
 
 function create_alpha_loadflow_constraint!(model::Model,

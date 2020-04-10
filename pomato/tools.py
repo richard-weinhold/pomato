@@ -19,10 +19,11 @@ class JuliaDaemon():
     The RedundancyRemoval and MarketModel processes are written in Julia. 
     This class's purpose is to communicate with a daemon process in julia
     that runs these processes on demand and allows to excecute them multiple times
-    without restarting the julia process, which would require length precompile. 
+    without restarting the julia process, which would require lengthy precompile everytime 
+    instead of one lengthy precompile. 
     
     This is implemented by two daemon processes, one in python the other in julia, or more specifically
-    a threaded julia daemon is initialized in python. Therefore, a julia subprocess in a separate thread. 
+    a threaded julia daemon is initialized in python.
     This allows start-up of the julia process while other pomato related processes are done. 
     The communication is done through a json file in the data_temp/julia_files folder.
 
@@ -44,7 +45,6 @@ class JuliaDaemon():
    
     """
     def __init__(self, logger, wdir, package_dir, julia_module):
-
         if not julia_module in ["market_model", "redundancy_removal"]:
             raise TypeError("The JuliaDaemon has to be initialized with market_model or redundancy_removal")
 
@@ -55,7 +55,6 @@ class JuliaDaemon():
         self.package_dir = package_dir
         self.daemon_file = wdir.joinpath(f"data_temp/julia_files/daemon_{julia_module}.json")
         self.julia_daemon_path = package_dir.joinpath("julia_daemon.jl")
-
         self.write_daemon_file(self.default_daemon_file())
         # Start Julia daemon in a thread
         self.julia_daemon = threading.Thread(target=self.start_julia_daemon, args=())
@@ -98,41 +97,63 @@ class JuliaDaemon():
                 "type": self.julia_module,
                 "file_suffix": "py",
                 "redispatch": False,
+                "multi_threaded": True,
                 "data_dir": "/data/",
                 "break": False}
-
         return file
+
+    def disable_multi_threading(self):
+        """Disable multithreading."""
+        file = self.read_daemon_file()
+        file["multi_threaded"] = False
+        self.write_daemon_file(file)
 
     def write_daemon_file(self, file):
         """Write (updated) file to disk"""
-        with open(self.daemon_file, 'w') as config:
-            json.dump(file, config, indent=2)
+        while True:
+            try:
+                with open(self.daemon_file, 'w') as config:
+                    json.dump(file, config, indent=2)
+                    break
+            except:
+                self.logger.warning("Failed to write to daemon file.")
+                time.sleep(1)
+
 
     def read_daemon_file(self):
         """Read daemon file from disk"""
-        with open(self.daemon_file, 'r') as jsonfile:
-            file = json.load(jsonfile)
-        return file
+        while True:
+            try:
+                with open(self.daemon_file, 'r') as jsonfile:
+                    file = json.load(jsonfile)
+                return file
+            except:
+                self.logger.warning("Failed to read from daemon file.")
+                time.sleep(1)
 
     def halt_while_processing(self):
         """Halt python main thread, while julia is processing.
         Sometimes its better for the user to wait until julia is done.
         """
         progress_indicator = 1
+        counter = 0
         while True:
-            time.sleep(2)
+            time.sleep(0.1)
             file = self.read_daemon_file()
             if not file["processing"]:
                 self.logger.info("Programm Done")
                 break
             else:
                 # self.logger.info("Waiting for processing to complete")
-                if progress_indicator < 0:
-                    dots = "\\"
-                else:
-                    dots = "/"
-                print("\r" + dots + "Waiting for processing to complete" + dots, end="")
-                progress_indicator *= -1
+                counter += 1
+                if counter > 100:
+                    if progress_indicator < 0:
+                        dots = "\\"
+                    else:
+                        dots = "/"
+                    print("\r" + dots + "Waiting for processing to complete" + dots, end="")
+                    progress_indicator *= -1
+                    counter = 0
 
 
     def halt_until_ready(self):
@@ -145,21 +166,23 @@ class JuliaDaemon():
         halts the main thread until julia is ready. 
         """
         progress_indicator = 1
+        counter = 0
         while True:
-            time.sleep(2)
+            time.sleep(0.1)
             file = self.read_daemon_file()
             if file["ready"]:
                 self.logger.info("Process ready!")
                 break
             else:
-                # self.logger.info("Waiting for processing to complete")
-                if progress_indicator < 0:
-                    dots = "\\"
-                else:
-                    dots = "/"
-                print("\r" + dots + "Waiting until Julia is ready" + dots, end="")
-                progress_indicator *= -1
-        
+                counter += 1
+                if counter > 50:
+                    if progress_indicator < 0:
+                        dots = "\\"
+                    else:
+                        dots = "/"
+                    print("\r" + dots + "Waiting until Julia is ready" + dots, end="")
+                    progress_indicator *= -1
+                    counter = 0
 
     def run(self, args=None):
         """Run julia process.
@@ -181,7 +204,7 @@ class JuliaDaemon():
                 file[k] = v
 
         self.write_daemon_file(file)
-        time.sleep(5)
+        time.sleep(0.1)
         self.halt_while_processing()
         self.solved = True
 
@@ -201,6 +224,9 @@ def newest_file_folder(folder, keyword="", number_of_elm=1):
     """
     df = pd.DataFrame()
     df["elm"] = [i for i in folder.iterdir() if keyword in i.name]
+    
+    if df["elm"].empty:
+        raise FileNotFoundError("No results in folder.")
 
     try:  # This should work in Windows
         df["time"] = [i.lstat().st_ctime for i in folder.iterdir() if keyword in i.name]
@@ -210,7 +236,7 @@ def newest_file_folder(folder, keyword="", number_of_elm=1):
         df["time"] = [i.lstat().st_mtime for i in folder.iterdir() if keyword in i.name]
 
     if number_of_elm > 1:
-        return list(df.nlargest(2, "time").elm)
+        return list(df.nlargest(number_of_elm, "time").elm)
     else:
         return df.elm[df.time.idxmax()]
 
@@ -359,7 +385,8 @@ def default_options():
         "heat_model": False,
         "split_timeseries": True,
         "redispatch": {
-            "include": True,
+            "include": False,
+            "zones": [],
             "cost": 1},
         "curtailment": {
             "include": False,

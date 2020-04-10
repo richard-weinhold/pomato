@@ -335,6 +335,7 @@ function run_redundancy_removal(file_suffix::String)
 	z = zeros(size(A, 2))
 	I = union(I)
 	m = setdiff(m, I)
+	@info("Starting with m size of length $(length(m))")
 	I_result = main(A, b, m, I, x_bounds, z)
 
 	@info("Number of non-redundant constraints: $(length(I_result))" )
@@ -358,6 +359,7 @@ function run_redundancy_removal_parallel(file_suffix::String; filter_only::Bool=
 	z = zeros(size(A, 2))
 	I = union(I)
 	m = setdiff(m, I)
+	@info("Starting with m size of length $(length(m))")
 	if filter_only
 		@info("Running parallel: filter only")
 		I_result = main_parallel_filter(A, b, m, I, x_bounds, z)

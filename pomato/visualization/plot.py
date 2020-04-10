@@ -1,4 +1,4 @@
-"""This is the bokeh plot, consisting of the worst code ever"""
+"""This is the bokeh plot, consisting of the worst code ever."""
 import json
 # pylint: disable-msg=C0103
 import os.path
@@ -445,17 +445,17 @@ def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
 
     color, size = [], []
     if isinstance(redispatch, pd.DataFrame):
-        redispatch = pd.merge(nodes, redispatch[["node", "delta"]].groupby("node").sum(),
+        redispatch = pd.merge(nodes, redispatch[["node", "delta", "G_market"]].groupby("node").sum(),
                               how="left", left_index=True, right_index=True).fillna(0)
-        max_add_size = 50
-        max_redispatch = max(redispatch.delta.abs())
+        scaling = 100
+        ref_generation = redispatch.G_market.mean()
         for i in nodes.index:
             if redispatch.delta[i] == 0:
                 color.append(palettes.Category20b[4][3])
                 size.append(5)
             else:
                 color.append("#009473" if redispatch.delta[i] > 0 else "#BF1932")
-                size.append(5 + max_add_size*abs(redispatch.delta[i])/max_redispatch)
+                size.append(5 + scaling*abs(redispatch.delta[i])/ref_generation)
     else:
         color = [palettes.Category20b[4][3] for n in nodes.index]
         size = [5 for n in nodes.index]

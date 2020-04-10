@@ -26,7 +26,7 @@ from pomato.cbco import CBCOModule
 
 class FBMCModule():
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, package_dir, grid_object, data, basecase_name=None, cbco_list=None):
+    def __init__(self, wdir, package_dir, grid_object, data, basecase_name=None, cbco_list=None, flowbased_region=None):
         # Import Logger
         self.logger = logging.getLogger('Log.fbmc.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
@@ -37,8 +37,8 @@ class FBMCModule():
         self.grid = grid_object
         self.nodes = grid_object.nodes
         self.lines = grid_object.lines
-
-        self.flowbased_region = ["DE", "FR", "NL", "BE", "LU"]
+        if not flowbased_region:
+            self.flowbased_region = list(data.zones.index)
         self.cbco_list = cbco_list
 
         self.data = data
@@ -183,7 +183,7 @@ class FBMCModule():
         # The right side of the equation has to be positive
 
         frm_fav = pd.DataFrame(index=self.domain_info.cb.unique())
-        frm_fav["value"] = self.lines.maxflow[frm_fav.index]*.2
+        frm_fav["value"] = self.lines.maxflow[frm_fav.index]*0
 
         injection = self.basecase.INJ.INJ[self.basecase.INJ.t == timestep].values
 
@@ -199,16 +199,16 @@ class FBMCModule():
         # f_ref_nonmarket = f_ref_base_case
         f_ref_nonmarket = f_ref_base_case - f_da
 
-        capacity_multiplier = self.basecase.data.options["grid"]["capacity_multiplier"]
+        # capacity_multiplier = self.basecase.data.options["grid"]["capacity_multiplier"]
 
-        ram = np.subtract(self.lines.maxflow[self.domain_info.cb]/capacity_multiplier - \
-                          frm_fav.value[self.domain_info.cb],
-                          f_ref_nonmarket) # .values
-        ram = ram.reshape(len(ram), 1)
+        ram = (self.lines.maxflow[self.domain_info.cb] 
+               - frm_fav.value[self.domain_info.cb] 
+               - f_ref_nonmarket)
+        ram = ram.values.reshape(len(ram), 1)
 
         if any(ram < 0):
             self.logger.warning("Number of RAMs below: [0 - %d, 10 - %d, 100 - %d, 1000 - %d]", sum(ram<0), sum(ram<10), sum(ram<100), sum(ram<1000))
-            ram[ram<100] = 10000
+            # ram[ram<100] = 10000
 
 
         self.domain_info[list(self.basecase.data.zones.index)] = zonal_fbmc_ptdf
@@ -247,6 +247,8 @@ class FBMCModule():
 
         fbmc_paramters = {}
         cbco = CBCOModule(self.wdir, self.package_dir, self.grid, self.data, self.data.options)
+        cbco._start_julia_daemon()
+        cbco.julia_instance.disable_multi_threading()
         cbco.options["optimization"]["type"] = "cbco_zonal"
         cbco.options["grid"]["cbco_option"] = "clarkson"
         for timestep in self.basecase.INJ.t.unique():

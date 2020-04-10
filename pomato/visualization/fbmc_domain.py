@@ -82,18 +82,16 @@ class FBMCDomain():
 
 class FBMCDomainPlots(FBMCModule):
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, grid_object, data, flowbased_parameters=None, basecase_name=None, cbco_list=None):
+    def __init__(self, wdir, package_dir, grid_object, data, flowbased_parameters=None, basecase_name=None, cbco_list=None):
         # Import Logger
         self.logger = logging.getLogger('Log.visualization.FBMCDomainPlots')
         self.logger.info("Initializing the FBMCModule....")
 
-        super().__init__(wdir, grid_object, data, basecase_name)
+        super().__init__(wdir, package_dir, grid_object, data, basecase_name)
 
         self.fbmc_plots = {}
-        if not flowbased_parameters:
-            self.flowbased_parameters = super().create_flowbased_parameters()
-        else:
-            self.flowbased_parameters = flowbased_parameters
+
+        self.flowbased_parameters = flowbased_parameters
 
         # set-up: dont show the graphs when created
         plt.ioff()
@@ -293,9 +291,15 @@ class FBMCDomainPlots(FBMCModule):
         hull
         """
 
-        A, b = self.create_flowbased_ptdf(gsk_strategy, timestep)
-        A = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, list(self.nodes.zone.unique())].values
-        b = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, "ram"].values
+        if isinstance(self.flowbased_parameters, pd.DataFrame):
+            if gsk_strategy in self.flowbased_parameters["gsk_strategy"].values:
+                A = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, list(self.nodes.zone.unique())].values
+                b = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, "ram"].values
+            else:
+                self.logger.warning("precalculated fb parameters have different gsk strategy")
+                A, b = self.create_flowbased_ptdf(gsk_strategy, timestep)
+        else:
+            A, b = self.create_flowbased_ptdf(gsk_strategy, timestep)
 
         A, b = self.create_fbmc_equations(domain_x, domain_y, A, b)
         # Reduce

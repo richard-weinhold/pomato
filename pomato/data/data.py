@@ -132,6 +132,7 @@ class DataManagement():
             tmp = getattr(self, data)
             tmp = tmp.stack().reset_index()
             tmp.columns = self.data_structure[data]["attributes"][1:]
+            tmp = tmp.sort_values("timestep")
             setattr(self, data, tmp.infer_objects())
 
     def validate_inputdata(self):

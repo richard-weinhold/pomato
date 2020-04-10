@@ -9,7 +9,7 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 
-from context import pomato
+from context import pomato, copytree	
 
 class JuliaMockup():
     def __init__(self):
@@ -17,16 +17,6 @@ class JuliaMockup():
         self.solved = True
     def run(self, args):
         pass
-
-def copytree(src, dst, symlinks=False, ignore=None):
-    # https://stackoverflow.com/a/12514470
-    for item in os.listdir(src):
-        s = os.path.join(src, item)
-        d = os.path.join(dst, item)
-        if os.path.isdir(s):
-            shutil.copytree(s, d, symlinks, ignore)
-        else:
-            shutil.copy2(s, d)
             
 # pylint: disable-msg=E1101
 class TestPomatoMarketModel(unittest.TestCase):
@@ -45,13 +35,11 @@ class TestPomatoMarketModel(unittest.TestCase):
         self.assertTrue(mato.options == pomato.tools.default_options())
 
     def test_run_ieee_init_no_option(self):
-        mato = pomato.POMATO(wdir=self.wdir,
-                             logging_level=logging.ERROR)
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
         self.assertTrue(mato.options == pomato.tools.default_options())
 
     def test_run_ieee_init_invalid_data(self):
-        mato = pomato.POMATO(wdir=self.wdir, 
-                             logging_level=logging.ERROR)
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
         self.assertRaises(FileNotFoundError, mato.load_data, "INVALID_PATH")
 
     def test_run_ieee(self):
@@ -112,7 +100,6 @@ class TestPomatoMarketModel(unittest.TestCase):
 
         redisp_result.default_plots()
         market_result.default_plots()
-        print(redisp_result, redisp_result)
         # # Check for Overloaded lines N-0, N-1 (should be non for N-0, but plenty for N-1)
         # df1, df2 = redisp_result.overloaded_lines_n_1()
         # df3, df4 = redisp_result.overloaded_lines_n_0()

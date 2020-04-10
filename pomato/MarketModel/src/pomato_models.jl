@@ -55,10 +55,11 @@ function run_market_model(data::Data, options::Dict{String, Any})
 		println("Adding Chance Constraints...")
 		@time add_chance_constraints!(pomato, fixed_alpha=true)
 	end
-	# if any([isdefined(z, :net_position) for z in pomato.data.zones]) & !(pomato.options["redispatch"])
-	# 	println("Adding NEX Constraints...")
-	# 	add_net_position_constraints!(pomato)
-	# end
+	if any([isdefined(z, :net_position) for z in pomato.data.zones]) & !(pomato.options["redispatch"]["include"])
+		println("Adding NEX Constraints...")
+		add_net_position_constraints!(pomato)
+	end
+
 	add_electricity_energy_balance!(pomato::POMATO)
 
 	println("Adding Objective Function...")
@@ -79,7 +80,7 @@ function run_market_model(data::Data, options::Dict{String, Any})
 	return pomato
 end
 
-function run_redispatch_model(data::Data, options::Dict{String, Any}, redispatch_zones::Vector{String})
+function run_redispatch_model(data::Data, options::Dict{String, Any})
 	pomato = run_market_model(data, options)
 	redispatch_results = Dict{String, Result}()
 	redispatch_results["market_results"] = pomato.result
@@ -94,7 +95,7 @@ function run_redispatch_model(data::Data, options::Dict{String, Any}, redispatch
 	load_redispatch_grid!(pomato)
 	data_copy = deepcopy(pomato.data)
 	market_result_copy = deepcopy(market_result)
-	for redispatch_zone in redispatch_zones
+	for redispatch_zone in options["redispatch"]["zones"]
 		tmp_results = Dict{String, Result}()
 		for timesteps in [t.index:t.index for t in data_copy.t]
 			data = deepcopy(data_copy)

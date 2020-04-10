@@ -38,14 +38,14 @@ function run_market_model(wdir, data_dir, return_result=false)
 	end
 end
 
-function run_market_model_redispatch(wdir, data_dir; redispatch_zones=["DE"], return_result=false)
+function run_market_model_redispatch(wdir, data_dir; return_result=false)
 	println("Read Model Data..")
 	options, data = read_model_data(wdir*"/data_temp/julia_files"*data_dir)
 	data.folders = Dict("wdir" => wdir,
 						"data_dir" => wdir*"/data_temp/julia_files"*data_dir,
 						"result_dir" => wdir*"/data_temp/julia_files/results/"*Dates.format(now(), "dmm_HHMM"))
 	create_folder(data.folders["result_dir"])
-	pomato_results = run_redispatch_model(data, options, redispatch_zones)
+	pomato_results = run_redispatch_model(data, options)
 	for result in keys(pomato_results)
 		save_result(pomato_results[result], data.folders["result_dir"]*"_"*result)
 	end

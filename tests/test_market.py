@@ -8,7 +8,7 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 
-from context import pomato
+from context import pomato, copytree
 
 class JuliaMockup():
     def __init__(self):
@@ -31,11 +31,11 @@ class TestPomatoMarketModel(unittest.TestCase):
 
         self.market_model = pomato.market_model.MarketModel(self.wdir, Path("dummy"), self.options)
 
-    # @classmethod
-    # def tearDownClass(cls):
-    #     shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
-    #     shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
-    #     shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
+    @classmethod
+    def tearDownClass(cls):
+        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
+        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
+        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
 
     def test_init(self):
         self.cbco_module.options["optimization"]["type"] = "ntc"
@@ -54,10 +54,22 @@ class TestPomatoMarketModel(unittest.TestCase):
         self.assertTrue(self.market_model.data_dir.joinpath('data/options.json').is_file())
 
     def test_market_model_run(self):
+        prepared_result = self.wdir.parent.joinpath('tests/test_data/dispatch_result/')
+        to_folder = self.wdir.joinpath('data_temp/julia_files/results/dispatch_result') 
+        to_folder.mkdir()
+        copytree(prepared_result, to_folder)
+
         self.market_model.julia_model = JuliaMockup()
         self.cbco_module.options["optimization"]["type"] = "ntc"
         self.cbco_module.create_grid_representation()
         self.market_model.update_data(self.data, self.options, self.cbco_module.grid_representation)
-        
         self.market_model.run()
+
         self.assertTrue(self.market_model.status == "solved")
+    
+    def test_market_model_missing_result(self):
+        self.market_model.julia_model = JuliaMockup()
+        self.cbco_module.options["optimization"]["type"] = "ntc"
+        self.cbco_module.create_grid_representation()
+        self.market_model.update_data(self.data, self.options, self.cbco_module.grid_representation)
+        self.assertRaises(FileNotFoundError, self.market_model.run)

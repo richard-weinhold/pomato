@@ -128,7 +128,6 @@ class MarketModel():
         """
         t_start = datetime.datetime.now()
 
-        solved = False
         if not self.julia_model:
             self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model")
 
@@ -143,17 +142,15 @@ class MarketModel():
         self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")
 
         if self.julia_model.solved:
-            solved = True
-
-        if solved:
             # find latest folders created in julia result folder
-            # last for normal dispatch, last 2 for redispatch
+            # last for normal dispatch, least 2 for redispatch
             if self.options["optimization"]["redispatch"]["include"]:
+                num_of_results = len(self.options["optimization"]["redispatch"]["zones"]) + 1
                 self.result_folders = tools.newest_file_folder(self.data_dir.joinpath("results"),
-                                                               number_of_elm=2)
+                                                               number_of_elm=num_of_results)
             else:
                 self.result_folders = [tools.newest_file_folder(self.data_dir.joinpath("results"),
-                                                                number_of_elm=1)]
+                                                                number_of_elm=1)]  
 
             for folder in self.result_folders:
                 with open(folder.joinpath("optionfile.json"), 'w') as file:

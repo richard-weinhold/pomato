@@ -388,8 +388,10 @@ class POMATO():
             self.bokeh_plot.show_plot()
 
     def _join_julia_instances(self):
-        self.market_model.julia_model.join()
-        self.cbco_module.julia_instance.join()
+        if self.market_model.julia_model:
+            self.market_model.julia_model.join()
+        if self.cbco_module.julia_instance:
+            self.cbco_module.julia_instance.join()
 
     def start_julia_instances(self):
         self.cbco_module._start_julia_daemon()

@@ -3,7 +3,7 @@ using JSON
 # using RedundancyRemoval
 # using MarketModel
 
-function write_daemon_file(file)
+function write_daemon_file(file::Dict)
     global daemon_file
     while true
         try
@@ -49,8 +49,8 @@ else
     throw(ArgumentError("No valid argument given"))
 end
 
-function run_redundancy_removal(file_suffix)
-    if Threads.nthreads() >= 2
+function run_redundancy_removal(file_suffix::String, multi_threaded::Bool)
+    if multi_threaded & (Threads.nthreads() >= 2)
         @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
         RedundancyRemoval.run_redundancy_removal_parallel(file_suffix, filter_only=true)
     else
@@ -59,14 +59,15 @@ function run_redundancy_removal(file_suffix)
     end
 end
 
-function run_market_model(wdir, data_dir, redispatch)
-    if redispatch
-        @info("Run market model with redispatch")
-        MarketModel.run_market_model_redispatch(wdir, data_dir)
-    else
-        @info("Run market model")
-        MarketModel.run_market_model(wdir, data_dir)
-    end
+function run_market_model_redispatch(wdir::String, data_dir::String)
+    @info("Run market model with redispatch")
+    MarketModel.run_market_model_redispatch(wdir, data_dir)
+    @info("Done with market model.")
+end
+
+function run_market_model(wdir::String, data_dir::String)
+    @info("Run market model")
+    MarketModel.run_market_model(wdir, data_dir)
     @info("Done with market model.")
 end
 
@@ -77,7 +78,7 @@ while true
         @info("EXIT")
         break
     end
-    sleep(1)
+    sleep(0.1)
     if file["run"]
         file["run"] = false
         file["processing"] = true
@@ -85,28 +86,27 @@ while true
         @info("Starting with $(file["type"])")
         if file["type"] == "redundancy_removal"
             file_suffix = file["file_suffix"]
-            run_redundancy_removal(file_suffix)
+            multi_threaded = file["multi_threaded"]
+            run_redundancy_removal(file_suffix, multi_threaded)
         end
         if file["type"] == "market_model"
-            # wdir = file["wdir"]
             global wdir
             redispatch = file["redispatch"]
             data_dir = file["data_dir"]
-            run_market_model(wdir, data_dir, redispatch)
+            if redispatch
+                run_market_model_redispatch(wdir, data_dir)
+            else
+                run_market_model(wdir, data_dir)
+            end
         end
         file["processing"] = false
         write_daemon_file(file)
     end
-    # sleep(1)
-    # if file["processing"]
-    #     file["processing"] = false
-    #     write_daemon_file(file)
-    # end
-    sleep(1)
+    sleep(0.1)
     if !file["ready"]
         file["ready"] = true
         write_daemon_file(file)
     end
     # println("sleepy")
-    sleep(1)
+    sleep(0.1)
 end

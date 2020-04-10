@@ -6,6 +6,7 @@
         "heat_model": false,
         "redispatch": {
                 "include": true,
+                "zones": ["DE"],
                 "cost": 1
             },
         "infeasibility": {

@@ -54,6 +54,7 @@ class InputProcessing(object):
             self.marginal_costs()
             self.process_net_position()
             self.process_inflows()
+            self.line_susceptance()
             
         if "availability" in self.options["data"]["process"]:
                 self.process_availability()
@@ -323,9 +324,15 @@ class InputProcessing(object):
         is technically wrong, it works with linear load flow, as it only relies on the
         conceptual "conductance"/"resistance" of each circuit/line in relation to others.
         """
-        tmp = self.data.lines[['length', 'type', 'b']][self.data.lines.b.isnull()]
-        tmp.b = self.data.lines.length/(self.data.lines.type)
-        self.data.lines.b[self.data.lines.b.isnull()] = tmp.b
+        if "x per km" in self.data.lines.columns:
+            self.data.lines['x'] = self.data.lines['x per km'] * self.data.lines["length"] * 1e-3
+            base_mva = 100
+            base_kv = self.data.lines["type"].values
+            v_base = base_kv * 1e3
+            s_base = base_mva * 1e6
+            z_base = np.power(v_base,2)/s_base
+            self.data.lines['x'] = np.multiply(self.data.lines['x'], z_base)
+            self.data.lines['b'] = np.divide(1, self.data.lines['x'])
 
     def _clean_names(self):
         """Clean raw data of special character or names that didnt encode well.
