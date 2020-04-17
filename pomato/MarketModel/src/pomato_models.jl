@@ -55,7 +55,7 @@ function run_market_model(data::Data, options::Dict{String, Any})
 		println("Adding Chance Constraints...")
 		@time add_chance_constraints!(pomato, fixed_alpha=true)
 	end
-	if any([isdefined(z, :net_position) for z in pomato.data.zones]) & !(pomato.options["redispatch"]["include"])
+	if (pomato.options["constrain_nex"])
 		println("Adding NEX Constraints...")
 		add_net_position_constraints!(pomato)
 	end

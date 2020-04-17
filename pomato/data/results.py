@@ -86,7 +86,10 @@ class ResultProcessing():
 
         # Add opt Set-Up to the results attributes
         self.result_attributes["source"] = result_folder
+        self.result_attributes["name"] = str(result_folder).split("\\")[-1]
         self.load_results_from_folder(result_folder)
+        # Set Redispatch = True if result is a redispatch result 
+        self.result_attributes["redispatch"] = True if "redispatch" in self.result_attributes["name"] else False
 
         # set-up: dont show the graphs when created
         plt.ioff()
@@ -117,7 +120,7 @@ class ResultProcessing():
                 except FileNotFoundError:
                     self.logger.warning("%s not in results folder %s", var, folder_name)
 
-        # Manual setting of attributes:
+        # Set result attributes from result json file or data.option:
         try:
             with open(str(folder.joinpath("misc_results.json")), "r") as jsonfile:
                 self.result_attributes["objective"] = json.load(jsonfile)
@@ -134,8 +137,38 @@ class ResultProcessing():
             self.result_attributes = {**self.result_attributes,
                                       **self.data.options["optimization"]}
 
-        # self.result_attributes["objective"] = data["Objective Value"]
+        # Model Horizon as attribute
         self.result_attributes["model_horizon"] = list(self.INJ.t.unique())
+
+    def redispatch(self):
+        """Return Redispatch"""
+
+        # Find corresponding Market Result
+        tmp = [result for result in self.data.results if "market_result" in result]
+        if len(tmp) == 1:
+            market_result = self.data.results[tmp[0]]
+        else:
+            raise AttributeError("Multiple/None market-results avaiable for redispatch")
+
+        gen = pd.merge(market_result.data.plants[["plant_type", "fuel", "tech", "g_max", "node"]],
+                       market_result.G, left_index=True, right_on="p")
+
+        # Redispatch Caluclation G_redispatch - G_market
+        gen = pd.merge(gen, self.G, on=["p", "t"], suffixes=("_market", "_redispatch"))
+        gen["delta"] = gen["G_redispatch"] - gen["G_market"]
+        gen["delta_abs"] = gen["delta"].abs()
+
+        # Redispatch Values
+        self.logger.info("Redispatch Values per timestep: sum: %d, abs sum: %d", round(gen.delta.sum()/len(gen.t.unique())), 
+                         round(gen.delta_abs.sum()/len(gen.t.unique())))
+
+
+
+    def infeasibility(self):
+        """Return electricity infeasibilities"""
+        infeas = pd.merge(self.data.nodes, self.INFEAS_EL_N_POS, left_index=True, right_on="n")
+        infeas = pd.merge(infeas, self.INFEAS_EL_N_NEG, on=["t", "n"])
+        return infeas.rename(columns={"INFEAS_EL_N_POS": "pos", "INFEAS_EL_N_NEG": "neg"})
 
     def price(self):
         """Return electricity prices.

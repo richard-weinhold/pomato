@@ -2,36 +2,42 @@
   "type": "ntc",
   "model_horizon": [
     0,
-    10
+    24
   ],
   "heat_model": false,
+  "constrain_nex": false,
+  "split_timeseries": true,
   "redispatch": {
     "include": true,
+    "zones": [
+      "DE"
+    ],
     "cost": 1
+  },
+  "curtailment": {
+    "include": true,
+    "cost": 1,
+    "bound": 0.2
+  },
+  "parameters": {
+    "storage_start": 0.5
   },
   "infeasibility": {
     "heat": {
       "include": false,
       "cost": 1000.0,
-      "bound": 1000
+      "bound": 20
     },
     "electricity": {
       "include": true,
-      "cost": 2000,
+      "cost": 100.0,
       "bound": 1000
     },
     "lines": {
       "include": false,
       "cost": 1000.0,
-      "bound": 1000
+      "bound": 20
     }
-  },
-  "curtailment": {
-    "include": true,
-    "cost": 100
-  },
-  "parameters": {
-    "storage_start": 0.65
   },
   "plant_types": {
     "es": [
@@ -46,5 +52,5 @@
     "ph": []
   },
   "t_start": "t0001",
-  "t_end": "t0010"
+  "t_end": "t0024"
 }

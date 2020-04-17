@@ -14,7 +14,7 @@ def _mpc_data_pu_to_real(lines,  base_kv, base_mva):
     s_base = base_mva * 1e6
     z_base = np.power(v_base,2)/s_base
     lines['r'] = np.multiply(lines['r'], z_base)
-    lines['x'] = np.multiply(lines['x'], z_base)
+    lines['x'] = np.divide(lines['x'], z_base)
     lines['b_other'] = np.divide(lines['b_other'], z_base)
     lines['b'] = np.divide(1, lines['x'])
     return lines
@@ -264,7 +264,6 @@ class DataWorker(object):
         slack[slackbus_idx] = 1
         mpc_buses['slack'] = slack
         mpc_buses['slack'] = mpc_buses['slack'].astype(bool)
-        mpc_buses['net_injection'] = np.zeros(len(mpc_buses['idx']))
 
         # add verbose names if available
         if busname.any():
@@ -310,11 +309,14 @@ class DataWorker(object):
         self.data.plants = self.data.plants[self.data.plants.g_max > 0]
         ### Make ieee case ready for the market model
         self.data.nodes["name"] = ["n" + str(int(idx)) for idx in self.data.nodes.index]
+        self.data.nodes.rename(columns={"baseKV": "voltage"}, inplace=True)
         self.data.nodes.set_index("name", drop=False, inplace=True)
         self.data.nodes.zone = ["z" + str(int(idx)) for idx in self.data.nodes.zone]
 
         self.data.lines.node_i = ["n" + str(int(idx)) for idx in self.data.lines.node_i]
         self.data.lines.node_j = ["n" + str(int(idx)) for idx in self.data.lines.node_j]
+        self.data.lines["type"] = self.data.nodes.loc[self.data.lines.node_i, "voltage"].values
+
         self.data.zones = pd.DataFrame(index=set(self.data.nodes.zone.values))
         self.data.plants.node = ["n" + str(int(idx)) for idx in self.data.plants.node]
         self.data.demand_el = pd.DataFrame(index=["t0001", "t0002"], data=self.data.nodes.Pd.to_dict())

@@ -3,59 +3,21 @@
         "type": "cbco_nodal",
         "model_horizon": [0, 2],
         "heat_model": false,
-        "redispatch": {
-            "include": false,
-            "cost": 1
-            },
         "infeasibility": {
-            "heat": {
-                "include": false,
-                "cost": 1E3,
-                "bound": 20
-            },
             "electricity": {
                 "include": true,
                 "cost": 1E2,
                 "bound": 20
-            },
-            "lines": {
-                "include": false,
-                "cost": 1E3,
-                "bound": 20
             }
-        },
-        "curtailment": {
-            "include": false,
-            "cost": 1E3
-        },
-        "parameters": {
-            "storage_start": 0.65
-        },
-        "plant_types": {
-            "es": ["hydro_res", "hydro_psp"],
-            "hs": [],
-            "ts": ["wind", "solar"],
-            "ph": []
         }
     },
     "grid": {
         "cbco_option": "clarkson_base",
         "precalc_filename": "",
         "senstitivity": 5e-2,
-        "capacity_multiplier": 1,
-        "preprocess": true,
-        "gsk": "gmax"
+        "preprocess": true
     },
     "data": {
-        "data_type": "ieee",
-        "stacked": [],
-        "process": [],
-        "process_input": false,
-        "unique_mc": false,
-        "round_demand": true,
-        "default_efficiency": 0.5,
-        "default_mc": 200,
-        "co2_price": 20,
-        "all_lines_cb": false
+        "data_type": "ieee"
     }
 }

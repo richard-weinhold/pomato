@@ -1,37 +1,26 @@
 {
     "optimization": {
         "type": "ntc",
-        "solver": "gurobi",
         "model_horizon": [0, 24],
-        "heat_model": false,
         "redispatch": {
                 "include": true,
                 "zones": ["DE"],
                 "cost": 1
             },
         "infeasibility": {
-            "heat": {
-                "include": false,
-                "cost": 1E3,
-                "bound": 1000
-            },
             "electricity": {
                 "include": true,
-                "cost": 2000,
-                "bound": 1000
-            },
-            "lines": {
-                "include": false,
-                "cost": 1E3,
+                "cost": 1E2,
                 "bound": 1000
             }
         },
         "curtailment": {
             "include": true,
-            "cost": 100
+            "cost": 1,
+            "bound": 0.2
         },
         "parameters": {
-            "storage_start": 0.65
+            "storage_start": 0.5
         },
         "plant_types": {
             "es": ["hydro_res", "hydro_psp"],
@@ -50,13 +39,8 @@
     },
     "data": {
         "data_type": "opsd",
-        "stacked": ["demand_el"],
-        "process": ["net_export", "availability", "net_position", "opsd"],
-        "process_input": true,
-        "unique_mc": false,
-        "round_demand": true,
-        "default_efficiency": 0.5,
-        "default_mc": 200,
-        "co2_price": 20
+        "stacked": ["demand_el", "net_export"],
+        "process": ["availability", "net_position", "opsd"],
+        "process_input": true
     }
 }

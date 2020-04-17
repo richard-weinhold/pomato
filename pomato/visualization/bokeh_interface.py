@@ -11,7 +11,7 @@ from bokeh.io import show
 import psutil
 
 import pomato.tools as tools
-from pomato.visualization.plot import create_static_plot
+from pomato.visualization.bokeh_static import create_static_plot
 
 
 class BokehPlot():
@@ -40,11 +40,12 @@ class BokehPlot():
         the model remains repsonsive.
     """
 
-    def __init__(self, wdir, bokeh_type="static"):
+    def __init__(self, wdir, package_dir, bokeh_type="static"):
         # Impoort Logger
         self.logger = logging.getLogger('Log.MarketModel.BokehPlot')
 
         self.wdir = wdir
+        self.package_dir = package_dir
         self.bokeh_dir = wdir.joinpath("data_temp/bokeh_files")
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)
@@ -70,7 +71,7 @@ class BokehPlot():
 
         self.static_plot = create_static_plot(data.lines, data.nodes, 
                                               data.dclines, inj, flow_n_0, 
-                                              flow_n_1, f_dc)
+                                              flow_n_1, f_dc, option=2)
 
     def create_static_plot(self, market_results):
         """Create static bokeh plot of the market results.
@@ -181,8 +182,8 @@ class BokehPlot():
         demand.to_csv(str(data_path.joinpath('demand.csv')),
                       index_label='index')
 
-        t_first = market_result.data.result_attributes["model_horizon"][0]
-        t_last = market_result.data.result_attributes["model_horizon"][-1]
+        t_first = market_result.result_attributes["model_horizon"][0]
+        t_last = market_result.result_attributes["model_horizon"][-1]
 
         # convert to int, bc of the slider widget
         t_dict = {"t_first": int(re.search(r'\d+', t_first).group()),
@@ -200,7 +201,7 @@ class BokehPlot():
         n_1_flows = market_result.n_1_flow()
 
         # convert n_1 flows to the max of N-1 flows
-        time = market_result.data.result_attributes["model_horizon"]
+        time = market_result.result_attributes["model_horizon"]
         n_1_flows = n_1_flows.drop("co", axis=1)
         n_1_flows[time] = n_1_flows[time].abs()
         n_1_flows = n_1_flows.groupby("cb").max().reset_index()
@@ -224,22 +225,12 @@ class BokehPlot():
         map_pn = market_result.data.plants.node.reset_index()
         map_pn.columns = ['p', 'n']
 
-        demand = market_result.data.demand_el[market_result.data.demand_el.node.isin(
-            market_result.data.nodes.index)].copy()
+        cond_nodes = market_result.data.demand_el.node.isin(market_result.data.nodes.index)
+        demand = market_result.data.demand_el[cond_nodes].copy()
         demand.rename(columns={"node": "n", "timestep": "t",
                                "demand_el": "d_el"}, inplace=True)
-        demand_d = market_result.D_d
         demand_ph = market_result.D_ph
         demand_es = market_result.D_es
-
-        if not demand_d.empty:
-            demand_d = pd.merge(
-                demand_d, map_pn[["p", "n"]], how="left", left_on="d", right_on="p")
-            demand_d = demand_d.groupby(["n", "t"], as_index=False).sum()
-        else:
-            demand_d = pd.DataFrame(columns=["d", "t", "D_d"])
-            demand_d = pd.merge(
-                demand_d, map_pn[["p", "n"]], how="left", left_on="d", right_on="p")
 
         if not demand_ph.empty:
             demand_ph = pd.merge(
@@ -259,16 +250,10 @@ class BokehPlot():
             demand_es = pd.merge(
                 demand_es, map_pn[["p", "n"]], how="left", on="p")
 
-        demand = pd.merge(
-            demand, demand_d[["D_d", "n", "t"]], how="outer", on=["n", "t"])
-        demand = pd.merge(
-            demand, demand_ph[["D_ph", "n", "t"]], how="outer", on=["n", "t"])
-        demand = pd.merge(
-            demand, demand_es[["D_es", "n", "t"]], how="outer", on=["n", "t"])
+        demand = pd.merge(demand, demand_ph[["D_ph", "n", "t"]], how="outer", on=["n", "t"])
+        demand = pd.merge(demand, demand_es[["D_es", "n", "t"]], how="outer", on=["n", "t"])
         demand.fillna(value=0, inplace=True)
-        demand["d_total"] = demand.d_el + \
-            demand.D_d + demand.D_ph + demand.D_es
-
+        demand["d_total"] = demand.d_el + demand.D_ph + demand.D_es
         return demand[["n", "t", "d_total"]]
 
     def _output_reader(self, proc):
@@ -291,7 +276,7 @@ class BokehPlot():
         self.logger.info(
             "Starting Bokeh Server - Close Browser Window to Terminate")
         args_list = ["bokeh", "serve", "--show",
-                     str(self.wdir.joinpath("code_py/bokeh_plot.py")),
+                     str(self.package_dir.joinpath("visualization/bokeh_dynamic.py")),
                      "--args", str(self.bokeh_dir)]
 
         self.bokeh_server = subprocess.Popen(args_list,

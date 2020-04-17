@@ -59,9 +59,6 @@ class InputProcessing(object):
         if "availability" in self.options["data"]["process"]:
                 self.process_availability()
 
-        if "opsd" in self.options["data"]["process"]:
-            self.process_opsd_net_export()
-
         if "net_export" in self.options["data"]["process"]:
             self.process_net_export()
 
@@ -146,70 +143,6 @@ class InputProcessing(object):
             tmp[node] = 0
         self.data.net_export = pd.melt(tmp.reset_index(), id_vars=["timestep"],
                                        value_name="net_export")
-
-    def process_opsd_net_export(self):
-        """Process net export timeseries from the OPSD dataset.
-
-        Equivalent to :meth:`~process_net_export`, however since OPSD data includes zone-to-zone
-        physical exchange, this parameter is distributed accordingly to all border connections.
-        E.g. for DE-PL, OPSD data contains all DE nodes and lines that connect DE-PL, including
-        the nodes in PL. Therefore a potential net export DE->PL will accure as a load
-        (or negative injection) on both PL nodes weighted equally.
-
-        """
-        if self.data.net_export.empty:
-            self.data.net_export = pd.DataFrame(index=self.data.demand_el.timestep.unique(),
-                                                columns=self.data.nodes.index,
-                                                data=0)
-        else:
-            
-            net_export_raw = self.data.net_export.copy()
-            self.data.net_export_raw = self.data.net_export.copy()
-
-            self.data.net_export = pd.DataFrame(index=self.data.demand_el.timestep.unique())
-            for zones in set([(from_zone,to_zone) \
-                              for (from_zone,to_zone) in zip(net_export_raw.from_zone,
-                                                             net_export_raw.to_zone)]):
-                nodes = []
-                nodes_from_zones = self.data.nodes.index[self.data.nodes.zone == zones[0]]
-                nodes_to_zones = self.data.nodes.index[self.data.nodes.zone == zones[1]]
-
-                lines = self.data.lines
-                dclines = self.data.dclines
-                nodes.extend(list(lines.node_i[(lines.node_i.isin(nodes_from_zones))& \
-                                               (lines.node_j.isin(nodes_to_zones))]))
-
-                nodes.extend(list(lines.node_j[(lines.node_i.isin(nodes_to_zones))& \
-                                               (lines.node_j.isin(nodes_from_zones))]))
-
-                nodes.extend(list(dclines.node_i[(dclines.node_i.isin(nodes_from_zones))& \
-                                                 (dclines.node_j.isin(nodes_to_zones))]))
-
-                nodes.extend(list(dclines.node_j[(dclines.node_i.isin(nodes_to_zones))& \
-                                                 (dclines.node_j.isin(nodes_from_zones))]))
-                nodes = list(set(nodes))
-                for node in nodes:
-                    tmp = net_export_raw[(net_export_raw["from_zone"] == zones[0]) & \
-                                         (net_export_raw["to_zone"] == zones[1])].copy()
-
-                    tmp.loc[:, "export"] = tmp.export/len(nodes)
-                    tmp = tmp[["timestep", "export"]].rename(columns={"export": node})
-                    if node not in self.data.net_export.columns:
-                        self.data.net_export = pd.merge(self.data.net_export,
-                                                        tmp, how="left", left_index=True,
-                                                        right_on="timestep").set_index("timestep")
-                    else:
-                        self.logger.warning("node %s with multiple net export timeseries", node)
-            # Fill NaNs with
-            if any(self.data.net_export.isna().any(axis=0)):
-                self.logger.warning("Net export contains NaNs, set NaNs to 0")
-                self.data.net_export.fillna(0, inplace=True)
-
-            for n in list(set(self.data.nodes.index) - set(self.data.net_export.columns)):
-                self.data.net_export[n] = 0
-
-        self.data.net_export = self.data.net_export.stack().reset_index()
-        self.data.net_export.columns = self.data.data_structure["net_export"].attributes[1:]
 
     def process_availability(self):
         """Process availability so there is a timeseries of capacity factors per plant.
@@ -324,14 +257,16 @@ class InputProcessing(object):
         is technically wrong, it works with linear load flow, as it only relies on the
         conceptual "conductance"/"resistance" of each circuit/line in relation to others.
         """
-        if "x per km" in self.data.lines.columns:
+        if ("x per km" in self.data.lines.columns)&("voltage" in self.data.nodes.columns):
             self.data.lines['x'] = self.data.lines['x per km'] * self.data.lines["length"] * 1e-3
+            self.data.lines.loc[self.data.lines.technology == "transformer", 'x'] = 0.01
             base_mva = 100
-            base_kv = self.data.lines["type"].values
+            base_kv = self.data.nodes.loc[self.data.lines.node_i, "voltage"].values
+            # base_kv = 110
             v_base = base_kv * 1e3
             s_base = base_mva * 1e6
             z_base = np.power(v_base,2)/s_base
-            self.data.lines['x'] = np.multiply(self.data.lines['x'], z_base)
+            self.data.lines['x'] = np.divide(self.data.lines['x'], z_base)
             self.data.lines['b'] = np.divide(1, self.data.lines['x'])
 
     def _clean_names(self):

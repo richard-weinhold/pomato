@@ -5,9 +5,11 @@ attributed to a specified component of pomato.
 """
 
 import json
+import operator
 import subprocess
 import threading
 import time
+from functools import reduce
 from pathlib import Path
 
 import pandas as pd
@@ -383,6 +385,7 @@ def default_options():
         "type": "cbco_nodal",
         "model_horizon": [0, 2],
         "heat_model": False,
+        "constrain_nex": False,
         "split_timeseries": True,
         "redispatch": {
             "include": False,
@@ -435,6 +438,45 @@ def default_options():
         }
 
     return options_dict
+
+def add_default_options(option_dict):
+    """Takes the loaded option dict and adds missing values from default options.
+    
+    Uses function that are "taken" from https://stackoverflow.com/a/14692747
+    Parameters
+    ----------
+    option_dict : option_dict
+        Optionfile loaded from disk.
+    """
+    options = default_options()
+    for i in _dict_generator(option_dict):
+        try: 
+            _setInDict(options, i, _getFromDict(option_dict, i))
+        except:
+            raise ValueError(".".join(i) + " is not a valid option")
+    return options
+
+def _dict_generator(indict, pre=None):
+    """Flatten Option Dict.
+
+    Source: https://stackoverflow.com/a/12507546
+    """
+    pre = pre[:] if pre else []
+    if isinstance(indict, dict):
+        for key, value in indict.items():
+            if isinstance(value, dict):
+                for d in _dict_generator(value, pre + [key]):
+                    yield d
+            else:
+                yield pre + [key]
+    else:
+        yield pre + [indict]
+
+def _getFromDict(dataDict, mapList):
+    return reduce(operator.getitem, mapList, dataDict)
+
+def _setInDict(dataDict, mapList, value):
+    _getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
 
 def gams_modelstat_dict(modelstat):
     """ Returns GAMS ModelStat String for int input"""

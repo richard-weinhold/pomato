@@ -559,7 +559,8 @@ class CBCOModule():
 
         """
         gsk = pd.DataFrame(index=self.data.nodes.index)
-        condition = (self.data.plants.plant_type == "ts") & (self.data.plants.plant_type != "es")
+        condition = (self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["ts"]) 
+                        & (~self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["es"])))
         gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]].groupby("node").sum()
 
         for zone in self.data.zones.index:

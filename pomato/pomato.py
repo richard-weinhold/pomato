@@ -261,15 +261,14 @@ class POMATO():
 
         try:
             with open(self.wdir.joinpath(options_file)) as opt_file:
-                self.options = json.load(opt_file)
-                opt_str = "Optimization Options:" + json.dumps(self.options, indent=2) + "\n"
-            self.logger.info(opt_str)
+                loaded_options = json.load(opt_file)
+            self.options = tools.add_default_options(loaded_options)  
+            self.logger.info( "Optimization Options:" + json.dumps(self.options, indent=2) + "\n")
 
         except FileNotFoundError:
             self.logger.warning("No or invalid options file provided, using default options")
             self.options = tools.default_options()
-            opt_str = "Optimization Options:" + json.dumps(self.options, indent=2) + "\n"
-            self.logger.info(opt_str)
+            self.logger.info("Optimization Options:" + json.dumps(self.options, indent=2) + "\n")
         except BaseException as unknown_exception:
             self.logger.exception("Error: %s", unknown_exception)
 
@@ -374,7 +373,7 @@ class POMATO():
         results : dict(str, :obj:`~pomato.data.ResultProcessing`)
             Optionally specify a subset of results to plot.
         """
-        self.bokeh_plot = BokehPlot(self.wdir, bokeh_type=bokeh_type)
+        self.bokeh_plot = BokehPlot(self.wdir, self.package_dir, bokeh_type=bokeh_type)
 
         if (not self.data.results) and (not results):  # if results dict is empty
             self.logger.info("No result available from market model!")

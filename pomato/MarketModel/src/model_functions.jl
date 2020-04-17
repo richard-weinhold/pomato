@@ -314,8 +314,14 @@ end
 function add_flowbased_constraints!(pomato::POMATO)
 	model, n, data = pomato.model, pomato.n, pomato.data
 	EX = model[:EX]
-	@constraint(model, [t=1:n.t], vcat([cb.ptdf' for cb in filter(cb -> cb.timestep == data.t[t].name, data.grid)]...) * sum(EX[1, :, zz] - EX[1, zz, :] for zz in 1:n.zones)
-		.<= [cb.ram for cb in filter(cb -> cb.timestep == data.t[t].name, data.grid)]);
+	if any(isdefined(cb, :timestep) for cb in data.grid)
+		println("adding timedependant zonal PTDF...")
+		@constraint(model, [t=1:n.t], vcat([cb.ptdf' for cb in filter(cb -> cb.timestep == data.t[t].name, data.grid)]...) * sum(EX[1, :, zz] - EX[1, zz, :] for zz in 1:n.zones)
+			.<= [cb.ram for cb in filter(cb -> cb.timestep == data.t[t].name, data.grid)]);
+	else
+		@constraint(model, [t=1:n.t], vcat([cb.ptdf' for cb in data.grid]...) * sum(EX[1, :, zz] - EX[1, zz, :] for zz in 1:n.zones)
+		.<= [cb.ram for cb in data.grid]);
+	end
 end
 
 function add_ntc_constraints!(pomato::POMATO)
