@@ -338,37 +338,6 @@ def split_length_in_ranges(step_size, length):
         ranges.append(range((i+1)*step_size, length))
     return ranges
 
-def from_named_range(wb, name):
-    position_obj = wb.name_map[name]
-    address = position_obj[0].__dict__['formula_text'].split('!')
-    sheet = wb.sheet_by_name(address[0])
-    rng = address[1][1:].replace(":", "").split('$')
-    dic = {}
-    header = sheet.row_values(int(rng[1])-1, start_colx=a2i(rng[0]), end_colx=a2i(rng[2]))
-    for idx,r in enumerate(range(int(rng[1]), int(rng[3]))):
-        tmp = sheet.row_values(r, start_colx=a2i(rng[0]), end_colx=a2i(rng[2]))
-        dic[idx] = {header[i]: tmp[i] for i in range(0,len(tmp))}
-        df = pd.DataFrame.from_dict(dic, orient='index')
-    return(df)
-
-
-def a2i(alph): # alph_to_index_from_excelrange
-    import numpy as np
-    # A = 0 .... Z = 25, AA=26
-    n = len(alph)
-    p = 0
-    for i in range(0, n):
-        p += (ord(alph[i]) - ord('A') + 1) * np.power(26,(n-1-i))
-    return(int(p-1))
-
-def array2latex(array):
-    for i in array:
-        row = []
-        for j in i:
-            row.append(str(round(j,3)))
-        print(' & '.join(row) + ' \\')
-
-
 def _delete_empty_subfolders(folder):
     """Delete all empty subfolders to input folder"""
     non_empty_subfolders = {f.parent for f in folder.rglob("*") if f.is_file()}
@@ -477,30 +446,3 @@ def _getFromDict(dataDict, mapList):
 
 def _setInDict(dataDict, mapList, value):
     _getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
-
-def gams_modelstat_dict(modelstat):
-    """ Returns GAMS ModelStat String for int input"""
-    gams_status_dict = {1:   "Optimal",
-                        2:   "Locally Optimal",
-                        3:   "Unbounded",
-                        4:   "Infeasible",
-                        5:   "Locally Infeasible",
-                        6:   "Intermediate Infeasible",
-                        7:   "Intermediate Nonoptimal",
-                        8:   "Integer Solution",
-                        9:   "Intermediate Non-Integer",
-                        10:  "Integer Infeasible",
-                        11:  "Licensing Problems - No Solution",
-                        12:  "Error Unknown",
-                        13:  "Error No Solution",
-                        14:  "No Solution Returned",
-                        15:  "Solved Unique",
-                        16:  "Solved",
-                        17:  "Solved Singular",
-                        18:  "Unbounded - No Solution",
-                        19:  "Infeasible - No Solution"}
-
-    if modelstat in gams_status_dict.keys():
-        return gams_status_dict[modelstat]
-    else:
-        return f"Unknown GAMS ModelStat {modelstat}"
