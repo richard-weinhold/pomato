@@ -84,9 +84,10 @@ def update_line_colors(lines, n_0_flows, n_1_flows,
     elif option == 2:
         color = []
         line_alpha = []
-        type_color = {380: 'red', 220: 'green', 150: 'black', 132: 'black',
-                      '132': 'black', '220': 'green', '380': 'red', 
-                      '220.0/380.0': 'purple', '132.0/220.0': 'purple', '132.0/380.0': 'purple'}
+        type_color = {380: 'red', 400: 'red', 220: 'green', 232: 'green', 165: 'grey', 150: 'grey', 132: 'black',
+                      "380": 'red', "400": 'red', "220": 'green', "232": 'green', "165": 'grey', "150": 'grey', "132": 'black'}
+        for transformer_voltages in lines.type[lines.technology == "transformer"].unique():
+            type_color[transformer_voltages] = "purple"
         if "cnec" in lines.columns:
             for line in lines.index:
                 if lines.cnec[line]:
