@@ -54,16 +54,17 @@ class DataWorker(object):
         if ".xls" in str(file_path):
             self.logger.info("Loading data from Excel file")
             self.read_xls(file_path)
-
+        elif ".zip" in str(file_path):
+            self.logger.info("Loading data from zipped data archive")
+            self.read_zipped_csv(file_path)
         elif ".mat" in str(file_path):
             self.logger.info("Loading data from matpower .mat case-file")
             self.process_matpower_case(file_path, ".mat")
         elif ".m" in str(file_path):
-
             self.logger.info("Loading data from matpower .m case-file")
             self.process_matpower_case(file_path, ".m")
         else:
-            self.logger.warning("Data Type not supported, only .xls(x) or .mat")
+            self.logger.warning("Data Type not supported, only .xls(x), .zip or .mat")
 
     def read_xls(self, xls_filepath):
         """Read excel file at speciefied filepath.
@@ -81,6 +82,26 @@ class DataWorker(object):
                 self.data.data_attributes[data] = True
             except xlrd.XLRDError:
                 self.logger.warning(f"{data} not in excel file")
+
+    def read_zipped_csv(self, zip_filepath):
+        """Read csv files zipped into archive at speciefied filepath.
+
+        Parameters
+        ----------
+        zip_filepath : pathlib.Path
+            Filepath to .zip file.
+
+        """
+        from zipfile import ZipFile
+
+        with ZipFile(zip_filepath) as zip_archive:
+            for data in self.data.data_attributes:
+                try:
+                    with zip_archive.open(data + '.csv', 'r') as csv_file:
+                        setattr(self.data, data, pd.read_csv(csv_file, index_col=0).infer_objects())
+                        self.data.data_attributes[data] = True
+                except KeyError:
+                    self.logger.warning(f"{data} not in excel file")
 
     def read_mat_file(self, mat_filepath):
         """Read mat file at speciefied filepath.

@@ -47,7 +47,7 @@ function populate_zones(raw::RAW)
         nodes_name = raw.nodes[raw.nodes[:, :zone] .== name, :index]
         plants = filter(row -> row[:node] in nodes_name, raw.plants)[:, :int_idx]
         res_plants = filter(row -> row[:node] in nodes_name, raw.res_plants)[:, :int_idx]
-        demand = by(filter(col -> col[:node] in nodes_name, raw.demand_el), :timestep, sort=true, :demand_el => sum)
+        demand = combine(groupby(filter(col -> col[:node] in nodes_name, raw.demand_el), :timestep, sort=true), :demand_el => sum)
         newz = Zone(index, name, demand[:, :demand_el_sum], nodes_idx, plants, res_plants)
         if (size(raw.ntc, 2) > 1)
             ntc = filter(row -> row[:zone_i] == name, raw.ntc)
@@ -56,10 +56,10 @@ function populate_zones(raw::RAW)
                         0 for zone in raw.zones[:, :index]]
         end
 
-        net_export = by(filter(col -> col[:node] in nodes_name, raw.net_export), :timestep, sort=true, :net_export => sum)
+        net_export = combine(groupby(filter(col -> col[:node] in nodes_name, raw.net_export), :timestep, sort=true), :net_export => sum)
         newz.net_export = net_export[:, :net_export_sum]
 
-        net_position = by(filter(col -> col[:zone] == name, raw.net_position), :timestep, sort=true, :net_position => sum)
+        net_position = combine(groupby(filter(col -> col[:zone] == name, raw.net_position), :timestep, sort=true), :net_position => sum)
         if size(net_position, 1) > 0
             newz.net_position = net_position[:, :net_position_sum]
         end
@@ -73,19 +73,19 @@ function populate_nodes(raw::RAW)
     for n in 1:nrow(raw.nodes)
         index = n
         name = raw.nodes[n, :index]
-        slack = uppercase(raw.nodes[n, :slack]) == "TRUE"
+        slack = raw.nodes[n, :slack]
         zone_name = raw.nodes[n, :zone]
         zone_idx = raw.zones[raw.zones[:, :index] .== zone_name, :int_idx][1]
         plants = raw.plants[raw.plants[:, :node] .== name, :int_idx]
         res_plants = raw.res_plants[raw.res_plants[:, :node] .== name, :int_idx]
-        demand = by(filter(col -> col[:node] == name, raw.demand_el), :timestep, sort=true, :demand_el => sum)
+        demand = combine(groupby(filter(col -> col[:node] == name, raw.demand_el), :timestep, sort=true), :demand_el => sum)
         newn = Node(index, name, zone_idx, demand[:, :demand_el_sum], slack, plants, res_plants)
         if slack
             # newn.slack_zone = slack_zones[index]
             slack_zone = raw.slack_zones[:, :index][raw.slack_zones[:, Symbol(name)] .== 1]
             newn.slack_zone = filter(col -> col[:index] in slack_zone, raw.nodes)[:, :int_idx]
         end
-        net_export = by(filter(col -> col[:node] == name, raw.net_export), :timestep, sort=true, :net_export => sum)
+        net_export = combine(groupby(filter(col -> col[:node] == name, raw.net_export), :timestep, sort=true), :net_export => sum)
         newn.net_export = net_export[:, :net_export_sum]
         push!(nodes, newn)
     end
@@ -97,7 +97,7 @@ function populate_heatareas(raw::RAW)
     for h in 1:nrow(raw.heatareas)
         index = h
         name = raw.heatareas[h, :index]
-        demand = by(filter(col -> col[:heatarea] == name, raw.demand_h), :timestep, sort=true, :demand_h => sum)
+        demand = combine(groupby(filter(col -> col[:heatarea] == name, raw.demand_h), :timestep, sort=true), :demand_h => sum)
         plants = raw.plants[(raw.plants[:, :heatarea] .=== name).&(raw.plants[:, :h_max] .> 0), :int_idx]
         res_plants = raw.res_plants[(raw.res_plants[:, :heatarea] .=== name).&(raw.res_plants[:, :h_max] .> 0), :int_idx]
         newh = Heatarea(index, name, demand[:, :demand_h_sum], plants, res_plants)
@@ -142,8 +142,8 @@ function populate_res_plants(raw::RAW)
         mc_el = raw.res_plants[res, :mc_el]*1.
         mc_heat = raw.res_plants[res, :mc_heat]*1.
         plant_type = raw.res_plants[res, :plant_type]
-        availability = by(filter(col -> col[:plant] == name, raw.availability),
-                          :timestep, sort=true, :availability => sum)
+        availability = combine(groupby(filter(col -> col[:plant] == name, raw.availability),
+                                       :timestep, sort=true), :availability => sum)
         newres = Renewables(index, name, g_max, h_max, mc_el, mc_heat,
                             availability[:, :availability_sum],
                             node_idx, plant_type)
