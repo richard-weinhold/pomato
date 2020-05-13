@@ -40,7 +40,7 @@ The recommended way to install POMATO is through *pip* by creating a virtual env
 
     python -m venv pomato
     .\pomato\Scripts\activate
-    pip install git+https://github.com/korpuskel91/pomato.git
+    pip install git+https://github.com/richard-weinhold/pomato.git
 
 After this is completed pomato can be imported in python:
 
