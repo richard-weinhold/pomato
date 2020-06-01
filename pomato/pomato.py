@@ -386,6 +386,13 @@ class POMATO():
         if show:
             self.bokeh_plot.show_plot()
 
+    def _instantiate_julia_dev(self, redundancyremoval_path, marketmodel_path):
+        tools.julia_management.instantiate_julia_dev(self.package_dir, 
+                                                     str(redundancyremoval_path), 
+                                                     str(marketmodel_path))
+    def _instantiate_julia(self):
+        tools.julia_management.instantiate_julia(self.package_dir)
+
     def _join_julia_instances(self):
         if self.market_model.julia_model:
             self.market_model.julia_model.join()

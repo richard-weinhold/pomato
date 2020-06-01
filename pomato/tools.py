@@ -13,7 +13,7 @@ from functools import reduce
 from pathlib import Path
 
 import pandas as pd
-
+import pomato._installation.manage_julia_env as julia_management
 
 class JuliaDaemon():
     """Class to communicate with a julia daemon process.
@@ -120,7 +120,6 @@ class JuliaDaemon():
             except:
                 self.logger.warning("Failed to write to daemon file.")
                 time.sleep(1)
-
 
     def read_daemon_file(self):
         """Read daemon file from disk"""

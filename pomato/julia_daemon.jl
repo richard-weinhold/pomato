@@ -1,7 +1,10 @@
 
 using JSON
-# using RedundancyRemoval
-# using MarketModel
+using Pkg
+
+
+# Deamon functions
+##################
 
 function write_daemon_file(file::Dict)
     global daemon_file
@@ -34,10 +37,50 @@ function read_daemon_file()
     
 end
 
+function run_redundancy_removal(file_suffix::String, multi_threaded::Bool)
+    global wdir
+    global optimizer
+    cbco_dir = wdir*"/data_temp/julia_files/cbco_data"
+
+    if multi_threaded & (Threads.nthreads() >= 2)
+        @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
+        RedundancyRemoval.run_redundancy_removal(cbco_dir, file_suffix, optimizer, filter_only=true)
+    else
+        @info("Run case $(file_suffix) single threaded")
+        RedundancyRemoval.run_redundancy_removal(cbco_dir, file_suffix, optimizer, parallel=false)
+    end
+end
+
+function run_market_model(redisp_arg::Bool)
+    global wdir
+    global optimizer
+    data_dir = wdir*"/data_temp/julia_files/data/"
+    result_dir = wdir*"/data_temp/julia_files/results/"
+    if redisp_arg
+        @info("Run market model, including redispatch")
+    else
+        @info("Run market model")
+    end
+    MarketModel.run_market_model(data_dir, result_dir, optimizer, redispatch=redisp_arg)
+    @info("Done with market model.")
+end
+
+# Setting everthing up
+######################
+
 global model_type = ARGS[1]
-# global model_type = "redundancy_removal"
 global wdir = pwd()
 global daemon_file = wdir*"/data_temp/julia_files/daemon_"*model_type*".json"
+
+if "Gurobi" in keys(Pkg.installed())
+    using Gurobi
+    global optimizer = Gurobi.Optimizer
+else
+    using Clp
+    global optimizer = Clp.Optimizer
+end
+
+
 @info("reading from file $(daemon_file)")
 file = read_daemon_file()
 
@@ -49,28 +92,9 @@ else
     throw(ArgumentError("No valid argument given"))
 end
 
-function run_redundancy_removal(file_suffix::String, multi_threaded::Bool)
-    if multi_threaded & (Threads.nthreads() >= 2)
-        @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
-        RedundancyRemoval.run_redundancy_removal_parallel(file_suffix, filter_only=true)
-    else
-        @info("Run case $(file_suffix) single threaded")
-        RedundancyRemoval.run_redundancy_removal(file_suffix)
-    end
-end
 
-function run_market_model_redispatch(wdir::String, data_dir::String)
-    @info("Run market model with redispatch")
-    MarketModel.run_market_model_redispatch(wdir, data_dir)
-    @info("Done with market model.")
-end
-
-function run_market_model(wdir::String, data_dir::String)
-    @info("Run market model")
-    MarketModel.run_market_model(wdir, data_dir)
-    @info("Done with market model.")
-end
-
+# Run the loop
+##############
 @info("Done with Initialization. Starting daemon process $(file["type"])!")
 while true
     file = read_daemon_file()
@@ -93,11 +117,7 @@ while true
             global wdir
             redispatch = file["redispatch"]
             data_dir = file["data_dir"]
-            if redispatch
-                run_market_model_redispatch(wdir, data_dir)
-            else
-                run_market_model(wdir, data_dir)
-            end
+            run_market_model(redispatch)
         end
         file["processing"] = false
         write_daemon_file(file)

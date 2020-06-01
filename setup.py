@@ -4,44 +4,38 @@ from setuptools.command.develop import develop
 from setuptools.command.install import install
 
 import subprocess, sys, os
+from pathlib import Path
 
-def julia_instantiate(package_path):
-    args = ["julia", "pomato/_installation/julia_instantiate.jl"]   
+def julia_instantiate(install_lib_path):
+    args = ["julia", "_installation/julia_install_from_git.jl"]   
     # raise ImportError("package path %s", package_path)
+    package_path = Path(install_lib_path).joinpath("pomato")
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, cwd=package_path) as programm:
         for line in programm.stdout:
           pass
             # print(line.decode(errors="ignore").strip())
 
-def check_for_julia_and_gurobi():
-    # Check of jula exists
+def check_for_julia():
+    # Check if jula exists
     import distutils.spawn
     import os
-    julia_exists = bool(distutils.spawn.find_executable("julia"))
-    gurobi_exists = bool("GUROBI_HOME" in os.environ)
-
-    if not julia_exists:
+    if not bool(distutils.spawn.find_executable("julia")):
         raise ImportError('Julia Executable not found on path.')
     else:
         print("Julia Found!")
-    if not gurobi_exists:
-        raise ImportError('GUROBI_HOME not found on path.')
-    else:
-        print("Gurobi Found!")
 
 # https://stackoverflow.com/questions/20288711/post-install-script-with-python-setuptools
 class DevelopCommand(develop):
     """Pre-installation for development mode."""
     def run(self):
-        check_for_julia_and_gurobi()
+        check_for_julia()
         develop.run(self)
-        julia_instantiate(self.install_lib)
 
 class InstallCommand(install):
     """Pre-installation for installation mode."""
     def run(self):
-        check_for_julia_and_gurobi()
+        check_for_julia()
         install.run(self)
         julia_instantiate(self.install_lib)
 
