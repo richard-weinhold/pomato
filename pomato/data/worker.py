@@ -336,7 +336,7 @@ class DataWorker(object):
 
         self.data.lines.node_i = ["n" + str(int(idx)) for idx in self.data.lines.node_i]
         self.data.lines.node_j = ["n" + str(int(idx)) for idx in self.data.lines.node_j]
-        self.data.lines["type"] = self.data.nodes.loc[self.data.lines.node_i, "voltage"].values
+        self.data.lines["voltage"] = self.data.nodes.loc[self.data.lines.node_i, "voltage"].values
         self.data.lines["technology"] = "ac"
         cond_trafo = (self.data.nodes.loc[self.data.lines.node_i, "voltage"].values 
                       != self.data.nodes.loc[self.data.lines.node_j, "voltage"].values)

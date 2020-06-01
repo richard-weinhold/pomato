@@ -61,14 +61,30 @@ class InputProcessing(object):
 
         if "net_export" in self.options["data"]["process"]:
             self.process_net_export()
+            
+        if "net_position" in self.options["data"]["process"]:
+            self.process_net_position()
 
         if self.options["data"]["unique_mc"]:
             self.unique_mc()
+        
+        if "default_net_position" in self.options["data"]:
+            self.default_net_position()
 
         if not self.data.data_attributes["dclines"]:
             self.data.dclines = pd.DataFrame(columns=['node_i', 'node_j', 'name_i', 'name_j', 'maxflow'])
 
         self._check_data()
+
+    def default_net_position(self):
+        """Add default net position."""
+
+        self.data.net_position = pd.DataFrame(index=self.data.demand_el.timestep.unique(), 
+                                              columns=self.data.zones.index, 
+                                              data=self.options["data"]["default_net_position"]).stack().reset_index()
+
+        self.data.net_position.columns = self.data.model_structure["net_position"].attributes.values[1:]
+
 
     def process_demand(self):
         """Process demand data.
@@ -96,7 +112,7 @@ class InputProcessing(object):
         each zone and timestep.
         """
         if self.data.net_position.empty:
-            net_position_columns = self.data.data_structure["net_position"].attributes.values[1:]
+            net_position_columns = self.data.model_structure["net_position"].attributes.values[1:]
             self.data.net_position = pd.DataFrame(columns=net_position_columns)
             self.data.net_position["timestep"] = self.data.demand_el.timestep.unique()
 

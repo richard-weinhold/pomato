@@ -84,28 +84,16 @@ def update_line_colors(lines, n_0_flows, n_1_flows,
     elif option == 2:
         color = []
         line_alpha = []
-        type_color = {380: 'red', 400: 'red', 220: 'green', 232: 'green', 165: 'grey', 150: 'grey', 132: 'black',
-                      "380": 'red', "400": 'red', "220": 'green', "232": 'green', "165": 'grey', "150": 'grey', "132": 'black'}
-        for transformer_voltages in lines.type[lines.technology == "transformer"].unique():
-            type_color[transformer_voltages] = "purple"
-        if "cnec" in lines.columns:
-            for line in lines.index:
-                if lines.cnec[line]:
-                    color.append("blue")
-                    line_alpha.append(1.0)
-                elif lines.cb[line]:
-                    color.append("purple")
-                    line_alpha.append(1.0)
-                else:
-                    color.append(type_color[lines.loc[line, "type"]])
-                    line_alpha.append(0.1)
-        else:
-            for line in lines.index:
-                if lines.loc[line, "type"] in type_color:
-                    color.append(type_color[lines.loc[line, "type"]])
-                else:
-                    color.append("black")
-                line_alpha.append(0.6)
+        voltage_color = {380: 'red', 400: 'red', 220: 'green', 232: 'green', 165: 'grey', 150: 'grey', 132: 'black'}
+
+        for line in lines.index:
+            if lines.loc[line, "technology"] == "transformer":
+                color.append("purple")
+            elif lines.loc[line, "voltage"] in voltage_color:
+                color.append(voltage_color[lines.loc[line, "voltage"]])
+            else:
+                color.append("black")
+            line_alpha.append(0.6)
 
     return color, line_alpha
 
