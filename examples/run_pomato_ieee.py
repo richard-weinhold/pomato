@@ -8,7 +8,7 @@ import pandas as pd
 # %% Init POMATO with the options file and the dataset
 import pomato
 
-wdir = Path("C:/Users/riw/tubCloud/Uni/Market_Tool/pomato_studies")
+wdir = Path.cwd()
 mato = pomato.POMATO(wdir=wdir, options_file="profiles/ieee118.json")
 mato.load_data('data_input/pglib_opf_case118_ieee.m')
 
