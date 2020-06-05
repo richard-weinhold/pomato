@@ -51,6 +51,27 @@ def merc(lat, lon):
     coord_y = 180.0/np.pi * np.log(np.tan(np.pi/4.0 + lat * (np.pi/180.0)/2.0)) * scale
     return(coord_x, coord_y)
 
+def create_voltage_colors(lines): 
+    #{380: 'red', 400: 'red', 220: 'green', 232: 'green', 165: 'grey', 150: 'grey', 132: 'black'}
+    tmp = lines[["voltage"]].copy()
+    tmp["voltage"] = lines.loc[:, "voltage"].apply(pd.to_numeric, errors='coerce')
+    tmp["color"] = ""
+    for line in tmp.index:
+        if tmp.loc[line, "voltage"] > 500:
+            tmp.loc[line, "color"] = "blue"
+        elif tmp.loc[line, "voltage"] > 300:
+            tmp.loc[line, "color"] = "red"
+        elif tmp.loc[line, "voltage"] > 200:
+            tmp.loc[line, "color"] = "red" 
+        elif tmp.loc[line, "voltage"] > 100:
+            tmp.loc[line, "color"] = "black" 
+        elif tmp.loc[line, "voltage"] <= 100:
+            tmp.loc[line, "color"] = "grey" 
+        else:
+            tmp.loc[line, "color"] = "purple"
+
+    return list(tmp.color)
+
 def update_line_colors(lines, n_0_flows, n_1_flows,
                        option=0, range_start=0, range_end=100):
     """Line colors in 10 shades of RedYellowGreeen palette"""
@@ -82,18 +103,8 @@ def update_line_colors(lines, n_0_flows, n_1_flows,
         line_alpha = list(n_1_flows.alpha.values)
 
     elif option == 2:
-        color = []
-        line_alpha = []
-        voltage_color = {380: 'red', 400: 'red', 220: 'green', 232: 'green', 165: 'grey', 150: 'grey', 132: 'black'}
-
-        for line in lines.index:
-            if lines.loc[line, "technology"] == "transformer":
-                color.append("purple")
-            elif lines.loc[line, "voltage"] in voltage_color:
-                color.append(voltage_color[lines.loc[line, "voltage"]])
-            else:
-                color.append("black")
-            line_alpha.append(0.6)
+        color = create_voltage_colors(lines)
+        line_alpha = [0.6 for i in lines.index]
 
     return color, line_alpha
 

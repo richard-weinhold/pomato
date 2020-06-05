@@ -354,9 +354,13 @@ def default_options():
         "model_horizon": [0, 2],
         "heat_model": False,
         "constrain_nex": False,
-        "split_timeseries": True,
+        "timeseries": {
+            "split": True,
+            "market_horizon": 1000,
+            "redispatch_horizon": 24},
         "redispatch": {
             "include": False,
+            "zonal_redispatch": False,
             "zones": [],
             "cost": 1},
         "curtailment": {
