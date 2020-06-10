@@ -287,11 +287,15 @@ class POMATO():
         """
         self.data = DataManagement(self.options, self.wdir)
         self.data.load_data(filename)
-        self.grid = GridModel(self.data.nodes, self.data.lines)
+        self.init_grid_model()
         
         self.cbco_module = CBCOModule(self.wdir, self.package_dir, self.grid, self.data, self.options)
         self.market_model = MarketModel(self.wdir, self.package_dir, self.options)
        
+    def init_grid_model(self):
+        """Initialize the grid model from the data management object"""
+        self.grid = GridModel(self.data.nodes, self.data.lines)
+
     def init_market_model(self):
         """Initialize the market model.
 

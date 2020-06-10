@@ -11,7 +11,7 @@ def julia_instantiate(install_lib_path):
     # raise ImportError("package path %s", package_path)
     package_path = Path(install_lib_path).joinpath("pomato")
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, cwd=package_path) as programm:
+                          stderr=subprocess.STDOUT, cwd=str(package_path)) as programm:
         for line in programm.stdout:
           pass
             # print(line.decode(errors="ignore").strip())
