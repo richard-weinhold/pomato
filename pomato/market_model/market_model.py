@@ -18,8 +18,6 @@ import pandas as pd
 
 import pomato.tools as tools
 
-# import re
-
 
 class MarketModel():
     """Class to interface the MarketModel in Julia with the python based Data and Grid models.
@@ -68,7 +66,8 @@ class MarketModel():
         # Create Folders
         self.wdir = wdir
         self.package_dir = package_dir
-        self.data_dir = wdir.joinpath("data_temp/julia_files")
+        self.data_dir = wdir.joinpath("data_temp/julia_files/data")
+        self.results_dir = wdir.joinpath("data_temp/julia_files/results")
         self.julia_model = None
 
         # Make sure all folders exist
@@ -145,11 +144,14 @@ class MarketModel():
             # find latest folders created in julia result folder
             # last for normal dispatch, least 2 for redispatch
             if self.options["optimization"]["redispatch"]["include"]:
-                num_of_results = len(self.options["optimization"]["redispatch"]["zones"]) + 1
-                self.result_folders = tools.newest_file_folder(self.data_dir.joinpath("results"),
+                if self.options["optimization"]["redispatch"]["zonal_redispatch"]:
+                    num_of_results = len(self.options["optimization"]["redispatch"]["zones"]) + 1
+                else:
+                    num_of_results = 2
+                self.result_folders = tools.newest_file_folder(self.results_dir,
                                                                number_of_elm=num_of_results)
             else:
-                self.result_folders = [tools.newest_file_folder(self.data_dir.joinpath("results"),
+                self.result_folders = [tools.newest_file_folder(self.results_dir,
                                                                 number_of_elm=1)]  
 
             for folder in self.result_folders:
@@ -170,37 +172,39 @@ class MarketModel():
         represenation and the options.
 
         """
-        csv_path = self.data_dir.joinpath('data')
+        if not self.data_dir.is_dir():
+            self.data_dir.mkdir()
+
         for data in self.data.model_structure:
             cols = [col for col in self.data.model_structure[data].attributes if col != "index"]
             if "timestep" in cols:
                 getattr(self.data, data).loc[getattr(self.data, data)["timestep"].isin(self.model_horizon), cols] \
-                    .to_csv(str(csv_path.joinpath(f'{data}.csv')), index_label='index')
+                    .to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
             else:
-                getattr(self.data, data)[cols].to_csv(str(csv_path.joinpath(f'{data}.csv')), index_label='index')
+                getattr(self.data, data)[cols].to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
 
         plant_types = pd.DataFrame(index=self.data.plants.plant_type.unique())
         for ptype in self.options["optimization"]["plant_types"]:
             plant_types[ptype] = 0
             condition = plant_types.index.isin(self.options["optimization"]["plant_types"][ptype])
             plant_types[ptype][condition] = 1
-        plant_types.to_csv(str(csv_path.joinpath('plant_types.csv')), index_label='index')
+        plant_types.to_csv(str(self.data_dir.joinpath('plant_types.csv')), index_label='index')
 
         # Optional data
         if self.grid_representation["grid"].empty:
-            pd.DataFrame(columns=["ram"]).to_csv(str(csv_path.joinpath('grid.csv')), index_label='index')
+            pd.DataFrame(columns=["ram"]).to_csv(str(self.data_dir.joinpath('grid.csv')), index_label='index')
         else:
             self.grid_representation["grid"] \
-                .to_csv(str(csv_path.joinpath('grid.csv')), index_label='index')
+                .to_csv(str(self.data_dir.joinpath('grid.csv')), index_label='index')
 
         if self.grid_representation["redispatch_grid"].empty:
-            pd.DataFrame(columns=["ram"]).to_csv(str(csv_path.joinpath('redispatch_grid.csv')), index_label='index')
+            pd.DataFrame(columns=["ram"]).to_csv(str(self.data_dir.joinpath('redispatch_grid.csv')), index_label='index')
         else:
             self.grid_representation["redispatch_grid"] \
-                .to_csv(str(csv_path.joinpath('redispatch_grid.csv')), index_label='index')
+                .to_csv(str(self.data_dir.joinpath('redispatch_grid.csv')), index_label='index')
 
         if not self.grid_representation["ntc"].empty:
-            self.grid_representation["ntc"].to_csv(str(csv_path.joinpath('ntc.csv')), index_label='index')
+            self.grid_representation["ntc"].to_csv(str(self.data_dir.joinpath('ntc.csv')), index_label='index')
 
         slack_zones = pd.DataFrame(index=self.data.nodes.index)
         for slack in self.grid_representation["slack_zones"]:
@@ -208,7 +212,7 @@ class MarketModel():
             condition = slack_zones.index.isin(self.grid_representation["slack_zones"][slack])
             slack_zones[slack][condition] = 1
 
-        slack_zones.to_csv(str(csv_path.joinpath('slack_zones.csv')), index_label='index')
+        slack_zones.to_csv(str(self.data_dir.joinpath('slack_zones.csv')), index_label='index')
 
-        with open(csv_path.joinpath('options.json'), 'w') as file:
+        with open(self.data_dir.joinpath('options.json'), 'w') as file:
             json.dump(self.options["optimization"], file, indent=2)

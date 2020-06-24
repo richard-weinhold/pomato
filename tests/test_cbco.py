@@ -24,7 +24,9 @@ class TestPomatoGridRepresentation(unittest.TestCase):
         self.options = pomato.tools.default_options()
         self.data = pomato.data.DataManagement(self.options, self.wdir)
         self.data.logger.setLevel(logging.ERROR)
-        self.data.load_data('data_input/pglib_opf_case118_ieee.m')
+        # self.data.load_data('data_input/pglib_opf_case118_ieee.m')
+        self.data.load_data(r'data_input/nrel_118.xlsx')
+
         self.grid  = pomato.grid.GridModel(self.data.nodes, self.data.lines)
         self.cbco_module = pomato.cbco.CBCOModule(self.wdir, self.wdir, self.grid, self.data, self.options)
         self.cbco_module.logger.setLevel(logging.ERROR)
@@ -78,8 +80,8 @@ class TestPomatoGridRepresentation(unittest.TestCase):
         pd.testing.assert_frame_equal(c_ptdf_fallback, self.cbco_module.grid_representation["grid"])
 
     def test_cbco_nodal_clarkson(self):
-        my_file = self.wdir.parent.joinpath('tests/test_data/ieee_cbco.csv')
-        to_file = self.wdir.joinpath('data_temp/julia_files/cbco_data/ieee_cbco.csv')
+        my_file = self.wdir.parent.joinpath('tests/test_data/nrel_cbco.csv')
+        to_file = self.wdir.joinpath('data_temp/julia_files/cbco_data/nrel_cbco.csv')
         shutil.copyfile(str(my_file), str(to_file))
         self.cbco_module.jdir = self.wdir.joinpath('data_temp/julia_files')
 

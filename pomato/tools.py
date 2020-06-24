@@ -8,6 +8,7 @@ import json
 import operator
 import subprocess
 import threading
+import shutil, os 
 import time
 from functools import reduce
 from pathlib import Path
@@ -323,7 +324,7 @@ def find_xy_limits(list_plots):
                 "y_max": y_max, "y_min": y_min}
     except:
         print('error:find_xy_limits')
-
+        
 def split_length_in_ranges(step_size, length):
     """Split a range 1:N in a list of ranges with specified length."""
     ranges = []
@@ -360,7 +361,7 @@ def default_options():
             "redispatch_horizon": 24},
         "redispatch": {
             "include": False,
-            "zonal_redispatch": False,
+            "zonal_redispatch": True,
             "zones": [],
             "cost": 1},
         "curtailment": {
@@ -449,3 +450,13 @@ def _getFromDict(dataDict, mapList):
 
 def _setInDict(dataDict, mapList, value):
     _getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
+
+def copytree(src, dst, symlinks=False, ignore=None):
+    # https://stackoverflow.com/a/12514470
+    for item in os.listdir(src):
+        s = os.path.join(src, item)
+        d = os.path.join(dst, item)
+        if os.path.isdir(s):
+            shutil.copytree(s, d, symlinks, ignore)
+        else:
+            shutil.copy2(s, d)

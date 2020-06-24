@@ -44,10 +44,10 @@ function run_redundancy_removal(file_suffix::String, multi_threaded::Bool)
 
     if multi_threaded & (Threads.nthreads() >= 2)
         @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
-        RedundancyRemoval.run_redundancy_removal(cbco_dir, file_suffix, optimizer, filter_only=true)
+        RedundancyRemoval.run_redundancy_removal(cbco_dir, file_suffix, optimizer.Optimizer, filter_only=true)
     else
         @info("Run case $(file_suffix) single threaded")
-        RedundancyRemoval.run_redundancy_removal(cbco_dir, file_suffix, optimizer, parallel=false)
+        RedundancyRemoval.run_redundancy_removal(cbco_dir, file_suffix, optimizer.Optimizer, parallel=false)
     end
 end
 
@@ -74,10 +74,10 @@ global daemon_file = wdir*"/data_temp/julia_files/daemon_"*model_type*".json"
 
 if "Gurobi" in keys(Pkg.installed())
     using Gurobi
-    global optimizer = Gurobi.Optimizer
+    global optimizer = Gurobi
 else
     using Clp
-    global optimizer = Clp.Optimizer
+    global optimizer = Clp
 end
 
 

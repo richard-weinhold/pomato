@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+import pomato.tools as tools
 from pomato.data.input import InputProcessing
 from pomato.data.results import ResultProcessing
 from pomato.data.worker import DataWorker
@@ -85,6 +86,26 @@ class DataManagement():
         with pd.ExcelWriter(filepath) as writer: #pylint: disable=abstract-class-instantiated
             for data in self.data_attributes["data"]:
                 getattr(self, data).to_excel(writer, sheet_name=data)
+
+    def save_results(self, folder, name=None):
+        """Copy the loaded results into a folder.
+
+        Parameters
+        ----------
+         folder: pathlib.Path
+            Folder where all results are copied to.
+        """
+        if len(self.results) == 0:
+            self.logger.warning("No results to save")
+        else:
+            for key in self.results:
+                if name:
+                    result_folder = name + key[9:]
+                else:
+                    result_folder = key
+                folder.joinpath(result_folder).mkdir()
+                tools.copytree(self.results[key].result_attributes["source"], folder.joinpath(result_folder))
+
 
     def load_data(self, filepath):
         """Load Data from dataset at filepath.

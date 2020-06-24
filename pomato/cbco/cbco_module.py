@@ -257,19 +257,18 @@ class CBCOModule():
         self.create_ntc()
 
     def _add_zone_to_grid_representation(self, grid_representation):
-        """Add information in which country a line is located."""
-        grid_representation["zone"] = ""
-        for zone in self.data.zones.index:
-            nodes_in_zones = self.grid.nodes.index[self.grid.nodes.zone == zone]
-            lines_in_zone = list(self.grid.lines.index[(self.grid.lines.node_i.isin(nodes_in_zones) &
-                                                        (self.grid.lines.node_j.isin(nodes_in_zones)))])
-            lines_in_zone.append("basecase")
-            if "cb" in grid_representation.columns:
-                condition = (grid_representation.cb.isin(lines_in_zone) &
-                             (grid_representation.co.isin(lines_in_zone)))
-            else:
-                condition = grid_representation.index.isin(lines_in_zone)
-            grid_representation.loc[condition, "zone"] = zone
+        """Add information in which country a line is located.
+        
+        By adding two columns in dataframe: zone_i, zone_j. This information is needed for zonal redispatch 
+        to identify which lines should be redispatched. 
+        """
+
+        if "cb" in grid_representation.columns:
+            grid_representation["zone_i"] = self.grid.nodes.loc[self.grid.lines.loc[grid_representation.cb, "node_i"], "zone"].values
+            grid_representation["zone_j"] = self.grid.nodes.loc[self.grid.lines.loc[grid_representation.cb, "node_j"], "zone"].values
+        else:
+            grid_representation["zone_i"] = self.grid.nodes.loc[self.grid.lines.loc[grid_representation.index, "node_i"], "zone"].values
+            grid_representation["zone_j"] = self.grid.nodes.loc[self.grid.lines.loc[grid_representation.index, "node_j"], "zone"].values
 
         return grid_representation
 

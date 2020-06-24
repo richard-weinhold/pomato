@@ -132,7 +132,7 @@ def _logging_setup(wdir, webapp, logging_level=logging.INFO):
             # Clear Logfile
             with open(logfile_path, 'w'):
                 pass
-            file_handler = logging.FileHandler(logfile_path)
+            file_handler = logging.FileHandler(logfile_path, 'utf-8')
             file_handler.setLevel(logging.INFO)
             file_handler_formatter = logging.Formatter('%(asctime)s - %(message)s',
                                                        '%d.%m %H:%M')
@@ -306,11 +306,9 @@ class POMATO():
         if not self.grid_representation:
             self.create_grid_representation()
 
-        if not self.market_model:
-            self.market_model = MarketModel(self.wdir, self.package_dir, self.options)
-            self.market_model.update_data(self.data, self.options, self.grid_representation)
+        self.market_model = MarketModel(self.wdir, self.package_dir, self.options)
 
-    def update_market_model_data(self):
+    def update_market_model_data(self, folder=None):
         """Update data within an instance of the market model.
 
         It is possible to change the data in the market mode and re-run without
@@ -318,8 +316,14 @@ class POMATO():
         """
         if not self.market_model:
             self.init_market_model()
+
+        if folder:
+            self.market_model.data_dir = folder
+            self.market_model.update_data(self.data, self.options, self.grid_representation)
+            self.market_model.data_dir = self.wdir.joinpath("data_temp/julia_files/data")
         else:
             self.market_model.update_data(self.data, self.options, self.grid_representation)
+            
 
     def initialize_market_results(self, result_folders):
         """Initionalizes market results from a list of folders.
@@ -400,9 +404,12 @@ class POMATO():
     def _join_julia_instances(self):
         if self.market_model.julia_model:
             self.market_model.julia_model.join()
+            self.market_model.julia_model = None
         if self.cbco_module.julia_instance:
             self.cbco_module.julia_instance.join()
+            self.cbco_module.julia_instance = None
 
-    def start_julia_instances(self):
+    def _start_julia_instances(self):
         self.cbco_module._start_julia_daemon()
         self.market_model._start_julia_daemon()
+

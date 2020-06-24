@@ -239,12 +239,12 @@ class FBMCModule():
         #Therefore if b == 0, b-> 1 (or something small>0)
         if not (b > 0).all():
             b[(b < 0)] = 0.1
-            self.logger.warning('some b is not right (possibly < 0)')
+            self.logger.warning('Some RAMS are < 0 (thats bad)')
 
         return(A, b)
 
     def create_flowbased_parameters(self):
-
+        
         fbmc_paramters = {}
         cbco = CBCOModule(self.wdir, self.package_dir, self.grid, self.data, self.data.options)
         cbco._start_julia_daemon()
