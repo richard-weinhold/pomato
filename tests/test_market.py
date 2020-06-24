@@ -51,8 +51,9 @@ class TestPomatoMarketModel(unittest.TestCase):
                      "inflows", "net_export", "net_position", "nodes", "ntc", "plant_types", 
                      "plants", "redispatch_grid", "slack_zones", "zones"]:
             print(data)
-            self.assertTrue(self.market_model.data_dir.joinpath(f'data/{data}.csv').is_file())
-        self.assertTrue(self.market_model.data_dir.joinpath('data/options.json').is_file())
+            print(self.market_model.data_dir)
+            self.assertTrue(self.market_model.data_dir.joinpath(f'{data}.csv').is_file())
+        self.assertTrue(self.market_model.data_dir.joinpath('options.json').is_file())
 
     def test_market_model_run(self):
         prepared_result = self.wdir.parent.joinpath('tests/test_data/dispatch_result/')
