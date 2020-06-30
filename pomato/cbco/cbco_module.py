@@ -5,8 +5,6 @@ import itertools
 import numpy as np
 import pandas as pd
 
-from scipy import spatial
-from sklearn.decomposition import PCA
 import pomato.tools as tools
 
 class CBCOModule():

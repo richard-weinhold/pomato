@@ -60,8 +60,6 @@ setup(name='pomato',
         'pathlib',
         'psutil',
         'pyproj',
-        'scikit-learn',
-        'scipy',
         'xlrd'],
       cmdclass={
         'develop': DevelopCommand,
