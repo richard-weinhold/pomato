@@ -12,7 +12,6 @@ import numpy as np
 import pandas as pd
 
 import matplotlib.pyplot as plt
-from scipy import spatial
 import pomato.tools as tools
 from pomato.cbco import CBCOModule
 

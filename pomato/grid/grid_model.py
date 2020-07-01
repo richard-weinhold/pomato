@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 import scipy
 
-
 class GridModel():
     """Grid Model of POMATO
 
