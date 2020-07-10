@@ -37,12 +37,33 @@ class TestPomatoGridRepresentation(unittest.TestCase):
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
 
-    def tessht_ntc(self):
+    def test_ntc(self):
         self.cbco_module.options["optimization"]["type"] = "ntc"
         self.cbco_module.create_grid_representation()
         grid_representation = self.cbco_module.grid_representation
         np.testing.assert_equal(grid_representation["redispatch_grid"][self.data.nodes.index].values, self.grid.ptdf)
         np.testing.assert_equal(grid_representation["redispatch_grid"]["ram"].values, self.data.lines.maxflow.values)
+
+    def test_zonal(self):
+
+        self.cbco_module.options["optimization"]["type"] = "zonal"
+        self.cbco_module.options["grid"]["gsk"] = "gmax"
+
+        self.cbco_module.create_grid_representation()
+        grid_representation_gmax = self.cbco_module.grid_representation.copy()
+
+        self.cbco_module.options["grid"]["gsk"] = "flat"
+        self.cbco_module.create_grid_representation()
+        grid_representation_flat = self.cbco_module.grid_representation.copy()
+
+        self.assertRaises(AssertionError, np.testing.assert_equal, 
+                          grid_representation_flat["grid"].values, grid_representation_gmax["grid"].values)
+
+        test_columns = list(self.cbco_module.data.zones.index) + ["ram"]
+        self.assertTrue(all(grid_representation_flat["grid"].columns == test_columns))
+        self.assertTrue(all(grid_representation_gmax["grid"].columns == test_columns))
+        
+
 
     def test_nodal(self):
         self.cbco_module.options["optimization"]["type"] = "nodal"

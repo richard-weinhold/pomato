@@ -555,6 +555,7 @@ class CBCOModule():
             ptdf matrix.
 
         """
+        self.logger.info("Creating gsk with option: %s", option)
         gsk = pd.DataFrame(index=self.data.nodes.index)
         condition = (self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["ts"]) 
                         & (~self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["es"])))

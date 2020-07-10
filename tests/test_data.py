@@ -30,7 +30,6 @@ class TestPomatoData(unittest.TestCase):
         self.assertTrue(self.data.plants.loc[self.data.plants.mc_el.isna(), :].empty)
 
     def test_nodes_lines_data(self):
-        
         self.assertEqual(len(self.data.nodes), 118)
         self.assertEqual(len(self.data.lines), 186)
         for data in ["slack"]:
