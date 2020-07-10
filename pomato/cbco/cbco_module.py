@@ -124,8 +124,8 @@ class CBCOModule():
 
         if self.options["optimization"]["type"] == "ntc":
             self.process_ntc()
-            if self.options["optimization"]["redispatch"]["include"]:
-                self.process_nodal()
+            # if self.options["optimization"]["redispatch"]["include"]:
+                # self.process_nodal()
         elif self.options["optimization"]["type"] == "nodal":
             self.process_nodal()
         elif self.options["optimization"]["type"] == "zonal":
@@ -627,4 +627,5 @@ class CBCOModule():
             else:
                 tmp.append([from_zone, to_zone, 0])
                 tmp.append([to_zone, from_zone, 0])
+
         self.grid_representation["ntc"] = pd.DataFrame(tmp, columns=["zone_i", "zone_j", "ntc"])
