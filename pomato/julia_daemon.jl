@@ -65,6 +65,19 @@ function run_market_model(redisp_arg::Bool)
     @info("Done with market model.")
 end
 
+function set_optimizer(file)
+    if file["chance_constrained"]
+        @info("Loading Mosek for Chance Constrained Market Model...")
+        global optimizer = Mosek
+    elseif "Gurobi" in keys(Pkg.installed())
+        @info("Loading Gurobi...")
+        global optimizer = Gurobi
+    else
+        @info("Loading Clp Solver...")
+        global optimizer = Clp
+    end
+end
+
 # Setting everthing up
 ######################
 
@@ -72,17 +85,17 @@ global model_type = ARGS[1]
 global wdir = pwd()
 global daemon_file = wdir*"/data_temp/julia_files/daemon_"*model_type*".json"
 
-if "Gurobi" in keys(Pkg.installed())
-    using Gurobi
-    global optimizer = Gurobi
-else
-    using Clp
-    global optimizer = Clp
+if "Mosek" in keys(Pkg.installed())
+    @info("Loading Mosek...")
+    using Mosek, MosekTools
 end
-
-
-@info("reading from file $(daemon_file)")
-file = read_daemon_file()
+if "Gurobi" in keys(Pkg.installed())
+    @info("Loading Gurobi...")
+    using Gurobi
+else
+    @info("Loading Clp...")
+    using Clp
+end
 
 if model_type == "redundancy_removal"
     using RedundancyRemoval
@@ -92,6 +105,8 @@ else
     throw(ArgumentError("No valid argument given"))
 end
 
+@info("reading from file $(daemon_file)")
+file = read_daemon_file()
 
 # Run the loop
 ##############
@@ -107,6 +122,7 @@ while true
         file["run"] = false
         file["processing"] = true
         write_daemon_file(file)
+        set_optimizer(file)
         @info("Starting with $(file["type"])")
         if file["type"] == "redundancy_removal"
             file_suffix = file["file_suffix"]

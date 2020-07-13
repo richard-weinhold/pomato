@@ -100,7 +100,10 @@ class DataManagement():
         else:
             for key in self.results:
                 if name:
-                    result_folder = name + key[9:]
+                    if any(char.isdigit() for char in key):
+                        result_folder = name + key[9:]
+                    else:
+                        result_folder = name + "_" + key
                 else:
                     result_folder = key
                 folder.joinpath(result_folder).mkdir()

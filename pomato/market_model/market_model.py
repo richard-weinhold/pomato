@@ -132,7 +132,9 @@ class MarketModel():
 
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
 
-        args = {"redispatch": self.options["optimization"]["redispatch"]["include"]}
+        args = {"redispatch": self.options["optimization"]["redispatch"]["include"],
+                "chance_constrained": self.options["optimization"]["chance_constrained"]["include"]}
+                
         self.julia_model.run(args=args)
         
         # self.julia_model.run(command)

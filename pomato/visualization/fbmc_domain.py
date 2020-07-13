@@ -87,7 +87,7 @@ class FBMCDomainPlots(FBMCModule):
         self.logger = logging.getLogger('Log.visualization.FBMCDomainPlots')
         self.logger.info("Initializing the FBMCModule....")
 
-        super().__init__(wdir, package_dir, grid_object, data, basecase_name)
+        super().__init__(wdir, package_dir, grid_object, data, basecase_name=basecase_name)
 
         self.fbmc_plots = {}
 

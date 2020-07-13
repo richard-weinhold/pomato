@@ -100,6 +100,7 @@ class JuliaDaemon():
                 "type": self.julia_module,
                 "file_suffix": "py",
                 "redispatch": False,
+                "chance_constrained": False,
                 "multi_threaded": True,
                 "data_dir": "/data/",
                 "break": False}
@@ -204,7 +205,6 @@ class JuliaDaemon():
         if args:
             for k,v in args.items():
                 file[k] = v
-
         self.write_daemon_file(file)
         time.sleep(0.1)
         self.halt_while_processing()
@@ -367,6 +367,11 @@ def default_options():
         "curtailment": {
             "include": False,
             "cost": 1E2},
+        "chance_constrained": {
+            "include": False,
+            "fixed_alpha": True,
+            "cc_res_mw": 50,
+            "alpha_plants_mw": 200},
         "parameters": {
             "storage_start": 0.65},
         "infeasibility": {

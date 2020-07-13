@@ -117,7 +117,6 @@ from pomato.grid import GridModel
 from pomato.market_model import MarketModel
 from pomato.visualization.bokeh_interface import BokehPlot
 
-
 def _logging_setup(wdir, webapp, logging_level=logging.INFO):
     # Logging setup
     logger = logging.getLogger('Log.MarketModel')
@@ -223,9 +222,8 @@ class POMATO():
     webapp : bool, optional
         Optional parameter to set logging settings when initializing POMATO
         as part of the included webapp.
-
     """
-
+   
     def __init__(self, wdir, options_file=None, webapp=False, logging_level=logging.INFO):
 
         self.wdir = wdir
@@ -335,6 +333,13 @@ class POMATO():
         """
         for folder in result_folders:
             self.data.results[folder.name] = ResultProcessing(self.data, self.grid, folder)
+    
+    def rename_market_result(self, oldname, newname):
+        """Rename Market Result""" 
+        
+        for result in self.data.results:
+            self.data.results[result.replace(oldname, newname)] = self.data.results.pop(result)
+
 
     def run_market_model(self):
         """Run the market model."""
@@ -401,13 +406,19 @@ class POMATO():
     def _instantiate_julia(self):
         tools.julia_management.instantiate_julia(self.package_dir)
 
-    def _join_julia_instances(self):
+    def _join_julia_instance_market_model(self):
         if self.market_model.julia_model:
             self.market_model.julia_model.join()
             self.market_model.julia_model = None
+
+    def _join_julia_instance_grid_representation(self):
         if self.cbco_module.julia_instance:
             self.cbco_module.julia_instance.join()
             self.cbco_module.julia_instance = None
+
+    def _join_julia_instances(self):
+        self._join_julia_instance_market_model()
+        self._join_julia_instance_grid_representation()
 
     def _start_julia_instances(self):
         self.cbco_module._start_julia_daemon()

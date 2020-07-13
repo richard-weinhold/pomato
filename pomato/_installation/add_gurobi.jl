@@ -1,6 +1,6 @@
 using Pkg
 
-Pkg.activate("pomato/_installation/pomato")
+Pkg.activate("_installation/pomato")
 
 if not "Gurobi" in keys(Pkg.installed())
     if "GUROBI_HOME" in keys(ENV)

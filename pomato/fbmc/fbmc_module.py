@@ -207,8 +207,7 @@ class FBMCModule():
 
         if any(ram < 0):
             self.logger.warning("Number of RAMs below: [0 - %d, 10 - %d, 100 - %d, 1000 - %d]", sum(ram<0), sum(ram<10), sum(ram<100), sum(ram<1000))
-            # ram[ram<100] = 10000
-
+            # ram[ram <= 0] = 1000
 
         self.domain_info[list(self.basecase.data.zones.index)] = zonal_fbmc_ptdf
         self.domain_info["ram"] = ram
@@ -260,7 +259,9 @@ class FBMCModule():
 
         fbmc_rep = pd.concat([fbmc_paramters[t] for t in fbmc_paramters.keys()], ignore_index=True)
         fbmc_rep.set_index(fbmc_rep.cb + "_" + fbmc_rep.co, inplace=True)
-        
+        cbco.julia_instance.join()
+        cbco.julia_instance.julia_instance = None
+
         return fbmc_rep
 
 

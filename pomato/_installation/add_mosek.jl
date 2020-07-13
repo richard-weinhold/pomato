@@ -1,5 +1,6 @@
 using Pkg
 
-Pkg.activate("pomato/_installation/pomato")
+Pkg.activate("_installation/pomato")
 Pkg.add("Mosek")
+Pkg.add("MosekTools")
 
