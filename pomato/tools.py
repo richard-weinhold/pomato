@@ -76,7 +76,7 @@ class JuliaDaemon():
                               stderr=subprocess.STDOUT, cwd=str(self.wdir)) as programm:
             for line in programm.stdout:
                 if not any(w in line.decode(errors="ignore") for w in ["Academic license"]):
-                    self.logger.info(line.decode(errors="ignore").replace("[ Info:", "").strip())
+                    self.logger.info(line.decode("UTF-8", errors="ignore").replace("[ Info:", "").strip())
 
     def join(self):
         """Exit the julia daemon and join python threads"""
