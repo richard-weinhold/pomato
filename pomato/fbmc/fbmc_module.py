@@ -25,7 +25,7 @@ from pomato.cbco import CBCOModule
 
 class FBMCModule():
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, package_dir, grid_object, data, basecase_name=None, cbco_list=None, flowbased_region=None):
+    def __init__(self, wdir, package_dir, grid_object, data, options, basecase_name=None, cbco_list=None, flowbased_region=None):
         # Import Logger
         self.logger = logging.getLogger('Log.fbmc.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
@@ -33,6 +33,7 @@ class FBMCModule():
         self.wdir = wdir
         self.package_dir = package_dir
 
+        self.options = options
         self.grid = grid_object
         self.nodes = grid_object.nodes
         self.lines = grid_object.lines
@@ -203,11 +204,15 @@ class FBMCModule():
         ram = (self.lines.maxflow[self.domain_info.cb] 
                - frm_fav.value[self.domain_info.cb] 
                - f_ref_nonmarket)
+
+        minram = self.lines.maxflow[self.domain_info.cb] * self.options["grid"]["minram"] 
+        ram[ram < minram] = minram[ram < minram]
+
         ram = ram.values.reshape(len(ram), 1)
 
         if any(ram < 0):
             self.logger.warning("Number of RAMs below: [0 - %d, 10 - %d, 100 - %d, 1000 - %d]", sum(ram<0), sum(ram<10), sum(ram<100), sum(ram<1000))
-            ram[ram <= 0] = 0.1
+            # ram[ram <= 0] = 0.1
 
         self.domain_info[list(self.basecase.data.zones.index)] = zonal_fbmc_ptdf
         self.domain_info["ram"] = ram

@@ -401,6 +401,7 @@ def default_options():
             "capacity_multiplier": 1,
             "preprocess": True,
             "gsk": "gmax",
+            "minram": 0.2,
             }
 
     options_dict["data"] = {
