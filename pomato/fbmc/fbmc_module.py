@@ -81,7 +81,7 @@ class FBMCModule():
 
         return gsk.values
 
-    def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax"):
+    def return_critical_branches(self, threshold=1e-2, gsk_strategy="gmax"):
 
         self.logger.info("List of CBs is generated from zone-to-zone PTDFs with:")
         self.logger.info("GSK Strategy: %s, Threshold: %d percent", gsk_strategy, threshold*100)
@@ -207,7 +207,7 @@ class FBMCModule():
 
         if any(ram < 0):
             self.logger.warning("Number of RAMs below: [0 - %d, 10 - %d, 100 - %d, 1000 - %d]", sum(ram<0), sum(ram<10), sum(ram<100), sum(ram<1000))
-            # ram[ram <= 0] = 1000
+            ram[ram <= 0] = 0.1
 
         self.domain_info[list(self.basecase.data.zones.index)] = zonal_fbmc_ptdf
         self.domain_info["ram"] = ram

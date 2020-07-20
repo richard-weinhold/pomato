@@ -61,7 +61,7 @@ class ResultProcessing():
                                                       "D_es", "L_es",
                                                       "D_hs", "L_hs",
                                                       "INJ", "EX",
-                                                      "D_ph", "F_DC"]}
+                                                      "D_ph", "F_DC", "CURT", "Alpha"]}
 
         dual_variables = {variable: False for variable in ["EB_nodal", "EB_zonal", "EB_heat"]}
 
