@@ -32,7 +32,7 @@
     "grid": {
         "cbco_option": "clarkson_base",
         "precalc_filename": "",
-        "senstitivity": 5e-2,
+        "sensitivity": 5e-2,
         "capacity_multiplier": 0.95,
         "preprocess": true,
         "gsk": "gmax"

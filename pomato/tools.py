@@ -397,7 +397,7 @@ def default_options():
     options_dict["grid"] = {
             "cbco_option": "full",
             "precalc_filename": "",
-            "senstitivity": 5e-2,
+            "sensitivity": 5e-2,
             "capacity_multiplier": 1,
             "preprocess": True,
             "gsk": "gmax",

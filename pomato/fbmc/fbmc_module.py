@@ -27,7 +27,7 @@ class FBMCModule():
     """ Class to do all calculations in connection with cbco calculation"""
     def __init__(self, wdir, package_dir, grid_object, data, options, basecase_name=None, cbco_list=None, flowbased_region=None):
         # Import Logger
-        self.logger = logging.getLogger('Log.fbmc.FBMCModule')
+        self.logger = logging.getLogger('Log.MarketModel.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
 
         self.wdir = wdir
@@ -140,7 +140,7 @@ class FBMCModule():
 
         else:
             self.lines["cb"] = False
-            critical_branches = self.return_critical_branches(threshold=5e-2)
+            critical_branches = self.return_critical_branches(threshold=self.options["grid"]["sensitivity"])
             self.lines.loc[self.lines.index.isin(critical_branches), "cb"] = True
 
             select_lines = self.lines.index[(self.lines["cb"])&(self.lines.contingency)]
@@ -257,7 +257,7 @@ class FBMCModule():
         for timestep in self.basecase.INJ.t.unique():
             cbco.A, cbco.b = self.create_flowbased_ptdf("gmax", timestep)
             cbco.cbco_info = self.domain_info
-            cbco.x_bounds = np.array([])
+            cbco.nodal_injection_limits = np.array([])
             cbco.cbco_index = np.array([])
             cbco.cbco_index = cbco.clarkson_algorithm()
             fbmc_paramters[timestep] = cbco.return_cbco()

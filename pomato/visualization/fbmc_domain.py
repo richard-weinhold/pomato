@@ -84,7 +84,7 @@ class FBMCDomainPlots(FBMCModule):
     """ Class to do all calculations in connection with cbco calculation"""
     def __init__(self, wdir, package_dir, grid_object, data, options, flowbased_parameters=None, basecase_name=None, cbco_list=None):
         # Import Logger
-        self.logger = logging.getLogger('Log.visualization.FBMCDomainPlots')
+        self.logger = logging.getLogger('Log.MarketModel.FBMCDomainPlots')
         self.logger.info("Initializing the FBMCModule....")
 
         super().__init__(wdir, package_dir, grid_object, data, options, basecase_name=basecase_name)

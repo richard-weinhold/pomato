@@ -67,7 +67,7 @@ The options file, related to the settings for this modules
     "grid": {
         "capacity_multiplier": 0.95,
         "precalc_filename": "",
-        "senstitivity": 5e-2,
+        "sensitivity": 5e-2,
         "cbco_option": "clarkson_base",
         "gsk": "gmax",
         "preprocess": true

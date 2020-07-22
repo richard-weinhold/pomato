@@ -244,7 +244,7 @@ class CBCOModule():
 
         """
         grid_option = self.options["grid"]
-        self.A, self.b, self.cbco_info = self.create_cbco_data(grid_option["senstitivity"],
+        self.A, self.b, self.cbco_info = self.create_cbco_data(grid_option["sensitivity"],
                                                                preprocess=True,
                                                                gsk=grid_option["gsk"])
         self.nodal_injection_limits = np.array([])
@@ -292,7 +292,7 @@ class CBCOModule():
         algorithm so that it can be run separately from the python POMATO.
 
         """
-        self.A, self.b, self.cbco_info = self.create_cbco_data(self.options["grid"]["senstitivity"],
+        self.A, self.b, self.cbco_info = self.create_cbco_data(self.options["grid"]["sensitivity"],
                                                                self.options["grid"]["preprocess"])
         if self.options["grid"]["precalc_filename"]:
             try:
