@@ -100,6 +100,7 @@ class JuliaDaemon():
                 "type": self.julia_module,
                 "file_suffix": "py",
                 "redispatch": False,
+                "fbmc_domain": False,
                 "chance_constrained": False,
                 "multi_threaded": True,
                 "data_dir": "/data/",

@@ -25,7 +25,7 @@ from pomato.cbco import CBCOModule
 
 class FBMCModule():
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, package_dir, grid_object, data, options, basecase_name=None, cbco_list=None, flowbased_region=None):
+    def __init__(self, wdir, package_dir, grid_object, data, options, cbco_list=None, flowbased_region=None):
         # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
@@ -39,18 +39,9 @@ class FBMCModule():
         self.lines = grid_object.lines
         if not flowbased_region:
             self.flowbased_region = list(data.zones.index)
+
         self.cbco_list = cbco_list
-
         self.data = data
-        if not data.results:
-            self.logger.error("No results not initialzed!")
-        elif len(data.results) == 1:
-            self.basecase = data.results[next(r for r in list(data.results))]
-        elif len(data.results) > 1 and basecase_name:
-            self.basecase = data.results[basecase_name]
-        else:
-            self.logger.error("More results available as basecase. Please specify argument basecase_name!")
-
         self.nodal_fbmc_ptdf, self.domain_info = self.create_fbmc_info()
 
         self.logger.info("FBMCModule  Initialized!")
@@ -59,14 +50,14 @@ class FBMCModule():
         """returns GSK, either flat or gmax"""
         gsk = pd.DataFrame(index=self.nodes.index)
 
-        plant_types = self.basecase.data.options["optimization"]["plant_types"]
-        condition = (~self.basecase.data.plants.plant_type.isin(plant_types["ts"])) & \
-                    (~self.basecase.data.plants.plant_type.isin(plant_types["es"]))
+        plant_types = self.data.options["optimization"]["plant_types"]
+        condition = (~self.data.plants.plant_type.isin(plant_types["ts"])) & \
+                    (~self.data.plants.plant_type.isin(plant_types["es"]))
         
-        gmax_per_node = self.basecase.data.plants.loc[condition, ["g_max", "node"]] \
+        gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]] \
                         .groupby("node").sum()
 
-        for zone in self.basecase.data.zones.index:
+        for zone in self.data.zones.index:
             nodes_in_zone = self.nodes.index[self.nodes.zone == zone]
             gsk[zone] = 0
             gmax_in_zone = gmax_per_node[gmax_per_node.index.isin(nodes_in_zone)]
@@ -90,7 +81,7 @@ class FBMCModule():
         gsk = self.create_gsk(gsk_strategy)
         zonal_ptdf = np.dot(self.grid.ptdf, gsk)
         zonal_ptdf_df = pd.DataFrame(index=self.lines.index,
-                                     columns=self.basecase.data.zones.index,
+                                     columns=self.data.zones.index,
                                      data=zonal_ptdf)
 
         z2z_ptdf_df = pd.DataFrame(index=self.lines.index)
@@ -109,15 +100,12 @@ class FBMCModule():
         cross_border_lines = list(self.lines.index[condition_cross_border&cond_fb_region])
         total_cbs = list(set(critical_branches + cross_border_lines))
 
-        self.logger.info("Number of Critical Branches: %d, \
-                          Number of Cross Border lines: %d, \
-                          Total Number of CBs: %d",
+        self.logger.info("Number of Critical Branches: %d, Number of Cross Border lines: %d, Total Number of CBs: %d",
                           len(critical_branches), len(cross_border_lines), len(total_cbs))
 
         return total_cbs
 
     def create_fbmc_info(self, lodf_sensitivity=10e-2):
-
         """
         create ptdf, determine CBs
         """
@@ -164,18 +152,19 @@ class FBMCModule():
         nodal_fbmc_ptdf = np.concatenate(full_ptdf)
         nodal_fbmc_ptdf = nodal_fbmc_ptdf.reshape(len(label_lines), len(list(self.nodes.index)))
 
-        domain_info = pd.DataFrame(columns=list(self.basecase.data.zones.index))
+        domain_info = pd.DataFrame(columns=list(self.data.zones.index))
         domain_info["cb"] = label_lines
         domain_info["co"] = label_outages
 
         return nodal_fbmc_ptdf, domain_info
 
-    def create_flowbased_ptdf(self, gsk_strategy, timestep):
+    def create_flowbased_ptdf(self, gsk_strategy, timestep, basecase):
         """
         Create Zonal ptdf -> creates both positive and negative line
         restrictions or ram. Depending on flow != 0
         """
-        self.logger.info("Creating zonal Ab")
+
+        self.logger.info("Creating zonal Ab for timestep %s", timestep)
         # Calculate zonal ptdf based on ram -> (if current flow is 0 the
         # zonal ptdf is based on overall
         # avalable line capacity (l_max)), ram is calculated for every n-1
@@ -185,21 +174,21 @@ class FBMCModule():
         frm_fav = pd.DataFrame(index=self.domain_info.cb.unique())
         frm_fav["value"] = self.lines.maxflow[frm_fav.index]*0
 
-        injection = self.basecase.INJ.INJ[self.basecase.INJ.t == timestep].values
+        injection = basecase.INJ.INJ[basecase.INJ.t == timestep].values
 
         f_ref_base_case = np.dot(self.nodal_fbmc_ptdf, injection)
         gsk = self.create_gsk(gsk_strategy)
         zonal_fbmc_ptdf = np.dot(self.nodal_fbmc_ptdf, gsk)
 
         # F Day Ahead (eigentlich mit LTNs)
-        net_position = self.basecase.net_position() * 1
+        net_position = basecase.net_position() * 1
         # net_position.loc[:, ~net_position.columns.isin(self.flowbased_region)] = 0
 
         f_da = np.dot(zonal_fbmc_ptdf, net_position.loc[timestep].values)
         # f_ref_nonmarket = f_ref_base_case
         f_ref_nonmarket = f_ref_base_case - f_da
 
-        # capacity_multiplier = self.basecase.data.options["grid"]["capacity_multiplier"]
+        # capacity_multiplier = basecase.data.options["grid"]["capacity_multiplier"]
 
         ram = (self.lines.maxflow[self.domain_info.cb] 
                - frm_fav.value[self.domain_info.cb] 
@@ -214,13 +203,12 @@ class FBMCModule():
             self.logger.warning("Number of RAMs below: [0 - %d, 10 - %d, 100 - %d, 1000 - %d]", sum(ram<0), sum(ram<10), sum(ram<100), sum(ram<1000))
             # ram[ram <= 0] = 0.1
 
-        self.domain_info[list(self.basecase.data.zones.index)] = zonal_fbmc_ptdf
+        self.domain_info[list(self.data.zones.index)] = zonal_fbmc_ptdf
         self.domain_info["ram"] = ram
         self.domain_info["timestep"] = timestep
         self.domain_info["gsk_strategy"] = gsk_strategy
-        self.logger.info("Done!")
-
-        # return A, b
+        self.domain_info = self.domain_info[["cb", "co", "ram", "timestep", "gsk_strategy"] + list(list(self.data.zones.index))]
+        # self.logger.info("Done!")
         return zonal_fbmc_ptdf, ram
 
     def create_fbmc_equations(self, domain_x, domain_y, A, b):
@@ -246,23 +234,21 @@ class FBMCModule():
 
         return(A, b)
 
-    def create_flowbased_parameters(self):
+    def create_flowbased_parameters(self, basecase, gsk="gmax"):
         
-        fbmc_paramters = {}
+        domain_data = {}
         cbco = CBCOModule(self.wdir, self.package_dir, self.grid, self.data, self.data.options)
         cbco._start_julia_daemon()
-        cbco.julia_instance.disable_multi_threading()
         cbco.options["optimization"]["type"] = "cbco_zonal"
         cbco.options["grid"]["cbco_option"] = "clarkson"
-        for timestep in self.basecase.INJ.t.unique():
-            cbco.A, cbco.b = self.create_flowbased_ptdf("gmax", timestep)
-            cbco.cbco_info = self.domain_info
-            cbco.nodal_injection_limits = np.array([])
-            cbco.cbco_index = np.array([])
-            cbco.cbco_index = cbco.clarkson_algorithm()
-            fbmc_paramters[timestep] = cbco.return_cbco()
 
-        fbmc_rep = pd.concat([fbmc_paramters[t] for t in fbmc_paramters.keys()], ignore_index=True)
+        for timestep in basecase.INJ.t.unique():
+            self.create_flowbased_ptdf(gsk, timestep, basecase)
+            domain_data[timestep] = self.domain_info.copy()
+
+        cbco.cbco_info =  pd.concat([domain_data[t] for t in domain_data.keys()], ignore_index=True)
+        cbco.cbco_index = cbco.clarkson_algorithm(args={"fbmc_domain": True})
+        fbmc_rep = cbco.return_cbco()
         fbmc_rep.set_index(fbmc_rep.cb + "_" + fbmc_rep.co, inplace=True)
         cbco.julia_instance.join()
         cbco.julia_instance.julia_instance = None

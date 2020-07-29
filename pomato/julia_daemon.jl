@@ -51,6 +51,20 @@ function run_redundancy_removal(file_suffix::String, multi_threaded::Bool)
     end
 end
 
+function run_redundancy_removal_fbmc_domain(multi_threaded::Bool)
+    global wdir
+    global optimizer
+    cbco_dir = wdir*"/data_temp/julia_files/cbco_data"
+
+    if multi_threaded & (Threads.nthreads() >= 2)
+        @info("Run FBMC Domain Reduction on $(Threads.nthreads()) threads")
+        RedundancyRemoval.run_redundancy_removal_fbmc_domain(cbco_dir, optimizer.Optimizer, parallel=true)
+    else
+        @info("Run case single threaded")
+        RedundancyRemoval.run_redundancy_removal_fbmc_domain(cbco_dir, optimizer.Optimizer, parallel=false)
+    end
+end
+
 function run_market_model(redisp_arg::Bool)
     global wdir
     global optimizer
@@ -124,10 +138,16 @@ while true
         write_daemon_file(file)
         set_optimizer(file)
         @info("Starting with $(file["type"])")
+
         if file["type"] == "redundancy_removal"
-            file_suffix = file["file_suffix"]
             multi_threaded = file["multi_threaded"]
-            run_redundancy_removal(file_suffix, multi_threaded)
+            if file["fbmc_domain"]
+                run_redundancy_removal_fbmc_domain(multi_threaded)
+            else
+                file_suffix = file["file_suffix"]
+                multi_threaded = file["multi_threaded"]
+                run_redundancy_removal(file_suffix, multi_threaded)
+            end
         end
         if file["type"] == "market_model"
             global wdir

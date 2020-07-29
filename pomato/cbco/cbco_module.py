@@ -417,13 +417,17 @@ class CBCOModule():
                        fmt='%i', delimiter=",")
         else:
             np.savetxt(folder.joinpath(f"I_{suffix}.csv"),
-                       np.array([]),
-                       fmt='%i', delimiter=",")
+                       np.array([]), fmt='%i', delimiter=",")
 
         if isinstance(self.nodal_injection_limits, np.ndarray):
             self.logger.info("Saving bounds for net injections...")
             np.savetxt(folder.joinpath(f"x_bounds_{suffix}.csv"),
                        np.asarray(self.nodal_injection_limits), delimiter=",")
+        else:
+            np.savetxt(folder.joinpath(f"x_bounds_{suffix}.csv"),
+                       np.array([]), fmt='%i', delimiter=",")
+
+        self.cbco_info.to_csv(str(folder.joinpath('cbco_info.csv')), index_label='index')
 
         self.logger.info("Saved everything to folder: \n %s", str(folder))
 
@@ -479,7 +483,7 @@ class CBCOModule():
         nodal_injection_limits = np.array(nodal_injection_limits).reshape(len(nodal_injection_limits), 1)
         return nodal_injection_limits
 
-    def clarkson_algorithm(self):
+    def clarkson_algorithm(self, args={"file_suffix": "py"}):
         """Run the redundancy removal algorithm.
 
         The redundancy removal algorithm is run by writing the necessary data
@@ -503,7 +507,7 @@ class CBCOModule():
         t_start = dt.datetime.now()
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
 
-        self.julia_instance.run(args={"file_suffix": "py"})
+        self.julia_instance.run(args=args)
 
         t_end = dt.datetime.now()
         self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))

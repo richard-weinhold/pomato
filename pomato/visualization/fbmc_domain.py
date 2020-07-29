@@ -52,8 +52,8 @@ class FBMCDomain():
         # set-up: dont show the graphs when created
         plt.ioff()
 
-    def plot_fbmc_domain(self, folder):
-        """Plot the domain"""
+    def create_fbmc_figure(self):
+        """Plot the domain and return it"""
         hull_plot_x = self.hull_information["hull_plot_x"]
         hull_plot_y = self.hull_information["hull_plot_y"]
         hull_coord_x = self.hull_information["hull_coord_x"]
@@ -76,21 +76,25 @@ class FBMCDomain():
         axis.plot(hull_plot_x, hull_plot_y, 'r--', linewidth=2)
         axis.set_title(title)
         axis.scatter(hull_coord_x, hull_coord_y)
+        return fig
+
+    def save_fbmc_domain(self, folder):
+        """Save fbmc domain to folder"""
+        fig = self.create_fbmc_figure() 
         fig.savefig(str(folder.joinpath(f"FBMC_{self.title}.png")))
         fig.clf()
 
 
 class FBMCDomainPlots(FBMCModule):
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, package_dir, grid_object, data, options, flowbased_parameters=None, basecase_name=None, cbco_list=None):
+    def __init__(self, wdir, package_dir, grid_object, data, options, flowbased_parameters):
         # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.FBMCDomainPlots')
         self.logger.info("Initializing the FBMCModule....")
 
-        super().__init__(wdir, package_dir, grid_object, data, options, basecase_name=basecase_name)
+        super().__init__(wdir, package_dir, grid_object, data, options)
 
         self.fbmc_plots = {}
-
         self.flowbased_parameters = flowbased_parameters
 
         # set-up: dont show the graphs when created
@@ -105,7 +109,7 @@ class FBMCDomainPlots(FBMCModule):
         plt.close("all")
         for plot in self.fbmc_plots:
             self.logger.info("Plotting Domain of %s in folder %s", plot, folder)
-            self.fbmc_plots[plot].plot_fbmc_domain(folder)
+            self.fbmc_plots[plot].save_fbmc_domain(folder)
             self.logger.info("Done!")
             plt.close("all")
 
@@ -285,22 +289,23 @@ class FBMCDomainPlots(FBMCModule):
         list_coord = np.take(list_coord, unique_rows_idx, axis=0)
         return(list_coord[:, 0], list_coord[:, 1], intersection_x, intersection_y)
 
-    def generate_flowbased_domain(self, domain_x, domain_y, gsk_strategy, timestep, filename_suffix=None):
+    def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None):
         """
         Combines previous functions to actually plot the FBMC Domain with the
         hull
         """
 
-        if isinstance(self.flowbased_parameters, pd.DataFrame):
-            if gsk_strategy in self.flowbased_parameters["gsk_strategy"].values:
-                A = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, list(self.nodes.zone.unique())].values
-                b = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, "ram"].values
-            else:
-                self.logger.warning("precalculated fb parameters have different gsk strategy")
-                A, b = self.create_flowbased_ptdf(gsk_strategy, timestep)
+        if not isinstance(self.flowbased_parameters, pd.DataFrame):
+            raise AttributeError("No precalculated flow based parameters available, run create_flowbased_parameters with basecase and GSK")
+        
+        if not len(self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].gsk_strategy.unique()) == 1:
+            raise AttributeError("Multiple GSK Strategies in flow based parameters, slice first!")
         else:
-            A, b = self.create_flowbased_ptdf(gsk_strategy, timestep)
+            gsk_strategy = self.flowbased_parameters[self.flowbased_parameters.timestep == "t0001"].gsk_strategy[0]
 
+        A = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, list(self.nodes.zone.unique())].values
+        b = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, "ram"].values
+        
         A, b = self.create_fbmc_equations(domain_x, domain_y, A, b)
         # Reduce
         cbco_index = self.convexhull_ptdf(A, b)
