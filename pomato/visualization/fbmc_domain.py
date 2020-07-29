@@ -13,6 +13,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import spatial
+import imageio
 
 import pomato.tools as tools
 from pomato.cbco import CBCOModule
@@ -29,7 +30,7 @@ from pomato.fbmc import FBMCModule
 class FBMCDomain():
     """Class to store all relevant information of an FBMC Plot"""
     def __init__(self, plot_information, plot_equations, hull_information, xy_limits, domain_data):
-
+        
         self.gsk_strategy = plot_information["gsk_strategy"]
         self.timestep = plot_information["timestep"]
         self.domain_x = plot_information["domain_x"]
@@ -113,6 +114,17 @@ class FBMCDomainPlots(FBMCModule):
             self.logger.info("Done!")
             plt.close("all")
 
+        self.logger.info("Plotting Domains as .gif")    
+        plot_types = set(["_".join(plot.split("_")[1:]) for plot in self.fbmc_plots])
+        timesteps = sorted(set([plot.split("_")[0] for plot in self.fbmc_plots]))
+        gif_name = "_".join([plot.split("_")[-1] for plot in plot_types])
+    
+        gif_path = str(folder.joinpath(f"{gif_name}.gif"))
+        with imageio.get_writer(gif_path, mode='I', duration=0.2) as writer:
+            for t in timesteps:
+                filenames = [f"FBMC_{t}_{plot}.png" for plot in plot_types]
+                imgs = [imageio.imread(str(folder.joinpath(filename))) for filename in filenames]
+                writer.append_data(np.hstack([img for img in imgs]))
 
     def save_all_domain_info(self, folder, name_suffix=""):
         """Save the FBMC Domain Info (=Data) """

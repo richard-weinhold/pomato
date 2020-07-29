@@ -427,7 +427,7 @@ class CBCOModule():
             np.savetxt(folder.joinpath(f"x_bounds_{suffix}.csv"),
                        np.array([]), fmt='%i', delimiter=",")
 
-        self.cbco_info.to_csv(str(folder.joinpath('cbco_info.csv')), index_label='index')
+        self.cbco_info.to_csv(str(folder.joinpath('Ab_info.csv')), index_label='index')
 
         self.logger.info("Saved everything to folder: \n %s", str(folder))
 
@@ -515,6 +515,7 @@ class CBCOModule():
 
         if self.julia_instance.solved:
             file = tools.newest_file_folder(self.jdir.joinpath("cbco_data"), keyword="cbco")
+            print("asd", file)
             self.logger.info("cbco list save for later use to: \n%s", file.stem + ".csv")
             cbco = list(pd.read_csv(file, delimiter=',').constraints.values)
         else:

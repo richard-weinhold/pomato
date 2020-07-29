@@ -60,8 +60,9 @@ setup(name='pomato',
         'pathlib',
         'psutil',
         'pyproj',
-        'xlrd'
-        'scipy'],
+        'xlrd',
+        'scipy',
+        'imageio'],
       cmdclass={
         'develop': DevelopCommand,
         'install': InstallCommand,}
