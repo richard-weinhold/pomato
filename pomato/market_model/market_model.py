@@ -16,6 +16,7 @@ from pathlib import Path
 
 import pandas as pd
 
+import pomato
 import pomato.tools as tools
 
 
@@ -58,14 +59,14 @@ class MarketModel():
         Can be multiples for redispatch calculations or FBMC application.
     """
 
-    def __init__(self, wdir, package_dir, options):
+    def __init__(self, wdir, options):
         self.logger = logging.getLogger('Log.MarketModel.JuliaInterface')
         self.logger.info("Initializing MarketModel...")
         self.options = options
 
         # Create Folders
         self.wdir = wdir
-        self.package_dir = package_dir
+        self.package_dir = Path(pomato.__path__[0])
         self.data_dir = wdir.joinpath("data_temp/julia_files/data")
         self.results_dir = wdir.joinpath("data_temp/julia_files/results")
         self.julia_model = None
@@ -178,7 +179,7 @@ class MarketModel():
             self.data_dir.mkdir()
 
         for data in self.data.model_structure:
-            cols = [col for col in self.data.model_structure[data].attributes if col != "index"]
+            cols = [col for col in self.data.model_structure[data].keys() if col != "index"]
             if "timestep" in cols:
                 getattr(self.data, data).loc[getattr(self.data, data)["timestep"].isin(self.model_horizon), cols] \
                     .to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
@@ -192,7 +193,6 @@ class MarketModel():
             plant_types[ptype][condition] = 1
         plant_types.to_csv(str(self.data_dir.joinpath('plant_types.csv')), index_label='index')
 
-        # Optional data
         if self.grid_representation["grid"].empty:
             pd.DataFrame(columns=["ram"]).to_csv(str(self.data_dir.joinpath('grid.csv')), index_label='index')
         else:

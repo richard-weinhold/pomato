@@ -5,11 +5,13 @@ import logging
 import re
 import subprocess
 import threading
+from pathlib import Path
 
 import pandas as pd
-from bokeh.io import show
 import psutil
+from bokeh.io import save, show
 
+import pomato
 import pomato.tools as tools
 from pomato.visualization.bokeh_static import create_static_plot
 
@@ -40,12 +42,12 @@ class BokehPlot():
         the model remains repsonsive.
     """
 
-    def __init__(self, wdir, package_dir, bokeh_type="static"):
+    def __init__(self, wdir, bokeh_type="static"):
         # Impoort Logger
         self.logger = logging.getLogger('Log.MarketModel.BokehPlot')
 
         self.wdir = wdir
-        self.package_dir = package_dir
+        self.package_dir = Path(pomato.__path__[0])
         self.bokeh_dir = wdir.joinpath("data_temp/bokeh_files")
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)
@@ -61,6 +63,10 @@ class BokehPlot():
         """Show Plot"""
         show(self.static_plot)
 
+    def save_plot(self, filename):
+        """Save plot as html file"""
+        save(self.static_plot, filename=filename)
+
     def create_empty_static_plot(self, data):
         """Create a geo plot without injection or line flows"""
 
@@ -73,7 +79,7 @@ class BokehPlot():
                                               data.dclines, inj, flow_n_0, 
                                               flow_n_1, f_dc, option=2)
 
-    def create_static_plot(self, market_results):
+    def create_static_plot(self, market_results, title=None, plot_dimensions=[700, 800]):
         """Create static bokeh plot of the market results.
 
         Creates a fairly interactive geographic plot of the provided market
@@ -133,12 +139,16 @@ class BokehPlot():
             f_dc = plot_result.F_DC.pivot(index="dc", columns="t", values="F_DC") \
                 .abs().mean(axis=1).reindex(plot_result.data.dclines.index).fillna(0)
 
+            if not title:
+                title = plot_result.result_attributes["source"].name
+
             self.static_plot = create_static_plot(plot_result.data.lines,
                                                   plot_result.data.nodes,
                                                   plot_result.data.dclines,
                                                   inj, flow_n_0, flow_n_1, f_dc,
                                                   redispatch=gen, option=0,
-                                                  title=plot_result.result_attributes["source"].name)
+                                                  title=title, 
+                                                  plot_dimensions=plot_dimensions)
 
     def add_market_result(self, market_result, name):
         """Create data set for bokeh plot from julia market_result-object

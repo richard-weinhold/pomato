@@ -4,7 +4,9 @@ import datetime as dt
 import itertools
 import numpy as np
 import pandas as pd
+from pathlib import Path
 
+import pomato
 import pomato.tools as tools
 
 class CBCOModule():
@@ -66,14 +68,16 @@ class CBCOModule():
         easily re-run the redundancy algorithm without restarting a julia process.
     """
 
-    def __init__(self, wdir, package_dir, grid, data, option):
+    def __init__(self, wdir, grid, data, option):
         # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.CBCOModule')
         self.logger.info("Initializing the CBCOModule....")
 
         self.options = option
         self.wdir = wdir
-        self.package_dir = package_dir
+        self.package_dir = Path(pomato.__path__[0])
+
+
         self.jdir = wdir.joinpath("data_temp/julia_files")
         tools.create_folder_structure(self.wdir, self.logger)
 
@@ -172,7 +176,7 @@ class CBCOModule():
             ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
             self.grid_representation["grid"] = ptdf_df
             self.grid_representation["grid"] = self._add_zone_to_grid_representation(self.grid_representation["grid"])
-
+            
     def add_redispatch_grid(self):
         """Add nodal N-0 grid representation as redispatch grid.
 

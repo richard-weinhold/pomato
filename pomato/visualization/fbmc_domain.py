@@ -5,27 +5,19 @@ INPUT: DATA
 OUTPUT: RESULTS
 
 """
-
 import datetime as dt
 import logging
+from pathlib import Path
 
+import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from scipy import spatial
-import imageio
 
 import pomato.tools as tools
 from pomato.cbco import CBCOModule
 from pomato.fbmc import FBMCModule
-
-# kriterien für cb auswahl
-# # n-0 last
-# # lodf filter vll die ersten 10
-# #
-# # häufigkeit als teil der domain
-# #
-# # 3d plot
 
 class FBMCDomain():
     """Class to store all relevant information of an FBMC Plot"""
@@ -88,12 +80,12 @@ class FBMCDomain():
 
 class FBMCDomainPlots(FBMCModule):
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, package_dir, grid_object, data, options, flowbased_parameters):
+    def __init__(self, wdir, grid_object, data, options, flowbased_parameters):
         # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.FBMCDomainPlots')
         self.logger.info("Initializing the FBMCModule....")
 
-        super().__init__(wdir, package_dir, grid_object, data, options)
+        super().__init__(wdir, grid_object, data, options)
 
         self.fbmc_plots = {}
         self.flowbased_parameters = flowbased_parameters
@@ -102,7 +94,6 @@ class FBMCDomainPlots(FBMCModule):
         plt.ioff()
         plt.close("all")
         self.logger.info("FBMCModule  Initialized!")
-
 
     def save_all_domain_plots(self, folder):
         """Saving all the FBMC Plots"""
@@ -313,7 +304,7 @@ class FBMCDomainPlots(FBMCModule):
         if not len(self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].gsk_strategy.unique()) == 1:
             raise AttributeError("Multiple GSK Strategies in flow based parameters, slice first!")
         else:
-            gsk_strategy = self.flowbased_parameters[self.flowbased_parameters.timestep == "t0001"].gsk_strategy[0]
+            gsk_strategy = self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].gsk_strategy.unique()[0]
 
         A = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, list(self.nodes.zone.unique())].values
         b = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, "ram"].values

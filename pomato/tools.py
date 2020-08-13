@@ -272,10 +272,6 @@ def create_folder_structure(base_path, logger=None):
                         "results": {},
                         "cbco_data": {},
                         },
-                "gms_files": {
-                        "data": {},
-                        "results": {},
-                        },
                     },
         "logs": {},
         "profiles": {},
@@ -300,7 +296,7 @@ def create_folder_structure(base_path, logger=None):
         if logger:
             logger.error("Could not create folder structure!")
         else:
-            print("Cound not create folder structure!")
+            print("Could not create folder structure!")
 
 def find_xy_limits(list_plots):
     """Find max/min of a list of coordinates, i.e. a canvas where all points are included."""
@@ -340,19 +336,17 @@ def split_length_in_ranges(step_size, length):
     return ranges
 
 def _delete_empty_subfolders(folder):
-    """Delete all empty subfolders to input folder"""
+    """Delete all empty subfolders to input folder."""
     non_empty_subfolders = {f.parent for f in folder.rglob("*") if f.is_file()}
     for subfolder in folder.iterdir():
         if subfolder not in non_empty_subfolders:
             subfolder.rmdir()
 
 def default_options():
-    """Returns the default options of POMATO.
-
-    """
+    """Returns the default options of POMATO."""
     options_dict = {"optimization": {}, "grid": {}, "data": {}}
     options_dict["optimization"] = {
-        "type": "cbco_nodal",
+        "type": "ntc",
         "model_horizon": [0, 2],
         "heat_model": False,
         "constrain_nex": False,
@@ -422,7 +416,8 @@ def default_options():
 def add_default_options(option_dict):
     """Takes the loaded option dict and adds missing values from default options.
     
-    Uses function that are "taken" from https://stackoverflow.com/a/14692747
+    Uses function that are a result from https://stackoverflow.com/a/14692747.
+
     Parameters
     ----------
     option_dict : option_dict
@@ -439,7 +434,7 @@ def add_default_options(option_dict):
 def _dict_generator(indict, pre=None):
     """Flatten Option Dict.
 
-    Source: https://stackoverflow.com/a/12507546
+    Source: https://stackoverflow.com/a/12507546.
     """
     pre = pre[:] if pre else []
     if isinstance(indict, dict):
@@ -467,3 +462,17 @@ def copytree(src, dst, symlinks=False, ignore=None):
             shutil.copytree(s, d, symlinks, ignore)
         else:
             shutil.copy2(s, d)
+
+def remove_empty_subdicts(old_dict):
+    """Removing all empty subdicts.
+    
+    Based on https://stackoverflow.com/a/33529384.
+    A doct is empty when values are empty string, None, {} or [].    
+    """
+    new_dicts = {}
+    for k, v in old_dict.items():
+        if isinstance(v, dict):
+            v = remove_empty_subdicts(v)
+        if not v in (u'', None, {}, []):
+            new_dicts[k] = v
+    return new_dicts

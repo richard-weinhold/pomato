@@ -30,7 +30,7 @@ The recommended way to install POMATO is through *pip* by creating a virtual
 environment and install pomato into it::
 
     python -m venv pomato && /pomato/Scripts/activate
-    pip install git+https://github.com/korpuskel91/pomato.git
+    pip install git+https://github.com/richard-weinhold/pomato.git
 
 After this is completed pomato can be imported in python::
 
@@ -42,7 +42,7 @@ data and logs. The way we use pomato is illustrated by the *examples* folder,
 cloning its contents into the *working directory* allows to run the included examples.
 
 Note: To install pomato in its current state, julia and gurobi must be available on 
-the PATH within the venv/project. See [Gurobi.jl](https://github.com/JuliaOpt/Gurobi.jl) 
+the PATH within the venv/project. See `Gurobi.jl <https://github.com/JuliaOpt/Gurobi.jl>`_
 for notes on the installation. 
 
 Examples
@@ -51,24 +51,22 @@ This release includes two examples in the *examples* folder. Including the conte
 this folder into the pomato working directory will allow their execution:
 
   - The IEEE 118 bus network, which contains a singular timestep. The data is available under 
-    open license at [https://power-grid-lib.github.io/](https://power-grid-lib.github.io/) 
+    open license at `https://power-grid-lib.github.io/ <https://power-grid-lib.github.io/>`_
     and rehosted in this repository.::
-    
+
         $ python /run_pomato_ieee.py
 
-  - The DE case study, based on data from [ELMOD-DE](http://www.diw.de/elmod) which is 
+  - The DE case study, based on data from `ELMOD-DE <http://www.diw.de/elmod>`_ which is 
     openly available and described in detail in 
-    [DIW DataDocumentation 83](https://www.diw.de/documents/publikationen/73/diw_01.c.528927.de/diw_datadoc_2016-083.pdf) which represents a more complex system and can be run for longer model horizon (although 
+    `DIW DataDocumentation 83 <https://www.diw.de/documents/publikationen/73/diw_01.c.528927.de/diw_datadoc_2016-083.pdf>`_ 
+    which represents a more complex system and can be run for longer model horizon (although 
     shortened to allow to host this data in this git).::
 
         $ python /run_pomato_de.py
 
-
 However, the functionality of POMATO is best utilized when running inside a
 IDE (e.g. Spyder) to access POMATO objects and develop a personal script based
 on the provided functionality and its results.
-
-
 
 However, the functionality of POMATO is best utilized when running inside a
 IDE (e.g. Spyder) to acces POMATO objects and develop a personal script based
@@ -88,11 +86,12 @@ stupid code structures, hard-coded mess and lack of obvious features.
 Related Publications
 --------------------
 
-- [Weinhold and Mieth (2019), Fast Security-Constrained Optimal Power Flow through 
-   Low-Impact and Redundancy Screening](https://arxiv.org/abs/1910.09034)
-- [Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for 
+- `Weinhold and Mieth (2020), Fast Security-Constrained Optimal Power Flow through 
+  Low-Impact and Redundancy Screening <https://ieeexplore.ieee.org/document/9094021>`_
+
+- `Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for 
   generation shift keys (GSKs) on the flow-based market coupling domain: A model-based analysis 
-  of Central Western Europe](https://www.sciencedirect.com/science/article/pii/S0306261919317544)
+  of Central Western Europe <https://www.sciencedirect.com/science/article/pii/S0306261919317544>`_
 
 Acknowledgments
 ---------------
@@ -162,7 +161,6 @@ class POMATO():
     the model. At the center is an instance of the DataManagement module, that
     reads and processes input data, makes processed input data acessible to
     other modules and is the container for the results from the market model.
-
 
     Attributes
     ----------
@@ -283,13 +281,15 @@ class POMATO():
             Providing the name of a data file, usually located in the
             ``/input_data`` folder. Excel files and matpower cases are supported.
         """
-        self.data = DataManagement(self.options, self.wdir)
+        if not self.data:
+            self.data = DataManagement(self.options, self.wdir)
+        
         self.data.load_data(filename)
         self.init_grid_model()
         
-        self.cbco_module = CBCOModule(self.wdir, self.package_dir, self.grid, self.data, self.options)
-        self.market_model = MarketModel(self.wdir, self.package_dir, self.options)
-       
+        self.cbco_module = CBCOModule(self.wdir, self.grid, self.data, self.options)
+        self.init_market_model()
+
     def init_grid_model(self):
         """Initialize the grid model from the data management object"""
         self.grid = GridModel(self.data.nodes, self.data.lines)
@@ -303,25 +303,28 @@ class POMATO():
         """
         if not self.grid_representation:
             self.create_grid_representation()
-
-        self.market_model = MarketModel(self.wdir, self.package_dir, self.options)
+        self.market_model = MarketModel(self.wdir, self.options)
 
     def update_market_model_data(self, folder=None):
         """Update data within an instance of the market model.
-
-        It is possible to change the data in the market mode and re-run without
+        
+        It is possible to change the data which is used in the market model and re-run without
         explicitly re-initializing the module.
+
+        Parameters
+        ----------
+        folder : pathlib.Path, optional
+            Saving model data to specified path, defaults to ``data_temp/julia_files/data``.
         """
         if not self.market_model:
             self.init_market_model()
-
+        
         if folder:
             self.market_model.data_dir = folder
             self.market_model.update_data(self.data, self.options, self.grid_representation)
             self.market_model.data_dir = self.wdir.joinpath("data_temp/julia_files/data")
         else:
             self.market_model.update_data(self.data, self.options, self.grid_representation)
-            
 
     def initialize_market_results(self, result_folders):
         """Initionalizes market results from a list of folders.
@@ -341,11 +344,20 @@ class POMATO():
             self.data.results[result.replace(oldname, newname)] = self.data.results.pop(result)
 
 
-    def run_market_model(self):
-        """Run the market model."""
+    def run_market_model(self, update_data=True):
+        """Run the market model.
+        
+        Parameters
+        ----------
+        update_data : bool, optional
+            Update data before model run. Default: False.
+        """
         if not self.market_model:
             self.init_market_model()
 
+        if update_data:
+            self.update_market_model_data()
+        
         self.market_model.run()
 
         if self.market_model.status == "solved":
@@ -364,17 +376,18 @@ class POMATO():
         Creates grid representation to be used in the market model.
         """
         if not self.cbco_module:
-            self.cbco_module = CBCOModule(self.wdir, self.package_dir, self.grid, self.data, self.options)
+            self.cbco_module = CBCOModule(self.wdir, self.grid, self.data, self.options)
 
         self.cbco_module.create_grid_representation()
         self.grid_representation = self.cbco_module.grid_representation
 
-    def create_geo_plot(self, name="default", bokeh_type="static", results=None, show=True):
+    def create_geo_plot(self, title=None, bokeh_type="static", results=None, 
+                        show=True, plot_dimensions=[700, 800]):
         """Initialize bokeh plot based on the dataset and a market result.
 
         Parameters
         ----------
-        name : str, optional
+        title : str, optional
             Name defaults to 'default' is is used to identify the initialized
             market result in the plot itself and to name the folder within
             the ``data_temp/bokeh_files`` folder.
@@ -386,15 +399,15 @@ class POMATO():
         results : dict(str, :obj:`~pomato.data.ResultProcessing`)
             Optionally specify a subset of results to plot.
         """
-        self.bokeh_plot = BokehPlot(self.wdir, self.package_dir, bokeh_type=bokeh_type)
+        self.bokeh_plot = BokehPlot(self.wdir, bokeh_type=bokeh_type)
 
         if (not self.data.results) and (not results):  # if results dict is empty
             self.logger.info("No result available from market model!")
             self.bokeh_plot.create_empty_static_plot(self.data)
         elif results:
-            self.bokeh_plot.create_static_plot(results)
+            self.bokeh_plot.create_static_plot(results, title=title, plot_dimensions=plot_dimensions)
         else:
-            self.bokeh_plot.create_static_plot(self.data.results)
+            self.bokeh_plot.create_static_plot(self.data.results, title=title, plot_dimensions=plot_dimensions)
 
         if show:
             self.bokeh_plot.show_plot()
