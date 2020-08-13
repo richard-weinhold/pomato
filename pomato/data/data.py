@@ -14,7 +14,6 @@ import pomato.tools as tools
 from pomato.data.results import ResultProcessing
 from pomato.data.worker import DataWorker
 
-
 class Timeseries(): 
     """Timeseries returns Day-Ahead or Real-Time timeseries depending n input data and settings."""
     def __init__(self):
