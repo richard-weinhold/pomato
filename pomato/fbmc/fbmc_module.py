@@ -5,13 +5,15 @@ INPUT: DATA
 OUTPUT: RESULTS
 
 """
-
-import logging
 import datetime as dt
+import logging
+from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-import matplotlib.pyplot as plt
+import pomato
 import pomato.tools as tools
 from pomato.cbco import CBCOModule
 
@@ -25,13 +27,13 @@ from pomato.cbco import CBCOModule
 
 class FBMCModule():
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, package_dir, grid_object, data, options, cbco_list=None, flowbased_region=None):
+    def __init__(self, wdir, grid_object, data, options, cbco_list=None, flowbased_region=None):
         # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
 
         self.wdir = wdir
-        self.package_dir = package_dir
+        self.package_dir = Path(pomato.__path__[0])
 
         self.options = options
         self.grid = grid_object
@@ -46,6 +48,26 @@ class FBMCModule():
 
         self.logger.info("FBMCModule  Initialized!")
 
+    def create_dynamic_gsk(self, basecase, timestep):
+        """Returns GSK based on the included basecase."""
+        
+        gsk = pd.DataFrame(index=self.nodes.index)
+        plant_types = self.data.options["optimization"]["plant_types"]
+        condition = (~self.data.plants.plant_type.isin(plant_types["ts"])) & \
+                    (~self.data.plants.plant_type.isin(plant_types["es"]))
+        
+        gen = basecase.G.copy()
+        gen = gen[(gen.t == timestep)&(gen.p.isin(self.data.plants.index[condition]))]
+        gen.loc[:, "n"] = self.data.plants.loc[gen.p, "node"].values
+        for zone in self.data.zones.index:
+            gsk[zone] = 0
+            nodes_in_zone = self.nodes.index[self.nodes.zone == zone]
+            tmp = gen[gen.n.isin(nodes_in_zone)].groupby("n").sum().copy()
+            tmp.loc[:, "G"] /= tmp.G.max()
+            gsk.loc[tmp.index, zone] = tmp.G.values
+        
+        return gsk.values
+        
     def create_gsk(self, option="flat"):
         """returns GSK, either flat or gmax"""
         gsk = pd.DataFrame(index=self.nodes.index)
@@ -177,7 +199,10 @@ class FBMCModule():
         injection = basecase.INJ.INJ[basecase.INJ.t == timestep].values
 
         f_ref_base_case = np.dot(self.nodal_fbmc_ptdf, injection)
-        gsk = self.create_gsk(gsk_strategy)
+        if gsk_strategy == "dynamic":
+            gsk = self.create_dynamic_gsk(basecase, timestep)
+        else:
+            gsk = self.create_gsk(gsk_strategy)
         zonal_fbmc_ptdf = np.dot(self.nodal_fbmc_ptdf, gsk)
 
         # F Day Ahead (eigentlich mit LTNs)
@@ -194,6 +219,7 @@ class FBMCModule():
                - frm_fav.value[self.domain_info.cb] 
                - f_ref_nonmarket)
 
+        self.logger.info("Applying minRAM at %i percent of line capacity", int(self.options["grid"]["minram"]*100))
         minram = self.lines.maxflow[self.domain_info.cb] * self.options["grid"]["minram"] 
         ram[ram < minram] = minram[ram < minram]
 
@@ -234,26 +260,27 @@ class FBMCModule():
 
         return(A, b)
 
-    def create_flowbased_parameters(self, basecase, gsk="gmax"):
+    def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=True):
         
         domain_data = {}
-        cbco = CBCOModule(self.wdir, self.package_dir, self.grid, self.data, self.data.options)
+        cbco = CBCOModule(self.wdir, self.grid, self.data, self.data.options)
         cbco._start_julia_daemon()
         cbco.options["optimization"]["type"] = "cbco_zonal"
         cbco.options["grid"]["cbco_option"] = "clarkson"
 
         for timestep in basecase.INJ.t.unique():
-            self.create_flowbased_ptdf(gsk, timestep, basecase)
+            self.create_flowbased_ptdf(gsk_strategy, timestep, basecase)
             domain_data[timestep] = self.domain_info.copy()
 
         cbco.cbco_info =  pd.concat([domain_data[t] for t in domain_data.keys()], ignore_index=True)
-        cbco.cbco_index = cbco.clarkson_algorithm(args={"fbmc_domain": True})
+        if reduce:
+            cbco.cbco_index = cbco.clarkson_algorithm(args={"fbmc_domain": True})
+        else:
+            cbco.cbco_index = list(range(0, len(cbco.cbco_info)))
+
         fbmc_rep = cbco.return_cbco()
         fbmc_rep.set_index(fbmc_rep.cb + "_" + fbmc_rep.co, inplace=True)
         cbco.julia_instance.join()
         cbco.julia_instance.julia_instance = None
 
         return fbmc_rep
-
-
-
