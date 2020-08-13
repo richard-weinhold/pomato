@@ -5,7 +5,7 @@
         "redispatch": {
                 "include": true,
                 "zones": ["DE"],
-                "cost": 1
+                "cost": 10
             },
         "infeasibility": {
             "electricity": {
@@ -16,8 +16,7 @@
         },
         "curtailment": {
             "include": true,
-            "cost": 1,
-            "bound": 0.2
+            "cost": 1
         },
         "parameters": {
             "storage_start": 0.5
@@ -25,22 +24,22 @@
         "plant_types": {
             "es": ["hydro_res", "hydro_psp"],
             "hs": [],
-            "ts": ["wind", "solar"],
+            "ts": ["wind onshore", "wind offshore", "solar"],
             "ph": []
         }
     },
     "grid": {
         "cbco_option": "clarkson_base",
         "precalc_filename": "",
-        "sensitivity": 5e-2,
+        "senstitivity": 5e-2,
         "capacity_multiplier": 0.95,
         "preprocess": true,
         "gsk": "gmax"
     },
     "data": {
         "data_type": "opsd",
-        "stacked": ["demand_el", "net_export"],
-        "process": ["availability", "net_position", "opsd"],
+        "stacked": ["demand_el", "net_export", "availability"],
+        "process": [],
         "process_input": true
     }
 }

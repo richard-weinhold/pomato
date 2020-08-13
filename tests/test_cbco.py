@@ -22,13 +22,13 @@ class TestPomatoGridRepresentation(unittest.TestCase):
     def setUp(self):
         self.wdir = Path.cwd().joinpath("examples")
         self.options = pomato.tools.default_options()
+        self.options["data"]["stacked"] = ["demand_el_rt", "demand_el_da", "availability_da", "availability_rt", "net_export"]
         self.data = pomato.data.DataManagement(self.options, self.wdir)
         self.data.logger.setLevel(logging.ERROR)
-        # self.data.load_data('data_input/pglib_opf_case118_ieee.m')
-        self.data.load_data(r'data_input/nrel_118.xlsx')
+        self.data.load_data(r'data_input/nrel_118.zip')
 
-        self.grid  = pomato.grid.GridModel(self.data.nodes, self.data.lines)
-        self.cbco_module = pomato.cbco.CBCOModule(self.wdir, self.wdir, self.grid, self.data, self.options)
+        self.grid = pomato.grid.GridModel(self.data.nodes, self.data.lines)
+        self.cbco_module = pomato.cbco.CBCOModule(self.wdir, self.grid, self.data, self.options)
         self.cbco_module.logger.setLevel(logging.ERROR)
 
     @classmethod
@@ -75,6 +75,7 @@ class TestPomatoGridRepresentation(unittest.TestCase):
         grid_representation = self.cbco_module.grid_representation
         np.testing.assert_equal(grid_representation["grid"][self.data.nodes.index].values, self.grid.ptdf)
         np.testing.assert_equal(grid_representation["grid"]["ram"].values, self.data.lines.maxflow.values)
+        
 
     def test_cbco_nodal(self):
         self.cbco_module.options["optimization"]["type"] = "cbco_nodal"

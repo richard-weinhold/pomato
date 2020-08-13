@@ -26,10 +26,10 @@ class TestPomatoMarketModel(unittest.TestCase):
         self.data.logger.setLevel(logging.ERROR)        
         self.data.load_data('data_input/pglib_opf_case118_ieee.m')
         self.grid  = pomato.grid.GridModel(self.data.nodes, self.data.lines)
-        self.cbco_module = pomato.cbco.CBCOModule(self.wdir, self.wdir, self.grid, self.data, self.options)
+        self.cbco_module = pomato.cbco.CBCOModule(self.wdir, self.grid, self.data, self.options)
         self.cbco_module.logger.setLevel(logging.ERROR)
 
-        self.market_model = pomato.market_model.MarketModel(self.wdir, Path("dummy"), self.options)
+        self.market_model = pomato.market_model.MarketModel(self.wdir, self.options)
 
     @classmethod
     def tearDownClass(cls):

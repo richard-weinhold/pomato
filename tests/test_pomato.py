@@ -54,7 +54,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         """Simply run the ieee case"""
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
         mato.load_data('data_input/pglib_opf_case118_ieee.m')
-        mato.create_geo_plot(name="IEEE_blank", show=False)
+        mato.create_geo_plot(title="IEEE_blank", show=False)
 
         ### Set Mock Julia Model and copy precalculated results
         mato.cbco_module.julia_instance = JuliaMockup()
@@ -111,6 +111,6 @@ class TestPomatoMarketModel(unittest.TestCase):
         # # Check for Overloaded lines N-0, N-1 (should be non for N-0, but plenty for N-1)
         # df1, df2 = redisp_result.overloaded_lines_n_1()
         # df3, df4 = redisp_result.overloaded_lines_n_0()
-        mato.create_geo_plot(name="DE", show=False)
+        mato.create_geo_plot(title="DE", show=False)
 
 
