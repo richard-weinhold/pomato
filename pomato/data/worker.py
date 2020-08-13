@@ -19,6 +19,38 @@ def _mpc_data_pu_to_real(lines,  base_kv, base_mva):
     lines['b'] = np.divide(1, lines['x'])
     return lines
 
+def _mpc_data_structure():
+    data_structure = [
+        ["nodes", "index", "any", False],
+        ["nodes", "zone", "zones.index", False],
+        ["nodes", "slack", "bool", False],
+        ["nodes", "lat", "float64", False],
+        ["nodes", "lon", "float64", False],
+        ["nodes", "name", "str", False],
+        ["nodes", "voltage", "float64", False],
+        ["zones", "index", "any", False],
+        ["plants", "index", "any", False],
+        ["plants", "node", "nodes.index", False],
+        ["plants", "mc_el", "float64", False],
+        ["plants", "g_max", "float64", False],
+        ["plants", "plant_type", "any", False],
+        ["plants", "fuel", "any", False],
+        ["lines", "index", "any", False],
+        ["lines", "node_i", "nodes.index", False],
+        ["lines", "node_j", "nodes.index", False],
+        ["lines", "b", "float64", False],
+        ["lines", "maxflow", "float64", False],
+        ["lines", "contingency", "bool", False],
+        ["lines", "technology", "float64", True],
+        ["lines", "type", "float64", True],
+        ["lines", "voltage", "any", True],
+        ["demand_el", "index", "any", False],
+        ["demand_el", "timestep", "any", False],
+        ["demand_el", "node", "nodes.index", False],
+        ["demand_el", "demand_el", "float", False]]
+
+    return pd.DataFrame(data_structure, columns=["data", "attributes", "type", "optional"]).set_index("data")
+
 class DataWorker(object):
     """Data Woker Module reads data from disk.
 
@@ -66,8 +98,23 @@ class DataWorker(object):
         else:
             self.logger.warning("Data Type not supported, only .xls(x), .zip or .mat")
 
+
+    def stack_data(self, data, columns):
+        """Stacks data that comes in a wide format.
+
+        As xls files have a limit when it comes to table length, some data will
+        be stored wide instead (e.g. demand or availability). To properly use
+        this data in the model the data will be stacked based on the
+        configuration in the options file (options["data"]["stacked"]).
+
+        """
+        data = data.stack().reset_index()
+        data.columns = columns
+        data = data.sort_values("timestep")
+        return data.infer_objects()
+
     def read_xls(self, xls_filepath):
-        """Read excel file at speciefied filepath.
+        """Read excel file at specified filepath.
 
         Parameters
         ----------
@@ -76,15 +123,22 @@ class DataWorker(object):
 
         """
         xls = pd.ExcelFile(xls_filepath)
+        self.data.data_structure = xls.parse("data_structure", index_col=0)
+        self.data.data_attributes.update({d: False for d in self.data.data_structure.index.unique()})
+
         for data in self.data.data_attributes:
             try:
-                setattr(self.data, data, xls.parse(data, index_col=0).infer_objects())
+                if data in self.data.options["data"]["stacked"]:
+                    setattr(self.data, data, self.stack_data(xls.parse(data, index_col=0),
+                                                             self.data.data_structure.loc[data]["attributes"][1:]))
+                else:
+                    setattr(self.data, data, xls.parse(data, index_col=0).infer_objects())
                 self.data.data_attributes[data] = True
             except xlrd.XLRDError:
                 self.logger.warning(f"{data} not in excel file")
 
     def read_zipped_csv(self, zip_filepath):
-        """Read csv files zipped into archive at speciefied filepath.
+        """Read csv files zipped into archive at specified filepath.
 
         Parameters
         ----------
@@ -93,15 +147,22 @@ class DataWorker(object):
 
         """
         from zipfile import ZipFile
-
         with ZipFile(zip_filepath) as zip_archive:
+            with zip_archive.open('data_structure.csv', 'r') as csv_file:
+                self.data.data_structure = pd.read_csv(csv_file, index_col=0)
+            self.data.data_attributes.update({d: False for d in self.data.data_structure.index.unique()})
             for data in self.data.data_attributes:
                 try:
                     with zip_archive.open(data + '.csv', 'r') as csv_file:
-                        setattr(self.data, data, pd.read_csv(csv_file, index_col=0).infer_objects())
+                        if data in self.data.options["data"]["stacked"]:
+                            cols = self.data.data_structure.loc[data]["attributes"][1:]
+                            setattr(self.data, data, self.stack_data(pd.read_csv(csv_file, index_col=0), cols))
+                        else:
+                            setattr(self.data, data, pd.read_csv(csv_file, index_col=0).infer_objects())
                         self.data.data_attributes[data] = True
-                except KeyError:
-                    self.logger.warning(f"{data} not in excel file")
+                except KeyError as error_msg:
+                    self.logger.warning(f"{data} not in zip archive")
+                    self.logger.warning(error_msg)
 
     def read_mat_file(self, mat_filepath):
         """Read mat file at speciefied filepath.
@@ -345,10 +406,11 @@ class DataWorker(object):
 
         self.data.zones = pd.DataFrame(index=set(self.data.nodes.zone.values))
         self.data.plants.node = ["n" + str(int(idx)) for idx in self.data.plants.node]
-        self.data.demand_el = pd.DataFrame(index=["t0001", "t0002"], data=self.data.nodes.Pd.to_dict())
-        self.data.demand_el = self.data.demand_el.stack().reset_index()
-        self.data.demand_el.columns = ["timestep", "node", "demand_el"]
         
+        tmp_demand = pd.DataFrame(index=["t0001", "t0002"], data=self.data.nodes.Pd.to_dict())
+        tmp_demand = tmp_demand.stack().reset_index()
+        tmp_demand.columns = ["timestep", "node", "demand_el"]
+        self.data.demand_el = tmp_demand 
         self.data.plants = self.data.plants[["g_max", "mc_el", "node"]]
         
         cond = [i%2==0 for i in range(0, len(self.data.plants))]
@@ -358,7 +420,7 @@ class DataWorker(object):
         self.data.plants.loc[~np.array(cond), "fuel"] = "fuel 2"
 
         
-        self.data.net_export = self.data.demand_el.copy()
+        self.data.net_export = tmp_demand.copy()
         self.data.net_export.columns = ["timestep", "node", "net_export"]
         self.data.net_export.loc[:, "net_export"] = 0
 
@@ -378,6 +440,7 @@ class DataWorker(object):
             self.data.nodes.loc[:, "lat"] = 0
             self.data.nodes.loc[:, "lon"] = 0
 
+        self.data.data_structure = _mpc_data_structure()
         # mark read data as true in datamanagement attributes
         self.data.data_attributes["lines"] = True
         self.data.data_attributes["nodes"] = True

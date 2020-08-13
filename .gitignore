@@ -8,3 +8,4 @@ dist/
 .vscode/settings.json
 pomato/_installation/pomato
 pomato.sublime-workspace
+.vscode/.ropeproject/config.py
