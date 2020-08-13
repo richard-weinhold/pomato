@@ -1,0 +1,73 @@
+{"nodes": {
+	"index": {"type": "any", "default": "none"},
+ 	"zone": {"type": "zones.index", "default": "none"},
+ 	"slack": {"type": "bool", "default": "none"},
+ 	"voltage": {"type": "float64", "default": 220}
+ },
+ "zones": {
+ 	"index": {"type": "any", "default": "none"}
+},
+ "heatareas": {
+ 	"index": {"type": "any", "default": "none"}
+},
+ "plants": {
+ 	"index": {"type": "any", "default": "nan"},
+ 	"node": {"type": "nodes.index", "default": "none"},
+ 	"mc_el": {"type": "float64", "default": "none"},
+ 	"mc_heat": {"type": "float64", "default": 0},
+ 	"g_max": {"type": "float64", "default": "none"},
+ 	"h_max": {"type": "float64", "default": 0},
+ 	"eta": {"type": "float64", "default": 1},
+ 	"plant_type": {"type": "any", "default": ""},
+ 	"heatarea": {"type": "heatareas.index", "default": "none"},
+ 	"storage_capacity": {"type": "float64", "default": "none"}
+},
+ "availability": {
+ 	"index": {"type": "any", "default": "none"},
+ 	"timestep": {"type": "any", "default": "none"},
+ 	"plant": {"type": "plants.index", "default": "none"},
+ 	"availability": {"type": "float64", "default": "none"}
+},
+ "dclines": {
+ 	"index": {"type": "any", "default": "none"},
+ 	"node_i": {"type": "nodes.index", "default": "none"},
+ 	"node_j": {"type": "nodes.index", "default": "none"},
+ 	"maxflow": {"type": "float64", "default": "none"}
+},
+ "demand_el": {
+ 	"index": {"type": "any", "default": "none"},
+ 	"timestep": {"type": "any", "default": "none"},
+ 	"node": {"type": "nodes.index", "default": "none"},
+ 	"demand_el": {"type": "float", "default": "none"}
+},
+ "demand_h": {
+ 	"index": {"type": "any", "default": "none"},
+ 	"timestep": {"type": "any", "default": "none"},
+ 	"heatarea": {"type": "heatareas.index", "default": "none"},
+ 	"demand_h": {"type": "float64", "default": "none"}
+},
+ "ntc": {
+ 	"index": {"type": "any", "default": "none"},
+ 	"zone_i": {"type": "zones.index", "default": "none"},
+ 	"zone_j": {"type": "zones.index", "default": "none"},
+ 	"ntc": {"type": "float64", "default": "none"}
+},
+ "net_export": {
+ 	"index": {"type": "any", "default": "none"},
+ 	"timestep": {"type": "any", "default": "none"},
+ 	"node": {"type": "nodes.index", "default": "none"},
+ 	"net_export": {"type": "float64", "default": "none"}
+},
+ "inflows": {
+ 	"index": {"type": "any", "default": "none"},
+ 	"timestep": {"type": "any", "default": "none"},
+ 	"plant": {"type": "plants.index", "default": "none"},
+ 	"inflow": {"type": "float64", "default": "none"}
+},
+ "net_position": {
+ 	"index": {"type": "any", "default": "none"},
+ 	"timestep": {"type": "any", "default": "none"},
+ 	"zone": {"type": "zones.index", "default": "none"},
+ 	"net_position": {"type": "float64", "default": "none"}
+ }
+}

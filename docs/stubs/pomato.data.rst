@@ -9,7 +9,6 @@ pomato.data
    
       DataManagement
       DataWorker
-      InputProcessing
       ResultProcessing
    
    

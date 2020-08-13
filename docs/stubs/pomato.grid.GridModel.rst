@@ -14,7 +14,7 @@ pomato.grid.GridModel
       ~GridModel.check_slack
       ~GridModel.create_filtered_n_1_ptdf
       ~GridModel.create_incidence_matrix
-      ~GridModel.create_lodf_matrix
+      ~GridModel.create_lodf
       ~GridModel.create_n_1_ptdf_cbco
       ~GridModel.create_n_1_ptdf_line
       ~GridModel.create_n_1_ptdf_outage

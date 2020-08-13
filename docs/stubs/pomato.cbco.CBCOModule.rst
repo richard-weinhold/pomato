@@ -20,6 +20,5 @@ pomato.cbco.CBCOModule
       ~CBCOModule.process_nodal
       ~CBCOModule.create_ntc
       ~CBCOModule.process_zonal
-      ~CBCOModule.reduce_cbco_convex_hull
       ~CBCOModule.return_cbco
       ~CBCOModule.write_cbco_info

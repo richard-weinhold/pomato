@@ -9,18 +9,13 @@ pomato.tools
    .. rubric:: Classes
 
    .. autosummary::
-       ~JuliaDeamon
+       ~JuliaDaemon
    
    .. rubric:: Functions
 
    .. autosummary::
-      ~options
+      ~default_options
       ~create_folder_structure
-      ~find_xy_limits
       ~newest_file_folder
       ~split_length_in_ranges 
 
-
-   
-   
-   

@@ -17,7 +17,7 @@ pomato.data.ResultProcessing
       ~ResultProcessing.n_1_flow
       ~ResultProcessing.overloaded_lines_n_0
       ~ResultProcessing.overloaded_lines_n_1
-      ~ResultProcessing.check_courtailment
+      ~ResultProcessing.check_curtailment
       ~ResultProcessing.check_infeasibilities
       ~ResultProcessing.commercial_exchange
       ~ResultProcessing.net_position

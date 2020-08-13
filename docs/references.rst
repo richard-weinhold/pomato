@@ -1,7 +1,15 @@
 References
 ----------
-.. toctree::
-   :titlesonly:
-   :glob:
 
-   stubs/*
+.. currentmodule:: pomato
+
+.. autosummary::
+    :toctree: stubs
+
+    POMATO
+    data
+ 	grid
+    cbco
+    market_model
+    tools
+    
