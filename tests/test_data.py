@@ -67,7 +67,7 @@ class TestPomatoData(unittest.TestCase):
         result.check_infeasibilities()
         result.check_curtailment()
         result.net_position()
-        result.commercial_exchange("t0001")
+        result.commercial_exchange("z1", "z1")
 
         self.assertRaises(AttributeError, result.res_share)
         result.default_plots()
