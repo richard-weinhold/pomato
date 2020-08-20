@@ -216,23 +216,34 @@ class ResultProcessing():
 
         return eb_heat[["t", "ha", "marginal"]]
 
-    def commercial_exchange(self, timestep):
-        """Return commercial exchange for a specific timestep.
+    def commercial_exchange(self, from_zone, to_zone):
+        """Return commercial exchange for a pair of market areas.
 
         Parameters
         ----------
-        timestep : str
-            timestep for which the commercial exchnage is returned.
+        from_zone : str
+           Exporting market area.
+        to_zone : str
+           Importing market area.
 
         Returns
         -------
         exchange : DataFrame
-            Commercial exchange between market zone in a matrix form, with
-            *from zone* as rows and *to_zone* as columns.
+            Commercial exchange between two market areas. 
         """
-        exchange = self.EX[(self.EX.t == timestep)][["EX", "z", "zz"]]
-        exchange.columns = ["values", "from_zone", "to_zone"]
-        exchange = exchange.pivot(values="values", index="from_zone", columns="to_zone")
+
+        from_to = self.EX[(self.EX.z == from_zone)&(self.EX.zz == to_zone)]
+        to_from = self.EX[(self.EX.z == to_zone)&(self.EX.zz == from_zone)]
+
+        from_to = from_to.loc[:, ["t", "z", "zz", "EX"]].set_index("t")
+        to_from = to_from.loc[:, ["t", "z", "zz", "EX"]].set_index("t")
+
+        exchange = pd.merge(from_to, to_from, left_index=True, right_index=True)
+
+        exchange = exchange.loc[:, ["EX_x", "EX_y"]]
+        exchange.columns = ["-".join([from_zone, to_zone]), "-".join([to_zone, from_zone])]
+        exchange.loc[:, "-".join([to_zone, from_zone])] *= -1
+
         return exchange
 
     def net_position(self):
@@ -345,7 +356,6 @@ class ResultProcessing():
         generation = pd.merge(generation, self.data.nodes.zone.to_frame(),
                             how="left", left_on="node", right_index=True)
         model_horizon = self.result_attributes["model_horizon"]
-
 
         fig, ax = plt.subplots()
         group_by = "plant_type"

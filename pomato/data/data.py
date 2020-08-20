@@ -309,11 +309,6 @@ class DataManagement():
         self.validate_inputdata()
         self.timeseries.load_data(self)    
 
-        # # if self.options["data"]["process_input"]:
-        # #     InputProcessing(self)
-        # # else:
-        # #     self.logger.info("Input Data not processed")
-        
         self.validate_modeldata()
 
     def load_model_structure(self):
@@ -369,35 +364,39 @@ class DataManagement():
         """Initialize :class:`~pomato.data.ResultProcessing` with `results_folder` and the own instance."""
         self.results[result_folder.name] = ResultProcessing(self, grid, result_folder)
 
-    def return_results(self, symb):
+    def return_results(self, redispatch=True):
         """Interface method to allow access to results from :class:`~pomato.data.ResultProcessing`."""
-        if self.results and symb in self.results.__dict__.keys():
-            return_value = getattr(self.results, symb)
-        else:
-            if not self.results:
-                self.logger.error("Results not Initialized")
-            else:
-                self.logger.error("Symbol not in in results class")
-            return_value = None
-        return return_value
 
+        if redispatch and len(self.results) > 1:
+            redispatch_results = [r for r in list(self.results) if "redispatch" in r]
+            market_result = [r for r in list(self.results) if "market_result" in r]
+            if len(redispatch_results) == 1 and len(market_result) == 1:
+                return self.results[market_result[0]], self.results[redispatch_results[0]]
+            else:
+                self.logger.error("Multiple results initialized that fit criteria")
+        elif len(self.results) == 1:
+            return next(iter(self.results.values()))
+        else:
+            self.logger.error("Multiple results initialized that fit criteria")
+      
     def _clear_all_data(self):
         attr = list(self.__dict__.keys())
         attr.remove('logger')
         for att in attr:
             delattr(self, att)
 
-    def visualize_inputdata(self, folder, show_plot=True):
+    def visualize_inputdata(self, folder=None, show_plot=True):
         """Create default Plots for Input Data.
 
         This methods is currently not maintained, but was thought to provide standard figures
         to visualize the (processed) input data.
         """
-        if not Path.is_dir(folder):
+        if folder and not Path.is_dir(folder):
             self.logger.warning("Folder %s does not exist!", folder)
             self.logger.warning("Creating %s", folder)
             Path.mkdir(folder)
-        if show_plot:
+        
+        if show_plot or not folder:
             plt.ion()
         else:
             plt.ioff()
@@ -414,7 +413,6 @@ class DataManagement():
                                step=len(demand_zonal.index)/10))
         ax_demand.legend(loc='upper right')
         ax_demand.margins(x=0)
-        fig_demand.savefig(str(folder.joinpath("zonal_demand.png")))
 
         # Plot Installed Capacity by....
         plants_zone = pd.merge(self.plants, self.nodes.zone, how="left", 
@@ -428,4 +426,7 @@ class DataManagement():
 
         ax_gen.legend(loc='upper right')
         ax_gen.margins(x=0)
-        fig_gen.savefig(str(folder.joinpath(f"installed_capacity_by_type.png")))
+        
+        if folder:
+            fig_demand.savefig(str(folder.joinpath("zonal_demand.png")))
+            fig_gen.savefig(str(folder.joinpath(f"installed_capacity_by_type.png")))

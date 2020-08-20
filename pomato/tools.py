@@ -400,15 +400,8 @@ def default_options():
             }
 
     options_dict["data"] = {
-        "data_type": "ieee",
         "stacked": [],
-        "process": [],
-        "process_input": False,
         "unique_mc": False,
-        "round_demand": True,
-        "default_efficiency": 0.5,
-        "default_mc": 200,
-        "co2_price": 20,
         }
 
     return options_dict
