@@ -4,7 +4,7 @@ References
 .. currentmodule:: pomato
 
 .. autosummary::
-    :toctree: stubs
+    :toctree: _autodoc
 
     POMATO
     data

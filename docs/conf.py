@@ -60,8 +60,8 @@ html_sidebars = {
 html_title = 'POMATO'
 html_short_title = 'POMATO'
 html_theme_options = {
-    'logo': 'pomato_2.png',
-    'logo_name': True,
+    'logo': 'graphics/pomato_2.png',
+    'logo_name': False,
     "extra_nav_links": {
     	"Github": "https://github.com/richard-weinhold/pomato"},
 }

@@ -2,20 +2,19 @@
 	"optimization": {
 		"type": "dispatch",
 		"model_horizon": [0, 24],
+		"plant_types": {
+			"es": ["hydro_res", "hydro_psp"],
+			"ts": ["wind onshore", "wind offshore", "solar"]
+		},
 		"infeasibility": {
 			"electricity": {
 				"include": true,
 				"cost": 1E2,
 				"bound": 1000
 			}
-		},
-		"plant_types": {
-			"es": ["hydro_res", "hydro_psp"],
-			"ts": ["wind onshore", "wind offshore", "solar"]
 		}
 	},
 	"data": {
-		"stacked": ["demand_el", "net_export",
-			"availability", "net_position"]
+		"stacked": ["demand_el", "net_export", "availability"]
 	}
 }
