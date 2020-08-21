@@ -11,6 +11,7 @@ import pandas as pd
 
 import pomato
 import pomato.tools as tools
+import pomato.data.input_data_processing as process
 from pomato.data.results import ResultProcessing
 from pomato.data.worker import DataWorker
 
@@ -308,8 +309,10 @@ class DataManagement():
 
         self.validate_inputdata()
         self.timeseries.load_data(self)    
-
         self.validate_modeldata()
+
+    def default_net_position(self, net_position):
+        process.set_default_net_position(self, net_position)
 
     def load_model_structure(self):
         """Load model structure as part of init."""

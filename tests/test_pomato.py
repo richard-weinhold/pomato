@@ -72,9 +72,6 @@ class TestPomatoMarketModel(unittest.TestCase):
         result_folder = mato.market_model.result_folders[0]
         result = mato.data.results[result_folder.name]
         result.default_plots()
-        
-        # df1, df2 = result.overloaded_lines_n_1()
-        # df3, df4 = result.overloaded_lines_n_0()
         mato._clear_data()
 
     def test_run_de(self):
@@ -82,8 +79,9 @@ class TestPomatoMarketModel(unittest.TestCase):
 
         mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/de.json",
                              logging_level=logging.ERROR)
-        mato.load_data('data_input/dataset_de.xlsx')
-        
+        mato.load_data('data_input/dataset_de.zip')
+        mato.options["optimization"]["redispatch"]["include"] = True
+
         ### Set Mock Julia Model and copy precalculated results
         mato.cbco_module.julia_instance = JuliaMockup()
         mato.market_model.julia_model = JuliaMockup()

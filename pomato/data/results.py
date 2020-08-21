@@ -425,7 +425,7 @@ class ResultProcessing():
             N-0 power flows for each line.
         """
         if not timesteps:
-            self.logger.info("Calculateting N-0 Flows for the full model horizon")
+            self.logger.info("Calculating N-0 Flows for the full model horizon")
             timesteps = self.result_attributes["model_horizon"]
 
         # n_0_flows = pd.DataFrame(index=self.data.lines.index)

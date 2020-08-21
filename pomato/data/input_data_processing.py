@@ -7,11 +7,11 @@ properly formatted input data which does not require additional processing.
 import numpy as np
 import pandas as pd
 
-def default_net_position(data):
+def set_default_net_position(data, net_position):
     """Add default net position."""
     data.net_position = pd.DataFrame(index=data.demand_el.timestep.unique(), 
                                             columns=data.zones.index, 
-                                            data=data.options["data"]["default_net_position"]).stack().reset_index()
+                                            data=net_position).stack().reset_index()
 
     data.net_position.columns = [col for col in data.model_structure["net_position"].keys() if col != "index"]
 
