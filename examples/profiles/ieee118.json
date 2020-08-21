@@ -1,6 +1,6 @@
 {
     "optimization": {
-        "type": "cbco_nodal",
+        "type": "dispatch",
         "model_horizon": [0, 2],
         "heat_model": false,
         "infeasibility": {
