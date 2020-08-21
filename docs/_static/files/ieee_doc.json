@@ -1,0 +1,19 @@
+{    
+    "optimization": {
+        "type": "dispatch",
+        "model_horizon": [0, 1],
+        "infeasibility": {
+            "electricity": {
+                "include": true,
+                "cost": 1E2,
+                "bound": 20
+            }
+        }
+    },
+    "grid": {
+        "cbco_option": "clarkson_base",
+        "precalc_filename": "",
+        "sensitivity": 5e-2,
+        "preprocess": true
+    }
+}
