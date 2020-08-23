@@ -18,6 +18,5 @@ This is done within the two sub-modules:
 
 """
 from pomato.data.data import DataManagement
-from pomato.data.worker import DataWorker
 from pomato.data.results import ResultProcessing
-import pomato.data.input_data_processing
+from pomato.data.worker import DataWorker
