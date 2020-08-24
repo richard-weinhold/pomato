@@ -178,7 +178,7 @@ class MarketModel():
         if not self.data_dir.is_dir():
             self.data_dir.mkdir()
 
-        for data in self.data.model_structure and data != "lines":
+        for data in [d for d in self.data.model_structure if d != "lines"]:
             cols = [col for col in self.data.model_structure[data].keys() if col != "index"]
             if "timestep" in cols:
                 getattr(self.data, data).loc[getattr(self.data, data)["timestep"].isin(self.model_horizon), cols] \
