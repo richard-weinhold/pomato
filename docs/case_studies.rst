@@ -25,7 +25,7 @@ reference.
 
 The model is initialized by running the following commands. Note that pomato will automatically 
 recognize the ieee data format and import it correctly. After the import all data is available 
-though the DataManagement module initialized in :code:`mato.data`. 
+though the :obj:`~pomato.data.DataManagement` module initialized in :code:`mato.data`. 
 
 .. code-block:: python
 
@@ -152,7 +152,7 @@ is loaded. The option file, part of the initialization looks like this:
 .. literalinclude:: _static/files/de_doc.json
   :language: JSON
 
-As indicated in section :ref:`options` this will set-up pomato for a model clearing without a network
+As indicated in section :ref:`sec-options` this will set-up pomato for a model clearing without a network
 representation ("copper plate") for the model horizon from hour 0 to 24. Additionally, plants where 
 plant type is either "hydro_res" or "hydro_psp" are considered storages and plants of type 
 "wind onshore", "wind offshore" or "solar" have an availability timeseries attached to them. 
@@ -179,8 +179,8 @@ be one element present, it can directly be assigned.
    mato.run_market_model()
    market_result = next(iter(mato.data.results.values()))
 
-The instantiation of results within the DataManagement module allows for easy analysis of the model 
-results. 
+The instantiation of results within the :obj:`~pomato.data.DataManagement` module allows for easy 
+analysis of the model results. 
 
 .. code-block:: python
 

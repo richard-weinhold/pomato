@@ -16,5 +16,6 @@ but made sure the definitions are easily accessible to potentially adopt pomato 
 
 
 .. toctree::
+
 	prerequisites
 	case_studies

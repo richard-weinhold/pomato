@@ -9,5 +9,6 @@ Description of the Modules
 ==========================
 
 .. toctree::
-	getting_started.rst
+
+	getting_started
 	references.rst

@@ -6,7 +6,8 @@ pomato.cbco
    .. rubric:: Classes
 
    .. autosummary::
-   
+      :toctree:
+      
       CBCOModule
    
    
