@@ -17,14 +17,6 @@ import pomato
 import pomato.tools as tools
 from pomato.cbco import CBCOModule
 
-# kriterien für cb auswahl
-# # n-0 last
-# # lodf filter vll die ersten 10
-# #
-# # häufigkeit als teil der domain
-# #
-# # 3d plot
-
 class FBMCModule():
     """ Class to do all calculations in connection with cbco calculation"""
     def __init__(self, wdir, grid_object, data, options, cbco_list=None, flowbased_region=None):
@@ -108,18 +100,18 @@ class FBMCModule():
 
         z2z_ptdf_df = pd.DataFrame(index=self.lines.index)
         for zone in self.flowbased_region:
-            for zzone in self.flowbased_region:
-                z2z_ptdf_df["-".join([zone, zzone])] = zonal_ptdf_df[zone] - zonal_ptdf_df[zzone]
+            for z_zone in self.flowbased_region:
+                z2z_ptdf_df["-".join([zone, z_zone])] = zonal_ptdf_df[zone] - zonal_ptdf_df[z_zone]
 
         critical_branches = list(z2z_ptdf_df.index[np.any(z2z_ptdf_df.abs() > threshold, axis=1)])
 
         condition_cross_border = self.nodes.zone[self.lines.node_i].values != \
                                  self.nodes.zone[self.lines.node_j].values
 
-        cond_fb_region = self.nodes.zone[self.lines.node_i].isin(self.flowbased_region).values & \
+        condition_fb_region = self.nodes.zone[self.lines.node_i].isin(self.flowbased_region).values & \
                          self.nodes.zone[self.lines.node_j].isin(self.flowbased_region).values
 
-        cross_border_lines = list(self.lines.index[condition_cross_border&cond_fb_region])
+        cross_border_lines = list(self.lines.index[condition_cross_border&condition_fb_region])
         total_cbs = list(set(critical_branches + cross_border_lines))
 
         self.logger.info("Number of Critical Branches: %d, Number of Cross Border lines: %d, Total Number of CBs: %d",
@@ -189,7 +181,7 @@ class FBMCModule():
         self.logger.info("Creating zonal Ab for timestep %s", timestep)
         # Calculate zonal ptdf based on ram -> (if current flow is 0 the
         # zonal ptdf is based on overall
-        # avalable line capacity (l_max)), ram is calculated for every n-1
+        # available line capacity (l_max)), ram is calculated for every n-1
         # ptdf matrix to ensure n-1 security constrained FB Domain
         # The right side of the equation has to be positive
 
@@ -205,7 +197,7 @@ class FBMCModule():
             gsk = self.create_gsk(gsk_strategy)
         zonal_fbmc_ptdf = np.dot(self.nodal_fbmc_ptdf, gsk)
 
-        # F Day Ahead (eigentlich mit LTNs)
+        # F Day Ahead (should include LTNs)
         net_position = basecase.net_position() * 1
         # net_position.loc[:, ~net_position.columns.isin(self.flowbased_region)] = 0
 
@@ -240,7 +232,7 @@ class FBMCModule():
     def create_fbmc_equations(self, domain_x, domain_y, A, b):
         """
         from zonal ptdf calculate linear equations ax = b to plot the FBMC domain
-        nodes/Zones that are not part of the 2D FBMC are summerized using GSK sink
+        nodes/Zones that are not part of the 2D FBMC are summarized using GSK sink
         """
         self.logger.info("Creating fbmc equations...")
         list_zones = list(self.nodes.zone.unique())
@@ -252,7 +244,7 @@ class FBMCModule():
             raise ZeroDivisionError("Domains not set in the right way!")
 
         #Clean reduce Ax=b only works if b_i != 0 for all i,
-        #which should be but sometimes wierd stuff comes up
+        #which should be but sometimes wired stuff comes up
         #Therefore if b == 0, b-> 1 (or something small>0)
         if not (b > 0).all():
             b[(b < 0)] = 0.1

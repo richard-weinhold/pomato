@@ -42,7 +42,7 @@ class FBMCDomain():
         self.y_min = xy_limits["y_min"]
         self.domain_data = domain_data
 
-        # set-up: dont show the graphs when created
+        # set-up: don't show the graphs when created
         plt.ioff()
 
     def create_fbmc_figure(self):
@@ -90,7 +90,7 @@ class FBMCDomainPlots(FBMCModule):
         self.fbmc_plots = {}
         self.flowbased_parameters = flowbased_parameters
 
-        # set-up: dont show the graphs when created
+        # set-up: don't show the graphs when created
         plt.ioff()
         plt.close("all")
         self.logger.info("FBMCModule  Initialized!")
@@ -156,7 +156,7 @@ class FBMCDomainPlots(FBMCModule):
     def create_fbmc_equations(self, domain_x, domain_y, A, b):
         """
         from zonal ptdf calculate linear equations ax = b to plot the FBMC domain
-        nodes/Zones that are not part of the 2D FBMC are summerized using GSK sink
+        nodes/Zones that are not part of the 2D FBMC are summarized using GSK sink
         """
         self.logger.info("Creating fbmc equations...")
         list_zones = list(self.nodes.zone.unique())
@@ -168,7 +168,7 @@ class FBMCDomainPlots(FBMCModule):
             raise ZeroDivisionError("Domains not set in the right way!")
 
         #Clean reduce Ax=b only works if b_i != 0 for all i,
-        #which should be but sometimes wierd stuff comes up
+        #which should be but sometimes wired stuff comes up
         #Therefore if b == 0, b-> 1 (or something small>0)
         if not (b > 0).all():
             b[(b < 0)] = 0.1
@@ -204,17 +204,17 @@ class FBMCDomainPlots(FBMCModule):
         x_lower = -x_upper
         plot_equations = []
         for index in range(0, len(Ab)):
-            xcoord = []
-            ycoord = []
+            x_coordinates = []
+            y_coordinates = []
 #                for idx in range(-10000, 10001, 20000):
             for idx in range(x_lower, x_upper +1, (x_upper - x_lower)):
                 if Ab[index][1] != 0:
-                    ycoord.append((Ab[index][2] - idx*(Ab[index][0])) / (Ab[index][1]))
-                    xcoord.append(idx)
+                    y_coordinates.append((Ab[index][2] - idx*(Ab[index][0])) / (Ab[index][1]))
+                    x_coordinates.append(idx)
                 elif Ab[index][0] != 0:
-                    ycoord.append(idx)
-                    xcoord.append((Ab[index][2] - idx*(Ab[index][1])) / (Ab[index][0]))
-            plot_equations.append([xcoord, ycoord])
+                    y_coordinates.append(idx)
+                    x_coordinates.append((Ab[index][2] - idx*(Ab[index][1])) / (Ab[index][0]))
+            plot_equations.append([x_coordinates, y_coordinates])
 
         return plot_equations
 

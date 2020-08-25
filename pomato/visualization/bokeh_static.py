@@ -74,7 +74,7 @@ def create_voltage_colors(lines):
 
 def update_line_colors(lines, n_0_flows, n_1_flows,
                        option=0, range_start=0, range_end=100):
-    """Line colors in 10 shades of RedYellowGreeen palette"""
+    """Line colors in 10 shades of RedYellowGreen palette"""
     ## 0: N-0 Flows, 1: N-1 Flows 2: Line voltage levels
     # timesteps = 't'+ "{0:0>4}".format(int(slider.value))
     stepsize = round((range_end - range_start)/10, 3)
@@ -88,8 +88,8 @@ def update_line_colors(lines, n_0_flows, n_1_flows,
         n_0_flows["alpha"] = 0.4
         n_0_flows["color"] = palettes.RdYlGn[10][0]
         for idx, loading in enumerate(steps):
-            cond = abs(n_0_flows.flow.values)/lines.maxflow > loading/100
-            n_0_flows.loc[cond, "color"] = palettes.RdYlGn[10][idx]
+            condition = abs(n_0_flows.flow.values)/lines.maxflow > loading/100
+            n_0_flows.loc[condition, "color"] = palettes.RdYlGn[10][idx]
         color = list(n_0_flows.color.values)
         line_alpha = list(n_0_flows.alpha.values)
 
@@ -97,8 +97,8 @@ def update_line_colors(lines, n_0_flows, n_1_flows,
         n_1_flows["alpha"] = 0.4
         n_1_flows["color"] = palettes.RdYlGn[10][0]
         for idx, loading in enumerate(steps):
-            cond = abs(n_1_flows.flow.values)/lines.maxflow > loading/100
-            n_1_flows.loc[cond, "color"] = palettes.RdYlGn[10][idx]
+            condition = abs(n_1_flows.flow.values)/lines.maxflow > loading/100
+            n_1_flows.loc[condition, "color"] = palettes.RdYlGn[10][idx]
         color = list(n_1_flows.color.values)
         line_alpha = list(n_1_flows.alpha.values)
 
@@ -120,7 +120,7 @@ def prepare_line_plot(lines, nodes):
     for node_i, node_j, systems in zip(tmp.node_i, tmp.node_j, tmp.systems):
         condition = (lines.node_i == node_i)&(lines.node_j == node_j)
         lines.loc[condition, "systems"] = systems
-        # np.array bc of bug when assining a 2-elm list
+        # np.array bc of bug when assigning a 2-elm list
         lines.loc[condition, "no"] = np.array([nr for nr in range(0, systems)])
 
     lx, ly = [], []
@@ -136,7 +136,7 @@ def prepare_line_plot(lines, nodes):
             mx = xj - xi
             my = yj - yi
             # multiple lines are spread across a circle with radius d around each node
-            # starting from PI/4 in equal steps ( in angle) to -PI/4 from referece poin
+            # starting from PI/4 in equal steps ( in angle) to -PI/4 from reference point
             # reference point is the intersection of the circle and the line to the other node
             # the 20 and pi/5 are purely visual
             d = 36*np.power((np.sqrt(np.power(mx, 2) + np.power(my, 2))), 1/3)
@@ -151,9 +151,9 @@ def prepare_line_plot(lines, nodes):
                 alpha2 = np.arctan(my/mx) + np.pi/4*idx
                 alpha = np.arctan(my/mx) + np.pi - np.pi/4*idx
 
-            # lx contains start point, point on circle for mult lines on start point,
-            # a point 1/2 of the way for the hover menue to stick to
-            # point on circle for mult lines on end point, end point
+            # lx contains start point, point on circle for multiple lines on start point,
+            # a point 1/2 of the way for the hover menus to stick to
+            # point on circle for multiple lines on end point, end point
             lx.append([xi, xi + np.cos(alpha)*d,
                        0.5*(xi + np.cos(alpha)*d + xj + np.cos(alpha2)*d),
                        xj + np.cos(alpha2)*d, xj])

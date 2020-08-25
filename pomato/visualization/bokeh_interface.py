@@ -22,10 +22,10 @@ class BokehPlot():
     There are two option to create a bokeh plot: static and dynamic.
 
     A static plot will generate a plot based on the provided market result
-    with limited interaction. It is either a signle timestep or an average
+    with limited interaction. It is either a single timestep or an average
     load for a timeseires.
-    A dynamic plot displays the full market result with possibilitiy to
-    change between timestept, N-0 and N-2 line flows and inspection of
+    A dynamic plot displays the full market result with possibility to
+    change between timestep, N-0 and N-1 line flows and inspection of
     generation for each or group of nodes. This requires a running
     bokeh server process and a bit more setup, which is why this module exists.
 
@@ -39,7 +39,7 @@ class BokehPlot():
         Subprocess running the bokeh server.
     bokeh_thread : thread
         Spawns a seprate thread that contains the bokeh server, this way
-        the model remains repsonsive.
+        the model remains responsive.
     """
 
     def __init__(self, wdir, bokeh_type="static"):
@@ -204,9 +204,9 @@ class BokehPlot():
         self.logger.info("Market Results %s successfully initialized!", name)
 
     def process_grid_data(self, market_result):
-        """precalculatting the line flows for the bokeh plot"""
+        """Precalculating the line flows for the bokeh plot"""
         self.logger.info(
-            "Precalculatting line flows and saving them to file...")
+            "Precalculating line flows and saving them to file...")
         n_0_flows = market_result.n_0_flow()
         n_1_flows = market_result.n_1_flow()
 
@@ -235,8 +235,8 @@ class BokehPlot():
         map_pn = market_result.data.plants.node.reset_index()
         map_pn.columns = ['p', 'n']
 
-        cond_nodes = market_result.data.demand_el.node.isin(market_result.data.nodes.index)
-        demand = market_result.data.demand_el[cond_nodes].copy()
+        condition_nodes = market_result.data.demand_el.node.isin(market_result.data.nodes.index)
+        demand = market_result.data.demand_el[condition_nodes].copy()
         demand.rename(columns={"node": "n", "timestep": "t",
                                "demand_el": "d_el"}, inplace=True)
         demand_ph = market_result.D_ph

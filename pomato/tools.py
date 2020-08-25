@@ -21,7 +21,7 @@ class JuliaDaemon():
     
     The RedundancyRemoval and MarketModel processes are written in Julia. 
     This class's purpose is to communicate with a daemon process in julia
-    that runs these processes on demand and allows to excecute them multiple times
+    that runs these processes on demand and allows to execute them multiple times
     without restarting the julia process, which would require lengthy precompile everytime 
     instead of one lengthy precompile. 
     
@@ -73,8 +73,8 @@ class JuliaDaemon():
         args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
                 str(self.julia_daemon_path), self.julia_module]
         with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, cwd=str(self.wdir)) as programm:
-            for line in programm.stdout:
+                              stderr=subprocess.STDOUT, cwd=str(self.wdir)) as program:
+            for line in program.stdout:
                 if not any(w in line.decode(errors="ignore") for w in ["Academic license"]):
                     self.logger.info(line.decode("UTF-8", errors="ignore").replace("[ Info:", "").strip())
 
@@ -145,7 +145,7 @@ class JuliaDaemon():
             time.sleep(0.1)
             file = self.read_daemon_file()
             if not file["processing"]:
-                self.logger.info("Programm Done")
+                self.logger.info("Program Done")
                 break
             else:
                 # self.logger.info("Waiting for processing to complete")
@@ -306,10 +306,10 @@ def find_xy_limits(list_plots):
         y_max = 0
         y_min = 0
         for plots in list_plots:
-            tmpx = plots[0].reshape(len(plots[0]),)
-            tmpy = plots[1].reshape(len(plots[1]),)
-            x_coords = tmpx.tolist()
-            y_coords = tmpy.tolist()
+            tmp_x = plots[0].reshape(len(plots[0]),)
+            tmp_y = plots[1].reshape(len(plots[1]),)
+            x_coords = tmp_x.tolist()
+            y_coords = tmp_y.tolist()
             x_coords.extend([x_max,x_min])
             y_coords.extend([y_max,y_min])
             x_max = max(x_coords)
@@ -460,7 +460,7 @@ def remove_empty_subdicts(old_dict):
     """Removing all empty subdicts.
     
     Based on https://stackoverflow.com/a/33529384.
-    A doct is empty when values are empty string, None, {} or [].    
+    A dictionary is empty when values are empty string, None, {} or [].    
     """
     new_dicts = {}
     for k, v in old_dict.items():

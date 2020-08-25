@@ -19,7 +19,7 @@ There are currently the following options:
 
       There are currently two options available:
           - gmax : It is assumed that nodes participate in the net position
-            propotional to the conventional capacity installed.
+            proportional to the conventional capacity installed.
           - flat : all nodes participate equally.
 
 
@@ -31,12 +31,12 @@ The two options are:
     - cbco_nodal :  A nodal representation including contingencies. This is
       often denoted as security constrained optimal power flow (SCOPF). This
       setting comes with multiple methods that enable pomato to find the
-      smalles set of constraints to guaranty SCOPF. These are scribed in the
+      smallest set of constraints to guaranty SCOPF. These are scribed in the
       methods of :class:`~pomato.cbco.CBCOModule` and in the corresponding
       paper in the *See Also* section below.
     - cbco_zonal : Creating a zonal version of the security constrained
       nodal representation, similar to the zonal options. Analog to the
-      zonal option, one of the two availble gsk's is chosen.
+      zonal option, one of the two available gsks is chosen.
 
 The grid representation with contingencies come with additional methods that
 filter and reduce the number of constraints.
@@ -54,7 +54,7 @@ There are multiple options available:
       low dimension (n=6). This ways the model obtains a small set of relevant
       ptdfs, but incomplete, therefore not guaranteeing SCOPF.
 
-The options which grid represenation is generated is ["optimization"]["type"]
+The options which grid representation is generated is ["optimization"]["type"]
 and option for the reduction level is under ["grid"]["cbco_option"].
 
 See Also

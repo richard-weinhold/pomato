@@ -52,9 +52,9 @@ def _mpc_data_structure():
     return pd.DataFrame(data_structure, columns=["data", "attributes", "type", "optional"]).set_index("data")
 
 class DataWorker(object):
-    """Data Woker Module reads data from disk.
+    """Data Worker Module reads data from disk.
 
-    This module's pupose is to hide all the file system specific functions
+    This module's purpose is to hide all the file system specific functions
     and allow for rather seemless data import.
     An instance of the DataManagement class acts as the carrier for the
     read data and is used as an attribute of DataWorker.
@@ -62,7 +62,7 @@ class DataWorker(object):
     The based on *file_path* the module tries to import xlsx or matpower (.m
     or .mat) cases. Reading the excel file is done by going through the
     pre-defined data tables in *data.data_attributes* and attaching them
-    to the DataManagement instance for processisng and validation. Matpower
+    to the DataManagement instance for processing and validation. Matpower
     cases are imported manually and
 
     Attributes
@@ -165,7 +165,7 @@ class DataWorker(object):
                     self.logger.warning(error_msg)
 
     def read_mat_file(self, mat_filepath):
-        """Read mat file at speciefied filepath.
+        """Read mat file at specified filepath.
 
         Reading a .mat file which is intended to be used with matlab
         as a way to exchange data, requires the package *sio.loadmat*.
@@ -231,12 +231,12 @@ class DataWorker(object):
         return caseinfo, busname, baseMVA, bus_df, gen_df, branch_df, gencost_df
 
     def read_m_file(self, m_filepath):
-        """Read .m file at speciefied filepath.
+        """Read .m file at specified filepath.
 
         Reading a .m file with the providing the same return as
         method read_mat_file.
 
-        Returns the nessesary data in DataFrames to be processes in
+        Returns the necessary data in DataFrames to be processes in
         :meth:`~process_matpower_case`.
 
         Parameters
@@ -305,7 +305,7 @@ class DataWorker(object):
         """Process Matpower Case.
 
         Based on the read data, processing the matpower case data into somthing
-        compadible with pomato. This is a fairly manual process, but it should work
+        compatible with pomato. This is a fairly manual process, but it should work
         with most .mat/.m as the structure is the same (most of the time).
 
         This methods populates the DataManagement instance with the corresponding data.
@@ -355,9 +355,9 @@ class DataWorker(object):
             b_name = np.array(b_name)
             mpc_buses['name'] = b_name
 
-        lineidx = ['l{}'.format(i) for i in range(0,len(branch_df.index))]
+        line_idx = ['l{}'.format(i) for i in range(0,len(branch_df.index))]
         mpc_lines = {
-                'idx': lineidx,
+                'idx': line_idx,
                 'node_i': branch_df['fbus'],
                 'node_j': branch_df['tbus'],
                 'maxflow': branch_df['rateA'],
@@ -371,9 +371,9 @@ class DataWorker(object):
         mpc_lines['contingency'] = contingency.astype(bool)
 
         ng = len(gen_df.index)
-        genidx = ['g{}'.format(i) for i in range(ng)]
+        gen_idx = ['g{}'.format(i) for i in range(ng)]
         mpc_generators = {
-                    'idx': genidx,
+                    'idx': gen_idx,
                     'g_max': gen_df['Pmax'],
                     # 'g_max_Q': gen_df['Qmax'],
                     'node': gen_df['bus'],
@@ -382,8 +382,6 @@ class DataWorker(object):
                     # 'mc_Q': np.zeros(ng)
                     }
 
-        # if len(gencost_df.index) == 2*ng:
-        #     mpc_generators['mc_Q'] = gencost_df['c1'][list(range(ng,2*ng))].tolist
         self.data_source = caseinfo
         self.data.lines = pd.DataFrame(mpc_lines).set_index('idx')
         self.data.nodes = pd.DataFrame(mpc_buses).set_index('idx')
@@ -399,10 +397,10 @@ class DataWorker(object):
         self.data.lines.node_j = ["n" + str(int(idx)) for idx in self.data.lines.node_j]
         self.data.lines["voltage"] = self.data.nodes.loc[self.data.lines.node_i, "voltage"].values
         self.data.lines["technology"] = "ac"
-        cond_trafo = (self.data.nodes.loc[self.data.lines.node_i, "voltage"].values 
-                      != self.data.nodes.loc[self.data.lines.node_j, "voltage"].values)
+        condition_tranformer = (self.data.nodes.loc[self.data.lines.node_i, "voltage"].values 
+                                != self.data.nodes.loc[self.data.lines.node_j, "voltage"].values)
         
-        self.data.lines.loc[cond_trafo, "technology"] = "transformer"
+        self.data.lines.loc[condition_tranformer, "technology"] = "transformer"
 
         self.data.zones = pd.DataFrame(index=set(self.data.nodes.zone.values))
         self.data.plants.node = ["n" + str(int(idx)) for idx in self.data.plants.node]
@@ -413,11 +411,11 @@ class DataWorker(object):
         self.data.demand_el = tmp_demand 
         self.data.plants = self.data.plants[["g_max", "mc_el", "node"]]
         
-        cond = [i%2==0 for i in range(0, len(self.data.plants))]
-        self.data.plants.loc[cond, "plant_type"] = "type 1"
-        self.data.plants.loc[~np.array(cond), "plant_type"] = "type 2"
-        self.data.plants.loc[cond, "fuel"] = "fuel 1"
-        self.data.plants.loc[~np.array(cond), "fuel"] = "fuel 2"
+        condition = [i%2==0 for i in range(0, len(self.data.plants))]
+        self.data.plants.loc[condition, "plant_type"] = "type 1"
+        self.data.plants.loc[~np.array(condition), "plant_type"] = "type 2"
+        self.data.plants.loc[condition, "fuel"] = "fuel 1"
+        self.data.plants.loc[~np.array(condition), "fuel"] = "fuel 2"
 
         
         self.data.net_export = tmp_demand.copy()

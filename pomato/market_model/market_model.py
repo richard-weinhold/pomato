@@ -1,6 +1,6 @@
 """The market model of POMATO
 
-This module creates the interface between the data, grid representaiton and
+This module creates the interface between the data, grid representation and
 the market model written in julia. This is done by saving the relevant data as csv,
 run the model in a subprocess which provides the results in folder as csv files.
 
@@ -25,7 +25,7 @@ class MarketModel():
 
     This module is initialized empty and only initializes the interactive julia process used to run
     the market model. Once started the model can be easily re-run with changed options or data.
-    The option file serves as an argumant to distinguish possible market model implementations which
+    The option file serves as an argument to distinguish possible market model implementations which
     would be initialized differently.
 
     Parameters
@@ -49,7 +49,7 @@ class MarketModel():
        An instance of the DataManagement class with processed input data.
     grid_representation : dict
         Grid representation resulting from of :class:`~pomato.cbco.CBCOModule`. Contains a
-        suitable grid represenation based on the chosen options.
+        suitable grid representation based on the chosen options.
     model_horizon : list
         List containing all timesteps part of the model horizon.
     status : str
@@ -77,7 +77,7 @@ class MarketModel():
         self.grid_representation = None
         self.model_horizon = None
 
-        # attributes to signal sucessfull model run
+        # attributes to signal successful model run
         self.status = 'empty'
         self.result_folders = None
 
@@ -99,7 +99,7 @@ class MarketModel():
             While already part of the init, re-runs with changed options are often utilized.
         grid_representation : dict
             Grid representation resulting from of :class:`~pomato.cbco.CBCOModule`. Contains a
-            suitable grid represenation based on the chosen options.
+            suitable grid representation based on the chosen options.
         """
         self.data = data
         self.grid_representation = grid_representation
@@ -117,13 +117,13 @@ class MarketModel():
         self.logger.info("MarketModel Initialized!")
 
     def run(self):
-        """Run the julia Programm via command Line.
+        """Run the julia program via command Line.
 
-        Uses :class:`~pomato.tools.InteractiveJuliaProcess` from the attribite *julia_model* to
-        run the market model. If the model is not initialized, it will be done here onece. The
+        Uses :class:`~pomato.tools.InteractiveJuliaProcess` from the attribute *julia_model* to
+        run the market model. If the model is not initialized, it will be done here once. The
         model run depends on the supplied options.
-        In the case of successful completion, the resul folders are stores in the *result_folders*
-        attribute for further processing thje in :class:`~pomato.data.ResultProcessing` module.
+        In the case of successful completion, the result folders are stores in the *result_folders*
+        attribute for further processing the in :class:`~pomato.data.ResultProcessing` module.
 
         """
         t_start = datetime.datetime.now()
@@ -167,12 +167,12 @@ class MarketModel():
             self.status = 'error'
 
     def data_to_csv(self):
-        """Export input data to csv files in the ddir sub-directory.
+        """Export input data to csv files in the data_dir sub-directory.
 
-        Writes all data specified in the *model stucture* attribute of DataMangement to csv.
+        Writes all data specified in the *model structure* attribute of DataManagement to csv.
         Additionally stores a comprehensive table of plant types, relevant to distinguish between
         certain generation constraints (storages, res etc.), table of slack zones, the grid
-        represenation and the options.
+        representation and the options.
 
         """
         if not self.data_dir.is_dir():

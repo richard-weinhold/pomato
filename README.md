@@ -29,18 +29,23 @@ The model is structured in three interconnected parts :
 
 Documentation
 -------------
+
 Comprehensive documentation is available at [pomato.readthedocs.io](https://pomato.readthedocs.io/).
 
 Installation
 ------------
+
 POMATO is written in python and julia. Python takes care of the data processing
 and julia runs the economic dispatch and N-1 redundancy removal algorithm. 
 
-The recommended way to install POMATO is through *pip* by creating a virtual environment and install pomato into it:
+The recommended way to install POMATO:
+  - Install Julia and have it available on the system path
+  - Install POMATO through *pip* in python >= 3.6 by creating a virtual environment and install pomato into it
 
-    python -m venv pomato
-    .\pomato\Scripts\activate
-    pip install git+https://github.com/richard-weinhold/pomato.git
+      python -m venv pomato
+      .\pomato\Scripts\activate
+      pip install git+https://github.com/richard-weinhold/pomato.git
+
 
 After this is completed pomato can be imported in python:
 
@@ -48,14 +53,16 @@ After this is completed pomato can be imported in python:
 
 Pomato functions from a *working directory*, ideally the project folder includes the virtual environment, and creates additional folders for results, temporary data and logs. The way we use pomato is illustrated by the *examples* folder, cloning its contents as a *working directory* allows to run the included examples.
 
-Note: To install pomato in its current state, julia and gurobi must be available on the PATH within the venv/project. See [Gurobi.jl](https://github.com/JuliaOpt/Gurobi.jl) for notes on the installation. 
+Pomato works with open solvers, if Gurobi is available on the PATH within the venv/project it will be used. See [Gurobi.jl](https://github.com/JuliaOpt/Gurobi.jl) for notes on the installation. Additionally, the 
+Chance-Constrained model formulation requires MOSEK solver which can be installed from within Pomato, 
+but requires a licence to use [Mosek.jl](https://github.com/JuliaOpt/Mosek.jl). 
 
 Examples
 --------
 This release includes two examples in the *examples* folder. Including the contents of this folder into a pomato working directory will allow their execution:
 
   - The IEEE 118 bus network, which contains a singular timestep. The data is available under 
-    open license at [https://power-grid-lib.github.io/](https://power-grid-lib.github.io/) and rehosted in this repository.
+    open license at [https://power-grid-lib.github.io/](https://power-grid-lib.github.io/) and re-hosted in this repository.
 
         $ python /run_pomato_ieee.py
 
@@ -73,16 +80,20 @@ on the provided functionality and its results.
 Release Status
 --------------
 
-The current release covers all features and a big part of the documentation. The FBMCModule is still changing very often and is not documented. The julia code also lacks documentation until we figure out how to include both julia and python code into one sphinx script. 
-
-POMATO is part of my PhD and actively developed by Robert and myself. Through this repository we want to encourage exchange and promote transparency towards our research. However, we are not software engineers, thus the "program" is not written with robustness in mind. Even though we have recently improved the installation procedure through *pip*, expect errors, bug, funky behavior, stupid code structures, hard-coded mess and lack of obvious features. Please contact us if you are trying to make it fly but encounter problems and unintuitive behavior. 
+POMATO is part of my PhD and actively developed by Robert and myself. This means it will keep 
+changing to include new functionality or to improve existing features. The existing examples, which
+are also part of the Getting Started guide in the documentation, are part of a testing suite to 
+ensure some robustness. However, we are not software engineers, thus the "program" is not written 
+with robustness in mind and our experience is limited when it comes to common best practices. 
+Expect errors, bug, funky behavior and code structures from the minds of two engineering economists.  
 
 Related Publications
 --------------------
 
 - [Weinhold and Mieth (2020), Fast Security-Constrained Optimal Power Flow through 
    Low-Impact and Redundancy Screening](https://ieeexplore.ieee.org/document/9094021)
-- [Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for generation shift keys (GSKs) on the flow-based market coupling domain: A model-based analysis of Central Western Europe](https://www.sciencedirect.com/science/article/pii/S0306261919317544)
+- [Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for generation 
+   shift keys (GSKs) on  the flow-based market coupling domain: A model-based analysis of Central Western Europe](https://www.sciencedirect.com/science/article/pii/S0306261919317544)
 
 Acknowledgments
 ---------------

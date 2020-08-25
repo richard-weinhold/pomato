@@ -43,7 +43,7 @@ class CBCOModule():
 
     Attributes
     ----------
-    wdir, jdir : pathlib.Path
+    wdir, julia_dir : pathlib.Path
         Working directory, Sub-directory for temporary files related with the
         redundancy removal algorithm.
     options : dict
@@ -60,7 +60,7 @@ class CBCOModule():
     b : np.ndarray
         Vector of line capacities for each line and contingency.
     nodal_injection_limits : np.ndarray
-        Array containung absolute bounds for each nodal injections.
+        Array containing absolute bounds for each nodal injections.
     cbco_index : list, np.ndarray
         Essential indices of the defined power flow problem Ax <= b.
     julia_instance : :class:`~pomato.tools.JuliaDaemon`
@@ -78,7 +78,7 @@ class CBCOModule():
         self.package_dir = Path(pomato.__path__[0])
 
 
-        self.jdir = wdir.joinpath("data_temp/julia_files")
+        self.julia_dir = wdir.joinpath("data_temp/julia_files")
         tools.create_folder_structure(self.wdir, self.logger)
 
         # Core attributes
@@ -106,7 +106,7 @@ class CBCOModule():
 
         *grid_representation* contains the following:
             - *option*: The chosen option of grid representation.
-            - *mult_slacks*: Bool indicator if there are multiple slacks.
+            - *multiple_slack*: Bool indicator if there are multiple slacks.
             - *slack_zones*: dict to map each node to a slack/reference node.
             - *grid*: DataFrame including the ptdf for each line/outage,
               depending on chosen option, including line capacities and
@@ -120,7 +120,7 @@ class CBCOModule():
         """
         # Data Structure of grid_representation dict
         self.grid_representation["option"] = self.options["optimization"]["type"]
-        self.grid_representation["mult_slacks"] = self.grid.mult_slack
+        self.grid_representation["multiple_slack"] = self.grid.multiple_slack
         self.grid_representation["slack_zones"] = self.grid.slack_zones()
         self.grid_representation["grid"] = pd.DataFrame()
         self.grid_representation["redispatch_grid"] = pd.DataFrame()
@@ -139,7 +139,7 @@ class CBCOModule():
         elif self.options["optimization"]["type"] == "cbco_zonal":
             self.process_cbco_zonal()
         else:
-            self.logger.info("No grid represenation needed for dispatch model")
+            self.logger.info("No grid representation needed for dispatch model")
 
         if self.options["optimization"]["redispatch"]["include"]:
             self.add_redispatch_grid()
@@ -292,7 +292,7 @@ class CBCOModule():
         bounds on the nodal injections, which are calculated based on
         installed capacity and availability/load timeseries. The other options
         are: *clarkson* redundancy removal without bounds on nodal injections
-        and "save" saving the relevant files for the redundacy removal
+        and "save" saving the relevant files for the RedundancyRemoval
         algorithm so that it can be run separately from the python POMATO.
 
         """
@@ -302,7 +302,7 @@ class CBCOModule():
             try:
                 filename = self.options["grid"]["precalc_filename"]
                 self.logger.info("Using cbco indices from pre-calc: %s", filename)
-                precalc_cbco = pd.read_csv(self.jdir.joinpath(f"cbco_data/{filename}.csv"),
+                precalc_cbco = pd.read_csv(self.julia_dir.joinpath(f"cbco_data/{filename}.csv"),
                                            delimiter=',')
                 if len(precalc_cbco.columns) > 1:
                     condition = self.cbco_info[["cb", "co"]].apply(tuple, axis=1) \
@@ -337,7 +337,7 @@ class CBCOModule():
 
             elif self.options["grid"]["cbco_option"] == "save":
                 self.nodal_injection_limits = self.create_nodal_injection_limits()
-                self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")
+                self.write_cbco_info(self.julia_dir.joinpath("cbco_data"), "py")
                 self.cbco_index = list(range(0, len(self.b)))
             else:
                 self.logger.warning("No valid cbco_option set!")
@@ -348,7 +348,7 @@ class CBCOModule():
         self.grid_representation["grid"].ram *= self.options["grid"]["capacity_multiplier"]
 
     def create_cbco_data(self, sensitivity=5e-2, preprocess=True, gsk=None):
-        """Create all relevant N-1 ptdf's in the form of Ax<b (ptdf x < ram).
+        """Create all relevant N-1 ptdfs in the form of Ax<b (ptdf x < ram).
 
         This uses the method :meth:`~pomato.grid.create_filtered_n_1_ptdf` to
         generate a filtered ptdf matrix, including outages with a higher impact
@@ -454,7 +454,7 @@ class CBCOModule():
             Contains the abs maximum power injected/load at each node.
 
         """
-        infeas_upperbound = self.options["optimization"]["infeasibility"]["electricity"]["bound"]
+        infeasibility_upperbound = self.options["optimization"]["infeasibility"]["electricity"]["bound"]
         nodal_injection_limits = []
 
         for node in self.data.nodes.index:
@@ -472,7 +472,7 @@ class CBCOModule():
                         - self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].min()
                         + nex_max
                         + max_dc_inj
-                        + infeas_upperbound
+                        + infeasibility_upperbound
                         , 0)
 
             lower = max(self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].max()
@@ -480,7 +480,7 @@ class CBCOModule():
                         + self.data.plants.g_max[condition_el_heat].sum()
                         + nex_min
                         + max_dc_inj
-                        + infeas_upperbound, 0)
+                        + infeasibility_upperbound, 0)
 
             nodal_injection_limits.append(max(upper, lower))
 
@@ -501,7 +501,7 @@ class CBCOModule():
             List of the essential indices, i.e. the indices of the non-redundant
             cbco's.
         """
-        self.write_cbco_info(self.jdir.joinpath("cbco_data"), "py")  # save A,b to csv
+        self.write_cbco_info(self.julia_dir.joinpath("cbco_data"), "py")  # save A,b to csv
         
         if not self.julia_instance:
             self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
@@ -518,7 +518,7 @@ class CBCOModule():
         self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")
 
         if self.julia_instance.solved:
-            file = tools.newest_file_folder(self.jdir.joinpath("cbco_data"), keyword="cbco")
+            file = tools.newest_file_folder(self.julia_dir.joinpath("cbco_data"), keyword="cbco")
             print("asd", file)
             self.logger.info("cbco list save for later use to: \n%s", file.stem + ".csv")
             cbco = list(pd.read_csv(file, delimiter=',').constraints.values)
@@ -599,7 +599,7 @@ class CBCOModule():
     def create_ntc(self):
         """Create NTC data.
 
-        The ntc's generated in this methods are high (10.000) or zero. This is useful
+        The ntc generated in this method are high (10.000) or zero. This is useful
         to limit commercial exchange to connected zones or when the model uses a
         simplified line representation.
 

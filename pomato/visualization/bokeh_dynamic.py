@@ -43,11 +43,11 @@ def init_market_data(market_db):
     return (nodes, g_by_fuel, demand, inj, f_dc, t_dict["t_first"], t_dict["t_last"],
             lines, dclines, lodf_matrix, n_0_flows, n_1_flows)
 
-def all_fuels_from_marketdbs():
+def all_fuels_from_market_results():
     """ Find all Fuels from Market Result to correctly show legend"""
-    marketdbs = [path for path in os.listdir(WDIR.joinpath("market_result")) if "." not in path]
+    market_results = [path for path in os.listdir(WDIR.joinpath("market_result")) if "." not in path]
     fuels = ["dem"]
-    for database in marketdbs:
+    for database in market_results:
         data_dir = WDIR.joinpath("market_result").joinpath(database)
         g_by_fuel = pd.read_csv(data_dir.joinpath("g_by_fuel.csv"), index_col=0)
         add_fuels = [fuel for fuel in list(g_by_fuel.fuel.unique()) if fuel not in fuels]
@@ -76,8 +76,8 @@ def update_market_data(attr, old, new):
     source_nodes.data = nodes_dict
     line_dict = create_line_source(lines, nodes)
     source_lines.data = line_dict
-    dcline_dict = create_dc_line_source(dclines, nodes)
-    source_dclines.data = dcline_dict
+    dclines_dict = create_dc_line_source(dclines, nodes)
+    source_dclines.data = dclines_dict
 
     slider.start = t_first
     slider.end = t_last
@@ -174,19 +174,19 @@ def update_lodf_color(attrname, old, new):
     if l.data_source.selected.indices:
         idx = l.data_source.selected.indices[0]
         sel_line = source_lines.data["line"][idx]
-        max_perc = 10e-2
-        min_perc = 1e-2
+        max_percent = 10e-2
+        min_percent = 1e-2
         tmp = lodf.loc[sel_line].abs() * lines.maxflow / lines.loc[sel_line].maxflow
-        tmp[tmp < min_perc] = min_perc
-        tmp[tmp > max_perc] = max_perc
-        colors = [color[int((x - min_perc)*11/(max_perc - min_perc))] for x in  tmp]
+        tmp[tmp < min_percent] = min_percent
+        tmp[tmp > max_percent] = max_percent
+        colors = [color[int((x - min_percent)*11/(max_percent - min_percent))] for x in  tmp]
         colors[idx] = "blue"
 
         line_alpha = [0.3 if c == "#bababa" else 0.8 for c in colors]
 
-        source_line_legend.data = create_line_legend(min_perc, max_perc)
+        source_line_legend.data = create_line_legend(min_percent, max_percent)
         legend_lines.title.text = "Sensitivity towards selected line in %"
-        legend_lines.x_range.start, legend_lines.x_range.end = min_perc, max_perc*1.005
+        legend_lines.x_range.start, legend_lines.x_range.end = min_percent, max_percent*1.005
     else:
         colors, line_alpha = update_line_colors(source_lines_data.to_df(), n_0_flow(slider.value),
                                                 n_1_flow(slider.value), option=flow_type_botton.active)
@@ -225,7 +225,7 @@ def gen_fuel(t, nodes=None):
     gen_max = tmp.values.sum()
     tmp["D"] = 0
     fuel_dict = {}
-    possible_fuels = all_fuels_from_marketdbs()
+    possible_fuels = all_fuels_from_market_results()
     for i in possible_fuels:
         if i in tmp.index:
             custom_list = tmp.loc[i].tolist()
@@ -268,14 +268,14 @@ def create_dc_line_source(dclines, nodes):
         lx_dc.append([xi, (xi+xj)/2, xj])
         ly_dc.append([yi, (yi+yj)/2, yj])
 
-    dcline_dict = {"lx": lx_dc,
+    dclines_dict = {"lx": lx_dc,
                    "ly": ly_dc,
                    "line": list(dclines.index),
                    "flow": dclines_flow(slider.value),
                    "max_flow": list(dclines.maxflow),
                    "node_i": list(dclines.node_i),
                    "node_j": list(dclines.node_j)}
-    return dcline_dict
+    return dclines_dict
 
 def create_nodes_source(nodes):
     """Nodes Source Object"""
@@ -328,7 +328,7 @@ option_market_db = [path for path in os.listdir(WDIR.joinpath("market_result")) 
 ## Define Widgets and function calls
 select_market_db = Select(title="Model Run:", value=option_market_db[0], options=option_market_db)
 slider = Slider(start=t_first, end=t_last, value=t_first, step=1, title="Timestep")
-                # value_throttled=0, callback_policy="throttle") # Throttle doesnt work as of now
+                # value_throttled=0, callback_policy="throttle") # Throttle doesn't work as of now
 
 flow_type_botton = RadioButtonGroup(name="Choose Flow Case:", width=300,
                                     labels=["N-0", "N-1", "Voltage Level"], active=0)
@@ -364,8 +364,8 @@ source_nodes = ColumnDataSource(nodes_dict)
 line_dict = create_line_source(lines, nodes)
 source_lines = ColumnDataSource(line_dict)
 
-dcline_dict = create_dc_line_source(dclines, nodes)
-source_dclines = ColumnDataSource(dcline_dict)
+dclines_dict = create_dc_line_source(dclines, nodes)
+source_dclines = ColumnDataSource(dclines_dict)
 
 gen_dict, y_max, legend_dict = create_stacked_bars_sources(list(nodes.index))
 source_stacked_bars = ColumnDataSource(gen_dict)
@@ -385,7 +385,7 @@ fig_bar.vbar_stack(stackers=list_fuels,
                     source=source_stacked_bars)
 
 ## Dummy plot to create the legend for the barplot # Needed bc vbar_stack does
-## not support to subset the data presented in the legen ( e.g. will always display all fuels)
+## not support to subset the data presented in the legend ( e.g. will always display all fuels)
 fig_bar.circle("x", "y", alpha=1, color="c", legend_field="legend", source=source_legend)
 fig_bar.y_range.end = np.ceil(y_max/2000)*2000
 
@@ -459,7 +459,7 @@ fig.select(LassoSelectTool).select_every_mousemove = False
 fig.select(TapTool).renderers = [l]
 
 # set up layout = row(row|column)
-# UI sclaing for everthing except the widget column with the inducator plot
+# UI scaling for everthing except the widget column with the indicator plot
 widgets = column(column(slider, flow_type_botton, select_market_db, width=300),
                  legend_lines, fig_bar)
 #main_map = row(children=[fig,fig_bar])

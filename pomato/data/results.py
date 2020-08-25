@@ -16,7 +16,7 @@ import pomato.tools as tools
 class ResultProcessing():
     """ResultsProcessing of POMATO makes market results available to the user.
 
-    The RsultsProcessing modules privides an interface between the market results
+    The ResultsProcessing module provides an interface between the market result
     and the data itself. All result variables are set as an attribute in a long
     DataFrame with its sets as columns which can be easily accessed
     with *result.VAR*.
@@ -91,13 +91,13 @@ class ResultProcessing():
         # Set Redispatch = True if result is a redispatch result 
         self.result_attributes["redispatch"] = True if "redispatch" in self.result_attributes["name"] else False
 
-        # set-up: dont show the graphs when created
+        # set-up: don't show the graphs when created
         plt.ioff()
 
     def load_results_from_folder(self, folder):
         """Load results from folder.
 
-        Results are loaded as csv's from results folder with additional
+        Results are loaded as csv files from results folder with additional
         information inform of the options file that was used to get the results
         as well as the model horizon which is extracted from the INJ variable.
 
@@ -148,12 +148,12 @@ class ResultProcessing():
         if len(tmp) == 1:
             market_result = self.data.results[tmp[0]]
         else:
-            raise AttributeError("Multiple/None market-results avaiable for redispatch")
+            raise AttributeError("Multiple/None market-results available for redispatch")
 
         gen = pd.merge(market_result.data.plants[["plant_type", "fuel", "tech", "g_max", "node"]],
                        market_result.G, left_index=True, right_on="p")
 
-        # Redispatch Caluclation G_redispatch - G_market
+        # Redispatch Calculation G_redispatch - G_market
         gen = pd.merge(gen, self.G, on=["p", "t"], suffixes=("_market", "_redispatch"))
         gen["delta"] = gen["G_redispatch"] - gen["G_market"]
         gen["delta_abs"] = gen["delta"].abs()
@@ -273,7 +273,7 @@ class ResultProcessing():
             tmp = getattr(self, infeasibilities)
             for col in tmp.select_dtypes(include=numerics):
                 if any(tmp[col] > 1e-3):
-                    self.logger.warning("Infeasibilites in %s", col)
+                    self.logger.warning("Infeasibilities in %s", col)
 
     def check_curtailment(self):
         """[Deprecated] Check for curtailment of plants of type ts (i.e. with availabilities).
@@ -555,7 +555,7 @@ class ResultProcessing():
             Line loadings for the overloaded lines and considered timesteps.
         """
         if not timesteps:
-            # if not specifie use full model horizon
+            # if not specified use full model horizon
             timesteps = self.result_attributes["model_horizon"]
 
         flows = self.n_0_flow(timesteps)
@@ -568,8 +568,8 @@ class ResultProcessing():
         n_0_load = rel_load[np.any(rel_load.values > 1.01, axis=1)]
 
         agg_info = pd.DataFrame(index=n_0_load.index)
-        cond = np.any(rel_load.values > 1.01, axis=1)
-        agg_info["# of overloads"] = np.sum(rel_load.values > 1.01, axis=1)[cond]
+        condition = np.any(rel_load.values > 1.01, axis=1)
+        agg_info["# of overloads"] = np.sum(rel_load.values > 1.01, axis=1)[condition]
         agg_info["avg load"] = n_0_load.mean(axis=1)
 
         return agg_info, n_0_load
@@ -604,7 +604,7 @@ class ResultProcessing():
             Line loadings for the overloaded cbco's and considered timesteps.
         """
         if not timesteps:
-            # if not specifie use full model horizon
+            # if not specified use full model horizon
             timesteps = self.result_attributes["model_horizon"]
 
         n_1_flow = self.n_1_flow(timesteps=timesteps, sensitivity=sensitivity)
@@ -623,8 +623,8 @@ class ResultProcessing():
         agg_info = agg_info.groupby("cb").sum()
         agg_info["avg load"] = n_1_overload.groupby(by=["cb"]).mean().mean(axis=1).values
 
-        cond = n_1_overload.co == "basecase"
-        bool_values = [line in n_1_overload.cb[cond].values for line in agg_info.index]
+        condition = n_1_overload.co == "basecase"
+        bool_values = [line in n_1_overload.cb[condition].values for line in agg_info.index]
         agg_info["basecase overload"] = bool_values
         self.logger.info("Done")
 

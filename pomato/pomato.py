@@ -23,27 +23,33 @@ The model is structured in three interconnected parts:
 
 Installation
 ------------
+
+Installation
+------------
+
 POMATO is written in python and julia. Python takes care of the data processing
 and julia runs the economic dispatch and N-1 redundancy removal algorithm. 
 
-The recommended way to install POMATO is through *pip* by creating a virtual 
-environment and install pomato into it::
+The recommended way to install POMATO:
+  - Install Julia and have it available on the system path
+  - Install POMATO through *pip* in python >= 3.6 by creating a virtual environment and install pomato into it
 
-    python -m venv pomato && /pomato/Scripts/activate
-    pip install git+https://github.com/richard-weinhold/pomato.git
+      python -m venv pomato
+      ./pomato/Scripts/activate
+      pip install git+https://github.com/richard-weinhold/pomato.git
 
-After this is completed pomato can be imported in python::
+
+After this is completed pomato can be imported in python:
 
     from pomato import POMATO
 
-Pomato functions from a *working directory*, ideally the project folder including 
-the virtual environment, and creates additional folders for results, temporary 
-data and logs. The way we use pomato is illustrated by the *examples* folder, 
-cloning its contents into the *working directory* allows to run the included examples.
+Pomato functions from a *working directory*, ideally the project folder includes the virtual environment, and creates additional folders for results, temporary data and logs. The way we use pomato is illustrated by the *examples* folder, cloning its contents as a *working directory* allows to run the included examples.
 
-Note: To install pomato in its current state, julia and gurobi must be available on 
-the PATH within the venv/project. See `Gurobi.jl <https://github.com/JuliaOpt/Gurobi.jl>`_
-for notes on the installation. 
+Pomato works with open solvers, if Gurobi is available on the PATH within the venv/project it will 
+be used. See `Gurobi.jl <https://github.com/JuliaOpt/Gurobi.jl>`_ for notes on the installation. Additionally, the 
+Chance-Constrained model formulation requires MOSEK solver which can be installed from within Pomato, 
+but requires a licence to use `Mosek.jl <https://github.com/JuliaOpt/Mosek.jl>`_. 
+
 
 Examples
 --------
@@ -52,7 +58,7 @@ this folder into the pomato working directory will allow their execution:
 
   - The IEEE 118 bus network, which contains a singular timestep. The data is available under 
     open license at `https://power-grid-lib.github.io/ <https://power-grid-lib.github.io/>`_
-    and rehosted in this repository.::
+    and re-hosted in this repository.::
 
         $ python /run_pomato_ieee.py
 
@@ -69,19 +75,18 @@ IDE (e.g. Spyder) to access POMATO objects and develop a personal script based
 on the provided functionality and its results.
 
 However, the functionality of POMATO is best utilized when running inside a
-IDE (e.g. Spyder) to acces POMATO objects and develop a personal script based
+IDE (e.g. Spyder) to access POMATO objects and develop a personal script based
 on the provided functionality and its results.
 
 Release Status
 --------------
 
-This release covers all features and a big part of the documentation. The FBMCModule is stil
-changing very often and is not documented. The julia code also lacks documentation until we figure
-out how to include both julia and python code into one shpinx script.
-
-POMATO is part of my PhD and actively developed by Robert and myself. WE are notsoftware engineers,
-thus the "program" is not written with robustness in mind. Expect errors, bug, funky behavior,
-stupid code structures, hard-coded mess and lack of obvious features.
+POMATO is part of my PhD and actively developed by Robert and myself. This means it will keep 
+changing to include new functionality or to improve existing features. The existing examples, which
+are also part of the Getting Started guide in the documentation, are part of a testing suite to 
+ensure some robustness. However, we are not software engineers, thus the "program" is not written 
+with robustness in mind and our experience is limited when it comes to common best practices. 
+Expect errors, bug, funky behavior and code structures from the minds of two engineering economists.  
 
 Related Publications
 --------------------
@@ -96,7 +101,7 @@ Related Publications
 Acknowledgments
 ---------------
 
-Richard and Robert would like to aknowledge the support of Reiner Lemoine-Foundation, the Danish 
+Richard and Robert would like to acknowledge the support of Reiner Lemoine-Foundation, the Danish 
 Energy Agency and Federal Ministry for Economic Affairs and Energy (BMWi).
 Robert Mieth is funded by the Reiner Lemoine-Foundation scholarship. Richard Weinhold is funded 
 by the Danish Energy Agency. The development of POMATO and its applications was funded by 
@@ -155,11 +160,11 @@ def _logging_setup(wdir, webapp, logging_level=logging.INFO):
 
 class POMATO():
     """
-    The main module joins POMATO's components, providing accessibility to the user.
+    The main module joins all components of POMATO, providing accessibility to the user.
 
     The core attributes are modules that provide specific functionalities to
     the model. At the center is an instance of the DataManagement module, that
-    reads and processes input data, makes processed input data acessible to
+    reads and processes input data, makes processed input data accessible to
     other modules and is the container for the results from the market model.
 
     Attributes
@@ -168,8 +173,8 @@ class POMATO():
         Working directory, all necessary folders, temporary files and results
         are stored in relation to this directory.
     options : dict
-        Dictionalry containing centralized all options relevant for running an economic
-        dispatch. The options are roughly cathegorized into:
+        Dictionary containing centralized all options relevant for running an economic
+        dispatch. The options are roughly categorized into:
 
             - Optimization: defining model type, model horizon, inclusion of
               model features like heat or curtailment, management of infeasibility
@@ -327,12 +332,12 @@ class POMATO():
             self.market_model.update_data(self.data, self.options, self.grid_representation)
 
     def initialize_market_results(self, result_folders):
-        """Initionalizes market results from a list of folders.
+        """Initializes market results from a list of folders.
 
         Parameters
         ----------
         result_folders : list
-            List of folders containing market resaults.
+            List of folders containing market results.
         """
         for folder in result_folders:
             self.data.results[folder.name] = ResultProcessing(self.data, self.grid, folder)

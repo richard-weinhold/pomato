@@ -31,7 +31,7 @@ class GridModel():
     :obj:`~pomato.data.ResultProcessing`, :obj:`~pomato.cbco.CBCOModule` or
     :obj:`~pomato.fbmc.FBMCModule`. This module solely provides the tools for
     this analysis and the corresponding means of validation to provide a robust
-    expirience. The main functionality of contingency analysis is embeded in
+    experience. The main functionality of contingency analysis is embedded in
     :meth:`~create_filtered_n_1_ptdf` which reappears in similar form in the
     other contingency related as well.
 
@@ -90,18 +90,18 @@ class GridModel():
 
         By checking the components of the network, i.e. the Node-to-Node incidence matrix.
         For Each component it is checked if a slack is defined, and if not the first node
-        will be set as a slack. Threfore each subnetwork will be balanced.
+        will be set as a slack. Therefore, each subnetwork will be balanced.
         """
         A = self.create_incidence_matrix()
-        network_componends = scipy.sparse.csgraph.connected_components(np.dot(A.T, A))
+        network_components = scipy.sparse.csgraph.connected_components(np.dot(A.T, A))
         self.logger.info("The network consits of %d components. Making sure a slack is set for each.",
-                         network_componends[0])
-        for i in range(0, network_componends[0]):
-            condition_subnetwork = network_componends[1] == i
+                         network_components[0])
+        for i in range(0, network_components[0]):
+            condition_subnetwork = network_components[1] == i
             if not any(self.nodes.loc[condition_subnetwork, "slack"]):
                 # self.nodes.loc[condition_subnetwork, "slack"][0] = True
                 self.nodes.loc[self.nodes.index[np.argmax(condition_subnetwork)], "slack"] = True
-        self.mult_slack = bool(len(self.nodes.index[self.nodes.slack]) > 1)
+        self.multiple_slack = bool(len(self.nodes.index[self.nodes.slack]) > 1)
 
     def check_grid_topology(self):
         """Check grid topology for radial nodes and lines.
@@ -188,8 +188,8 @@ class GridModel():
           
         double_lines = list(self.lines[self.lines.systems == 2].index)
         for line in double_lines:
-            cond = (self.lines.loc[double_lines, ["node_i", "node_j"]].apply(tuple, axis=1) == tuple(self.lines.loc[line, ["node_i", "node_j"]])).values
-            double_line = list(self.lines.loc[double_lines][cond].index)
+            condition = (self.lines.loc[double_lines, ["node_i", "node_j"]].apply(tuple, axis=1) == tuple(self.lines.loc[line, ["node_i", "node_j"]])).values
+            double_line = list(self.lines.loc[double_lines][condition].index)
             double_line_idx = [self.lines.index.get_loc(line) for line in double_line]
             
             # However if the double line is radial, do not consider a combined outage
@@ -256,9 +256,9 @@ class GridModel():
         node_susceptance : np.ndarray
             Node susceptance matrix.
         """
-        suceptance_vector = self.lines.b
+        susceptance_vector = self.lines.b
         incidence = self.incidence_matrix
-        susceptance_diag = np.diag(suceptance_vector)
+        susceptance_diag = np.diag(susceptance_vector)
         line_susceptance = np.dot(susceptance_diag, incidence)
         node_susceptance = np.dot(np.dot(incidence.transpose(1, 0), susceptance_diag), incidence)
         return line_susceptance, node_susceptance
@@ -284,10 +284,10 @@ class GridModel():
         node_susceptance_wo_slack = node_susceptance[np.ix_(list_wo_slack, list_wo_slack)]
         inv = np.linalg.inv(node_susceptance_wo_slack)
         # sort slack back in to get nxn
-        node_susc_inv = np.zeros((len(self.nodes), len(self.nodes)))
-        node_susc_inv[np.ix_(list_wo_slack, list_wo_slack)] = inv
-        # calculate ptdfs
-        ptdf = np.dot(line_susceptance, node_susc_inv)
+        node_susceptance_inv = np.zeros((len(self.nodes), len(self.nodes)))
+        node_susceptance_inv[np.ix_(list_wo_slack, list_wo_slack)] = inv
+        # calculate ptdf
+        ptdf = np.dot(line_susceptance, node_susceptance_inv)
         return ptdf
 
     def create_psdf_matrix(self):
@@ -315,7 +315,7 @@ class GridModel():
         shift = np.zeros(len(self.lines))
         for line in phase_shift:
             shift[self.lines.index.get_loc(line)] = phase_shift[line]
-        # recalc ptdf and lodf
+        # recalculate ptdf and lodf
         shift_matrix = np.multiply(self.psdf, shift)
         self.ptdf += np.dot(shift_matrix, self.ptdf)
         self.lodf = self.create_n_1_lodf_matrix()
@@ -329,8 +329,8 @@ class GridModel():
         This method returns a LxL matrix, representing how each line is affected by 
         the outage of all other lines. 
 
-        This LODF matrix therefore representes the N-1 case, as only one outage 
-        is considered per case. Multiple contingencies have to be explicitly calculted 
+        This LODF matrix therefore represents the N-1 case, as only one outage 
+        is considered per case. Multiple contingencies have to be explicitly calculated 
         with the more general :meth:`~create_lodf` method.
         """
         
@@ -341,10 +341,10 @@ class GridModel():
     def create_lodf(self, lines, outages):
         """Creates load outages distribution factor (lodf) for lines under outages.
 
-        This method creates specific lodf's for all lines in lines and simultanious 
-        outages in outages.
+        This method creates specific lodf for all lines in argument *lines* and 
+        simultaneous outages in argument *outages*.
 
-        This is calulated by (Bl * A_l * Bhat * A_lc)*(I - Blc * Bhat * A_lc)^-1 as
+        This is calculated by (Bl * A_l * Bhat * A_lc)*(I - Blc * Bhat * A_lc)^-1 as
         discussed in `Fast Security-Constrained Optimal Power Flow through Low-Impact
         and Redundancy Screening <https://arxiv.org/abs/1910.09034>`_.
         
@@ -357,7 +357,7 @@ class GridModel():
         lines : list(int), list(string)
             List of lines which are affected by the outages.
         outages : list(int), list(string)
-            List of lines that conists the contingency case. 
+            List of lines that consists the contingency case. 
         
         Returns
         -------
@@ -375,15 +375,15 @@ class GridModel():
             # LODF LxO matrix
             lodf = np.zeros((len(lines), len(outages)))
             
-            # Invalid contingencies, i.e. lines that connot be outated remain 0 in lodf
+            # Invalid contingencies, i.e. lines that connot be outaged remain 0 in lodf
             outages = [outage for outage in outages if self.lines.iloc[outage].contingency]
         
-            # LODF for outated line is set to -1
+            # LODF for outaged line is set to -1
             outages_in_lines = [line in outages for line in lines]
             lines_in_outages = [outage in lines for outage in outages]
             lodf[outages_in_lines, lines_in_outages] = -1
             
-            # For all lines that are not outaged as part of the contingency the LODF is calulated
+            # For all lines that are not outaged as part of the contingency the LODF is calculated
             valid_lines = [line not in outages for line in lines]
             lines = [line for line in lines if not line in outages]
          
@@ -430,13 +430,13 @@ class GridModel():
         if not isinstance(line, int):
             line = self.lines.index.get_loc(line)
 
-        cond = abs(np.multiply(self.lodf[line], self.lines.maxflow.values)) >= \
+        condition = abs(np.multiply(self.lodf[line], self.lines.maxflow.values)) >= \
             sensitivity*self.lines.maxflow[line]
 
         if as_index:
-            return [self.lines.index.get_loc(line) for line in self.lines.index[cond]]
+            return [self.lines.index.get_loc(line) for line in self.lines.index[condition]]
         else:
-            return self.lines.index[cond]
+            return self.lines.index[condition]
 
     def create_n_1_ptdf_line(self, line):
         """Create N-1 ptdf for one specific line and all other lines as outages.

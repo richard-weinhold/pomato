@@ -72,7 +72,7 @@ class DataManagement():
     Parameters
     ----------
     wdir : pathlib.Path
-       Working directory, proliferating from POAMTOs main module.
+       Working directory, proliferating from POMATO main module.
     options : dict
         The options from POMATO main method persist in the DataManagement.
 
@@ -153,7 +153,7 @@ class DataManagement():
         Parameters
         ----------
          filepath: pathlib.Path
-            Filepath to an xlsx file, should include file extension.
+            Filepath to an .xls or .xlsx file, should include file extension.
         """
         self.logger.info("Writing Data to Excel File %s", str(filepath))
         with pd.ExcelWriter(filepath.with_suffix(".xlsx")) as writer: #pylint: disable=abstract-class-instantiated
@@ -165,7 +165,7 @@ class DataManagement():
                 else:
                     getattr(self, data).to_excel(writer, sheet_name=data)
 
-        self.logger.info("Writing Data to an archive of csv's %s", str(filepath))
+        self.logger.info("Writing Data to an archive of csv files %s", str(filepath))
         if not filepath.is_dir():
             filepath.mkdir()
         for data in self.data_attributes:
@@ -405,8 +405,8 @@ class DataManagement():
 
         for zone in self.zones.index:
             nodes_in_zone = self.nodes.index[self.nodes.zone == zone]
-            cond_node_in_zone = self.demand_el.node.isin(nodes_in_zone)
-            demand_zonal[zone] = self.demand_el[cond_node_in_zone].groupby("timestep").sum()
+            condition_node_in_zone = self.demand_el.node.isin(nodes_in_zone)
+            demand_zonal[zone] = self.demand_el[condition_node_in_zone].groupby("timestep").sum()
             
         fig_demand, ax_demand = plt.subplots()
         demand_zonal.plot.area(ax=ax_demand, xticks=np.arange(0, len(demand_zonal.index), 
@@ -461,8 +461,8 @@ def unique_mc(self):
     """Make marginal costs unique.
 
     This is done by adding a small increment multiplied by the number if plants with the
-    same mc. This makes the solver find a unique solition (at leat in regards to generation
-    scheduel) and is sopposed to have positive effect on solvetime.
+    same mc. This makes the solver find a unique solution (at least in regards to generation
+    schedule) and is sopposed to have positive effect on solvetime.
     """
     for marginal_cost in self.plants.mc_el:
         condition_mc = self.plants.mc_el == marginal_cost
