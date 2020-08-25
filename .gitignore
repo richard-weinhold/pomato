@@ -5,7 +5,6 @@ docs/_build/
 build/
 dist/
 *egg*
-.vscode/settings.json
+.vscode/*
 pomato/_installation/pomato
 pomato.sublime-workspace
-.vscode/.ropeproject/config.py
