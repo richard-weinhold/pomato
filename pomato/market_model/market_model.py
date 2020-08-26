@@ -59,7 +59,7 @@ class MarketModel():
         Can be multiples for redispatch calculations or FBMC application.
     """
 
-    def __init__(self, wdir, options):
+    def __init__(self, wdir, options, data, grid_representation):
         self.logger = logging.getLogger('Log.MarketModel.JuliaInterface')
         self.logger.info("Initializing MarketModel...")
         self.options = options
@@ -73,8 +73,8 @@ class MarketModel():
 
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)
-        self.data = None
-        self.grid_representation = None
+        self.data = data
+        self.grid_representation = grid_representation
         self.model_horizon = None
 
         # attributes to signal successful model run
@@ -85,34 +85,18 @@ class MarketModel():
         """Start julia subprocess."""
         self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model")
 
-    def update_data(self, data, options, grid_representation):
+    def update_data(self):
         """Initialise or update the underlying data of the market model.
 
         Updates all data used to run the market model: input data, grid representation, options and
         model horizon by running :meth:`~data_to_csv`.
-
-        Parameters
-        ----------
-        data : :class:`~pomato.data.DataManagement`
-           Instance of the DataManagement class with processed input data.
-        options : dict
-            While already part of the init, re-runs with changed options are often utilized.
-        grid_representation : dict
-            Grid representation resulting from of :class:`~pomato.cbco.CBCOModule`. Contains a
-            suitable grid representation based on the chosen options.
         """
-        self.data = data
-        self.grid_representation = grid_representation
-        self.options = options
 
-        model_horizon_range = range(options["optimization"]["model_horizon"][0],
-                                    options["optimization"]["model_horizon"][1])
+        model_horizon_range = range(self.options["optimization"]["model_horizon"][0],
+                                    self.options["optimization"]["model_horizon"][1])
 
         timesteps = self.data.demand_el.timestep.unique()
         self.model_horizon = [str(x) for x in timesteps[model_horizon_range]]
-
-        self.options["optimization"]["t_start"] = self.model_horizon[0]
-        self.options["optimization"]["t_end"] = self.model_horizon[-1]
         self.data_to_csv()
         self.logger.info("MarketModel Initialized!")
 
@@ -193,25 +177,25 @@ class MarketModel():
             plant_types[ptype][condition] = 1
         plant_types.to_csv(str(self.data_dir.joinpath('plant_types.csv')), index_label='index')
 
-        if self.grid_representation["grid"].empty:
+        if self.grid_representation.grid.empty:
             pd.DataFrame(columns=["ram"]).to_csv(str(self.data_dir.joinpath('grid.csv')), index_label='index')
         else:
-            self.grid_representation["grid"] \
+            self.grid_representation.grid \
                 .to_csv(str(self.data_dir.joinpath('grid.csv')), index_label='index')
 
-        if self.grid_representation["redispatch_grid"].empty:
+        if self.grid_representation.redispatch_grid.empty:
             pd.DataFrame(columns=["ram"]).to_csv(str(self.data_dir.joinpath('redispatch_grid.csv')), index_label='index')
         else:
-            self.grid_representation["redispatch_grid"] \
+            self.grid_representation.redispatch_grid \
                 .to_csv(str(self.data_dir.joinpath('redispatch_grid.csv')), index_label='index')
 
-        if not self.grid_representation["ntc"].empty:
-            self.grid_representation["ntc"].to_csv(str(self.data_dir.joinpath('ntc.csv')), index_label='index')
+        if not self.grid_representation.ntc.empty:
+            self.grid_representation.ntc.to_csv(str(self.data_dir.joinpath('ntc.csv')), index_label='index')
 
         slack_zones = pd.DataFrame(index=self.data.nodes.index)
-        for slack in self.grid_representation["slack_zones"]:
+        for slack in self.grid_representation.slack_zones:
             slack_zones[slack] = 0
-            condition = slack_zones.index.isin(self.grid_representation["slack_zones"][slack])
+            condition = slack_zones.index.isin(self.grid_representation.slack_zones[slack])
             slack_zones[slack][condition] = 1
 
         slack_zones.to_csv(str(self.data_dir.joinpath('slack_zones.csv')), index_label='index')

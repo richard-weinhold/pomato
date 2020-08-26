@@ -50,8 +50,9 @@ class TestPomatoData(unittest.TestCase):
                 + result.INFEAS_EL_N_POS.INFEAS_EL_N_POS.sum() 
                 - result.INFEAS_EL_N_NEG.INFEAS_EL_N_NEG.sum())
 
-    def test_results_processising(self):
-        grid  = pomato.grid.GridModel(self.data.nodes, self.data.lines)
+    def test_results_processing(self):
+        grid  = pomato.grid.GridModel()
+        grid.calculate_parameters(self.data.nodes, self.data.lines)
         folder = self.wdir.parent.joinpath("tests/test_data/dispatch_result")
         result = pomato.data.ResultProcessing(self.data, grid, folder)
 
@@ -59,7 +60,8 @@ class TestPomatoData(unittest.TestCase):
         self.assertAlmostEqual(system_balance, 0)
 
     def test_misc_result_methods(self):
-        grid  = pomato.grid.GridModel(self.data.nodes, self.data.lines)
+        grid  = pomato.grid.GridModel()
+        grid.calculate_parameters(self.data.nodes, self.data.lines)
         folder = self.wdir.parent.joinpath("tests/test_data/scopf_result")
         result = pomato.data.ResultProcessing(self.data, grid, folder)
         result.output_folder = self.wdir.joinpath("data_output")
@@ -75,7 +77,8 @@ class TestPomatoData(unittest.TestCase):
     def test_results_uniform_pricing(self):
         # obj 186053.45909199998
         # n-0 overloads = 3
-        grid  = pomato.grid.GridModel(self.data.nodes, self.data.lines)
+        grid  = pomato.grid.GridModel()
+        grid.calculate_parameters(self.data.nodes, self.data.lines)
         folder = self.wdir.parent.joinpath("tests/test_data/dispatch_result")
         result = pomato.data.ResultProcessing(self.data, grid, folder)
 
@@ -92,7 +95,8 @@ class TestPomatoData(unittest.TestCase):
     def test_results_nodal(self):
         # obj 186304.75403404975
         # n-0 : 0 OL; n-1 : 29 OL
-        grid  = pomato.grid.GridModel(self.data.nodes, self.data.lines)
+        grid  = pomato.grid.GridModel()
+        grid.calculate_parameters(self.data.nodes, self.data.lines)
         folder = self.wdir.parent.joinpath("tests/test_data/nodal_result")
         result = pomato.data.ResultProcessing(self.data, grid, folder)
 
@@ -111,7 +115,8 @@ class TestPomatoData(unittest.TestCase):
     def test_results_scopf(self):
         # obj 244192.23855578768
         # n-0 : 0 OL; n-1 : 29 OL
-        grid  = pomato.grid.GridModel(self.data.nodes, self.data.lines)
+        grid  = pomato.grid.GridModel()
+        grid.calculate_parameters(self.data.nodes, self.data.lines)
         folder = self.wdir.parent.joinpath("tests/test_data/scopf_result")
         result = pomato.data.ResultProcessing(self.data, grid, folder)
 

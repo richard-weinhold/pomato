@@ -19,7 +19,8 @@ class TestPomatoGrid(unittest.TestCase):
         self.data = pomato.data.DataManagement(self.options, self.wdir)
         self.data.logger.setLevel(logging.ERROR)
         self.data.load_data('data_input/pglib_opf_case118_ieee.m')
-        self.grid  = pomato.grid.GridModel(self.data.nodes, self.data.lines)
+        self.grid  = pomato.grid.GridModel()
+        self.grid.calculate_parameters(self.data.nodes, self.data.lines)
 
     def test_init(self):
         self.assertAlmostEqual(np.shape(self.grid.ptdf), (186, 118))
@@ -68,7 +69,7 @@ class TestPomatoGrid(unittest.TestCase):
         np.testing.assert_array_equal(pre_contingency_flow, post_contingency_flow)
 
         # Test Outage of line with contingency==true
-        # l0 is outaed, which affects l1
+        # l0 is outaged, which affects l1
         outage = self.grid.lines.index.get_loc("l0")
         affected_line = self.grid.lines.index.get_loc("l1")
 

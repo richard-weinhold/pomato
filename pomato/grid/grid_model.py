@@ -66,10 +66,21 @@ class GridModel():
 
     numpy_settings = np.seterr(divide="raise")
 
-    def __init__(self, nodes, lines):
-        self.logger = logging.getLogger('Log.MarketModel.GridModel')
-        self.logger.info("Initializing GridModel..")
+    def __init__(self):
 
+        self.logger = logging.getLogger('Log.MarketModel.GridModel')
+        self.nodes = None
+        self.lines = None
+        self.incidence_matrix = None
+        self.ptdf = None
+        self.psdf = None
+        self.multiple_slack = False
+        self.lodf = None
+        self.combined_contingencies = None
+
+    def calculate_parameters(self, nodes, lines):
+        
+        self.logger.info("Calculating Grid Parameters!")
         self.nodes = nodes
         self.lines = lines
         self.check_slack()
@@ -77,13 +88,12 @@ class GridModel():
         self.incidence_matrix = self.create_incidence_matrix()
         self.ptdf = self.create_ptdf_matrix()
         self.psdf = self.create_psdf_matrix()
+        self.multiple_slack = False
         self.check_grid_topology()
         self.logger.info("Calculating LODF Matrix!")
         self.lodf = self.create_n_1_lodf_matrix()
-        # self.combined_contingencies = None
         self.combined_contingencies = self.create_contingency_groups()
-
-        self.logger.info("GridModel initialized!")
+        self.logger.info("Grid parameters Calculated!")
 
     def check_slack(self):
         """Check slack configuration from input data.

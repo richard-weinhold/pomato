@@ -243,10 +243,11 @@ class POMATO():
             self.initialize_options(options_file)
         
         self.data = DataManagement(self.options, self.wdir)
-        self.grid = None
-        self.cbco_module = None
-        self.grid_representation = None
-        self.market_model = None
+        self.grid = GridModel()       
+        self.cbco_module = CBCOModule(self.wdir, self.grid, self.data, self.options)
+        self.grid_representation = self.cbco_module.grid_representation
+        self.market_model = MarketModel(self.wdir, self.options, self.data, self.grid_representation)
+
         self.bokeh_plot = None
 
     def initialize_options(self, options_file):
@@ -257,7 +258,6 @@ class POMATO():
         options_file : str, optional
             Providing the name of an option file, usually located in the ``/profiles``
             folder. If not provided, using default options as defined in tools.
-
         """
 
         try:
@@ -286,29 +286,12 @@ class POMATO():
             Providing the name of a data file, usually located in the
             ``/input_data`` folder. Excel files and matpower cases are supported.
         """
-        if not self.data:
-            self.data = DataManagement(self.options, self.wdir)
-        
         self.data.load_data(filename)
         self.init_grid_model()
-        
-        self.cbco_module = CBCOModule(self.wdir, self.grid, self.data, self.options)
-        self.init_market_model()
 
     def init_grid_model(self):
         """Initialize the grid model from the data management object"""
-        self.grid = GridModel(self.data.nodes, self.data.lines)
-
-    def init_market_model(self):
-        """Initialize the market model.
-
-        The Market model is initialized with the data object and a grid
-        representation based on the chosen configuration.
-
-        """
-        if not self.grid_representation:
-            self.create_grid_representation()
-        self.market_model = MarketModel(self.wdir, self.options)
+        self.grid.calculate_parameters(self.data.nodes, self.data.lines)
 
     def update_market_model_data(self, folder=None):
         """Update data within an instance of the market model.
@@ -321,15 +304,13 @@ class POMATO():
         folder : pathlib.Path, optional
             Saving model data to specified path, defaults to ``data_temp/julia_files/data``.
         """
-        if not self.market_model:
-            self.init_market_model()
         
         if folder:
             self.market_model.data_dir = folder
-            self.market_model.update_data(self.data, self.options, self.grid_representation)
+            self.market_model.update_data()
             self.market_model.data_dir = self.wdir.joinpath("data_temp/julia_files/data")
         else:
-            self.market_model.update_data(self.data, self.options, self.grid_representation)
+            self.market_model.update_data()
 
     def initialize_market_results(self, result_folders):
         """Initializes market results from a list of folders.
@@ -357,8 +338,6 @@ class POMATO():
         update_data : bool, optional
             Update data before model run. Default: False.
         """
-        if not self.market_model:
-            self.init_market_model()
 
         if update_data:
             self.update_market_model_data()
@@ -380,11 +359,9 @@ class POMATO():
 
         Creates grid representation to be used in the market model.
         """
-        if not self.cbco_module:
-            self.cbco_module = CBCOModule(self.wdir, self.grid, self.data, self.options)
 
         self.cbco_module.create_grid_representation()
-        self.grid_representation = self.cbco_module.grid_representation
+        # self.grid_representation = self.cbco_module.grid_representation
 
     def create_geo_plot(self, title=None, bokeh_type="static", results=None, 
                         show=True, plot_dimensions=[700, 800]):

@@ -1,3 +1,4 @@
+import copy
 import logging
 import random
 import shutil
@@ -9,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from context import pomato
+
 
 class JuliaMockup():
     def __init__(self):
@@ -27,7 +29,8 @@ class TestPomatoGridRepresentation(unittest.TestCase):
         self.data.logger.setLevel(logging.ERROR)
         self.data.load_data(r'data_input/nrel_118.zip')
 
-        self.grid = pomato.grid.GridModel(self.data.nodes, self.data.lines)
+        self.grid = pomato.grid.GridModel()
+        self.grid.calculate_parameters(self.data.nodes, self.data.lines)
         self.cbco_module = pomato.cbco.CBCOModule(self.wdir, self.grid, self.data, self.options)
         self.cbco_module.logger.setLevel(logging.ERROR)
 
@@ -44,37 +47,35 @@ class TestPomatoGridRepresentation(unittest.TestCase):
 
         self.cbco_module.create_grid_representation()
         grid_representation = self.cbco_module.grid_representation
-        np.testing.assert_equal(grid_representation["redispatch_grid"][self.data.nodes.index].values, self.grid.ptdf)
-        np.testing.assert_equal(grid_representation["redispatch_grid"]["ram"].values, 
+        np.testing.assert_equal(grid_representation.redispatch_grid[self.data.nodes.index].values, self.grid.ptdf)
+        np.testing.assert_equal(grid_representation.redispatch_grid["ram"].values, 
                                 self.data.lines.maxflow.values*self.options["grid"]["capacity_multiplier"])
 
     def test_zonal(self):
-
+        
         self.cbco_module.options["optimization"]["type"] = "zonal"
         self.cbco_module.options["grid"]["gsk"] = "gmax"
 
         self.cbco_module.create_grid_representation()
-        grid_representation_gmax = self.cbco_module.grid_representation.copy()
+        grid_representation_gmax = copy.copy(self.cbco_module.grid_representation)
 
         self.cbco_module.options["grid"]["gsk"] = "flat"
         self.cbco_module.create_grid_representation()
-        grid_representation_flat = self.cbco_module.grid_representation.copy()
+        grid_representation_flat = self.cbco_module.grid_representation
 
         self.assertRaises(AssertionError, np.testing.assert_equal, 
-                          grid_representation_flat["grid"].values, grid_representation_gmax["grid"].values)
+                          grid_representation_flat.grid.values, grid_representation_gmax.grid.values)
 
         test_columns = list(self.cbco_module.data.zones.index) + ["ram"]
-        self.assertTrue(all(grid_representation_flat["grid"].columns == test_columns))
-        self.assertTrue(all(grid_representation_gmax["grid"].columns == test_columns))
-        
-
+        self.assertTrue(all(grid_representation_flat.grid.columns == test_columns))
+        self.assertTrue(all(grid_representation_gmax.grid.columns == test_columns))
 
     def test_nodal(self):
         self.cbco_module.options["optimization"]["type"] = "nodal"
         self.cbco_module.create_grid_representation()
         grid_representation = self.cbco_module.grid_representation
-        np.testing.assert_equal(grid_representation["grid"][self.data.nodes.index].values, self.grid.ptdf)
-        np.testing.assert_equal(grid_representation["grid"]["ram"].values, self.data.lines.maxflow.values)
+        np.testing.assert_equal(grid_representation.grid[self.data.nodes.index].values, self.grid.ptdf)
+        np.testing.assert_equal(grid_representation.grid["ram"].values, self.data.lines.maxflow.values)
         
 
     def test_cbco_nodal(self):
@@ -82,8 +83,8 @@ class TestPomatoGridRepresentation(unittest.TestCase):
         self.cbco_module.create_grid_representation()
         grid_representation = self.cbco_module.grid_representation
 
-        # test 10 contingency ptdf's
-        c_ptdf = grid_representation["grid"]
+        # test 10 contingency ptdf
+        c_ptdf = grid_representation.grid
         c_ptdf = c_ptdf[c_ptdf.co != "basecase"]
         test_contingencies = random.sample(range(0, len(c_ptdf)), 25)
 
@@ -94,22 +95,23 @@ class TestPomatoGridRepresentation(unittest.TestCase):
             np.testing.assert_equal(self.grid.create_n_1_ptdf_cbco(cb, co), tmp_ptdf)
 
     def test_cbco_nodal_no_precalc(self):
+
         self.cbco_module.options["optimization"]["type"] = "cbco_nodal"
-        self.cbco_module.options["grid"]["precalc_filename"] = "asdasd"
+        self.cbco_module.options["grid"]["precalc_filename"] = "random_words"
         
         self.cbco_module.process_cbco_nodal()
         
-        c_ptdf_fallback = self.cbco_module.grid_representation["grid"].copy()
+        c_ptdf_fallback = copy.copy(self.cbco_module.grid_representation.grid)
         self.cbco_module.options["grid"]["precalc_filename"] = ""
         self.cbco_module.options["grid"]["cbco_option"] = "full"
         self.cbco_module.create_grid_representation()
-        pd.testing.assert_frame_equal(c_ptdf_fallback, self.cbco_module.grid_representation["grid"])
+        pd.testing.assert_frame_equal(c_ptdf_fallback, self.cbco_module.grid_representation.grid)
 
     def test_cbco_nodal_clarkson(self):
         my_file = self.wdir.parent.joinpath('tests/test_data/nrel_cbco.csv')
         to_file = self.wdir.joinpath('data_temp/julia_files/cbco_data/nrel_cbco.csv')
         shutil.copyfile(str(my_file), str(to_file))
-        self.cbco_module.jdir = self.wdir.joinpath('data_temp/julia_files')
+        self.cbco_module.julia_dir = self.wdir.joinpath('data_temp/julia_files')
 
         self.cbco_module.julia_instance = JuliaMockup()
 
@@ -117,7 +119,7 @@ class TestPomatoGridRepresentation(unittest.TestCase):
         self.cbco_module.options["grid"]["cbco_option"] = "clarkson_base"
 
         self.cbco_module.create_grid_representation()
-        self.assertTrue(self.cbco_module.jdir.joinpath("cbco_data/A_py.csv").is_file())
-        self.assertTrue(self.cbco_module.jdir.joinpath("cbco_data/b_py.csv").is_file())
-        self.assertTrue(self.cbco_module.jdir.joinpath("cbco_data/I_py.csv").is_file())
-        self.assertTrue(self.cbco_module.jdir.joinpath("cbco_data/x_bounds_py.csv").is_file())
+        self.assertTrue(self.cbco_module.julia_dir.joinpath("cbco_data/A_py.csv").is_file())
+        self.assertTrue(self.cbco_module.julia_dir.joinpath("cbco_data/b_py.csv").is_file())
+        self.assertTrue(self.cbco_module.julia_dir.joinpath("cbco_data/I_py.csv").is_file())
+        self.assertTrue(self.cbco_module.julia_dir.joinpath("cbco_data/x_bounds_py.csv").is_file())
