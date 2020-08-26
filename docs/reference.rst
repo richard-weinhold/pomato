@@ -1,4 +1,4 @@
-References
+Reference
 ----------
 
 .. currentmodule:: pomato
@@ -9,7 +9,7 @@ References
     
     POMATO
     data
- 	grid
+    grid
     cbco
     market_model
     tools

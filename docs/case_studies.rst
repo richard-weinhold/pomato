@@ -167,7 +167,7 @@ through the data class. For example:
 
    mato.data.plants[["g_max", "fuel"]].groupby("fuel").sum()
 
-will aggregate the installed capacity by fuel. Additionally :code:`mato.data.visualize_inputdata()`
+will aggregate the installed capacity by fuel. Additionally :meth:`~pomato.data.DataManagement.visualize_inputdata()`
 will yield default plots visualizing the input data. 
 
 With the following command the model is run and after the market result can be accessed through the 

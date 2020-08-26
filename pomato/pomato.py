@@ -24,9 +24,6 @@ The model is structured in three interconnected parts:
 Installation
 ------------
 
-Installation
-------------
-
 POMATO is written in python and julia. Python takes care of the data processing
 and julia runs the economic dispatch and N-1 redundancy removal algorithm. 
 
@@ -43,12 +40,15 @@ After this is completed pomato can be imported in python:
 
     from pomato import POMATO
 
-Pomato functions from a *working directory*, ideally the project folder includes the virtual environment, and creates additional folders for results, temporary data and logs. The way we use pomato is illustrated by the *examples* folder, cloning its contents as a *working directory* allows to run the included examples.
+Pomato functions from a *working directory*, ideally the project folder includes the virtual 
+environment, and creates additional folders for results, temporary data and logs. The way we use 
+pomato is illustrated by the *examples* folder, cloning its contents as a *working directory* 
+allows to run the included examples.
 
 Pomato works with open solvers, if Gurobi is available on the PATH within the venv/project it will 
-be used. See `Gurobi.jl <https://github.com/JuliaOpt/Gurobi.jl>`_ for notes on the installation. Additionally, the 
-Chance-Constrained model formulation requires MOSEK solver which can be installed from within Pomato, 
-but requires a licence to use `Mosek.jl <https://github.com/JuliaOpt/Mosek.jl>`_. 
+be used. See `Gurobi.jl <https://github.com/JuliaOpt/Gurobi.jl>`_ for notes on the installation. 
+Additionally, the Chance-Constrained model formulation requires MOSEK solver which can be installed
+from within Pomato, but requires a licence to use `Mosek.jl <https://github.com/JuliaOpt/Mosek.jl>`_. 
 
 
 Examples

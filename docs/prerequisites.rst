@@ -11,11 +11,11 @@ We have opted to be fairly strict when it comes to definition of data structure 
 but made sure the definitions are easily accessible to potentially adopt pomato to other applications. 
 
 .. toctree::
-  
+  :maxdepth: 1
+
   folder_structure.rst
   input_model_data.rst
   options.rst
-
 
 
 Model Formulation
