@@ -92,12 +92,6 @@ class GridRepresentation():
                                                          redispatch_grid=pd.DataFrame(),
                                                          ntc=pd.DataFrame())
        
-        self.cbco_info = None
-        self.A = None
-        self.b = None
-
-        self.nodal_injection_limits = None
-        self.cbco_index = None
         self.julia_instance = None
         self.logger.info("CBCOModule Initialized!")
 
@@ -130,8 +124,6 @@ class GridRepresentation():
 
         if self.options["optimization"]["type"] == "ntc":
             self.process_ntc()
-            # if self.options["optimization"]["redispatch"]["include"]:
-                # self.process_nodal()
         elif self.options["optimization"]["type"] == "nodal":
             self.process_nodal()
         elif self.options["optimization"]["type"] == "zonal":
@@ -165,10 +157,9 @@ class GridRepresentation():
             info["ram"] = b
             info = info[["cb", "co", "ram"] + list(self.grid.nodes.index)]
 
-            self.A, self.b, self.cbco_info = A, b, info
-            self.nodal_injection_limits = self.create_nodal_injection_limits()
-            self.cbco_index = self.clarkson_algorithm()
-            self.grid_representation.grid = self.return_cbco()
+            nodal_injection_limits = self.create_nodal_injection_limits()
+            cbco_index = self.clarkson_algorithm(A, b, info, nodal_injection_limits)
+            self.grid_representation.grid = self.return_cbco(info, cbco_index)
             self.grid_representation.grid.ram *= grid_option["capacity_multiplier"]
 
         else:
@@ -212,16 +203,14 @@ class GridRepresentation():
             # nodal -> zonal ptdf via gsk
             A = np.dot(A, self.create_gsk(gsk))
             b = self.grid.lines.maxflow.values.reshape(len(self.grid.lines.index), 1)
-            df_info = pd.DataFrame(columns=self.data.zones.index, data=A)
-            df_info["cb"] = list(self.grid.lines.index)
-            df_info["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
-            df_info["ram"] = b
-            df_info = df_info[["cb", "co", "ram"] + list(self.data.zones.index)]
+            info = pd.DataFrame(columns=self.data.zones.index, data=A)
+            info["cb"] = list(self.grid.lines.index)
+            info["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
+            info["ram"] = b
+            info = info[["cb", "co", "ram"] + list(self.data.zones.index)]
 
-            self.A, self.b, self.cbco_info = A, b, df_info
-            self.nodal_injection_limits = np.array([])
-            self.cbco_index = self.clarkson_algorithm()
-            self.grid_representation.grid = self.return_cbco()
+            cbco_index = self.clarkson_algorithm(A, b, info, np.array([]))
+            self.grid_representation.grid = self.return_cbco(info, cbco_index)
             self.grid_representation.grid.ram *= grid_option["capacity_multiplier"]
 
         else:
@@ -250,13 +239,13 @@ class GridRepresentation():
 
         """
         grid_option = self.options["grid"]
-        self.A, self.b, self.cbco_info = self.create_cbco_data(grid_option["sensitivity"],
-                                                               preprocess=True,
-                                                               gsk=grid_option["gsk"])
-        self.nodal_injection_limits = np.array([])
-        self.cbco_index = self.clarkson_algorithm()
+        A, b, cbco_info = self.create_cbco_data(grid_option["sensitivity"],
+                                                preprocess=True,
+                                                gsk=grid_option["gsk"])
 
-        self.grid_representation.grid = self.return_cbco()
+        cbco_index = self.clarkson_algorithm(A, b, cbco_info, np.array([]))
+
+        self.grid_representation.grid = self.return_cbco(cbco_info, cbco_index)
         self.grid_representation.grid.ram *= grid_option["capacity_multiplier"]
         self.create_ntc()
 
@@ -298,8 +287,9 @@ class GridRepresentation():
         algorithm so that it can be run separately from the python POMATO.
 
         """
-        self.A, self.b, self.cbco_info = self.create_cbco_data(self.options["grid"]["sensitivity"],
-                                                               self.options["grid"]["preprocess"])
+        A, b, cbco_info = self.create_cbco_data(self.options["grid"]["sensitivity"],
+                                                self.options["grid"]["preprocess"])
+
         if self.options["grid"]["precalc_filename"]:
             try:
                 filename = self.options["grid"]["precalc_filename"]
@@ -307,45 +297,43 @@ class GridRepresentation():
                 precalc_cbco = pd.read_csv(self.julia_dir.joinpath(f"cbco_data/{filename}.csv"),
                                            delimiter=',')
                 if len(precalc_cbco.columns) > 1:
-                    condition = self.cbco_info[["cb", "co"]].apply(tuple, axis=1) \
+                    condition = cbco_info[["cb", "co"]].apply(tuple, axis=1) \
                                     .isin(precalc_cbco[["cb", "co"]].apply(tuple, axis=1))
-                    # self.cbco_index = list(self.cbco_info.index[condition])
-                    self.cbco_index = list(self.cbco_info.reset_index().index[condition])
-
-                    self.logger.info("Number of CBCOs from pre-calc: %s", str(len(self.cbco_index)))
+                    cbco_index = list(cbco_info.reset_index().index[condition])
+                    self.logger.info("Number of CBCOs from pre-calc: %s", str(len(cbco_index)))
                 else:
-                    self.cbco_index = list(precalc_cbco.constraints.values)
-                    self.logger.info("Number of CBCOs from pre-calc: %s", str(len(self.cbco_index)))
+                    cbco_index = list(precalc_cbco.constraints.values)
+                    self.logger.info("Number of CBCOs from pre-calc: %s", str(len(cbco_index)))
 
             except FileNotFoundError:
                 self.logger.warning("FileNotFound: No Precalc available")
                 self.logger.warning("Running with full N-1 representation (subject to the lodf filter)")
-                self.cbco_index = self.cbco_index = list(range(0, len(self.b)))
+                cbco_index = cbco_index = list(range(0, len(b)))
 
         else:
             # 3 valid args supported for cbco_option:
             # clarkson, clarkson_base, full (default)
             if self.options["grid"]["cbco_option"] == "full":
-                self.cbco_index = list(range(0, len(self.b)))
-
+                cbco_index = list(range(0, len(b)))
 
             elif self.options["grid"]["cbco_option"] == "clarkson_base":
-                self.nodal_injection_limits = self.create_nodal_injection_limits()
-                self.cbco_index = self.clarkson_algorithm()
+                nodal_injection_limits = self.create_nodal_injection_limits()
+                cbco_index = self.clarkson_algorithm(A, b, cbco_info, nodal_injection_limits)
 
             elif self.options["grid"]["cbco_option"] == "clarkson":
-                self.nodal_injection_limits = np.array([])
-                self.cbco_index = self.clarkson_algorithm()
+                cbco_index = self.clarkson_algorithm(A, b, cbco_info, np.array([]))
 
             elif self.options["grid"]["cbco_option"] == "save":
-                self.nodal_injection_limits = self.create_nodal_injection_limits()
-                self.write_cbco_info(self.julia_dir.joinpath("cbco_data"), "py")
-                self.cbco_index = list(range(0, len(self.b)))
+                nodal_injection_limits = self.create_nodal_injection_limits()
+                cbco_index = list(range(0, len(b)))
+
+                self.write_cbco_info(A, b, cbco_info, cbco_index, nodal_injection_limits, 
+                                     self.julia_dir.joinpath("cbco_data"), "py_save")
             else:
                 self.logger.warning("No valid cbco_option set!")
 
 
-        self.grid_representation.grid = self.return_cbco()
+        self.grid_representation.grid = self.return_cbco(cbco_info, cbco_index)
         self.grid_representation.grid = self._add_zone_to_grid_representation(self.grid_representation.grid)
         self.grid_representation.grid.ram *= self.options["grid"]["capacity_multiplier"]
 
@@ -398,7 +386,7 @@ class GridRepresentation():
                                            data=A)), axis=1)
         return A, b, info
 
-    def write_cbco_info(self, folder, suffix):
+    def write_cbco_info(self, A, b, cbco_info, nodal_injection_limits, folder, suffix):
         """Write cbco information to disk to run the redundancy removal algorithm.
 
         Parameters
@@ -408,32 +396,25 @@ class GridRepresentation():
         suffix : str
             A suffix for each file, to make it recognizable.
         """
-        if isinstance(self.A, np.ndarray) and isinstance(self.b, np.ndarray):
-            self.logger.info("Saving A, b...")
-            np.savetxt(folder.joinpath(f"A_{suffix}.csv"),
-                       np.asarray(self.A), delimiter=",")
+        self.logger.info("Saving A, b...")
+        np.savetxt(folder.joinpath(f"A_{suffix}.csv"),
+                    np.asarray(A), delimiter=",")
 
-            np.savetxt(folder.joinpath(f"b_{suffix}.csv"),
-                       np.asarray(self.b), delimiter=",")
+        np.savetxt(folder.joinpath(f"b_{suffix}.csv"),
+                    np.asarray(b), delimiter=",")
 
-        if isinstance(self.cbco_index, list):
-            self.logger.info("Saving I...")
-            np.savetxt(folder.joinpath(f"I_{suffix}.csv"),
-                       np.array(self.cbco_index).astype(int),
-                       fmt='%i', delimiter=",")
-        else:
-            np.savetxt(folder.joinpath(f"I_{suffix}.csv"),
-                       np.array([]), fmt='%i', delimiter=",")
+        np.savetxt(folder.joinpath(f"I_{suffix}.csv"),
+                    np.array([]), fmt='%i', delimiter=",")
 
-        if isinstance(self.nodal_injection_limits, np.ndarray):
+        if isinstance(nodal_injection_limits, np.ndarray):
             self.logger.info("Saving bounds for net injections...")
             np.savetxt(folder.joinpath(f"x_bounds_{suffix}.csv"),
-                       np.asarray(self.nodal_injection_limits), delimiter=",")
+                       np.asarray(nodal_injection_limits), delimiter=",")
         else:
             np.savetxt(folder.joinpath(f"x_bounds_{suffix}.csv"),
                        np.array([]), fmt='%i', delimiter=",")
 
-        self.cbco_info.to_csv(str(folder.joinpath('Ab_info.csv')), index_label='index')
+        cbco_info.to_csv(str(folder.joinpath('Ab_info.csv')), index_label='index')
 
         self.logger.info("Saved everything to folder: \n %s", str(folder))
 
@@ -489,7 +470,7 @@ class GridRepresentation():
         nodal_injection_limits = np.array(nodal_injection_limits).reshape(len(nodal_injection_limits), 1)
         return nodal_injection_limits
 
-    def clarkson_algorithm(self, args={"file_suffix": "py"}):
+    def clarkson_algorithm(self, A, b, cbco_info, nodal_injection_limits, args={"file_suffix": "py"}):
         """Run the redundancy removal algorithm.
 
         The redundancy removal algorithm is run by writing the necessary data
@@ -503,7 +484,9 @@ class GridRepresentation():
             List of the essential indices, i.e. the indices of the non-redundant
             cbco's.
         """
-        self.write_cbco_info(self.julia_dir.joinpath("cbco_data"), "py")  # save A,b to csv
+
+        self.write_cbco_info(A, b, cbco_info, nodal_injection_limits,
+                             self.julia_dir.joinpath("cbco_data"), "py")  # save A,b to csv
         
         if not self.julia_instance:
             self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
@@ -529,7 +512,7 @@ class GridRepresentation():
             cbco = None
         return cbco
 
-    def return_cbco(self):
+    def return_cbco(self, cbco_info, cbco_index):
         """Return only the cbco's of the info attribute DataFrame.
 
         Returns
@@ -539,7 +522,7 @@ class GridRepresentation():
             based on the cbco indices resulting from the redundancy removal algorithm.
 
         """
-        cbco_info = self.cbco_info.iloc[self.cbco_index].copy()
+        cbco_info = cbco_info.iloc[cbco_index].copy()
         cbco_info.loc[:, "index"] = cbco_info.cb + "_" + cbco_info.co
         cbco_info = cbco_info.set_index("index")
         return cbco_info
