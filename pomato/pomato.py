@@ -115,7 +115,7 @@ from pathlib import Path
 
 import pomato
 import pomato.tools as tools
-from pomato.cbco.cbco_module import CBCOModule
+from pomato.cbco.grid_representation import GridRepresentation
 from pomato.data import DataManagement, ResultProcessing
 from pomato.grid import GridModel
 from pomato.market_model import MarketModel
@@ -192,8 +192,8 @@ class POMATO():
         Object containing all grid information. Initializes empty and
         filled based on nodes and lines data when it is loaded and
         processed. Provides the PTDF matrices for N-0 and N-1 load flow analysis.
-    cbco_module : :class:`~pomato.cbco.CBCOModule`
-        The CBCO module provides the grid representation to the market model,
+    grid_representation_module : :class:`~pomato.cbco.GridRepresentation`
+        The GridRepresentation provides the grid representation to the market model,
         based on the chosen configuration. Combines input data and the GridModel
         into a grid representation based on the chosen configuration (N-0, N-1,
         zonal, zonal CBCO, ntc, copper
@@ -244,8 +244,7 @@ class POMATO():
         
         self.data = DataManagement(self.options, self.wdir)
         self.grid = GridModel()       
-        self.cbco_module = CBCOModule(self.wdir, self.grid, self.data, self.options)
-        self.grid_representation = self.cbco_module.grid_representation
+        self.grid_representation = GridRepresentation(self.wdir, self.grid, self.data, self.options)
         self.market_model = MarketModel(self.wdir, self.options, self.data, self.grid_representation)
 
         self.bokeh_plot = None
@@ -360,8 +359,8 @@ class POMATO():
         Creates grid representation to be used in the market model.
         """
 
-        self.cbco_module.create_grid_representation()
-        # self.grid_representation = self.cbco_module.grid_representation
+        self.grid_representation.create_grid_representation()
+        # self.grid_representation = self.grid_representation.grid_representation
 
     def create_geo_plot(self, title=None, bokeh_type="static", results=None, 
                         show=True, plot_dimensions=[700, 800]):
@@ -407,15 +406,15 @@ class POMATO():
             self.market_model.julia_model = None
 
     def _join_julia_instance_grid_representation(self):
-        if self.cbco_module.julia_instance:
-            self.cbco_module.julia_instance.join()
-            self.cbco_module.julia_instance = None
+        if self.grid_representation.julia_instance:
+            self.grid_representation.julia_instance.join()
+            self.grid_representation.julia_instance = None
 
     def _join_julia_instances(self):
         self._join_julia_instance_market_model()
         self._join_julia_instance_grid_representation()
 
     def _start_julia_instances(self):
-        self.cbco_module._start_julia_daemon()
+        self.grid_representation._start_julia_daemon()
         self.market_model._start_julia_daemon()
 

@@ -1,6 +1,6 @@
-"""CBCO Module of POMATO, creating a grid representation for the market model.
+"""GridRepresentation of POMATO, represents the network in the market model.
 
-The purpose of the CBCO Module is to create a usable grid representation for
+The purpose of the GridRepresentation is to create a usable grid representation for
 the market model. This module acts as a combinator of the data and grid modules
 and allow to easily change grid representation for the market model.
 
@@ -80,4 +80,4 @@ Screening <https://arxiv.org/abs/1910.09034>`_.
 
 """
 
-from pomato.cbco.cbco_module import CBCOModule
+from pomato.cbco.grid_representation import GridRepresentation

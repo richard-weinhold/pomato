@@ -15,7 +15,7 @@ import pandas as pd
 
 import pomato
 import pomato.tools as tools
-from pomato.cbco import CBCOModule
+from pomato.cbco import GridRepresentation
 
 class FBMCModule():
     """ Class to do all calculations in connection with cbco calculation"""
@@ -255,7 +255,7 @@ class FBMCModule():
     def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=True):
         
         domain_data = {}
-        cbco = CBCOModule(self.wdir, self.grid, self.data, self.data.options)
+        cbco = GridRepresentation(self.wdir, self.grid, self.data, self.data.options)
         cbco._start_julia_daemon()
         cbco.options["optimization"]["type"] = "cbco_zonal"
         cbco.options["grid"]["cbco_option"] = "clarkson"

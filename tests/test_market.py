@@ -27,11 +27,11 @@ class TestPomatoMarketModel(unittest.TestCase):
         self.data.load_data('data_input/pglib_opf_case118_ieee.m')
         self.grid = pomato.grid.GridModel()
         self.grid.calculate_parameters(self.data.nodes, self.data.lines)
-        self.cbco_module = pomato.cbco.CBCOModule(self.wdir, self.grid, self.data, self.options)
-        self.cbco_module.logger.setLevel(logging.ERROR)
+        self.grid_representation = pomato.cbco.GridRepresentation(self.wdir, self.grid, self.data, self.options)
+        self.grid_representation.logger.setLevel(logging.ERROR)
     
         self.market_model = pomato.market_model.MarketModel(self.wdir, self.options, 
-                                                            self.data, self.cbco_module.grid_representation)
+                                                            self.data, self.grid_representation)
 
     @classmethod
     def tearDownClass(cls):
@@ -40,13 +40,13 @@ class TestPomatoMarketModel(unittest.TestCase):
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
 
     def test_init(self):
-        self.cbco_module.options["optimization"]["type"] = "ntc"
-        self.cbco_module.create_grid_representation()
+        self.grid_representation.options["optimization"]["type"] = "ntc"
+        self.grid_representation.create_grid_representation()
         self.market_model.update_data()
     
     def test_save_files(self):
-        self.cbco_module.options["optimization"]["type"] = "ntc"
-        self.cbco_module.create_grid_representation()
+        self.grid_representation.options["optimization"]["type"] = "ntc"
+        self.grid_representation.create_grid_representation()
         self.market_model.update_data()
 
         for data in ["availability", "dclines", "demand_el", "demand_h", "grid", "heatareas", 
@@ -64,8 +64,8 @@ class TestPomatoMarketModel(unittest.TestCase):
         copytree(prepared_result, to_folder)
 
         self.market_model.julia_model = JuliaMockup()
-        self.cbco_module.options["optimization"]["type"] = "ntc"
-        self.cbco_module.create_grid_representation()
+        self.grid_representation.options["optimization"]["type"] = "ntc"
+        self.grid_representation.create_grid_representation()
         self.market_model.update_data()
         self.market_model.run()
 
@@ -73,7 +73,7 @@ class TestPomatoMarketModel(unittest.TestCase):
     
     def test_market_model_missing_result(self):
         self.market_model.julia_model = JuliaMockup()
-        self.cbco_module.options["optimization"]["type"] = "ntc"
-        self.cbco_module.create_grid_representation()
+        self.grid_representation.options["optimization"]["type"] = "ntc"
+        self.grid_representation.create_grid_representation()
         self.market_model.update_data()
         self.assertRaises(FileNotFoundError, self.market_model.run)

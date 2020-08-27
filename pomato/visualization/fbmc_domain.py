@@ -16,7 +16,7 @@ import pandas as pd
 from scipy import spatial
 
 import pomato.tools as tools
-from pomato.cbco import CBCOModule
+from pomato.cbco import GridRepresentation
 from pomato.fbmc import FBMCModule
 
 class FBMCDomain():

@@ -4,24 +4,16 @@ import datetime as dt
 import itertools
 import numpy as np
 import pandas as pd
+import types
 from pathlib import Path
 
 import pomato
 import pomato.tools as tools
 
 class GridRepresentation():
-    def __init__(self, option, multiple_slack=None, slack_zones=None):
-        self.option = option
-        self.multiple_slack = multiple_slack
-        self.slack_zones = slack_zones
-        self.grid = pd.DataFrame()
-        self.redispatch_grid = pd.DataFrame()
-        self.ntc = pd.DataFrame()
+    """GridRepresentation of POMATO, represents the network in the market model.
 
-class CBCOModule():
-    """CBCO module of POMATO, creating a grid representation for the market model.
-
-    The CBCO module creates a grid representation to be used in the market model based on the
+    The GridRepresentation creates a grid representation to be used in the market model based on the
     chosen options. This module acts as a combinator of the data and grid modules
     and allow to easily change grid representation for the market model.
 
@@ -93,9 +85,13 @@ class CBCOModule():
         # Core attributes
         self.grid = grid
         self.data = data
-        self.grid_representation = GridRepresentation(self.options["optimization"]["type"])
-        # Additional attributes
-        
+        self.grid_representation = types.SimpleNamespace(option=None,
+                                                         multiple_slack=None,
+                                                         slack_zones=None,
+                                                         grid=pd.DataFrame(),
+                                                         redispatch_grid=pd.DataFrame(),
+                                                         ntc=pd.DataFrame())
+       
         self.cbco_info = None
         self.A = None
         self.b = None

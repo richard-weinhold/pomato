@@ -57,7 +57,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         mato.create_geo_plot(title="IEEE_blank", show=False)
 
         ### Set Mock Julia Model and copy precalculated results
-        mato.cbco_module.julia_instance = JuliaMockup()
+        mato.grid_representation.julia_instance = JuliaMockup()
         mato.market_model.julia_model = JuliaMockup()
         prepared_result = self.wdir.parent.joinpath('tests/test_data/dispatch_result/')
         to_folder = self.wdir.joinpath('data_temp/julia_files/results/dispatch_result') 
@@ -83,7 +83,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         mato.options["optimization"]["redispatch"]["include"] = True
 
         ### Set Mock Julia Model and copy precalculated results
-        mato.cbco_module.julia_instance = JuliaMockup()
+        mato.grid_representation.julia_instance = JuliaMockup()
         mato.market_model.julia_model = JuliaMockup()
         prepared_result_market = self.wdir.parent.joinpath('tests/test_data/market_result_DE/')
         prepared_result_redispatch = self.wdir.parent.joinpath('tests/test_data/redispatch_DE/')

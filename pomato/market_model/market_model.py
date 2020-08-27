@@ -47,8 +47,8 @@ class MarketModel():
         Interactive julia process which is used to run the market model.
     data : :class:`~pomato.data.DataManagement`
        An instance of the DataManagement class with processed input data.
-    grid_representation : dict
-        Grid representation resulting from of :class:`~pomato.cbco.CBCOModule`. Contains a
+    grid_representation : types.SimpleNamespace
+        Grid representation resulting from of :class:`~pomato.cbco.GridRepresentation`. Contains a
         suitable grid representation based on the chosen options.
     model_horizon : list
         List containing all timesteps part of the model horizon.
@@ -74,8 +74,7 @@ class MarketModel():
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)
         self.data = data
-        self.grid_representation = grid_representation
-        self.model_horizon = None
+        self.grid_representation = grid_representation.grid_representation
 
         # attributes to signal successful model run
         self.status = 'empty'
@@ -96,8 +95,8 @@ class MarketModel():
                                     self.options["optimization"]["model_horizon"][1])
 
         timesteps = self.data.demand_el.timestep.unique()
-        self.model_horizon = [str(x) for x in timesteps[model_horizon_range]]
-        self.data_to_csv()
+        model_horizon = [str(x) for x in timesteps[model_horizon_range]]
+        self.data_to_csv(model_horizon)
         self.logger.info("MarketModel Initialized!")
 
     def run(self):
@@ -150,7 +149,7 @@ class MarketModel():
             self.logger.warning("Process not terminated successfully!")
             self.status = 'error'
 
-    def data_to_csv(self):
+    def data_to_csv(self, model_horizon):
         """Export input data to csv files in the data_dir sub-directory.
 
         Writes all data specified in the *model structure* attribute of DataManagement to csv.
@@ -165,7 +164,7 @@ class MarketModel():
         for data in [d for d in self.data.model_structure if d != "lines"]:
             cols = [col for col in self.data.model_structure[data].keys() if col != "index"]
             if "timestep" in cols:
-                getattr(self.data, data).loc[getattr(self.data, data)["timestep"].isin(self.model_horizon), cols] \
+                getattr(self.data, data).loc[getattr(self.data, data)["timestep"].isin(model_horizon), cols] \
                     .to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
             else:
                 getattr(self.data, data)[cols].to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
