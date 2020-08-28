@@ -29,7 +29,7 @@
 
 # stop on error
 set -e
-VERSION=1.3.1
+VERSION="$1"
 
 case "$VERSION" in
   nightly)
