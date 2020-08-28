@@ -4,7 +4,7 @@ os:
 python:
   - "3.7"
 before_install:
-  - chmod +x /tests/install_julia.sh
+  - chmod +x tests/install_julia.sh
   - ./tests/install_julia.sh
   - python --version
   - julia --version
