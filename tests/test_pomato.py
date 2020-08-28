@@ -52,7 +52,7 @@ class TestPomatoMarketModel(unittest.TestCase):
 
     def test_run_ieee(self):
         """Simply run the ieee case"""
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato = pomato.POMATO(wdir=self.wdir)
         mato.load_data('data_input/pglib_opf_case118_ieee.m')
         mato.create_geo_plot(title="IEEE_blank", show=False)
 
