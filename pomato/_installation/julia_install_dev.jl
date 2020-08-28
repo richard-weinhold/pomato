@@ -1,12 +1,13 @@
 using Pkg
+cd(@__DIR__)
 
 marketmodel_path = ARGS[1]
 redundancyremoval_path = ARGS[2]
 # runs from the pomato base folder
-if isdir("_installation/pomato")
-	rm("_installation/pomato", recursive=true)
+if isdir("pomato")
+	rm("pomato", recursive=true)
 end
-Pkg.activate("_installation/pomato")
+Pkg.activate("pomato")
 Pkg.develop(PackageSpec(url=marketmodel_path))
 Pkg.develop(PackageSpec(url=redundancyremoval_path))
 
