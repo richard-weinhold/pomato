@@ -64,7 +64,8 @@ class TestPomatoMarketModel(unittest.TestCase):
         # to_folder.mkdir()
         # copytree(prepared_result, to_folder)
 
-        mato.options["optimization"]["type"] = "dispatch"
+        mato.options["optimization"]["type"] = "cbco_nodal"
+        mato.options["grid"]["cbco_option"] = "clarkson_base"
         mato.create_grid_representation()
         mato.update_market_model_data()
         mato.run_market_model()
