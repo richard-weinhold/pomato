@@ -2,7 +2,8 @@ language: python
 python:
   - "3.7"
 before_install:
-  - sudo apt-get -y install julia   
+  - sudo dnf copr enable nalimilan/julia
+  - sudo yum install -y julia  
   - python --version
   - julia --version
   - pip install codecov
