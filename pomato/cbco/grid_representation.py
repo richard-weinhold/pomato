@@ -398,8 +398,8 @@ class GridRepresentation():
         """
         self.logger.info("Saving A, b...")
         
-        if not "x_bounds" in kwargs:
-            kwargs["x_bounds"] = np.array([])
+        for data in [d for d in ["x_bounds", "I"] if d not in kwargs]:
+            kwargs[data] = np.array([])
 
         for data in kwargs:
             self.logger.info("Saving %s to disk...", data)
