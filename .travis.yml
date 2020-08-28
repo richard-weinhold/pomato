@@ -8,7 +8,7 @@ before_install:
   - ./tests/install_julia.sh
   - python --version
   - julia --version
-  - julia /pomato/_installation/julia_install_from_git.jl
+  - julia pomato/_installation/julia_install_from_git.jl
   - pip install codecov
 
 install:
