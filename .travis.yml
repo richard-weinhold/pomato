@@ -8,14 +8,14 @@ before_install:
   - ./tests/install_julia.sh
   - python --version
   - julia --version
-  - julia _installation/julia_install_from_git.jl
+  # - julia _installation/julia_install_from_git.jl
   - pip install codecov
 
 install:
   - pip install coverage pytest-cov 
   - pip install pytest==4.6
   - pip install -r requirements.txt
-  - julia pomato/_installation/julia_install_from_git.jl
+  - julia /pomato/_installation/julia_install_from_git.jl
 
 script: pytest --cov=./
 after_success: codecov
