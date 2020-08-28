@@ -1,0 +1,46 @@
+{
+    "optimization": {
+        "type": "ntc",
+        "model_horizon": [0, 24],
+        "redispatch": {
+            "include": false,
+            "zonal_redispatch": false,
+            "cost": 1
+            },
+        "infeasibility": {
+            "electricity": {
+                "include": true,
+                "cost": 1E2,
+                "bound": 200
+            }
+        },
+        "curtailment": {
+            "include": false,
+            "cost": 1E3
+        },
+        "parameters": {
+            "storage_start": 0.65
+        },
+        "plant_types": {
+            "es": [],
+            "hs": [],
+            "ts": ["wind", "solar", "ror_ts"],
+            "ph": []
+        }
+    },
+    "grid": {
+        "cbco_option": "clarkson_base",
+        "precalc_filename": "",
+        "sensitivity": 5e-2,
+        "capacity_multiplier": 0.8,
+        "preprocess": true,
+        "gsk": "gmax"
+    },
+    "data": {
+        "data_type": "nrel",
+        "stacked": ["demand_el_rt", "demand_el_da", "availability_da", "availability_rt", "net_export"],
+        "process": [],
+        "process_input": true, 
+        "default_net_position": 0
+    }
+}

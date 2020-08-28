@@ -19,7 +19,7 @@ class TestPomatoGrid(unittest.TestCase):
         self.data = pomato.data.DataManagement(self.options, self.wdir)
         self.data.logger.setLevel(logging.ERROR)
         self.data.load_data('data_input/pglib_opf_case118_ieee.m')
-        self.grid  = pomato.grid.GridModel()
+        self.grid  = pomato.grid.GridTopology()
         self.grid.calculate_parameters(self.data.nodes, self.data.lines)
 
     def test_init(self):

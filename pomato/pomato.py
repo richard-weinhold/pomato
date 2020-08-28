@@ -115,9 +115,8 @@ from pathlib import Path
 
 import pomato
 import pomato.tools as tools
-from pomato.cbco.grid_representation import GridRepresentation
-from pomato.data import DataManagement, ResultProcessing
-from pomato.grid import GridModel
+from pomato.data import DataManagement, Results
+from pomato.grid import GridTopology, GridModel
 from pomato.market_model import MarketModel
 from pomato.visualization.bokeh_interface import BokehPlot
 
@@ -243,8 +242,9 @@ class POMATO():
             self.initialize_options(options_file)
         
         self.data = DataManagement(self.options, self.wdir)
-        self.grid = GridModel()       
-        self.grid_representation = GridRepresentation(self.wdir, self.grid, self.data, self.options)
+        self.grid = GridTopology()       
+        self.grid_model = GridModel(self.wdir, self.grid, self.data, self.options)
+        self.grid_representation = self.grid_model.grid_representation
         self.market_model = MarketModel(self.wdir, self.options, self.data, self.grid_representation)
 
         self.bokeh_plot = None
@@ -320,7 +320,7 @@ class POMATO():
             List of folders containing market results.
         """
         for folder in result_folders:
-            self.data.results[folder.name] = ResultProcessing(self.data, self.grid, folder)
+            self.data.results[folder.name] = Results(self.data, self.grid, folder)
     
     def rename_market_result(self, oldname, newname):
         """Rename Market Result""" 
@@ -358,9 +358,7 @@ class POMATO():
 
         Creates grid representation to be used in the market model.
         """
-
-        self.grid_representation.create_grid_representation()
-        # self.grid_representation = self.grid_representation.grid_representation
+        self.grid_model.create_grid_representation()
 
     def create_geo_plot(self, title=None, bokeh_type="static", results=None, 
                         show=True, plot_dimensions=[700, 800]):
@@ -377,7 +375,7 @@ class POMATO():
             requires to run a bokeh server, which is generally more involved.
             Defaults to static, which outputs a html version of the map with
             average loads.
-        results : dict(str, :obj:`~pomato.data.ResultProcessing`)
+        results : dict(str, :obj:`~pomato.data.Results`)
             Optionally specify a subset of results to plot.
         """
         self.bokeh_plot = BokehPlot(self.wdir, bokeh_type=bokeh_type)
@@ -397,6 +395,7 @@ class POMATO():
         tools.julia_management.instantiate_julia_dev(self.package_dir, 
                                                      str(redundancyremoval_path), 
                                                      str(marketmodel_path))
+                                                     
     def _instantiate_julia(self):
         tools.julia_management.instantiate_julia(self.package_dir)
 
@@ -405,16 +404,16 @@ class POMATO():
             self.market_model.julia_model.join()
             self.market_model.julia_model = None
 
-    def _join_julia_instance_grid_representation(self):
-        if self.grid_representation.julia_instance:
-            self.grid_representation.julia_instance.join()
-            self.grid_representation.julia_instance = None
+    def _join_julia_instance_grid_model(self):
+        if self.grid_model.julia_instance:
+            self.grid_model.julia_instance.join()
+            self.grid_model.julia_instance = None
 
     def _join_julia_instances(self):
         self._join_julia_instance_market_model()
-        self._join_julia_instance_grid_representation()
+        self._join_julia_instance_grid_model()
 
     def _start_julia_instances(self):
-        self.grid_representation._start_julia_daemon()
+        self.grid_model._start_julia_daemon()
         self.market_model._start_julia_daemon()
 

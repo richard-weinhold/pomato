@@ -1,4 +1,4 @@
-"""ResultsProcessing of POMATO."""
+"""Results of POMATO."""
 
 import json
 import logging
@@ -9,14 +9,12 @@ import numpy as np
 import pandas as pd
 
 import pomato.tools as tools
-
 # pylint: disable-msg=E1101
 
+class Results():
+    """Results of POMATO makes market results available to the user.
 
-class ResultProcessing():
-    """ResultsProcessing of POMATO makes market results available to the user.
-
-    The ResultsProcessing module provides an interface between the market result
+    The Results module provides an interface between the market result
     and the data itself. All result variables are set as an attribute in a long
     DataFrame with its sets as columns which can be easily accessed
     with *result.VAR*.
@@ -26,10 +24,10 @@ class ResultProcessing():
     data : :class:`~pomato.data.DataManagement`
         An instance of the DataManagement class with the processed input data
         that is the basis of the loaded results.
-    grid : :class:`~pomato.grid.GridModel`
-        An instance of the GridModel class, to provide its functionality to the results.
+    grid : :class:`~pomato.grid.GridTopology`
+        An instance of the GridTopology class, to provide its functionality to the results.
     result_folder : pathlib.Path
-        The data is initialized from a folder containing the result. The ResultsProcessing
+        The data is initialized from a folder containing the result. The Results
         can be initialized after a model run or from stored data.
     result_attributes : dict,
         *result_attributes* covers all variables from the market model,
@@ -41,8 +39,8 @@ class ResultProcessing():
     data : :class:`~pomato.data.DataManagement`
         An instance of the DataManagement class with the processed input data
         that is the basis of the loaded results.
-    grid : :class:`~pomato.grid.GridModel`,
-        An instance of the GridModel class, to provide its functionality to the
+    grid : :class:`~pomato.grid.GridTopology`,
+        An instance of the GridTopology class, to provide its functionality to the
         results.
     result_folder : pathlib.Path
         Folder with the results of the market model in .csv files.

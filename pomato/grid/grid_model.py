@@ -1,554 +1,340 @@
-"""Grid Model of POMATO"""
-import sys
+
 import logging
+import datetime as dt
+import itertools
 import numpy as np
 import pandas as pd
-import scipy
+import types
+from pathlib import Path
+
+import pomato
+import pomato.tools as tools
 
 class GridModel():
-    """Grid Model of POMATO
+    """GridRepresentation of POMATO, represents the network in the market model.
 
-    This module provides the grid functionality to POMATO. And is initialized as
-    an attribute to the POMATO instance when data is (successfully) loaded.
+    The GridRepresentation creates a grid representation to be used in the market model based on the
+    chosen options. This module acts as a combinator of the data and grid modules
+    and allow to easily change grid representation for the market model.
 
-    This includes:
-        - Calculation of the ptdf matrix (power transfer distribution factor),
-          used in linear power flow analysis.
-        - Calculation of the lodf matrix (load outage distribution factor), to
-          account for contingencies.
-        - Validation of the input topology based on the nodes and lines data. This
-          includes verification of the chosen slacks/reference nodes and setting
-          of multiple slacks if needed. Also providing the information about which
-          nodes should be balanced through which slack.
-        - Validation of possible contingencies. This means that lines that disconnect
-          nodes or groups of nodes cannot be considered as a contingency.
-        - A selection of methods that allow for contingency analysis by obtaining
-          N-1 ptdf matrices by lines, outages or with a sensitivity filter.
+    Its main feature is a minimal nodal/zonal N-1 grid representation which is achieved through a
+    redundancy removal algorithm based on the "Clarkson" algorithm.
 
-    This module is initialized solely with nodes and lines data. It purposely
-    does not contain additional data or results, as analysis tasks line power
-    flow calculation are done in respective modules
-    :obj:`~pomato.data.ResultProcessing`, :obj:`~pomato.cbco.CBCOModule` or
-    :obj:`~pomato.fbmc.FBMCModule`. This module solely provides the tools for
-    this analysis and the corresponding means of validation to provide a robust
-    experience. The main functionality of contingency analysis is embedded in
-    :meth:`~create_filtered_n_1_ptdf` which reappears in similar form in the
-    other contingency related as well.
+    For a more comprehensive documentation note that the ptdf matrix, regardless if with/without
+    contingencies or representing nodal/zonal sensitivities, is denoted as matrix A in this module and
+    the line limits as vector b. Therefore the resulting power flow problem is simply written in the
+    form of a linear problem Ax <= b. The redundancy reduction algorithm finds the smallest set of
+    constraints, essential set, that fully defines the problem. The indices, i.e. the rows in A or
+    cbco's, are called essential indices.
 
-    The initialization does the following:
-        - set nodes/lines as attributes.
-        - check if slacks are set.
-        - calculate ptdf (and psdf) matrix.
-        - check if topology contains radial lines/nodes, remove from contingency.
-        - calculate lodf matrix.
-
+    The the class attributes are divided into core attributes, with *grid_representation* as the
+    mein outout/result and additional attributes that are used to facilitate the redundancy removal
+    algorithm.
 
     Parameters
     ----------
-    nodes : DataFrame
-        Nodes data, initialized as attribute of GridModel.
-    lines : DataFrame
-        Lines data, initialized as attribute of GridModel.
+    wdir : pathlib.Path
+        Working directory
+    data : :class:`~pomato.data.DataManagement`
+       An instance of the DataManagement class with processed input data.
+    grid : :class:`~pomato.grid.GridTopology`
+       An instance of the GridModel class.
+    options : dict
+        The options from POMATO main method persist in the CBCOModule.
 
     Attributes
     ----------
-    nodes : DataFrame
-        Nodes table, which .
-    lines : DataFrame
-        Lines table from data.
-    ptdf : np.ndarray
-        ptdf (power transfer distribution factor) matrix :math:`(L \\times N)`.
-    psdf : np.ndarray
-        psdf (phase shifting distribution factor) matrix :math:`(L \\times L)`.
-    lodf : np.ndarray
-        N-1 lodf (load outage distribution factor) matrix :math:`(L \\times L)`.
+    wdir, julia_dir : pathlib.Path
+        Working directory, Sub-directory for temporary files related with the
+        redundancy removal algorithm.
+    options : dict
+        The options from DataManagement persist in the InputProcessing.
+    grid : :class:`~pomato.grid.GridTopology`
+        Instance of the GridTopology class. Provides functionality to create N-0 and (filtered) N-1 ptdf.
+    data : :class:`~pomato.data.DataManagement`
+       Instance of the DataManagement class with processed input data.
+    grid_representation : types.SimpleNamespace
+        Containing the grid representation to be used in the market model and the determination of
+        the economic dispatch. Depends on the chosen configuration in the options file.
+    julia_instance : :class:`~pomato.tools.JuliaDaemon`
+        Julia process that is initialized when used the first time and then kept to be able to
+        easily re-run the redundancy algorithm without restarting a julia process.
     """
 
-    numpy_settings = np.seterr(divide="raise")
+    def __init__(self, wdir, grid, data, option):
+        # Import Logger
+        self.logger = logging.getLogger('Log.MarketModel.CBCOModule')
+        self.logger.info("Initializing the CBCOModule....")
 
-    def __init__(self):
+        self.options = option
+        self.wdir = wdir
+        self.package_dir = Path(pomato.__path__[0])
 
-        self.logger = logging.getLogger('Log.MarketModel.GridModel')
-        self.nodes = None
-        self.lines = None
-        self.incidence_matrix = None
-        self.ptdf = None
-        self.psdf = None
-        self.multiple_slack = False
-        self.lodf = None
-        self.combined_contingencies = None
 
-    def calculate_parameters(self, nodes, lines):
-        
-        self.logger.info("Calculating Grid Parameters!")
-        self.nodes = nodes
-        self.lines = lines
-        self.check_slack()
-        self.logger.info("Calculating PTDF and PSDF Matrices!")
-        self.incidence_matrix = self.create_incidence_matrix()
-        self.ptdf = self.create_ptdf_matrix()
-        self.psdf = self.create_psdf_matrix()
-        self.multiple_slack = False
-        self.check_grid_topology()
-        self.logger.info("Calculating LODF Matrix!")
-        self.lodf = self.create_n_1_lodf_matrix()
-        self.combined_contingencies = self.create_contingency_groups()
-        self.logger.info("Grid parameters Calculated!")
+        self.julia_dir = wdir.joinpath("data_temp/julia_files")
+        tools.create_folder_structure(self.wdir, self.logger)
 
-    def check_slack(self):
-        """Check slack configuration from input data.
+        # Core attributes
+        self.grid = grid
+        self.data = data
+        self.grid_representation = types.SimpleNamespace(option=None,
+                                                         multiple_slack=None,
+                                                         slack_zones=None,
+                                                         grid=pd.DataFrame(),
+                                                         redispatch_grid=pd.DataFrame(),
+                                                         ntc=pd.DataFrame())
+       
+        self.julia_instance = None
+        self.logger.info("CBCOModule Initialized!")
 
-        By checking the components of the network, i.e. the Node-to-Node incidence matrix.
-        For Each component it is checked if a slack is defined, and if not the first node
-        will be set as a slack. Therefore, each subnetwork will be balanced.
+    def _start_julia_daemon(self):
+        self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
+
+    def create_grid_representation(self):
+        """Create grid representation based on model type.
+
+        Options are: dispatch, ntc, nodal, zonal, cbco_nodal, cbco_zonal.
+
+        *grid_representation* contains the following:
+            - *option*: The chosen option of grid representation.
+            - *multiple_slack*: Bool indicator if there are multiple slacks.
+            - *slack_zones*: dict to map each node to a slack/reference node.
+            - *grid*: DataFrame including the ptdf for each line/outage,
+              depending on chosen option, including line capacities and
+              regional information.
+            - *redispatch_grid*: DataFrame including the ptdf for the redispatch.
+              As default this is nodal but could also be an N-1 ptdf, similar to
+              *grid*.
+            - *ntc*: DataFrame with the zonal commercial exchange capacities.
+
+        All values are set according the chosen option and might remain empty.
         """
-        A = self.create_incidence_matrix()
-        network_components = scipy.sparse.csgraph.connected_components(np.dot(A.T, A))
-        self.logger.info("The network consits of %d components. Making sure a slack is set for each.",
-                         network_components[0])
-        for i in range(0, network_components[0]):
-            condition_subnetwork = network_components[1] == i
-            if not any(self.nodes.loc[condition_subnetwork, "slack"]):
-                # self.nodes.loc[condition_subnetwork, "slack"][0] = True
-                self.nodes.loc[self.nodes.index[np.argmax(condition_subnetwork)], "slack"] = True
-        self.multiple_slack = bool(len(self.nodes.index[self.nodes.slack]) > 1)
+        # Data Structure of grid_representation dict
+        self.grid_representation.option = self.options["optimization"]["type"]
+        self.grid_representation.multiple_slack = self.grid.multiple_slack
+        self.grid_representation.slack_zones = self.grid.slack_zones()
 
-    def check_grid_topology(self):
-        """Check grid topology for radial nodes and lines.
-
-        Based on the topology, implicitly available in the ptdf matrix, this
-        method find radial lines/nodes and sets the contingency attribute
-        of the grid.lines accordingly.
-
-        If a radial line, or a line connecting a radial node, outs it disconnects
-        the network. This means, that the disconnected node(s) cannot be balanced
-        though the slack. Mathematically this causes a division by zero in the
-        lodf matrix calculation.
-        """
-        self.logger.info("Checking Grid Topology...")
-
-        radial_nodes = []
-        for node in self.nodes.index:
-            if len(self.lines[(self.lines.node_i == node) | (self.lines.node_j == node)]) < 2:
-                radial_nodes.append(node)
-
-        radial_lines = []
-        for idx, line in enumerate(self.lines.index):
-            tmp = np.abs(self.ptdf[idx, :])
-            tmp = np.around(tmp, decimals=3)
-            if 1 in tmp:
-                radial_lines.append(line)
-#           elif self.lines.at["l1", "b"] == 0:
-#               radial_lines.append(line)
-
-        condition = (self.lines.node_i.isin(radial_nodes)) | \
-                    (self.lines.node_j.isin(radial_nodes)) & self.lines.contingency
-
-        if not self.lines[condition].empty:
-            self.logger.info("Radial nodes are set as contingency:")
-            self.lines.loc[condition, "contingency"] = False
-            self.logger.info("Contingency of %d lines is set to false", len(self.lines.index[condition]))
-
-        condition = self.lines.index.isin(radial_lines) & self.lines.contingency
-        if not self.lines.contingency[condition].empty:
-            self.logger.info("Radial lines are set as contingency:")
-            self.lines.loc[condition, "contingency"] = False
-            self.logger.info("Contingency of %d lines is set to false", len(self.lines.index[condition]))
-
-        self.logger.info("Total number of Lines: %d", len(self.lines.index))
-        self.logger.info("Total number of contingencies: %d", len(self.lines[self.lines.contingency]))
-
-    def add_number_of_systems(self):
-        """Add number of systems to lines dataframe, i.e. how many systems a line is part of."""
-
-        tmp = self.lines[["node_i", "node_j"]].copy()
-        tmp.loc[:, "systems"] = 1
-        tmp = tmp.groupby(["node_i", "node_j"]).sum()
-        tmp = tmp.reset_index()
-        self.lines.loc[:, "systems"] = 1
-        self.lines.loc[:, "no"] = 1
-        for node_i, node_j, systems in zip(tmp.node_i, tmp.node_j, tmp.systems):
-            condition = (self.lines.node_i == node_i)&(self.lines.node_j == node_j)
-            self.lines.loc[condition, "systems"] = systems
-            self.lines.loc[condition, "no"] = np.array([nr for nr in range(0, systems)])
-
-    def create_contingency_groups(self, option="double_lines"):
-        """Create contingency groups i.e. contingencies that occur together.
-        
-        This can be done by evaluating high lodf values or by topology, i.e. double lines are affected. 
-        However, contingency groups still cannot disconnect the network. 
-
-        Parameters
-        ----------
-        option : (float, string), optional
-            Rule of what outages are grouped. Options are: double_lines (default), by value or none.
-
-        """
-        combined_contingencies = {line : [line] for line in self.lines.index}
-        
-        if isinstance(option, (int, float)):
-            combined_contingencies = {line : [line] for line in self.lines.index}
-            for idx, line in enumerate(self.lines.index):
-                combined_contingencies[line].extend(list(self.lines.index[np.abs(self.lodf[idx, :]) > option]))
-                combined_contingencies[line] = list(set(combined_contingencies[line]))    
-
-        if option == "double_lines": # double lines
-            if "systems" not in self.lines.columns:
-                self.add_number_of_systems()
-          
-        double_lines = list(self.lines[self.lines.systems == 2].index)
-        for line in double_lines:
-            condition = (self.lines.loc[double_lines, ["node_i", "node_j"]].apply(tuple, axis=1) == tuple(self.lines.loc[line, ["node_i", "node_j"]])).values
-            double_line = list(self.lines.loc[double_lines][condition].index)
-            double_line_idx = [self.lines.index.get_loc(line) for line in double_line]
-            
-            # However if the double line is radial, do not consider a combined outage
-            if not any(np.sum(np.around(np.abs(self.ptdf[double_line_idx, :]), decimals=3), axis=0) == 1):
-                combined_contingencies[line] = double_line
-            # combined_contingencies[line] = list(set(combined_contingencies[line]))
-
-        return combined_contingencies
-
-
-    def slack_zones(self):
-        """Return nodes that are balanced through each slack.
-
-        In other words, if there are multiple disconnected networks, this
-        returns the informations which node is balanced through which slack.
-
-        Returns
-        -------
-            slack_zones : dict(slack, list(node.index))
-                Dictionary containing slack as keys and list of the nodes
-                indices that are balanced though the slack.
-        """
-        # Creates Slack zones, given that the given slacks are well suited
-        # Meaning one slack per zone, all zones have a slack.
-        # Method: slack -> find Line -> look at ptdf
-        # all non-zero elements are in slack zone.
-        slacks = self.nodes.index[self.nodes.slack]
-        slack_zones = {}
-        for slack in slacks:
-            condition = (self.lines.node_i == slack) | (self.lines.node_j == slack)
-            if self.lines.index[condition].empty:
-                slack_zones[slack] = [slack]
-            else:
-                slack_line = self.lines.index[condition][0]
-                line_index = self.lines.index.get_loc(slack_line)
-                pos = self.ptdf[line_index, :] != 0
-                tmp = list(self.nodes.index[pos])
-                tmp.append(slack)
-                slack_zones[slack] = tmp
-
-        return slack_zones
-
-    def create_incidence_matrix(self):
-        """Create incidence matrix from *lines* and *nodes* attributes.
-
-        Returns
-        -------
-        incidence : np.ndarray
-            Incidence matrix.
-        """
-        incidence = np.zeros((len(self.lines), len(self.nodes)))
-        for i, elem in enumerate(self.lines.index):
-            incidence[i, self.nodes.index.get_loc(self.lines.node_i[elem])] = 1
-            incidence[i, self.nodes.index.get_loc(self.lines.node_j[elem])] = -1
-        return incidence
-
-    def create_susceptance_matrices(self):
-        """Create Line (Bl) and Node (Bn) susceptance matrix.
-
-        Returns
-        -------
-        line_susceptance : np.ndarray
-            Line susceptance matrix.
-        node_susceptance : np.ndarray
-            Node susceptance matrix.
-        """
-        susceptance_vector = self.lines.b
-        incidence = self.incidence_matrix
-        susceptance_diag = np.diag(susceptance_vector)
-        line_susceptance = np.dot(susceptance_diag, incidence)
-        node_susceptance = np.dot(np.dot(incidence.transpose(1, 0), susceptance_diag), incidence)
-        return line_susceptance, node_susceptance
-
-    def create_ptdf_matrix(self):
-        """Create ptdf matrix.
-
-        The ptdf matrix represents a note to line sensitivity, essentially a
-        linear mapping of how nodal power injections distribute within the
-        network.
-
-        The ptdf matrix is calculated based on the topology and line parameters
-        (i.e. line susceptance).
-        """
-        # Find slack
-        slack = list(self.nodes.index[self.nodes.slack])
-        slack_idx = [self.nodes.index.get_loc(s) for s in slack]
-        line_susceptance, node_susceptance = self.create_susceptance_matrices()
-
-        # Create List without the slack and invert it
-        list_wo_slack = [x for x in range(0, len(self.nodes.index)) if x not in slack_idx]
-
-        node_susceptance_wo_slack = node_susceptance[np.ix_(list_wo_slack, list_wo_slack)]
-        inv = np.linalg.inv(node_susceptance_wo_slack)
-        # sort slack back in to get nxn
-        node_susceptance_inv = np.zeros((len(self.nodes), len(self.nodes)))
-        node_susceptance_inv[np.ix_(list_wo_slack, list_wo_slack)] = inv
-        # calculate ptdf
-        ptdf = np.dot(line_susceptance, node_susceptance_inv)
-        return ptdf
-
-    def create_psdf_matrix(self):
-        """Calculate psdf (phase-shifting distribution matrix, LxLL).
-
-        A psdf at position (l,ll) represents the change in power flow on
-        line ll caused by a phase-shift of 1 [rad] on line l.
-
-        """
-        line_susceptance, _ = self.create_susceptance_matrices()
-        psdf = np.diag(self.lines.b) - np.dot(self.ptdf, line_susceptance.T)
-        return psdf
-
-    def shift_phase_on_line(self, phase_shift):
-        """Shifts the phase on line l by angle a (in rad).
-
-        Recalculates the ptdf matrix. This is a static representation of a
-        phase shift rather than a dynamic (and useful one).
-
-        Parameters
-        ----------
-        phase_shift : dict
-            dict with line as key, phase shift [rad] as value.
-        """
-        shift = np.zeros(len(self.lines))
-        for line in phase_shift:
-            shift[self.lines.index.get_loc(line)] = phase_shift[line]
-        # recalculate ptdf and lodf
-        shift_matrix = np.multiply(self.psdf, shift)
-        self.ptdf += np.dot(shift_matrix, self.ptdf)
-        self.lodf = self.create_n_1_lodf_matrix()
-
-    def create_n_1_lodf_matrix(self):
-        """Create N-1 LODF matrix.
-
-        The lodf matrix represents a line to line sensitivity in the case of
-        an outage. In other words, how does the flow on a line distribute on
-        other lines in the case of an outage. 
-        This method returns a LxL matrix, representing how each line is affected by 
-        the outage of all other lines. 
-
-        This LODF matrix therefore represents the N-1 case, as only one outage 
-        is considered per case. Multiple contingencies have to be explicitly calculated 
-        with the more general :meth:`~create_lodf` method.
-        """
-        
-        lodf = np.hstack([self.create_lodf([line for line in range(0, len(self.lines))], 
-                                           [outage]) for outage in range(0, len(self.lines))])   
-        return lodf
-
-    def create_lodf(self, lines, outages):
-        """Creates load outages distribution factor (lodf) for lines under outages.
-
-        This method creates specific lodf for all lines in argument *lines* and 
-        simultaneous outages in argument *outages*.
-
-        This is calculated by (Bl * A_l * Bhat * A_lc)*(I - Blc * Bhat * A_lc)^-1 as
-        discussed in `Fast Security-Constrained Optimal Power Flow through Low-Impact
-        and Redundancy Screening <https://arxiv.org/abs/1910.09034>`_.
-        
-        Note that the returned array has the dimension lines x outages, therefore the
-        curation of a general lodf matrix, including combined/multiple contingencies
-        is not possible. 
-
-        Parameters
-        ----------
-        lines : list(int), list(string)
-            List of lines which are affected by the outages.
-        outages : list(int), list(string)
-            List of lines that consists the contingency case. 
-        
-        Returns
-        -------
-        lodf
-            The returned lodf can be used to calculate the contingency ptdf (c_ptdf) 
-            from the pre-contingency ptdf (ptdf): c_ptdf = ptdf[lines] + lodf * ptdf[outages, :] 
-        
-        Raises
-        ------
-        ZeroDivisionError
-            Indicates error in configuration of slack(s) or contingencies.
-        """
-        try:
-            A = self.incidence_matrix            
-            # LODF LxO matrix
-            lodf = np.zeros((len(lines), len(outages)))
-            
-            # Invalid contingencies, i.e. lines that connot be outaged remain 0 in lodf
-            outages = [outage for outage in outages if self.lines.iloc[outage].contingency]
-        
-            # LODF for outaged line is set to -1
-            outages_in_lines = [line in outages for line in lines]
-            lines_in_outages = [outage in lines for outage in outages]
-            lodf[outages_in_lines, lines_in_outages] = -1
-            
-            # For all lines that are not outaged as part of the contingency the LODF is calculated
-            valid_lines = [line not in outages for line in lines]
-            lines = [line for line in lines if not line in outages]
-         
-            if len(outages) > 0:        
-                lodf[valid_lines, :] = np.dot(self.ptdf[lines, :] @ A[outages, :].reshape(len(outages), len(self.nodes)).T,
-                                              np.linalg.inv(np.eye(len(outages)) - (self.ptdf[outages, :] 
-                                                            @ A[outages,:].reshape(len(outages), len(self.nodes)).T)))
-                
-            return lodf
-
-        except:
-            # self.logger.exception("error in create_lodf_matrix ", sys.exc_info()[0])
-            raise ZeroDivisionError('LODFError: Check Slacks, radial Lines/Nodes')
-
-    def lodf_filter(self, line, sensitivity=5e-2, as_index=False):
-        """Return outages that impact the specified line with more that the specified sensitivity.
-
-        Contingency analysis relies on making sure line capacities are not
-        violated in the case of an outage. This methods returns the lines that,
-        in the worst case of outage, impact the specified line more than the
-        specified sensitivity.
-
-        For example this methods returns:
-            - for a line l, and sensitivity of 5%
-            - a list of all outages
-            - which impact line l with more that 5% of its capacity
-            - in the worst case outage, i.e. when fully loaded.
-
-        Parameters
-        ----------
-        line : lines.index, int
-            line index (DataFrame index or integer).
-        sensitivity : float, optional
-            The sensitivity defines the threshold
-        as_index : bool, optional
-            Bool to indicate whether to return int index.
-
-        Returns
-        -------
-        outages : list
-            list of outages that have a significant (sensitivity) impact
-            on line in case of the worst outage.
-        """
-        if not isinstance(line, int):
-            line = self.lines.index.get_loc(line)
-
-        condition = abs(np.multiply(self.lodf[line], self.lines.maxflow.values)) >= \
-            sensitivity*self.lines.maxflow[line]
-
-        if as_index:
-            return [self.lines.index.get_loc(line) for line in self.lines.index[condition]]
+        if self.options["optimization"]["type"] == "ntc":
+            self.process_ntc()
+        elif self.options["optimization"]["type"] == "nodal":
+            self.process_nodal()
+        elif self.options["optimization"]["type"] == "zonal":
+            self.process_zonal()
+        elif self.options["optimization"]["type"] == "cbco_nodal":
+            self.process_cbco_nodal()
+        elif self.options["optimization"]["type"] == "cbco_zonal":
+            self.process_cbco_zonal()
         else:
-            return self.lines.index[condition]
+            self.logger.info("No grid representation needed for dispatch model")
 
-    def create_n_1_ptdf_line(self, line):
-        """Create N-1 ptdf for one specific line and all other lines as outages.
+        if self.options["optimization"]["redispatch"]["include"]:
+            self.add_redispatch_grid()
 
-        Parameters
-        ----------
-        line : lines.index, int
-            line index (DataFrame index or integer).
+    def process_nodal(self):
+        """Process grid information for nodal N-0 representation.
 
-        Returns
-        -------
-        ptdf : np.ndarray
-            Returns ptdf matrix (LxN) where for a N-dim vector of nodal
-            injections INJ, the dot-product :math:`PTDF \\cdot INJ` results
-            in the flows on the specified line for each other line as outages. 
-            Includes the N-0 case. 
+        Here *grid_representation.grid* consists of the N-0 ptdf.
+
+        There is the option to try to reduce this ptdf, however the number of
+        redundant constraints is expected to be very low.
+
+        """
+        grid_option = self.options["grid"]
+        if grid_option["cbco_option"] == "nodal_clarkson":
+            A = self.grid.ptdf
+            b = self.grid.lines.maxflow.values.reshape(len(self.grid.lines.index), 1)
+            info = pd.DataFrame(columns=self.grid.nodes.index, data=A)
+            info["cb"] = list(self.grid.lines.index)
+            info["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
+            info["ram"] = b
+            info = info[["cb", "co", "ram"] + list(self.grid.nodes.index)]
+
+            nodal_injection_limits = self.create_nodal_injection_limits()
+            cbco_index = self.clarkson_algorithm(A=A, b=b, x_bounds=nodal_injection_limits)
+            self.grid_representation.grid = self.return_cbco(info, cbco_index)
+            self.grid_representation.grid.ram *= grid_option["capacity_multiplier"]
+
+        else:
+            ptdf_df = pd.DataFrame(index=self.grid.lines.index,
+                                   columns=self.grid.nodes.index,
+                                   data=self.grid.ptdf)
+            ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
+            self.grid_representation.grid = ptdf_df
+            self.grid_representation.grid = self._add_zone_to_grid_representation(self.grid_representation.grid)
+            
+    def add_redispatch_grid(self):
+        """Add nodal N-0 grid representation as redispatch grid.
+
+        Here *grid_representation.redispatch_grid* consists of the N-0 ptdf.
+        """
+        ptdf_df = pd.DataFrame(index=self.grid.lines.index,
+                               columns=self.grid.nodes.index,
+                               data=self.grid.ptdf)
+        ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
+        self.grid_representation.redispatch_grid = ptdf_df
+        self.grid_representation.redispatch_grid = self._add_zone_to_grid_representation(self.grid_representation.redispatch_grid)
+
+    def process_zonal(self):
+        """Process grid information for zonal N-0 representation.
+
+        Calculates the zonal N-0 ptdf, based on the nodal N-0 ptdf with a
+        generation shift key.
+
+        There is the option to try to reduce this ptdf, however the number of
+        redundant constraints is expected to be small.
+
+        Since the zonal ptdf constraints the commercial exchange, a dummy ntc
+        table is added to not allow unintuitive commercial flows.
+
+        """
+        gsk = self.options["grid"]["gsk"]
+        grid_option = self.options["grid"]
+
+        if grid_option["cbco_option"] == "clarkson":
+            A = self.grid.ptdf
+            # nodal -> zonal ptdf via gsk
+            A = np.dot(A, self.create_gsk(gsk))
+            b = self.grid.lines.maxflow.values.reshape(len(self.grid.lines.index), 1)
+            info = pd.DataFrame(columns=self.data.zones.index, data=A)
+            info["cb"] = list(self.grid.lines.index)
+            info["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
+            info["ram"] = b
+            info = info[["cb", "co", "ram"] + list(self.data.zones.index)]
+
+            cbco_index = self.clarkson_algorithm(A=A, b=b)
+            self.grid_representation.grid = self.return_cbco(info, cbco_index)
+            self.grid_representation.grid.ram *= grid_option["capacity_multiplier"]
+
+        else:
+            ptdf = np.dot(self.grid.ptdf, self.create_gsk(gsk))
+            ptdf_df = pd.DataFrame(index=self.grid.lines.index,
+                                   columns=self.data.zones.index,
+                                   data=np.round(ptdf, decimals=4))
+
+            ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
+            self.grid_representation.grid = ptdf_df
+        self.create_ntc()
+
+    def process_cbco_zonal(self):
+        """Process grid information for zonal N-1 representation.
+
+        Based on chosen sensitivity and GSK the return of
+        :meth:`~pomato.cbco.create_cbco_data` runs the redundancy removal
+        algorithm to reduce the number of constraints to a minimal set.
+
+        The redundancy removal is very efficient for this type of grid
+        representation as the dimensionality of the ptdf is the number of zones
+        and therefore low.
+
+        Since the zonal ptdf constraints the commercial exchange, a dummy ntc
+        table is added to not allow unintuitive commercial flows.
+
+        """
+        grid_option = self.options["grid"]
+        A, b, cbco_info = self.create_cbco_data(grid_option["sensitivity"],
+                                                preprocess=True,
+                                                gsk=grid_option["gsk"])
+
+        cbco_index = self.clarkson_algorithm(A=A, b=b)
+
+        self.grid_representation.grid = self.return_cbco(cbco_info, cbco_index)
+        self.grid_representation.grid.ram *= grid_option["capacity_multiplier"]
+        self.create_ntc()
+
+    def _add_zone_to_grid_representation(self, grid):
+        """Add information in which country a line is located.
+        
+        By adding two columns in dataframe: zone_i, zone_j. This information is needed for zonal redispatch 
+        to identify which lines should be redispatched. 
         """
 
-        if not isinstance(line, int):
-            line = self.lines.index.get_loc(line)
+        if "cb" in grid.columns:
+            grid["zone_i"] = self.grid.nodes.loc[self.grid.lines.loc[grid.cb, "node_i"], "zone"].values
+            grid["zone_j"] = self.grid.nodes.loc[self.grid.lines.loc[grid.cb, "node_j"], "zone"].values
+        else:
+            grid["zone_i"] = self.grid.nodes.loc[self.grid.lines.loc[grid.index, "node_i"], "zone"].values
+            grid["zone_j"] = self.grid.nodes.loc[self.grid.lines.loc[grid.index, "node_j"], "zone"].values
 
+        return grid
 
-        n_1_ptdf_line = np.vstack([self.ptdf[line, :]] +
-                                  [self.ptdf[line, :] +
-                                    np.dot(self.create_lodf([line], [outage]), self.ptdf[outage, :])
-                                        for outage in range(0, len(self.lines))])
-        return n_1_ptdf_line
+    def process_cbco_nodal(self):
+        """Process grid information for nodal N-1 representation.
 
-    def create_n_1_ptdf_outage(self, outages):
-        """Create N-1 ptdf for all lines under a specific outage.
+        Based on chosen sensitivity and GSK the return of
+        :meth:`~pomato.cbco.create_cbco_data` runs the redundancy removal
+        algorithm to reduce the number of constraints to a minimal set. The
+        redundancy removal algorithm can take long to conclude, e.g. about
+        2 hours for the DE case study which comprises of ~450 nodes and ~1000
+        lines.
+        Therefore is useful to keep the resulting file with if the relevant
+        cbco's and just read it in when needed. This is done by specifying the
+        cbco fil in *options["grid"]["precalc_filename"]*.
 
-        Parameters
-        ----------
-        outages : lines.index, int, list(lines.index), list(int)
-            Line index (DataFrame index or integer).
-    
-        Returns
-        -------
-        ptdf : np.ndarray
-            Returns ptdf matrix (LxN) where for a N-dim vector of nodal
-            injections INJ, the dot-product :math:`PTDF \\cdot INJ`
-            results in the flows on each line under the specified outage.
+        There are multiple options to pick, where one is the obvious best
+        *clarkson_base*. This runs the redundancy removal algorithm including
+        bounds on the nodal injections, which are calculated based on
+        installed capacity and availability/load timeseries. The other options
+        are: *clarkson* redundancy removal without bounds on nodal injections
+        and "save" saving the relevant files for the RedundancyRemoval
+        algorithm so that it can be run separately from the python POMATO.
+
         """
-        if not isinstance(outages, list):
-            outages = [outages]
-        if not all([isinstance(outage, int) for outage in outages]):
-            outages = [self.lines.index.get_loc(outage) for outage in outages]
+        A, b, cbco_info = self.create_cbco_data(self.options["grid"]["sensitivity"],
+                                                self.options["grid"]["preprocess"])
 
-        combines_outages = []
-        for outage in outages:
-            tmp = self.combined_contingencies[self.lines.index[outage]]
-            combines_outages.extend([self.lines.index.get_loc(line) for line in tmp])
+        if self.options["grid"]["precalc_filename"]:
+            try:
+                filename = self.options["grid"]["precalc_filename"]
+                self.logger.info("Using cbco indices from pre-calc: %s", filename)
+                precalc_cbco = pd.read_csv(self.julia_dir.joinpath(f"cbco_data/{filename}.csv"),
+                                           delimiter=',')
+                if len(precalc_cbco.columns) > 1:
+                    condition = cbco_info[["cb", "co"]].apply(tuple, axis=1) \
+                                    .isin(precalc_cbco[["cb", "co"]].apply(tuple, axis=1))
+                    cbco_index = list(cbco_info.reset_index().index[condition])
+                    self.logger.info("Number of CBCOs from pre-calc: %s", str(len(cbco_index)))
+                else:
+                    cbco_index = list(precalc_cbco.constraints.values)
+                    self.logger.info("Number of CBCOs from pre-calc: %s", str(len(cbco_index)))
 
-        lodf = self.create_lodf([line for line in range(0, len(self.lines))], combines_outages)
-        n_1_ptdf = self.ptdf + np.dot(lodf, self.ptdf[combines_outages, :].reshape(len(combines_outages), len(self.nodes)))
-        return n_1_ptdf
+            except FileNotFoundError:
+                self.logger.warning("FileNotFound: No Precalc available")
+                self.logger.warning("Running with full N-1 representation (subject to the lodf filter)")
+                cbco_index = cbco_index = list(range(0, len(b)))
 
-    def create_n_1_ptdf_cbco(self, line, outage):
-        r"""Create N-1 ptdf for one specific line and one specific outage.
+        else:
+            # 3 valid args supported for cbco_option:
+            # clarkson, clarkson_base, full (default)
+            if self.options["grid"]["cbco_option"] == "full":
+                cbco_index = list(range(0, len(b)))
 
-        Parameters
-        ----------
-        line : lines.index, int
-            Line index (DataFrame index or integer).
-        outages : lines.index, int, list(lines.index), list(int)
-            Line index (DataFrame index or integer).
+            elif self.options["grid"]["cbco_option"] == "clarkson_base":
+                nodal_injection_limits = self.create_nodal_injection_limits()
+                cbco_index = self.clarkson_algorithm(A=A, b=b, x_bounds=nodal_injection_limits)
 
-        Returns
-        -------
-        ptdf : np.ndarray
-            Returns ptdf matrix (1xN) where for a N-dim vector of nodal
-            injections INJ, the dot-product :math:`PTDF \\cdot INJ` results
-            in the flow on the specified line under the specified outage.
-        """
-        if not isinstance(outage, int):
-            outage = self.lines.index.get_loc(outage)
-        if not isinstance(line, int):
-            line = self.lines.index.get_loc(line)
+            elif self.options["grid"]["cbco_option"] == "clarkson":
+                cbco_index = self.clarkson_algorithm(A=A, b=b)
 
-        outages = [self.lines.index.get_loc(line) for line in self.combined_contingencies[self.lines.index[outage]]]
+            elif self.options["grid"]["cbco_option"] == "save":
+                nodal_injection_limits = self.create_nodal_injection_limits()
+                cbco_index = list(range(0, len(b)))
 
-        n_1_ptdf_cbco = self.ptdf[line, :] + np.dot(self.create_lodf([line], outages), self.ptdf[outages, :])
-        return n_1_ptdf_cbco
+                self.write_cbco_info(self.julia_dir.joinpath("cbco_data"), "py_save", 
+                                     A=A, b=b, Ab_info=cbco_info, x_bounds=nodal_injection_limits)
+            else:
+                self.logger.warning("No valid cbco_option set!")
 
-    def create_filtered_n_1_ptdf(self, sensitivity=5e-2):
-        """Create a N-1 ptdf/info containing all lines under outages with significant impact.
 
-        Create a ptdf that covers the N-0 ptdf (with the outage indicated as
-        *basecase* in the return DataFrame) and additionally for each line
-        the ptdf that considers outages with significant impact based on
-        the method :meth:`~lodf_filter`.
-        The methods returns a DataFrame with the resulting ptdf matrix including
-        information which lines/outages make up each row.
+        self.grid_representation.grid = self.return_cbco(cbco_info, cbco_index)
+        self.grid_representation.grid = self._add_zone_to_grid_representation(self.grid_representation.grid)
+        self.grid_representation.grid.ram *= self.options["grid"]["capacity_multiplier"]
 
-        This methodology is extremely helpful for contingency analysis where
-        the resulting ptdf matrix, and therefore the resulting optimization
-        problem, becomes prohibitive large. We have shown that even a
-        sensitivity of 1% reduces the size of the resulting ptdf matrix by 95%.
+    def create_cbco_data(self, sensitivity=5e-2, preprocess=True, gsk=None):
+        """Create all relevant N-1 ptdfs in the form of Ax<b (ptdf x < ram).
 
-        See `Fast Security-Constrained Optimal Power Flow through Low-Impact
-        and Redundancy Screening <https://arxiv.org/abs/1910.09034>`_ for more
-        detailed information.
+        This uses the method :meth:`~pomato.grid.create_filtered_n_1_ptdf` to
+        generate a filtered ptdf matrix, including outages with a higher impact
+        of the argument *sensitivity*.
 
         Parameters
         ----------
@@ -557,54 +343,267 @@ class GridModel():
             considered critical. A outage that can impact the lineflow,
             relative to its maximum capacity, more than the sensitivity is
             considered critical.
+        preprocess : bool, optional
+            Performing a light preprocessing by removing duplicate constraints.
+        gsk : np.ndarray, optional
+            When gsk is an argument, this method creates a zonal ptdf matrix
+            with it.
 
         Returns
         -------
-        ptdf : DataFrame
-            Returns DataFrame, each row represents a line (cb, critical branch)
-            under an outage (co, critical outage) with ptdf for each node and
-            the available capacity (ram, remaining available margin) which is
-            equal to the line capacity (but does not have to).
+        A : np.ndarray
+            ptdf matrix, nodal or zonal depending of *gsk* argument, containing
+            all lines under outages with significant impact.
+        b : np.ndarray
+            Line capacities of the cbco in A.
+        info : pd.DataFrame
+            DataFrame containing the ptdf, ram and information which cbco each
+            row corresponds to.
+
         """
-        try:
-            A = [self.ptdf]
-            label_lines = list(self.lines.index)
-            label_outages = ["basecase" for i in range(0, len(self.lines.index))]
+        A, b, info = self.grid.create_filtered_n_1_ptdf(sensitivity=sensitivity)
+        # Processing: Rounding, remove duplicates and 0...0 rows
+        if preprocess:
+            self.logger.info("Preprocessing Ab...")
+            _, idx = np.unique(info[list(self.grid.nodes.index) + ["ram"]].round(decimals=6).values,
+                               axis=0, return_index=True)
+            A = A[np.sort(idx)]
+            b = b[np.sort(idx)]
+            info = info.loc[np.sort(idx), :]
 
-            for line in self.lines.index[self.lines.contingency]:
-                outages = list(self.lodf_filter(line, sensitivity))
-                label_lines.extend([line for i in range(0, len(outages))])
-                label_outages.extend(outages)
+        if gsk:  # replace nodal ptdf by zonal ptdf
+            A = np.dot(A, gsk)
+            info = pd.concat((info.loc[:, ["cb", "co", "ram"]],
+                              pd.DataFrame(columns=self.data.zones.index,
+                                           data=A)), axis=1)
+        return A, b, info
 
-            # estimate size of array = nr_elements * bits per element (float32) / (8 * 1e6) MB
-            estimate_size = len(label_lines)*len(self.nodes.index)*32/(8*1e6)
-            self.logger.info(f"Estimated size in RAM for A is: {estimate_size} MB")
-            if estimate_size > 3000:
-                raise ArithmeticError("Estimated Size of A too large!")
+    def write_cbco_info(self, folder, suffix, **kwargs):
+        """Write cbco information to disk to run the redundancy removal algorithm.
 
-            for line in self.lines.index[self.lines.contingency]:
-                outages = list(self.lodf_filter(line, sensitivity))
-                tmp_ptdf = np.vstack([self.create_n_1_ptdf_cbco(line, o) for o in outages])
-                A.append(tmp_ptdf)
+        Parameters
+        ----------
+        folder : pathlib.Path
+            Save file to the specified folder.
+        suffix : str
+            A suffix for each file, to make it recognizable.
+        """
+        self.logger.info("Saving A, b...")
+        
+        for data in [d for d in ["x_bounds", "I"] if d not in kwargs]:
+            kwargs[data] = np.array([])
 
-            A = np.concatenate(A).reshape(len(label_lines), len(list(self.nodes.index)))
-            b = self.lines.maxflow[label_lines].values.reshape(len(label_lines), 1)
+        for data in kwargs:
+            self.logger.info("Saving %s to disk...", data)
+            if isinstance(kwargs[data], np.ndarray):
+                np.savetxt(folder.joinpath(f"{data}_{suffix}.csv"),
+                           np.asarray(kwargs[data]), delimiter=",")
 
-            df_info = pd.DataFrame(columns=list(self.nodes.index), data=A)
-            df_info["cb"] = label_lines
-            df_info["co"] = label_outages
-            df_info["ram"] = b
-            df_info = df_info[["cb", "co", "ram"] + list(list(self.nodes.index))]
-            return A, b, df_info
-        except:
-            self.logger.exception('error:create_n_1_ptdf')
+            elif isinstance(kwargs[data], pd.DataFrame):
+                kwargs[data].to_csv(str(folder.joinpath(f'{data}.csv')), index_label='index')
 
-    def slack_zones_index(self):
-        """Return the integer indices for each node per slack_zones."""
-        slack_zones = self.slack_zones()
-        slack_zones_idx = []
-        for slack in slack_zones:
-            slack_zones_idx.append([self.nodes.index.get_loc(node)
-                                    for node in slack_zones[slack]])
-        slack_zones_idx.append([x for x in range(0, len(self.nodes))])
-        return slack_zones_idx
+        self.logger.info("Saved everything to folder: \n %s", str(folder))
+
+    def create_nodal_injection_limits(self):
+        """Create nodal injection limits.
+
+        For each node the nodal injection limits depend on the installed
+        capacity and availability/load timeseries. Additionally, each node can
+        have a slack variables/infeasibility variables, DC-line injections and
+        storage charge/discharge.
+
+        Because a nodal injection can impact a line positively/negatively
+        depending on the (arbitrary) definition of the incidence matrix,
+        only the max(positive bound, abs(negative bound)) is considered.
+
+
+        Returns
+        -------
+        nodal_injection_limits : np.ndarray
+            Contains the abs maximum power injected/load at each node.
+
+        """
+        infeasibility_upperbound = self.options["optimization"]["infeasibility"]["electricity"]["bound"]
+        nodal_injection_limits = []
+
+        for node in self.data.nodes.index:
+            plant_types = self.options["optimization"]["plant_types"]
+            condition_storage = (self.data.plants.node == node) & \
+                                (self.data.plants.plant_type.isin(plant_types["es"]))
+            condition_el_heat = (self.data.plants.node == node) & \
+                                (self.data.plants.plant_type.isin(plant_types["ph"]))
+
+            max_dc_inj = self.data.dclines.maxflow[(self.data.dclines.node_i == node) |
+                                                   (self.data.dclines.node_j == node)].sum()
+            nex_max = max(0, self.data.net_export.loc[self.data.net_export.node == node, "net_export"].max())
+            nex_min = -min(0, self.data.net_export.loc[self.data.net_export.node == node, "net_export"].min())
+            upper = max(self.data.plants.g_max[self.data.plants.node == node].sum()
+                        - self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].min()
+                        + nex_max
+                        + max_dc_inj
+                        + infeasibility_upperbound
+                        , 0)
+
+            lower = max(self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].max()
+                        + self.data.plants.g_max[condition_storage].sum()
+                        + self.data.plants.g_max[condition_el_heat].sum()
+                        + nex_min
+                        + max_dc_inj
+                        + infeasibility_upperbound, 0)
+
+            nodal_injection_limits.append(max(upper, lower))
+
+        nodal_injection_limits = np.array(nodal_injection_limits).reshape(len(nodal_injection_limits), 1)
+        return nodal_injection_limits
+
+    def clarkson_algorithm(self, args={"file_suffix": "py"}, **kwargs):
+        """Run the redundancy removal algorithm.
+
+        The redundancy removal algorithm is run by writing the necessary data
+        to disk with "_py" suffix, starting a julia instance and running the
+        algorithm. After (successful) completion the resulting file with the
+        non-redundant cbco indices is read and returned.
+
+        Returns
+        -------
+        cbco : list
+            List of the essential indices, i.e. the indices of the non-redundant
+            cbco's.
+        """
+
+        self.write_cbco_info(self.julia_dir.joinpath("cbco_data"), "py", **kwargs)
+
+        if not self.julia_instance:
+            self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
+        if not self.julia_instance.is_alive:
+            self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
+
+        t_start = dt.datetime.now()
+        self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
+
+        self.julia_instance.run(args=args)
+
+        t_end = dt.datetime.now()
+        self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
+        self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")
+
+        if self.julia_instance.solved:
+            file = tools.newest_file_folder(self.julia_dir.joinpath("cbco_data"), keyword="cbco")
+            self.logger.info("cbco list save for later use to: \n%s", file.stem + ".csv")
+            cbco = list(pd.read_csv(file, delimiter=',').constraints.values)
+        else:
+            self.logger.critical("Error in Julia code")
+            cbco = None
+        return cbco
+
+    def return_cbco(self, cbco_info, cbco_index):
+        """Return only the cbco's of the info attribute DataFrame.
+
+        Returns
+        -------
+        cbco_info : DataFrame
+            Slice of the full info attribute, containing filtered contingency ptdfs,
+            based on the cbco indices resulting from the redundancy removal algorithm.
+
+        """
+        cbco_info = cbco_info.iloc[cbco_index].copy()
+        cbco_info.loc[:, "index"] = cbco_info.cb + "_" + cbco_info.co
+        cbco_info = cbco_info.set_index("index")
+        return cbco_info
+
+    def create_gsk(self, option="flat"):
+        """Create generation shift key (gsk).
+
+        The gsk represents a node to zone mapping or the assumption on how nodal injections
+        within a zone are distributed if you only know the zonal net position.
+
+        Based on the argument this method creates a gsk either *flat*, all nodes weighted
+        equally or *gmax* with nodes weighted according to the installed conventional capacity.
+
+        Parameters
+        ----------
+        option : str, optional
+            Deciding how nodal injections are weighted. Currently *flat* or *gmax*.
+
+        Returns
+        -------
+        gsk : np.ndarrays
+            gsk in the form of a NxZ matrix (Nodes, Zones). With each column representing
+            the weighting of nodes within a zone. The product ptdf * gsk yields the zonal
+            ptdf matrix.
+
+        """
+        self.logger.info("Creating gsk with option: %s", option)
+        gsk = pd.DataFrame(index=self.data.nodes.index)
+        condition = (self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["ts"]) 
+                        & (~self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["es"])))
+        gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]].groupby("node").sum()
+
+        for zone in self.data.zones.index:
+            nodes_in_zone = self.data.nodes.index[self.data.nodes.zone == zone]
+            gsk[zone] = 0
+            gmax_in_zone = gmax_per_node[gmax_per_node.index.isin(nodes_in_zone)]
+            if option == "gmax":
+                if not gmax_in_zone.empty:
+                    gsk_value = gmax_in_zone.g_max/gmax_in_zone.values.sum()
+                    gsk.loc[gsk.index.isin(gmax_in_zone.index), zone] = gsk_value
+
+            elif option == "flat":
+                # if not gmax_in_zone.empty:
+                gsk.loc[gsk.index.isin(nodes_in_zone), zone] = 1/len(nodes_in_zone)
+
+        return gsk.values
+
+    def process_ntc(self):
+        """Process grid information for NTC representation.
+
+        This only includes assigning ntc data. However if no data is available, dummy
+        data is generated.
+        """
+        if self.data.ntc.empty:
+            self.create_ntc()
+        else:
+            self.grid_representation.ntc = self.data.ntc
+
+    def create_ntc(self):
+        """Create NTC data.
+
+        The ntc generated in this method are high (10.000) or zero. This is useful
+        to limit commercial exchange to connected zones or when the model uses a
+        simplified line representation.
+
+        """
+        tmp = []
+        for from_zone, to_zone in itertools.combinations(set(self.data.nodes.zone), 2):
+            lines = []
+
+            from_nodes = self.data.nodes.index[self.data.nodes.zone == from_zone]
+            to_nodes = self.data.nodes.index[self.data.nodes.zone == to_zone]
+
+            condition_i_from = self.data.lines.node_i.isin(from_nodes)
+            condition_j_to = self.data.lines.node_j.isin(to_nodes)
+
+            condition_i_to = self.data.lines.node_i.isin(to_nodes)
+            condition_j_from = self.data.lines.node_j.isin(from_nodes)
+
+            lines += list(self.data.lines.index[condition_i_from & condition_j_to])
+            lines += list(self.data.lines.index[condition_i_to & condition_j_from])
+
+            dclines = []
+            condition_i_from = self.data.dclines.node_i.isin(from_nodes)
+            condition_j_to = self.data.dclines.node_j.isin(to_nodes)
+
+            condition_i_to = self.data.dclines.node_i.isin(to_nodes)
+            condition_j_from = self.data.dclines.node_j.isin(from_nodes)
+
+            dclines += list(self.data.dclines.index[condition_i_from & condition_j_to])
+            dclines += list(self.data.dclines.index[condition_i_to & condition_j_from])
+
+            if lines or dclines:
+                tmp.append([from_zone, to_zone, 1e5])
+                tmp.append([to_zone, from_zone, 1e5])
+            else:
+                tmp.append([from_zone, to_zone, 0])
+                tmp.append([to_zone, from_zone, 0])
+
+        self.grid_representation.ntc = pd.DataFrame(tmp, columns=["zone_i", "zone_j", "ntc"])

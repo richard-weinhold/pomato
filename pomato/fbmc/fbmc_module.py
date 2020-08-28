@@ -15,7 +15,7 @@ import pandas as pd
 
 import pomato
 import pomato.tools as tools
-from pomato.cbco import GridRepresentation
+from pomato.grid import GridModel
 
 class FBMCModule():
     """ Class to do all calculations in connection with cbco calculation"""
@@ -211,14 +211,16 @@ class FBMCModule():
                - frm_fav.value[self.domain_info.cb] 
                - f_ref_nonmarket)
 
-        self.logger.info("Applying minRAM at %i percent of line capacity", int(self.options["grid"]["minram"]*100))
+        self.logger.info("Applying minRAM at %i percent of line capacity", 
+                         int(self.options["grid"]["minram"]*100))
         minram = self.lines.maxflow[self.domain_info.cb] * self.options["grid"]["minram"] 
         ram[ram < minram] = minram[ram < minram]
 
         ram = ram.values.reshape(len(ram), 1)
 
         if any(ram < 0):
-            self.logger.warning("Number of RAMs below: [0 - %d, 10 - %d, 100 - %d, 1000 - %d]", sum(ram<0), sum(ram<10), sum(ram<100), sum(ram<1000))
+            self.logger.warning("Number of RAMs below: [0 - %d, 10 - %d, 100 - %d, 1000 - %d]", 
+                                sum(ram<0), sum(ram<10), sum(ram<100), sum(ram<1000))
             # ram[ram <= 0] = 0.1
 
         self.domain_info[list(self.data.zones.index)] = zonal_fbmc_ptdf
@@ -255,11 +257,11 @@ class FBMCModule():
     def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=True):
         
         domain_data = {}
-        cbco = GridRepresentation(self.wdir, self.grid, self.data, self.data.options)
+        grid_model = GridModel(self.wdir, self.grid, self.data, self.data.options)
         if not reduce:
-            cbco._start_julia_daemon()
-        cbco.options["optimization"]["type"] = "cbco_zonal"
-        cbco.options["grid"]["cbco_option"] = "clarkson"
+            grid_model._start_julia_daemon()
+        grid_model.options["optimization"]["type"] = "cbco_zonal"
+        grid_model.options["grid"]["cbco_option"] = "clarkson"
 
         for timestep in basecase.INJ.t.unique():
             self.create_flowbased_ptdf(gsk_strategy, timestep, basecase)
@@ -268,15 +270,15 @@ class FBMCModule():
         cbco_info =  pd.concat([domain_data[t] for t in domain_data.keys()], ignore_index=True)
         
         if reduce:
-            cbco_index = cbco.clarkson_algorithm(args={"fbmc_domain": True}, Ab_info=cbco_info)
+            cbco_index = grid_model.clarkson_algorithm(args={"fbmc_domain": True}, Ab_info=cbco_info)
         else:
             cbco_index = list(range(0, len(cbco_info)))
 
-        fbmc_rep = cbco.return_cbco(cbco_info, cbco_index)
+        fbmc_rep = grid_model.return_cbco(cbco_info, cbco_index)
         fbmc_rep.set_index(fbmc_rep.cb + "_" + fbmc_rep.co, inplace=True)
  
         if not reduce:
-            cbco.julia_instance.join()
-            cbco.julia_instance.julia_instance = None
+            grid_model.julia_instance.join()
+            grid_model.julia_instance.julia_instance = None
 
         return fbmc_rep

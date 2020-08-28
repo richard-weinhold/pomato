@@ -8,6 +8,7 @@ pomato.grid
    .. autosummary::
       :toctree:
       
+      GridTopology
       GridModel
    
    

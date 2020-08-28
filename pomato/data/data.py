@@ -11,7 +11,7 @@ import pandas as pd
 
 import pomato
 import pomato.tools as tools
-from pomato.data.results import ResultProcessing
+from pomato.data.results import Results
 from pomato.data.worker import DataWorker
 
 
@@ -93,8 +93,8 @@ class DataManagement():
         All input and model data is available as an attribute of this method.
         ``data_attributes`` is used to initialize them and to track if this data
         is loaded from file as indicated by the dict{attr, bool}.
-    results : dict(str, :obj:`~pomato.data.ResultProcessing`)
-        The ResultProcessing module allows to attach and process results from the market model
+    results : dict(str, :obj:`~pomato.data.Results`)
+        The Results module allows to attach and process results from the market model
         alongside the DataManagement module. This ensures consitency of the data
         and results. The dict results can store multiple results.
     """
@@ -361,11 +361,11 @@ class DataManagement():
                 setattr(self, data, tmp)
 
     def process_results(self, result_folder, grid):
-        """Initialize :class:`~pomato.data.ResultProcessing` with `results_folder` and the own instance."""
-        self.results[result_folder.name] = ResultProcessing(self, grid, result_folder)
+        """Initialize :class:`~pomato.data.Results` with `results_folder` and the own instance."""
+        self.results[result_folder.name] = Results(self, grid, result_folder)
 
     def return_results(self, redispatch=True):
-        """Interface method to allow access to results from :class:`~pomato.data.ResultProcessing`."""
+        """Interface method to allow access to results from :class:`~pomato.data.Results`."""
 
         if redispatch and len(self.results) > 1:
             redispatch_results = [r for r in list(self.results) if "redispatch" in r]

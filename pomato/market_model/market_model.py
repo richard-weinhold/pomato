@@ -74,7 +74,7 @@ class MarketModel():
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)
         self.data = data
-        self.grid_representation = grid_representation.grid_representation
+        self.grid_representation = grid_representation
 
         # attributes to signal successful model run
         self.status = 'empty'

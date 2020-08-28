@@ -18,5 +18,5 @@ This is done within the two sub-modules:
 
 """
 from pomato.data.data import DataManagement
-from pomato.data.results import ResultProcessing
+from pomato.data.results import Results
 from pomato.data.worker import DataWorker

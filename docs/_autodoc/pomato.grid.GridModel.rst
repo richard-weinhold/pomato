@@ -1,5 +1,5 @@
 pomato.grid.GridModel
-=====================
+======================
 
 .. currentmodule:: pomato.grid
 
@@ -10,18 +10,15 @@ pomato.grid.GridModel
 
    .. autosummary::
    
-      ~GridModel.check_grid_topology
-      ~GridModel.check_slack
-      ~GridModel.create_filtered_n_1_ptdf
-      ~GridModel.create_incidence_matrix
-      ~GridModel.create_lodf
-      ~GridModel.create_n_1_ptdf_cbco
-      ~GridModel.create_n_1_ptdf_line
-      ~GridModel.create_n_1_ptdf_outage
-      ~GridModel.create_psdf_matrix
-      ~GridModel.create_ptdf_matrix
-      ~GridModel.create_susceptance_matrices
-      ~GridModel.lodf_filter
-      ~GridModel.shift_phase_on_line
-      ~GridModel.slack_zones
-      ~GridModel.slack_zones_index
+      ~GridModel.clarkson_algorithm
+      ~GridModel.create_cbco_data
+      ~GridModel.create_grid_representation
+      ~GridModel.create_gsk
+      ~GridModel.create_nodal_injection_limits
+      ~GridModel.process_cbco_nodal
+      ~GridModel.process_cbco_zonal
+      ~GridModel.process_nodal
+      ~GridModel.create_ntc
+      ~GridModel.process_zonal
+      ~GridModel.return_cbco
+      ~GridModel.write_cbco_info
