@@ -158,7 +158,7 @@ class GridRepresentation():
             info = info[["cb", "co", "ram"] + list(self.grid.nodes.index)]
 
             nodal_injection_limits = self.create_nodal_injection_limits()
-            cbco_index = self.clarkson_algorithm(A, b, info, nodal_injection_limits)
+            cbco_index = self.clarkson_algorithm(A=A, b=b, x_bounds=nodal_injection_limits)
             self.grid_representation.grid = self.return_cbco(info, cbco_index)
             self.grid_representation.grid.ram *= grid_option["capacity_multiplier"]
 
@@ -209,7 +209,7 @@ class GridRepresentation():
             info["ram"] = b
             info = info[["cb", "co", "ram"] + list(self.data.zones.index)]
 
-            cbco_index = self.clarkson_algorithm(A, b, info, np.array([]))
+            cbco_index = self.clarkson_algorithm(A=A, b=b)
             self.grid_representation.grid = self.return_cbco(info, cbco_index)
             self.grid_representation.grid.ram *= grid_option["capacity_multiplier"]
 
@@ -243,7 +243,7 @@ class GridRepresentation():
                                                 preprocess=True,
                                                 gsk=grid_option["gsk"])
 
-        cbco_index = self.clarkson_algorithm(A, b, cbco_info, np.array([]))
+        cbco_index = self.clarkson_algorithm(A=A, b=b)
 
         self.grid_representation.grid = self.return_cbco(cbco_info, cbco_index)
         self.grid_representation.grid.ram *= grid_option["capacity_multiplier"]
@@ -318,17 +318,17 @@ class GridRepresentation():
 
             elif self.options["grid"]["cbco_option"] == "clarkson_base":
                 nodal_injection_limits = self.create_nodal_injection_limits()
-                cbco_index = self.clarkson_algorithm(A, b, cbco_info, nodal_injection_limits)
+                cbco_index = self.clarkson_algorithm(A=A, b=b, x_bounds=nodal_injection_limits)
 
             elif self.options["grid"]["cbco_option"] == "clarkson":
-                cbco_index = self.clarkson_algorithm(A, b, cbco_info, np.array([]))
+                cbco_index = self.clarkson_algorithm(A=A, b=b)
 
             elif self.options["grid"]["cbco_option"] == "save":
                 nodal_injection_limits = self.create_nodal_injection_limits()
                 cbco_index = list(range(0, len(b)))
 
-                self.write_cbco_info(A, b, cbco_info, cbco_index, nodal_injection_limits, 
-                                     self.julia_dir.joinpath("cbco_data"), "py_save")
+                self.write_cbco_info(self.julia_dir.joinpath("cbco_data"), "py_save", 
+                                     A=A, b=b, Ab_info=cbco_info, x_bounds=nodal_injection_limits)
             else:
                 self.logger.warning("No valid cbco_option set!")
 
@@ -386,7 +386,7 @@ class GridRepresentation():
                                            data=A)), axis=1)
         return A, b, info
 
-    def write_cbco_info(self, A, b, cbco_info, nodal_injection_limits, folder, suffix):
+    def write_cbco_info(self, folder, suffix, **kwargs):
         """Write cbco information to disk to run the redundancy removal algorithm.
 
         Parameters
@@ -397,24 +397,18 @@ class GridRepresentation():
             A suffix for each file, to make it recognizable.
         """
         self.logger.info("Saving A, b...")
-        np.savetxt(folder.joinpath(f"A_{suffix}.csv"),
-                    np.asarray(A), delimiter=",")
+        
+        if not "x_bounds" in kwargs:
+            kwargs["x_bounds"] = np.array([])
 
-        np.savetxt(folder.joinpath(f"b_{suffix}.csv"),
-                    np.asarray(b), delimiter=",")
+        for data in kwargs:
+            self.logger.info("Saving %s to disk...", data)
+            if isinstance(kwargs[data], np.ndarray):
+                np.savetxt(folder.joinpath(f"{data}_{suffix}.csv"),
+                           np.asarray(kwargs[data]), delimiter=",")
 
-        np.savetxt(folder.joinpath(f"I_{suffix}.csv"),
-                    np.array([]), fmt='%i', delimiter=",")
-
-        if isinstance(nodal_injection_limits, np.ndarray):
-            self.logger.info("Saving bounds for net injections...")
-            np.savetxt(folder.joinpath(f"x_bounds_{suffix}.csv"),
-                       np.asarray(nodal_injection_limits), delimiter=",")
-        else:
-            np.savetxt(folder.joinpath(f"x_bounds_{suffix}.csv"),
-                       np.array([]), fmt='%i', delimiter=",")
-
-        cbco_info.to_csv(str(folder.joinpath('Ab_info.csv')), index_label='index')
+            elif isinstance(kwargs[data], pd.DataFrame):
+                kwargs[data].to_csv(str(folder.joinpath(f'{data}.csv')), index_label='index')
 
         self.logger.info("Saved everything to folder: \n %s", str(folder))
 
@@ -470,7 +464,7 @@ class GridRepresentation():
         nodal_injection_limits = np.array(nodal_injection_limits).reshape(len(nodal_injection_limits), 1)
         return nodal_injection_limits
 
-    def clarkson_algorithm(self, A, b, cbco_info, nodal_injection_limits, args={"file_suffix": "py"}):
+    def clarkson_algorithm(self, args={"file_suffix": "py"}, **kwargs):
         """Run the redundancy removal algorithm.
 
         The redundancy removal algorithm is run by writing the necessary data
@@ -485,9 +479,8 @@ class GridRepresentation():
             cbco's.
         """
 
-        self.write_cbco_info(A, b, cbco_info, nodal_injection_limits,
-                             self.julia_dir.joinpath("cbco_data"), "py")  # save A,b to csv
-        
+        self.write_cbco_info(self.julia_dir.joinpath("cbco_data"), "py", **kwargs)
+
         if not self.julia_instance:
             self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
         if not self.julia_instance.is_alive:

@@ -256,7 +256,8 @@ class FBMCModule():
         
         domain_data = {}
         cbco = GridRepresentation(self.wdir, self.grid, self.data, self.data.options)
-        cbco._start_julia_daemon()
+        if not reduce:
+            cbco._start_julia_daemon()
         cbco.options["optimization"]["type"] = "cbco_zonal"
         cbco.options["grid"]["cbco_option"] = "clarkson"
 
@@ -264,15 +265,18 @@ class FBMCModule():
             self.create_flowbased_ptdf(gsk_strategy, timestep, basecase)
             domain_data[timestep] = self.domain_info.copy()
 
-        cbco.cbco_info =  pd.concat([domain_data[t] for t in domain_data.keys()], ignore_index=True)
+        cbco_info =  pd.concat([domain_data[t] for t in domain_data.keys()], ignore_index=True)
+        
         if reduce:
-            cbco.cbco_index = cbco.clarkson_algorithm(args={"fbmc_domain": True})
+            cbco_index = cbco.clarkson_algorithm(args={"fbmc_domain": True}, Ab_info=cbco_info)
         else:
-            cbco.cbco_index = list(range(0, len(cbco.cbco_info)))
+            cbco_index = list(range(0, len(cbco_info)))
 
-        fbmc_rep = cbco.return_cbco()
+        fbmc_rep = cbco.return_cbco(cbco_info, cbco_index)
         fbmc_rep.set_index(fbmc_rep.cb + "_" + fbmc_rep.co, inplace=True)
-        cbco.julia_instance.join()
-        cbco.julia_instance.julia_instance = None
+ 
+        if not reduce:
+            cbco.julia_instance.join()
+            cbco.julia_instance.julia_instance = None
 
         return fbmc_rep
