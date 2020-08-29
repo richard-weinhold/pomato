@@ -4,16 +4,12 @@ pomato.data.Results
 .. currentmodule:: pomato.data
 
 .. autoclass:: Results
-
-   
-   .. automethod:: __init__
-
+   :members:
    
    .. rubric:: Methods
 
    .. autosummary::
    
-      ~Results.__init__
       ~Results.check_curtailment
       ~Results.check_infeasibilities
       ~Results.commercial_exchange

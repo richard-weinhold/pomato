@@ -1,42 +1,50 @@
 import subprocess, sys, os
+from pathlib import Path
     
-def instantiate_julia(package_path):
 
+def instantiate_julia(gurobi=True):
+    cwd = str(Path(__file__).parent)
     args = ["julia", "_installation/julia_install_from_git.jl"] 
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, cwd=str(package_path)) as program:
+                          stderr=subprocess.STDOUT, cwd=cwd) as program:
         for line in program.stdout:
             print(line.decode(errors="ignore").strip())
-
-def instantiate_julia_dev(package_path, redundancyremoval_path, marketmodel_path):
-
-    args = ["julia", "_installation/julia_install_dev.jl", redundancyremoval_path, marketmodel_path] 
+    if gurobi:
+        add_gurobi()
+def instantiate_julia_dev(redundancyremoval_path, marketmodel_path, gurobi=True):
+    cwd = str(Path(__file__).parent)
+    args = ["julia", "julia_install_dev.jl", redundancyremoval_path, marketmodel_path] 
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, cwd=str(package_path)) as program:
+                          stderr=subprocess.STDOUT, cwd=cwd) as program:
         for line in program.stdout:
             print(line.decode(errors="ignore").strip())
 
-def update_julia(package_path):
+    if gurobi:
+        add_gurobi()
 
-    args = ["julia", "_installation/julia_update.jl"] 
+def update_julia():
+    cwd = str(Path(__file__).parent)
+    args = ["julia", "julia_update.jl"] 
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, cwd=str(package_path)) as program:
+                          stderr=subprocess.STDOUT, cwd=cwd) as program:
         for line in program.stdout:
             print(line.decode(errors="ignore").strip())
 
-def add_gurobi(package_path):
+def add_gurobi():
     """Add Gurobi to Julia environment"""
+    cwd = str(Path(__file__).parent)
     args = ["julia", "_installation/add_gurobi.jl"] 
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, cwd=str(package_path)) as program:
+                          stderr=subprocess.STDOUT, cwd=cwd) as program:
         for line in program.stdout:
             print(line.decode(errors="ignore").strip())
 
-def add_mosek(package_path):
+def add_mosek():
     """Add Mosek to Julia environment"""
+    cwd = str(Path(__file__).parent)
     args = ["julia", "_installation/add_mosek.jl"] 
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, cwd=str(package_path)) as program:
+                          stderr=subprocess.STDOUT, cwd=cwd) as program:
         for line in program.stdout:
             print(line.decode(errors="ignore").strip())
 

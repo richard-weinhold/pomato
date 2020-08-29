@@ -123,14 +123,13 @@ class TestPomatoMarketModel(unittest.TestCase):
         mato.update_market_model_data()
         mato.run_market_model()
         result_name = next(r for r in list(mato.data.results))
-        mato.rename_market_result(result_name, "basecase")
-        basecase = mato.data.results["basecase"]
+        basecase = mato.data.results[result_name]
         mato.options["grid"]["minram"] = 0.1
         mato.options["grid"]["sensitivity"] = 0.05
 
         fbmc = pomato.fbmc.FBMCModule(mato.wdir, mato.grid, mato.data, mato.options)
         fbmc_gridrep = fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", 
-                                                        reduce=False)
+                                                        reduce=True)
 
         fbmc_domain = pomato.visualization.FBMCDomainPlots(mato.wdir, mato.grid, 
                                                            mato.data, mato.options, 

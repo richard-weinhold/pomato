@@ -98,9 +98,7 @@ class TestPomatoGridRepresentation(unittest.TestCase):
 
         self.grid_model.options["optimization"]["type"] = "cbco_nodal"
         self.grid_model.options["grid"]["precalc_filename"] = "random_words"
-        
         self.grid_model.process_cbco_nodal()
-        
         c_ptdf_fallback = copy.copy(self.grid_model.grid_representation.grid)
         self.grid_model.options["grid"]["precalc_filename"] = ""
         self.grid_model.options["grid"]["cbco_option"] = "full"

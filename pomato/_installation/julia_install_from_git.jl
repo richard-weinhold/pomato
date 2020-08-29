@@ -12,11 +12,6 @@ Pkg.add(PackageSpec(url="https://github.com/richard-weinhold/RedundancyRemoval.g
 Pkg.add("JSON")
 Pkg.add("Clp")
 
-if "GUROBI_HOME" in keys(ENV)
-	print("Adding Gurobi")
-	Pkg.add("Gurobi")
-end
-
 Pkg.instantiate()
 print("Precompiling...")
 using JSON

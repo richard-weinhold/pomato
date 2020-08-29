@@ -322,11 +322,11 @@ class POMATO():
         for folder in result_folders:
             self.data.results[folder.name] = Results(self.data, self.grid, folder)
     
-    def rename_market_result(self, oldname, newname):
-        """Rename Market Result""" 
+    # def rename_market_result(self, oldname, newname):
+    #     """Rename Market Result""" 
         
-        for result in self.data.results:
-            self.data.results[result.replace(oldname, newname)] = self.data.results.pop(result)
+    #     for result in self.data.results:
+    #         self.data.results[result.replace(oldname, newname)] = self.data.results.pop(result)
 
 
     def run_market_model(self, update_data=True):
