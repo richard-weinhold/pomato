@@ -118,7 +118,7 @@ import pomato.tools as tools
 from pomato.data import DataManagement, Results
 from pomato.grid import GridTopology, GridModel
 from pomato.market_model import MarketModel
-from pomato.visualization.bokeh_interface import BokehPlot
+from pomato.visualization.geoplot_interface import GeoPlot
 
 def _logging_setup(wdir, webapp, logging_level=logging.INFO):
     # Logging setup
@@ -205,7 +205,7 @@ class POMATO():
         Module containing and managing the market model. This includes storing
         the necessary data, running and managing a julia process instance and
         initializing the result object inside ``data``.
-    bokeh_plot : :class:`~pomato.visualization.BokehPlot`
+    geo_plot : :class:`~pomato.visualization.GeoPlot`
         Enabling a geographic visualization of the market results through the
         library ``Bokeh``. This module processes the results and input data to
         create a static map plot containing mean line loadings or a
@@ -247,7 +247,7 @@ class POMATO():
         self.grid_representation = self.grid_model.grid_representation
         self.market_model = MarketModel(self.wdir, self.options, self.data, self.grid_representation)
 
-        self.bokeh_plot = None
+        self.geo_plot = None
 
     def initialize_options(self, options_file):
         """Initialize options file.
@@ -360,9 +360,9 @@ class POMATO():
         """
         self.grid_model.create_grid_representation()
 
-    def create_geo_plot(self, title=None, bokeh_type="static", results=None, 
+    def create_geo_plot(self, title=None, plot_type="static", results=None, 
                         show=True, plot_dimensions=[700, 800]):
-        """Initialize bokeh plot based on the dataset and a market result.
+        """Initialize GeoPlot based on the dataset and a market result.
 
         Parameters
         ----------
@@ -370,7 +370,7 @@ class POMATO():
             Name defaults to 'default' is is used to identify the initialized
             market result in the plot itself and to name the folder within
             the ``data_temp/bokeh_files`` folder.
-        bokeh_type : str, optional
+        plot_type : str, optional
             Specifies if a static or dynamic plot is generated. A dynamic plot
             requires to run a bokeh server, which is generally more involved.
             Defaults to static, which outputs a html version of the map with
@@ -378,17 +378,17 @@ class POMATO():
         results : dict(str, :obj:`~pomato.data.Results`)
             Optionally specify a subset of results to plot.
         """
-        self.bokeh_plot = BokehPlot(self.wdir, bokeh_type=bokeh_type)
+        self.geo_plot = GeoPlot(self.wdir, plot_type=plot_type)
 
         if (not self.data.results) and (not results):  # if results dict is empty
             self.logger.info("No result available from market model!")
-            self.bokeh_plot.create_empty_static_plot(self.data)
+            self.geo_plot.create_empty_static_plot(self.data)
         elif results:
-            self.bokeh_plot.create_static_plot(results, title=title, plot_dimensions=plot_dimensions)
+            self.geo_plot.create_static_plot(results, title=title, plot_dimensions=plot_dimensions)
         else:
-            self.bokeh_plot.create_static_plot(self.data.results, title=title, plot_dimensions=plot_dimensions)
+            self.geo_plot.create_static_plot(self.data.results, title=title, plot_dimensions=plot_dimensions)
         if show:
-            self.bokeh_plot.show_plot()
+            self.geo_plot.show_plot()
 
     def _instantiate_julia_dev(self, redundancyremoval_path, marketmodel_path):
         tools.julia_management.instantiate_julia_dev(self.package_dir, 

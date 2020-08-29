@@ -17,7 +17,7 @@ from bokeh.models.widgets import RadioButtonGroup, Slider
 from bokeh.plotting import ColumnDataSource, figure
 from bokeh.tile_providers import get_provider
 
-from bokeh_static import merc, prepare_line_plot, update_line_colors, return_hover_dicts
+from geoplot_static import merc, prepare_line_plot, update_line_colors, return_hover_dicts
 
 def get_tilesource(provider="STAMEN_TONER_BACKGROUND"):
   tile_source = get_provider(provider)

@@ -1,2 +1,2 @@
-from pomato.visualization.bokeh_interface import BokehPlot
+from pomato.visualization.geoplot_interface import GeoPlot
 from pomato.visualization.fbmc_domain import FBMCDomainPlots

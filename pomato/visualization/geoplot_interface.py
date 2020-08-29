@@ -1,4 +1,4 @@
-"""Bokeh Plot Interface."""
+"""GroPlot Interface."""
 
 import json
 import logging
@@ -13,10 +13,10 @@ from bokeh.io import save, show
 
 import pomato
 import pomato.tools as tools
-from pomato.visualization.bokeh_static import create_static_plot
+from pomato.visualization.geoplot_static import create_static_plot
 
 
-class BokehPlot():
+class GeoPlot():
     """Interface market data and the creation of a geographic plot.
 
     There are two option to create a bokeh plot: static and dynamic.
@@ -42,7 +42,7 @@ class BokehPlot():
         the model remains responsive.
     """
 
-    def __init__(self, wdir, bokeh_type="static"):
+    def __init__(self, wdir, plot_type="static"):
         # Impoort Logger
         self.logger = logging.getLogger('Log.MarketModel.BokehPlot')
 
@@ -52,7 +52,7 @@ class BokehPlot():
         # Make sure all folders exist
         tools.create_folder_structure(self.wdir, self.logger)
 
-        self.bokeh_type = bokeh_type
+        self.plot_type = plot_type
         # attributes required for dynamic bokeh plot
         self.bokeh_server = None
         self.bokeh_thread = None
