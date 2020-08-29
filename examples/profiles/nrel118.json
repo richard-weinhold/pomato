@@ -1,7 +1,7 @@
 {
     "optimization": {
         "type": "ntc",
-        "model_horizon": [0, 24],
+        "model_horizon": [0, 4],
         "redispatch": {
             "include": false,
             "zonal_redispatch": false,

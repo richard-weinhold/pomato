@@ -11,13 +11,7 @@ import pandas as pd
 
 from context import pomato, copytree	
 
-class JuliaMockup():
-    def __init__(self):
-        self.is_alive = True
-        self.solved = True
-    def run(self, args):
-        pass
-            
+           
 # pylint: disable-msg=E1101
 class TestPomatoMarketModel(unittest.TestCase):
     def setUp(self):
@@ -50,24 +44,6 @@ class TestPomatoMarketModel(unittest.TestCase):
     def test_init_ieee_matfile(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
         mato.load_data('data_input/pglib_opf_case118_ieee.mat')
-
-    def test_run_ieee(self):
-        """Simply run the ieee case"""
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
-        mato.load_data('data_input/pglib_opf_case118_ieee.m')
-        mato.create_geo_plot(title="IEEE_blank", show=False)
-
-        mato.options["optimization"]["type"] = "cbco_nodal"
-        mato.options["grid"]["cbco_option"] = "clarkson_base"
-        mato.create_grid_representation()
-        mato.update_market_model_data()
-        mato.run_market_model()
-
-        result_folder = mato.market_model.result_folders[0]
-        result = mato.data.results[result_folder.name]
-        result.default_plots()
-        mato._clear_data()
-        mato._join_julia_instances()
 
     def test_run_nrel(self):
 
@@ -169,7 +145,7 @@ class TestPomatoMarketModel(unittest.TestCase):
 
         # %% FBMC market clearing
         mato.data.results = {}
-        mato.options["optimization"]["timeseries"]["market_horizon"] = 10000
+        mato.options["optimization"]["timeseries"]["market_horizon"] = 100
         mato.options["optimization"]["redispatch"]["include"] = True
         mato.options["optimization"]["redispatch"]["zones"] = list(mato.data.zones.index)
         mato.options["optimization"]["type"] = "nodal"
@@ -184,5 +160,6 @@ class TestPomatoMarketModel(unittest.TestCase):
         # mato.market_model.julia_model = None
         mato.update_market_model_data()
         mato.run_market_model()
+
         mato._join_julia_instances()
 

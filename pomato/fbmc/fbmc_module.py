@@ -260,6 +260,7 @@ class FBMCModule():
         grid_model = GridModel(self.wdir, self.grid, self.data, self.data.options)
         if not reduce:
             grid_model._start_julia_daemon()
+            
         grid_model.options["optimization"]["type"] = "cbco_zonal"
         grid_model.options["grid"]["cbco_option"] = "clarkson"
 
