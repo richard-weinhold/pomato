@@ -10,7 +10,6 @@ import numpy as np
 import pandas as pd
 
 from context import pomato, copytree	
-
            
 # pylint: disable-msg=E1101
 class TestPomatoMarketModel(unittest.TestCase):
@@ -97,7 +96,6 @@ class TestPomatoMarketModel(unittest.TestCase):
         mato.options["grid"]["gsk"] = "gmax"
 
         mato.create_grid_representation()
-
         mato.update_market_model_data()
         mato.run_market_model()
         # %% Nodal PTDF model
@@ -158,6 +156,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         # mato.market_model.julia_model = None
         mato.update_market_model_data()
         mato.run_market_model()
+        mato.create_geo_plot()
 
-        mato._join_julia_instance_market_model()
-        # mato._join_julia_instances()
+        # mato._join_julia_instance_market_model()
+        mato._join_julia_instances()
