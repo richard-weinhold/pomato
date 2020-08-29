@@ -279,7 +279,7 @@ class FBMCModule():
         fbmc_rep = grid_model.return_cbco(cbco_info, cbco_index)
         fbmc_rep.set_index(fbmc_rep.cb + "_" + fbmc_rep.co, inplace=True)
  
-        if not reduce:
+        if reduce:
             grid_model.julia_instance.join()
             grid_model.julia_instance.julia_instance = None
 

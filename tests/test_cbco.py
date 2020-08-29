@@ -12,13 +12,6 @@ import pandas as pd
 from context import pomato
 from pomato import tools
 
-class JuliaMockup():
-    def __init__(self):
-        self.is_alive = True
-        self.solved = True
-    def run(self, args):
-        pass
-    
 # pylint: disable-msg=E1101
 class TestPomatoGridRepresentation(unittest.TestCase):
     def setUp(self):
@@ -32,7 +25,7 @@ class TestPomatoGridRepresentation(unittest.TestCase):
         self.grid = pomato.grid.GridTopology()
         self.grid.calculate_parameters(self.data.nodes, self.data.lines)
         self.grid_model = pomato.grid.GridModel(self.wdir, self.grid, self.data, self.options)
-        self.grid_model.logger.setLevel(logging.ERROR)
+        self.grid_model.logger.setLevel(logging.INFO)
 
     @classmethod
     def tearDownClass(cls):

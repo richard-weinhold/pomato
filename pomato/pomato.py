@@ -387,7 +387,6 @@ class POMATO():
             self.bokeh_plot.create_static_plot(results, title=title, plot_dimensions=plot_dimensions)
         else:
             self.bokeh_plot.create_static_plot(self.data.results, title=title, plot_dimensions=plot_dimensions)
-
         if show:
             self.bokeh_plot.show_plot()
 

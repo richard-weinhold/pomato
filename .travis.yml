@@ -11,8 +11,8 @@ env:
     - JULIA_VERSION=1.3
 
 before_install:
-  - chmod +x tests/install_julia.sh
-  - ./tests/install_julia.sh "$JULIA_VERSION"
+  - chmod +x pomato/_installation/install_julia.sh
+  - ./pomato/_installation/install_julia.sh "$JULIA_VERSION"
   - python --version
   - julia --version
   - julia pomato/_installation/julia_install_from_git.jl

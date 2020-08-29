@@ -139,7 +139,6 @@ class TestPomatoMarketModel(unittest.TestCase):
                           
         for t in basecase.INJ.t.unique():
             fbmc_domain.generate_flowbased_domain(["R1", "R2"], ["R1", "R3"], t, "nrel")
-        
         fbmc_domain.save_all_domain_plots(mato.wdir.joinpath("domains"))
 
         # %% FBMC market clearing
@@ -160,5 +159,5 @@ class TestPomatoMarketModel(unittest.TestCase):
         mato.update_market_model_data()
         mato.run_market_model()
 
-        mato._join_julia_instances()
-
+        mato._join_julia_instance_market_model()
+        # mato._join_julia_instances()

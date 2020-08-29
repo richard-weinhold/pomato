@@ -8,3 +8,4 @@ dist/
 .vscode/*
 pomato/_installation/pomato
 pomato.sublime-workspace
+examples/notepad.py
