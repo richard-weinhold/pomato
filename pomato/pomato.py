@@ -187,18 +187,18 @@ class POMATO():
         Instance of DataManagement class containing all data, data processing,
         results and result processing. Is initialized empty, then data
         explicitly loaded.
-    grid : :class:`~pomato.grid.GridModel`
+    grid : :class:`~pomato.grid.GridTopology`
         Object containing all grid information. Initializes empty and
         filled based on nodes and lines data when it is loaded and
         processed. Provides the PTDF matrices for N-0 and N-1 load flow analysis.
-    grid_representation_module : :class:`~pomato.cbco.GridRepresentation`
-        The GridRepresentation provides the grid representation to the market model,
+    grid_module : :class:`~pomato.grid.GridModel`
+        The GridModel provides the grid representation to the market model,
         based on the chosen configuration. Combines input data and the GridModel
         into a grid representation based on the chosen configuration (N-0, N-1,
         zonal, zonal CBCO, ntc, copper
         plate) and runs the redundancy removal algorithm needed for N-1
         grid representation.
-    grid_representation : dict
+    grid_representation : :class:`~pomato.grid.GridModel`.grid_representation
         The output of the cbco_module. A dictionary containing all information
         for the market model to account for the chosen network representation.
     market_model : :class:`~pomato.market_model.MarketModel`
@@ -273,7 +273,7 @@ class POMATO():
             self.logger.exception("Error: %s", unknown_exception)
 
     def load_data(self, filename):
-        """Load data into data_management module.
+        """Load data into :class:`~pomato.data.DataManagement` module.
 
         The data attribute is initialized empty and explicitly filled with
         this method. When done reading and processing data, the grid model is
@@ -322,11 +322,11 @@ class POMATO():
         for folder in result_folders:
             self.data.results[folder.name] = Results(self.data, self.grid, folder)
     
-    # def rename_market_result(self, oldname, newname):
-    #     """Rename Market Result""" 
+    def rename_market_result(self, oldname, newname):
+        """Rename Market Results""" 
         
-    #     for result in self.data.results:
-    #         self.data.results[result.replace(oldname, newname)] = self.data.results.pop(result)
+        for result in self.data.results:
+            self.data.results[result.replace(oldname, newname)] = self.data.results.pop(result)
 
 
     def run_market_model(self, update_data=True):
@@ -361,7 +361,7 @@ class POMATO():
         self.grid_model.create_grid_representation()
 
     def create_geo_plot(self, title=None, plot_type="static", results=None, 
-                        show=True, plot_dimensions=[700, 800]):
+                        show=True, plot_dimensions=(700, 800)):
         """Initialize GeoPlot based on the dataset and a market result.
 
         Parameters
@@ -377,6 +377,10 @@ class POMATO():
             average loads.
         results : dict(str, :obj:`~pomato.data.Results`)
             Optionally specify a subset of results to plot.
+        show : bool, optional
+            Show Geo Plot after creation.
+        plot_dimensions : Tuple (x, y)
+            Plot Dimension of the html created, used for embedded plot.
         """
         self.geo_plot = GeoPlot(self.wdir, plot_type=plot_type)
 

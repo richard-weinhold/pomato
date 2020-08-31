@@ -1,5 +1,5 @@
-pomato.grid.GridModel
-======================
+GridModel
+=========
 
 .. currentmodule:: pomato.grid
 

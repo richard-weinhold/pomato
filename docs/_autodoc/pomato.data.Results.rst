@@ -1,5 +1,5 @@
-pomato.data.Results
-===================
+Results
+=======
 
 .. currentmodule:: pomato.data
 

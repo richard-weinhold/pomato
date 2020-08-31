@@ -62,7 +62,8 @@ html_short_title = 'POMATO'
 html_theme_options = {
     'logo': 'graphics/pomato_space.png',
     'logo_name': False,
-    "sidebar_width": "300px",
+    "sidebar_width": "220px",
+    "page_width": "1080px",
     "extra_nav_links": {
     	"Github": "https://github.com/richard-weinhold/pomato"},
 }

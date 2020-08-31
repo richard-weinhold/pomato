@@ -79,7 +79,7 @@ class GeoPlot():
                                               data.dclines, inj, flow_n_0, 
                                               flow_n_1, f_dc, option=2)
 
-    def create_static_plot(self, market_results, title=None, plot_dimensions=[700, 800]):
+    def create_static_plot(self, market_results, title=None, plot_dimensions=(700, 800)):
         """Create static bokeh plot of the market results.
 
         Creates a fairly interactive geographic plot of the provided market

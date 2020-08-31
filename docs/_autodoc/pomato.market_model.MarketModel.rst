@@ -1,5 +1,5 @@
-pomato.market\_model.MarketModel
-================================
+MarketModel
+===========
 
 .. currentmodule:: pomato.market_model
 

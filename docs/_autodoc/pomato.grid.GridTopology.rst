@@ -1,5 +1,5 @@
-pomato.grid.GridTopology
-=====================
+GridTopology
+============
 
 .. currentmodule:: pomato.grid
 

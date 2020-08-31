@@ -1,16 +1,16 @@
 import subprocess, sys, os
 from pathlib import Path
     
-
 def instantiate_julia(gurobi=True):
     cwd = str(Path(__file__).parent)
-    args = ["julia", "_installation/julia_install_from_git.jl"] 
+    args = ["julia", "julia_install_from_git.jl"] 
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, cwd=cwd) as program:
         for line in program.stdout:
             print(line.decode(errors="ignore").strip())
     if gurobi:
         add_gurobi()
+        
 def instantiate_julia_dev(redundancyremoval_path, marketmodel_path, gurobi=True):
     cwd = str(Path(__file__).parent)
     args = ["julia", "julia_install_dev.jl", redundancyremoval_path, marketmodel_path] 
@@ -33,7 +33,7 @@ def update_julia():
 def add_gurobi():
     """Add Gurobi to Julia environment"""
     cwd = str(Path(__file__).parent)
-    args = ["julia", "_installation/add_gurobi.jl"] 
+    args = ["julia", "add_gurobi.jl"] 
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, cwd=cwd) as program:
         for line in program.stdout:
@@ -42,7 +42,7 @@ def add_gurobi():
 def add_mosek():
     """Add Mosek to Julia environment"""
     cwd = str(Path(__file__).parent)
-    args = ["julia", "_installation/add_mosek.jl"] 
+    args = ["julia", "add_mosek.jl"] 
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, cwd=cwd) as program:
         for line in program.stdout:

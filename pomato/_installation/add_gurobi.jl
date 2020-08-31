@@ -2,7 +2,7 @@ using Pkg
 cd(@__DIR__)
 
 Pkg.activate("pomato")
-if not "Gurobi" in keys(Pkg.installed())
+if !("Gurobi" in keys(Pkg.installed()))
     if "GUROBI_HOME" in keys(ENV)
         Pkg.add("Gurobi")
     else

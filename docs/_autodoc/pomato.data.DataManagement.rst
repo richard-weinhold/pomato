@@ -1,5 +1,5 @@
-pomato.data.DataManagement
-==========================
+DataManagement
+==============
 
 .. currentmodule:: pomato.data
 

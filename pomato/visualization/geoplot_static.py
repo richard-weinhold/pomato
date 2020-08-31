@@ -164,7 +164,7 @@ def prepare_line_plot(lines, nodes):
 
 
 def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
-                       redispatch=None, option=0, title=None, plot_dimensions=[700, 800]):
+                       redispatch=None, option=0, title=None, plot_dimensions=(700, 800)):
 
     coords_x, coords_y, lat, lon = [], [], [], []
     for i in nodes.index:
