@@ -16,17 +16,8 @@ but made sure the definitions are easily accessible to potentially adopt pomato 
   folder_structure.rst
   input_model_data.rst
   options.rst
+  model_formulation
 
-
-Model Formulation
------------------
-
-.. math::
-
-   a_t &= 1 &\forall t \in T \\
-   b_t &= 1 - 3b \cdot A_{t,z} \quad &\forall t \in T \\
-
-Which is important 
 
 Model Structure
 ---------------

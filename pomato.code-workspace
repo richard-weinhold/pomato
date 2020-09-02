@@ -1,0 +1,34 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"cSpell.enableFiletypes": [
+			"!asciidoc",
+			"!c",
+			"!cpp",
+			"!csharp",
+			"!css",
+			"!go",
+			"!handlebars",
+			"!haskell",
+			"!jade",
+			"!java",
+			"!javascript",
+			"!javascriptreact",
+			"!jsonc",
+			"!less",
+			"!php",
+			"!pug",
+			"!rust",
+			"!scala",
+			"!scss",
+			"!typescript",
+			"!typescriptreact"
+		],
+		"cSpell.language": "en,en-US",
+		"python.pythonPath": "c:\\Users\\riw\\tubCloud\\Uni\\Market_Tool\\pomato_studies\\pomato\\Scripts\\python.exe"
+	}
+}
