@@ -16,6 +16,8 @@ but made sure the definitions are easily accessible to potentially adopt pomato 
 
 
 .. toctree::
+	:maxdepth: 2
 
+	installation
 	prerequisites
 	case_studies

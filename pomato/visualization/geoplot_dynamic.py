@@ -319,7 +319,7 @@ def create_stacked_bars_sources(nodes):
 
 
 WDIR = Path(sys.argv[1])
-# WDIR = Path(r"C:\Users\riw\tubCloud\Uni\Market_Tool\pomato_studies\data_temp\bokeh_files")
+
 # Init Data
 option_market_db = [path for path in os.listdir(WDIR.joinpath("market_result")) if "." not in path]
 (nodes, g_by_fuel, demand, inj, f_dc, t_first, t_last,
