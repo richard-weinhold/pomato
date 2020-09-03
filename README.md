@@ -42,9 +42,9 @@ The recommended way to install POMATO:
   - Install Julia and have it available on the system path
   - Install POMATO through *pip* in python >= 3.6 by creating a virtual environment and install pomato into it
 
-      python -m venv pomato
-      .\pomato\Scripts\activate
-      pip install git+https://github.com/richard-weinhold/pomato.git
+        python -m venv pomato
+        .\pomato\Scripts\activate
+        pip install git+https://github.com/richard-weinhold/pomato.git
 
 
 After this is completed pomato can be imported in python:
