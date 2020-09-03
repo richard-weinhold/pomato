@@ -6,11 +6,13 @@ from setuptools.command.install import install
 import subprocess, sys, os
 from pathlib import Path
 
-def julia_instantiate():
+def julia_instantiate(install_lib_path):
     args = ["julia", "_installation/julia_install_from_git.jl"]   
+    # raise ImportError("package path %s", package_path)
+    package_path = Path(install_lib_path).joinpath("pomato")
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT) as programm:
-        for line in programm.stdout:
+                          stderr=subprocess.STDOUT, cwd=str(package_path)) as program:
+        for line in program.stdout:
           pass
             # print(line.decode(errors="ignore").strip())
 
@@ -35,7 +37,7 @@ class InstallCommand(install):
     def run(self):
         check_for_julia()
         install.run(self)
-        julia_instantiate()
+        julia_instantiate(self.install_lib)
 
 setup(name='pomato',
       version='0.2.1',
