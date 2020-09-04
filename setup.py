@@ -17,7 +17,7 @@ def julia_instantiate(install_lib_path):
             # print(line.decode(errors="ignore").strip())
 
 def check_for_julia():
-    # Check if jula exists
+    # Check if julia exists
     import distutils.spawn
     import os
     if not bool(distutils.spawn.find_executable("julia")):

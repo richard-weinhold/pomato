@@ -1,11 +1,8 @@
-
 using JSON
 using Pkg
 
-
 # Deamon functions
 ##################
-
 function write_daemon_file(file::Dict)
     global daemon_file
     while true
@@ -68,6 +65,7 @@ end
 function run_market_model(redisp_arg::Bool)
     global wdir
     global optimizer
+
     data_dir = wdir*"/data_temp/julia_files/data/"
     result_dir = wdir*"/data_temp/julia_files/results/"
     if redisp_arg
@@ -80,10 +78,11 @@ function run_market_model(redisp_arg::Bool)
 end
 
 function set_optimizer(file)
+    global gurobi_installed 
     if file["chance_constrained"]
         @info("Loading Mosek for Chance Constrained Market Model...")
         global optimizer = Mosek
-    elseif "Gurobi" in keys(Pkg.installed())
+    elseif gurobi_installed
         @info("Loading Gurobi...")
         global optimizer = Gurobi
     else
@@ -95,15 +94,28 @@ end
 # Setting everthing up
 ######################
 
+
 global model_type = ARGS[1]
 global wdir = pwd()
 global daemon_file = wdir*"/data_temp/julia_files/daemon_"*model_type*".json"
 
-if "Mosek" in keys(Pkg.installed())
+global gurobi_installed 
+global mosek_installed
+
+if VERSION >= v"1.5"
+    isinstalled(pkg::String) = any(x -> x.name == pkg && x.is_direct_dep, values(Pkg.dependencies()))
+    mosek_installed = isinstalled("Mosek") 
+    gurobi_installed = isinstalled("Gurobi") 
+else
+   mosek_installed = "Mosek" in keys(Pkg.installed()) ? true : false
+   gurobi_installed = "Gurobi" in keys(Pkg.installed()) ? true : false
+end
+
+if mosek_installed
     @info("Loading Mosek...")
     using Mosek, MosekTools
 end
-if "Gurobi" in keys(Pkg.installed())
+if gurobi_installed
     @info("Loading Gurobi...")
     using Gurobi
 else
