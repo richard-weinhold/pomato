@@ -17,6 +17,7 @@ from pomato.data.worker import DataWorker
 
 class Timeseries(): 
     """Timeseries returns Day-Ahead or Real-Time timeseries depending n input data and settings."""
+
     def __init__(self):
         self.data = None 
         self.includes_da_demand = False
@@ -34,7 +35,8 @@ class Timeseries():
             self._demand_el_da = self.data.demand_el_da
             self._demand_el_rt = self.data.demand_el_rt
             self.includes_da_demand = True
-            self.data.model_structure["demand_el"].update({"demand_el_da": {'type': 'float', 'default': np.nan}})
+            self.data.model_structure["demand_el"].update(
+                {"demand_el_da": {'type': 'float', 'default': np.nan}})
 
         else:
             self.includes_da_demand = False
@@ -43,7 +45,8 @@ class Timeseries():
             self._availability_da = self.data.availability_da
             self._availability_rt = self.data.availability_rt
             self.includes_da_availability = True
-            self.data.model_structure["availability"].update({"availability_da": {'type': 'float', 'default': np.nan}})
+            self.data.model_structure["availability"].update(
+                {"availability_da": {'type': 'float', 'default': np.nan}})
         else:
             self.includes_da_availability = False
 
@@ -62,6 +65,7 @@ class Timeseries():
                             on=["timestep", "plant"], suffixes=["", "_da"])
         else:
             return self._availability_rt
+
 
 class DataManagement():
     """The DataManagement class provides processed data to all other modules in POMATO
@@ -156,12 +160,13 @@ class DataManagement():
             Filepath to an .xls or .xlsx file, should include file extension.
         """
         self.logger.info("Writing Data to Excel File %s", str(filepath))
-        with pd.ExcelWriter(filepath.with_suffix(".xlsx")) as writer: #pylint: disable=abstract-class-instantiated
+        with pd.ExcelWriter(filepath.with_suffix(".xlsx")) as writer:  # pylint: disable=abstract-class-instantiated
             for data in self.data_attributes:
                 if len(getattr(self, data)) > 1048576:
                     self.logger.info("Flattening %s", data)
                     cols = getattr(self, data).columns
-                    getattr(self, data).pivot(index=cols[0], columns=cols[1], values=cols[2]).to_excel(writer, sheet_name=data)
+                    getattr(self, data).pivot(
+                        index=cols[0], columns=cols[1], values=cols[2]).to_excel(writer, sheet_name=data)
                 else:
                     getattr(self, data).to_excel(writer, sheet_name=data)
 
@@ -210,7 +215,7 @@ class DataManagement():
             Filepath .mat or .xlsx file. There are some path arithmetics to
             catch errors but not a lot.
         """
-        ### Make sure wdir/file_path or wdir/data/file_path is a file
+        # Make sure wdir/file_path or wdir/data/file_path is a file
         if self.wdir.joinpath(filepath).is_file():
             DataWorker(self, self.wdir.joinpath(filepath))
 
@@ -218,7 +223,8 @@ class DataManagement():
             DataWorker(self, self.wdir.joinpath(f"data/{filepath}"))
 
         elif self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat").is_file():
-            DataWorker(self, self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat"))
+            DataWorker(self, self.wdir.joinpath(
+                f"data_input/mp_casedata/{filepath}.mat"))
         else:
             self.logger.error("Data File not found!")
             raise FileNotFoundError
@@ -294,7 +300,6 @@ class DataManagement():
                 if "required" in self.missing_data[k].keys():
                     self.logger.error("attributes missing in %s", k)
 
-
     def process_input(self):
         """Input Processing to bring input data is the desired pomato format.
 
@@ -322,7 +327,6 @@ class DataManagement():
                     model_structure[k][kk]["default"] = np.nan
         return model_structure        
         
-
     def validate_modeldata(self):
         """Validate the processed input data to be conform with predefined model data structure.
 
@@ -379,11 +383,6 @@ class DataManagement():
         else:
             self.logger.error("Multiple results initialized that fit criteria")
       
-    def _clear_all_data(self):
-        attr = list(self.__dict__.keys())
-        attr.remove('logger')
-        for att in attr:
-            delattr(self, att)
 
     def visualize_inputdata(self, folder=None, show_plot=True):
         """Create default Plots for Input Data.
@@ -406,7 +405,8 @@ class DataManagement():
         for zone in self.zones.index:
             nodes_in_zone = self.nodes.index[self.nodes.zone == zone]
             condition_node_in_zone = self.demand_el.node.isin(nodes_in_zone)
-            demand_zonal[zone] = self.demand_el[condition_node_in_zone].groupby("timestep").sum()
+            demand_zonal[zone] = (self.demand_el.loc[condition_node_in_zone, ["timestep", "demand_el"]]
+                .groupby("timestep").sum())
             
         fig_demand, ax_demand = plt.subplots()
         demand_zonal.plot.area(ax=ax_demand, xticks=np.arange(0, len(demand_zonal.index), 

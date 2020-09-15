@@ -420,3 +420,6 @@ class POMATO():
         self.grid_model._start_julia_daemon()
         self.market_model._start_julia_daemon()
 
+    def __del__(self):
+        """Join Julia instances on deletion."""
+        self._join_julia_instances()

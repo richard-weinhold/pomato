@@ -74,6 +74,7 @@ class Results():
                                   "model_horizon": None, "source": None, "status": None,
                                   "objective": None, "t_start": None, "t_end": None
                                   }
+        self.model_horizon = self.result_attributes["model_horizon"]
 
         for var in self.result_attributes["variables"]:
             setattr(self, var, pd.DataFrame())
@@ -137,18 +138,19 @@ class Results():
 
         # Model Horizon as attribute
         self.result_attributes["model_horizon"] = list(self.INJ.t.unique())
+        self.model_horizon = self.result_attributes["model_horizon"]
 
     def redispatch(self):
         """Return Redispatch"""
 
         # Find corresponding Market Result
-        tmp = [result for result in self.data.results if "market_result" in result]
+        tmp = [result for result in self.data.results if "market" in result]
         if len(tmp) == 1:
             market_result = self.data.results[tmp[0]]
         else:
             raise AttributeError("Multiple/None market-results available for redispatch")
 
-        gen = pd.merge(market_result.data.plants[["plant_type", "fuel", "tech", "g_max", "node"]],
+        gen = pd.merge(market_result.data.plants[["plant_type", "g_max", "node"]],
                        market_result.G, left_index=True, right_on="p")
 
         # Redispatch Calculation G_redispatch - G_market
@@ -160,6 +162,7 @@ class Results():
         self.logger.info("Redispatch Values per timestep: sum: %d, abs sum: %d", round(gen.delta.sum()/len(gen.t.unique())), 
                          round(gen.delta_abs.sum()/len(gen.t.unique())))
 
+        return gen
 
 
     def infeasibility(self):
@@ -196,23 +199,6 @@ class Results():
 
         price["marginal"] = -(price.EB_zonal + price.EB_nodal)
         return price[["t", "n", "z", "marginal"]]
-
-    def heat_price(self):
-        """Return heat price.
-
-        Returns the dual of the heat balance.
-
-        Returns
-        -------
-        price : DataFrame
-            Price DataFrame with columns timestep (t), heatarea (ha) and
-            price (marginal).
-        """
-        eb_heat = self.EB_heat.copy()
-        eb_heat.loc[abs(eb_heat.EB_heat) < 1E-3, "EB_heat"] = 0
-        eb_heat["marginal"] = -eb_heat.EB_heat
-
-        return eb_heat[["t", "ha", "marginal"]]
 
     def commercial_exchange(self, from_zone, to_zone):
         """Return commercial exchange for a pair of market areas.
@@ -285,11 +271,12 @@ class Results():
             DataFrame with actual and potential generation for each plant and
             timestep.
         """
+        
         ts_option = self.data.options["optimization"]["plant_types"]["ts"]
         res_plants = self.data.plants[self.data.plants.plant_type.isin(ts_option)].copy()
 
         gen = self.G.copy()
-        ava = self.data.availability.copy()
+        ava = self.data.availability[["timestep", "plant", "availability"]].copy()
         ava.columns = ["t", "p", "ava"]
 
         gen = gen[gen.p.isin(res_plants.index)]
@@ -304,7 +291,7 @@ class Results():
         self.logger.info("%s MWh curtailed in market model results!", curtailment)
         return gen
 
-    def res_share(self, res_tech=None, res_fuel=None):
+    def res_share(self, res_plant_type):
         """Calculate the share of renewables.
         
         Returns
@@ -312,19 +299,14 @@ class Results():
         res_share : float
             Share of reneable generation in the resulting dispatch.
         """
-        if (not res_tech) and (not res_fuel):
-            raise AttributeError("Submit renewable fuels or technologies!")
-
-        if res_tech:
-            res_plants = self.data.plants[self.data.plants.fuel.isin(res_fuel)]
-        if res_fuel:
-            res_plants = self.data.plants[self.data.plants.tech.isin(res_tech)]
+        
+        res_plants = self.data.plants[self.data.plants.plant_type.isin(res_plant_type)]
         
         gen = self.G
         gen_res = gen[gen.p.isin(res_plants.index)]
         res_share = gen_res.G.sum()/gen.G.sum()
         self.logger.info("Renewable share is %d %% in resulting dispatch!",
-                         {round(res_share*100, 2)})
+                         round(res_share*100, 2))
         return res_share
 
     def default_plots(self, show_plot=False):
