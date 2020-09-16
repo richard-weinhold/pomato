@@ -11,8 +11,6 @@ import numpy as np
 import pandas as pd
 from context import pomato
 
-import pomato
-
 # pylint: disable-msg=E1101
 class TestPomatoGeoPlot(unittest.TestCase):
     
