@@ -57,19 +57,6 @@ class TestPomatoMarketModel(unittest.TestCase):
             self.assertTrue(self.market_model.data_dir.joinpath(f'{data}.csv').is_file())
         self.assertTrue(self.market_model.data_dir.joinpath('options.json').is_file())
 
-    def test_market_model_run(self):
-        prepared_result = self.wdir.parent.joinpath('tests/test_data/dispatch_result/')
-        to_folder = self.wdir.joinpath('data_temp/julia_files/results/dispatch_result') 
-        to_folder.mkdir()
-        copytree(prepared_result, to_folder)
-
-        self.market_model.julia_model = JuliaMockup()
-        self.grid_model.options["optimization"]["type"] = "ntc"
-        self.grid_model.create_grid_representation()
-        self.market_model.update_data()
-        self.market_model.run()
-
-        self.assertTrue(self.market_model.status == "solved")
     
     def test_market_model_missing_result(self):
         self.market_model.julia_model = JuliaMockup()

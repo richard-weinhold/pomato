@@ -51,7 +51,7 @@ class TestPomatoData(unittest.TestCase):
 
     def test_visualize_input_data(self):
         folder = self.wdir.joinpath("data_output")
-        self.data.visualize_inputdata(folder, show_plot=True)
+        self.data.visualize_inputdata(folder, show_plot=False)
 
         self.assertTrue(folder.is_dir())
         self.assertTrue(folder.joinpath("zonal_demand.png").is_file())
