@@ -173,8 +173,8 @@ class GeoPlot():
         market_result.grid.nodes.to_csv(str(data_path.joinpath('nodes.csv')),
                                         index_label='index')
         market_result.grid.lines.to_csv(str(data_path.joinpath('lines.csv')))
-        market_result.F_DC.to_csv(str(data_path.joinpath('F_DC.csv')))
-        market_result.INJ.to_csv(str(data_path.joinpath('INJ.csv')))
+        market_result.F_DC.to_csv(str(data_path.joinpath('f_dc.csv')))
+        market_result.INJ.to_csv(str(data_path.joinpath('inj.csv')))
 
         n_0_flows, n_1_flows = self.process_grid_data(market_result)
         n_1_flows.to_csv(str(data_path.joinpath('n_1_flows.csv')))
