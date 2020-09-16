@@ -383,7 +383,6 @@ class POMATO():
             Plot Dimension of the html created, used for embedded plot.
         """
         self.geo_plot = GeoPlot(self.wdir, plot_type=plot_type)
-
         if (not self.data.results) and (not results):  # if results dict is empty
             self.logger.info("No result available from market model!")
             self.geo_plot.create_empty_static_plot(self.data)

@@ -111,3 +111,4 @@ class TestPomatoGridRepresentation(unittest.TestCase):
         self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/I_py.csv").is_file())
         self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/x_bounds_py.csv").is_file())
         self.grid_model.julia_instance.join()
+

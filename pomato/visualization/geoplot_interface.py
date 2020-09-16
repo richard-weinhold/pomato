@@ -164,14 +164,10 @@ class GeoPlot():
         if not data_path.is_dir():
             data_path.mkdir()
 
-        # market_result.data.zones.to_csv(str(folder.joinpath('zones.csv')), index_label='index')
-        # market_result.data.tech.to_csv(str(folder.joinpath('tech.csv')))
         pd.DataFrame(index=market_result.grid.lines.index,
                      columns=market_result.grid.lines.index,
                      data=market_result.grid.lodf).to_csv(str(data_path.joinpath('lodf.csv')),
                                                           index_label='index')
-        market_result.data.fuel.to_csv(str(data_path.joinpath('fuel.csv')),
-                                       index_label='index')
         market_result.data.dclines.to_csv(str(data_path.joinpath('dclines.csv')),
                                           index_label='index')
         market_result.grid.nodes.to_csv(str(data_path.joinpath('nodes.csv')),
@@ -286,7 +282,7 @@ class GeoPlot():
         self.logger.info(
             "Starting Bokeh Server - Close Browser Window to Terminate")
         args_list = ["bokeh", "serve", "--show",
-                     str(self.package_dir.joinpath("visualization/bokeh_dynamic.py")),
+                     str(self.package_dir.joinpath("visualization/geoplot_dynamic.py")),
                      "--args", str(self.bokeh_dir)]
 
         self.bokeh_server = subprocess.Popen(args_list,
