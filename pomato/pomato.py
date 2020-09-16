@@ -120,7 +120,7 @@ from pomato.grid import GridTopology, GridModel
 from pomato.market_model import MarketModel
 from pomato.visualization.geoplot_interface import GeoPlot
 
-def _logging_setup(wdir, webapp, logging_level=logging.INFO):
+def _logging_setup(wdir, logging_level=logging.INFO):
     # Logging setup
     logger = logging.getLogger('Log.MarketModel')
     logger.setLevel(logging_level)
@@ -129,32 +129,19 @@ def _logging_setup(wdir, webapp, logging_level=logging.INFO):
         if not wdir.joinpath("logs").is_dir():
             wdir.joinpath("logs").mkdir()
 
-        if webapp:
-            logfile_path = wdir.joinpath("logs").joinpath('market_tool_webapp.log')
-            # Clear Logfile
-            with open(logfile_path, 'w'):
-                pass
-            file_handler = logging.FileHandler(logfile_path, 'utf-8')
-            file_handler.setLevel(logging.INFO)
-            file_handler_formatter = logging.Formatter('%(asctime)s - %(message)s',
-                                                       '%d.%m %H:%M')
-            file_handler.setFormatter(file_handler_formatter)
-            logger.addHandler(file_handler)
+        file_handler = logging.FileHandler(wdir.joinpath("logs").joinpath('market_tool.log'))
+        file_handler.setLevel(logging.DEBUG)
+        file_handler_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                                                    '%d.%m.%Y %H:%M')
+        file_handler.setFormatter(file_handler_formatter)
+        console_handler = logging.StreamHandler()
+        console_handler.setLevel(logging.INFO)
+        console_handler_formatter = logging.Formatter('%(levelname)s - %(message)s')
+        console_handler.setFormatter(console_handler_formatter)
 
-        else:
-            file_handler = logging.FileHandler(wdir.joinpath("logs").joinpath('market_tool.log'))
-            file_handler.setLevel(logging.DEBUG)
-            file_handler_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                                                       '%d.%m.%Y %H:%M')
-            file_handler.setFormatter(file_handler_formatter)
-            console_handler = logging.StreamHandler()
-            console_handler.setLevel(logging.INFO)
-            console_handler_formatter = logging.Formatter('%(levelname)s - %(message)s')
-            console_handler.setFormatter(console_handler_formatter)
-
-            # add the handlers to the logger
-            logger.addHandler(console_handler)
-            logger.addHandler(file_handler)
+        # add the handlers to the logger
+        logger.addHandler(console_handler)
+        logger.addHandler(file_handler)
     return logger
 
 class POMATO():
@@ -221,17 +208,14 @@ class POMATO():
         Providing the name of an option file, usually located in the
         ``/profiles`` folder. If not provided, using default options as
         defined in tools.
-    webapp : bool, optional
-        Optional parameter to set logging settings when initializing POMATO
-        as part of the included webapp.
     """
    
-    def __init__(self, wdir, options_file=None, webapp=False, logging_level=logging.INFO):
+    def __init__(self, wdir, options_file=None, logging_level=logging.INFO):
 
         self.wdir = wdir
         self.package_dir = Path(pomato.__path__[0])
 
-        self.logger = _logging_setup(self.wdir, webapp, logging_level)
+        self.logger = _logging_setup(self.wdir, logging_level)
         self.logger.info("Market Tool Initialized")
         tools.create_folder_structure(self.wdir, self.logger)
 

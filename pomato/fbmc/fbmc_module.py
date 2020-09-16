@@ -231,29 +231,6 @@ class FBMCModule():
         # self.logger.info("Done!")
         return zonal_fbmc_ptdf, ram
 
-    def create_fbmc_equations(self, domain_x, domain_y, A, b):
-        """
-        from zonal ptdf calculate linear equations ax = b to plot the FBMC domain
-        nodes/Zones that are not part of the 2D FBMC are summarized using GSK sink
-        """
-        self.logger.info("Creating fbmc equations...")
-        list_zones = list(self.nodes.zone.unique())
-        if len(domain_x) == 2:
-            domain_idx = [[list_zones.index(zone[0]),
-                           list_zones.index(zone[1])] for zone in [domain_x, domain_y]]
-            A = np.vstack([np.dot(A[:, domain], np.array([1, -1])) for domain in domain_idx]).T
-        else:
-            raise ZeroDivisionError("Domains not set in the right way!")
-
-        #Clean reduce Ax=b only works if b_i != 0 for all i,
-        #which should be but sometimes wired stuff comes up
-        #Therefore if b == 0, b-> 1 (or something small>0)
-        if not (b > 0).all():
-            b[(b < 0)] = 0.1
-            self.logger.warning('Some RAMS are < 0 (thats bad)')
-
-        return(A, b)
-
     def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=True):
         
         domain_data = {}
