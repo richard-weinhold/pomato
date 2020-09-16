@@ -17,7 +17,8 @@ from bokeh.models.widgets import RadioButtonGroup, Slider
 from bokeh.plotting import ColumnDataSource, figure
 from bokeh.tile_providers import get_provider
 
-from geoplot_static import merc, prepare_line_plot, update_line_colors, return_hover_dicts
+import pomato
+from pomato.visualization.geoplot_static import merc, prepare_line_plot, update_line_colors, return_hover_dicts
 
 def get_tilesource(provider="STAMEN_TONER_BACKGROUND"):
   tile_source = get_provider(provider)
@@ -25,7 +26,7 @@ def get_tilesource(provider="STAMEN_TONER_BACKGROUND"):
 
 def init_market_data(market_db):
     """load data from market_result/market_db forder"""
-    data_dir = WDIR.joinpath("market_result").joinpath(market_db)
+    data_dir = wdir.joinpath("market_result").joinpath(market_db)
 
     nodes = pd.read_csv(data_dir.joinpath("nodes.csv"), index_col=0)
     g_by_fuel = pd.read_csv(data_dir.joinpath("g_by_fuel.csv"), index_col=0)
@@ -45,10 +46,10 @@ def init_market_data(market_db):
 
 def all_fuels_from_market_results():
     """ Find all Fuels from Market Result to correctly show legend"""
-    market_results = [path for path in os.listdir(WDIR.joinpath("market_result")) if "." not in path]
+    market_results = [path for path in os.listdir(wdir.joinpath("market_result")) if "." not in path]
     fuels = ["dem"]
     for database in market_results:
-        data_dir = WDIR.joinpath("market_result").joinpath(database)
+        data_dir = wdir.joinpath("market_result").joinpath(database)
         g_by_fuel = pd.read_csv(data_dir.joinpath("g_by_fuel.csv"), index_col=0)
         add_fuels = [fuel for fuel in list(g_by_fuel.fuel.unique()) if fuel not in fuels]
         fuels.extend(add_fuels)
@@ -317,11 +318,10 @@ def create_stacked_bars_sources(nodes):
     legend_dict = {"x": x_axis, "y": y_axis, "legend": legend, "c":color}
     return gen_dict, y_max, legend_dict
 
-
-WDIR = Path(sys.argv[1])
-
+# if __name__ == "__main__":
+wdir = Path.cwd()
 # Init Data
-option_market_db = [path for path in os.listdir(WDIR.joinpath("market_result")) if "." not in path]
+option_market_db = [path for path in os.listdir(wdir.joinpath("market_result")) if "." not in path]
 (nodes, g_by_fuel, demand, inj, f_dc, t_first, t_last,
     lines, dclines, lodf_matrix, n_0_flows, n_1_flows) = init_market_data(option_market_db[0])
 
@@ -443,9 +443,9 @@ n.data_source.selected.on_change('indices', update_stacked_bars)
 line_legend_dict = create_line_legend(60, 110)
 source_line_legend = ColumnDataSource(line_legend_dict)
 legend_lines = figure(plot_width=300, plot_height=80,
-                      x_range=(60, 110.1), y_range=(0, 1),
-                      toolbar_location=None, tools="",
-                      title="N-0 Lineloadings in %")
+                    x_range=(60, 110.1), y_range=(0, 1),
+                    toolbar_location=None, tools="",
+                    title="N-0 Lineloadings in %")
 
 legend_lines.quad(top="top", bottom="bottom", left="left", right="right",
                     color="color", source=source_line_legend)
@@ -461,7 +461,7 @@ fig.select(TapTool).renderers = [l]
 # set up layout = row(row|column)
 # UI scaling for everthing except the widget column with the indicator plot
 widgets = column(column(slider, flow_type_botton, select_market_db, width=300),
-                 legend_lines, fig_bar)
+                legend_lines, fig_bar)
 #main_map = row(children=[fig,fig_bar])
 layout = row(children=[fig, widgets], sizing_mode="scale_height")
 curdoc().add_root(layout)

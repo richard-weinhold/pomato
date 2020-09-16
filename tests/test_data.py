@@ -27,9 +27,9 @@ class TestPomatoData(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
+        shutil.rmtree(Path.cwd().joinpath("data_temp"), ignore_errors=True)
+        shutil.rmtree(Path.cwd().joinpath("data_output"), ignore_errors=True)
+        shutil.rmtree(Path.cwd().joinpath("logs"), ignore_errors=True)
 
     def test_plant_data(self):
         self.assertTrue(self.data.plants.loc[self.data.plants.mc_el.isna(), :].empty)

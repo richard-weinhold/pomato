@@ -282,13 +282,13 @@ class GeoPlot():
         self.logger.info(
             "Starting Bokeh Server - Close Browser Window to Terminate")
         args_list = ["bokeh", "serve", "--show",
-                     str(self.package_dir.joinpath("visualization/geoplot_dynamic.py")),
-                     "--args", str(self.bokeh_dir)]
+                     str(self.package_dir.joinpath("visualization/geoplot_dynamic.py"))]
 
         self.bokeh_server = subprocess.Popen(args_list,
                                              stdout=subprocess.PIPE,
                                              stderr=subprocess.STDOUT,
-                                             shell=False)
+                                             shell=False,
+                                             cwd=self.bokeh_dir)
 
         self.bokeh_thread = threading.Thread(target=self._output_reader,
                                              args=(self.bokeh_server,))
