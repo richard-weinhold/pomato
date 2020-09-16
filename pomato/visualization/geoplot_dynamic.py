@@ -320,6 +320,11 @@ def create_stacked_bars_sources(nodes):
 
 # if __name__ == "__main__":
 wdir = Path.cwd()
+
+## Needed for testing 
+if not wdir.joinpath("market_result").is_dir():
+    wdir = wdir.joinpath("examples/data_temp/bokeh_files")
+
 # Init Data
 option_market_db = [path for path in os.listdir(wdir.joinpath("market_result")) if "." not in path]
 (nodes, g_by_fuel, demand, inj, f_dc, t_first, t_last,

@@ -22,9 +22,9 @@ class TestPomatoGeoPlot(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
 
-        shutil.rmtree(Path.cwd().joinpath("data_temp"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("data_output"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("logs"), ignore_errors=True)
+        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
+        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
+        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
 
     def test_dynamic_plot(self):
 
@@ -56,10 +56,7 @@ class TestPomatoGeoPlot(unittest.TestCase):
         time.sleep(3)
         mato.geo_plot.stop_server()
 
-        os.chdir(self.wdir.joinpath("data_temp/bokeh_files"))
         from pomato.visualization import geoplot_dynamic
-        os.chdir(self.wdir)
-
 
 if __name__ == '__main__':
     unittest.main()
