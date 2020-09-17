@@ -53,7 +53,7 @@ class TestFBMCModule(unittest.TestCase):
         fbmc_gridrep_Gmax = fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
         fbmc_gridrep_G = fbmc.create_flowbased_parameters(basecase, gsk_strategy="dynamic", reduce=False)
 
-        self.assertRaises(AssertionError, np.testing.assert_array_equal, 
+        self.assertRaises(AssertionError, np.testing.assert_almost_equal, 
                           fbmc_gridrep_G.loc[:, mato.data.zones.index].values, 
                           fbmc_gridrep_Gmax.loc[:, mato.data.zones.index].values)
 
