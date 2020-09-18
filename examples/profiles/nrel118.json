@@ -32,7 +32,7 @@
         "cbco_option": "clarkson_base",
         "precalc_filename": "",
         "sensitivity": 5e-2,
-        "capacity_multiplier": 0.8,
+        "capacity_multiplier": 1,
         "preprocess": true,
         "gsk": "gmax"
     },

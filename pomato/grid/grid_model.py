@@ -87,10 +87,6 @@ class GridModel():
         self.julia_instance = None
         self.logger.info("CBCOModule Initialized!")
 
-    def __del__(self):
-        if self.julia_instance.is_alive():
-            self.julia_instance.join()
-            
     def _start_julia_daemon(self):
         self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 

@@ -104,7 +104,7 @@ class TestPomatoMarketModel(unittest.TestCase):
 
         fbmc = pomato.fbmc.FBMCModule(mato.wdir, mato.grid, mato.data, mato.options)
         fbmc_gridrep = fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", 
-                                                        reduce=True)
+                                                        reduce=False)
 
         fbmc_domain = pomato.visualization.FBMCDomainPlots(mato.wdir, mato.grid, 
                                                            mato.data, mato.options, 

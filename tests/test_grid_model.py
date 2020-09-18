@@ -16,7 +16,7 @@ from pomato import tools
 class TestPomatoGridModel(unittest.TestCase):
     def setUp(self):
         self.logger = logging.getLogger('Log.MarketModel')
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(logging.ERROR)
 
         self.wdir = Path.cwd().joinpath("examples")
         with open(self.wdir.joinpath("profiles/nrel118.json")) as opt_file:
@@ -24,7 +24,7 @@ class TestPomatoGridModel(unittest.TestCase):
         self.options = pomato.tools.add_default_options(loaded_options) 
 
         self.data = pomato.data.DataManagement(self.options, self.wdir)
-        self.data.logger.setLevel(logging.INFO)
+        self.data.logger.setLevel(logging.ERROR)
         self.data.load_data(r'data_input/nrel_118.zip')
         
         R2_to_R3 = ["bus118", "bus076", "bus077", "bus078", "bus079", 
@@ -35,7 +35,7 @@ class TestPomatoGridModel(unittest.TestCase):
         self.grid = pomato.grid.GridTopology()
         self.grid.calculate_parameters(self.data.nodes, self.data.lines)
         self.grid_model = pomato.grid.GridModel(self.wdir, self.grid, self.data, self.options)
-        self.grid_model.logger.setLevel(logging.INFO)
+        self.grid_model.logger.setLevel(logging.ERROR)
 
     @classmethod
     def tearDownClass(cls):
@@ -78,11 +78,13 @@ class TestPomatoGridModel(unittest.TestCase):
         self.grid_model.create_grid_representation()
         gr = self.grid_model.grid_representation
         np.testing.assert_equal(gr.grid[self.data.nodes.index].values, self.grid.ptdf)
-        np.testing.assert_equal(gr.grid["ram"].values, self.data.lines.maxflow.values)
+        np.testing.assert_equal(gr.grid["ram"].values/self.grid_model.options["grid"]["capacity_multiplier"], self.data.lines.maxflow.values)
         
 
     def test_cbco_nodal(self):
         self.grid_model.options["optimization"]["type"] = "cbco_nodal"
+        self.grid_model.options["grid"]["cbco_option"] = "full"
+
         self.grid_model.create_grid_representation()
         gr = self.grid_model.grid_representation
 
@@ -108,7 +110,30 @@ class TestPomatoGridModel(unittest.TestCase):
         self.grid_model.create_grid_representation()
         pd.testing.assert_frame_equal(c_ptdf_fallback, self.grid_model.grid_representation.grid)
 
-    def test_cbco_nodal_clarkson(self):
+    def test_cbco_nodal_index_precalc(self):
+        
+        my_file = self.wdir.parent.joinpath('tests/test_data/cbco_nrel_118.csv')
+        to_file = self.wdir.joinpath('data_temp/julia_files/cbco_data/cbco_nrel_118.csv')
+        shutil.copyfile(str(my_file), str(to_file))
+
+        self.grid_model.options["optimization"]["type"] = "cbco_nodal"
+        self.grid_model.options["grid"]["precalc_filename"] = "cbco_nrel_118"
+        self.grid_model.options["grid"]["capacity_multiplier"] = 0.8
+        self.grid_model.process_cbco_nodal()
+
+
+    def test_cbco_nodal_list_precalc(self):
+
+        self.grid_model.options["optimization"]["type"] = "cbco_nodal"
+        self.grid_model.options["grid"]["precalc_filename"] = "random_words"
+        self.grid_model.process_cbco_nodal()
+        c_ptdf_fallback = copy.copy(self.grid_model.grid_representation.grid)
+        self.grid_model.options["grid"]["precalc_filename"] = ""
+        self.grid_model.options["grid"]["cbco_option"] = "full"
+        self.grid_model.create_grid_representation()
+        pd.testing.assert_frame_equal(c_ptdf_fallback, self.grid_model.grid_representation.grid)
+
+    def test_clarkson(self):
 
         test_configs = [("cbco_nodal", "clarkson_base"), 
                         ("cbco_nodal", "clarkson"), 
