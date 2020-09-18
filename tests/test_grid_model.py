@@ -136,7 +136,7 @@ class TestPomatoGridModel(unittest.TestCase):
     def test_clarkson(self):
 
         test_configs = [("cbco_nodal", "clarkson_base"), 
-                        ("cbco_nodal", "clarkson"), 
+                        # ("cbco_nodal", "clarkson"), too slow
                         ("nodal", "nodal_clarkson"), 
                         ("zonal", "clarkson"), 
                         ("cbco_zonal", "clarkson")]
