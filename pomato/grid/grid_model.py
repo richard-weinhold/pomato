@@ -87,6 +87,10 @@ class GridModel():
         self.julia_instance = None
         self.logger.info("CBCOModule Initialized!")
 
+    def __del__(self):
+        if self.julia_instance.is_alive():
+            self.julia_instance.join()
+            
     def _start_julia_daemon(self):
         self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
@@ -231,9 +235,10 @@ class GridModel():
 
         """
         grid_option = self.options["grid"]
+        gsk = self.create_gsk(grid_option["gsk"])
         A, b, cbco_info = self.create_cbco_data(grid_option["sensitivity"],
                                                 preprocess=True,
-                                                gsk=grid_option["gsk"])
+                                                gsk=gsk)
 
         cbco_index = self.clarkson_algorithm(A=A, b=b)
 
@@ -371,7 +376,7 @@ class GridModel():
             b = b[np.sort(idx)]
             info = info.loc[np.sort(idx), :]
 
-        if gsk:  # replace nodal ptdf by zonal ptdf
+        if isinstance(gsk, np.ndarray):  # replace nodal ptdf by zonal ptdf
             A = np.dot(A, gsk)
             info = pd.concat((info.loc[:, ["cb", "co", "ram"]],
                               pd.DataFrame(columns=self.data.zones.index,
@@ -416,6 +421,7 @@ class GridModel():
         depending on the (arbitrary) definition of the incidence matrix,
         only the max(positive bound, abs(negative bound)) is considered.
 
+        TODO Rewrite without for n in nodes loop (takes 7s for the ieee network and 8760t)
 
         Returns
         -------
@@ -425,26 +431,35 @@ class GridModel():
         """
         infeasibility_upperbound = self.options["optimization"]["infeasibility"]["electricity"]["bound"]
         nodal_injection_limits = []
+        demand_el = self.data.demand_el.copy()
+        net_export = self.data.net_export[self.data.net_export.net_export > 0].copy()
 
         for node in self.data.nodes.index:
             plant_types = self.options["optimization"]["plant_types"]
-            condition_storage = (self.data.plants.node == node) & \
+
+            condition_plant_node = self.data.plants.node == node
+
+            condition_storage = condition_plant_node & \
                                 (self.data.plants.plant_type.isin(plant_types["es"]))
-            condition_el_heat = (self.data.plants.node == node) & \
+            condition_el_heat = condition_plant_node & \
                                 (self.data.plants.plant_type.isin(plant_types["ph"]))
 
             max_dc_inj = self.data.dclines.maxflow[(self.data.dclines.node_i == node) |
                                                    (self.data.dclines.node_j == node)].sum()
-            nex_max = max(0, self.data.net_export.loc[self.data.net_export.node == node, "net_export"].max())
-            nex_min = -min(0, self.data.net_export.loc[self.data.net_export.node == node, "net_export"].min())
-            upper = max(self.data.plants.g_max[self.data.plants.node == node].sum()
-                        - self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].min()
+            
+            condition_nex = net_export.node == node
+            nex_max = max(0, net_export.loc[condition_nex, "net_export"].max())
+            nex_min = -min(0, net_export.loc[condition_nex, "net_export"].min())
+            
+            condition_demand = demand_el.node == node
+            upper = max(self.data.plants.g_max[condition_plant_node].sum()
+                        - demand_el.loc[condition_demand, "demand_el"].min()
                         + nex_max
                         + max_dc_inj
                         + infeasibility_upperbound
                         , 0)
 
-            lower = max(self.data.demand_el.loc[self.data.demand_el.node == node, "demand_el"].max()
+            lower = max(demand_el.loc[condition_demand, "demand_el"].max()
                         + self.data.plants.g_max[condition_storage].sum()
                         + self.data.plants.g_max[condition_el_heat].sum()
                         + nex_min
@@ -477,6 +492,9 @@ class GridModel():
             self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
         if not self.julia_instance.is_alive:
             self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
+
+        if self.options["optimization"]["type"] == "zonal":
+            self.julia_instance.disable_multi_threading()
 
         t_start = dt.datetime.now()
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
@@ -607,3 +625,4 @@ class GridModel():
                 tmp.append([to_zone, from_zone, 0])
 
         self.grid_representation.ntc = pd.DataFrame(tmp, columns=["zone_i", "zone_j", "ntc"])
+

@@ -4,7 +4,6 @@ import shutil
 import os
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 import numpy as np
 import pandas as pd

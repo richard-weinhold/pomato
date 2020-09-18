@@ -2,9 +2,9 @@ import copy
 import logging
 import random
 import shutil
+import json
 import unittest
 from pathlib import Path
-from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
@@ -13,14 +13,24 @@ from context import pomato
 from pomato import tools
 
 # pylint: disable-msg=E1101
-class TestPomatoGridRepresentation(unittest.TestCase):
+class TestPomatoGridModel(unittest.TestCase):
     def setUp(self):
+        self.logger = logging.getLogger('Log.MarketModel')
+        self.logger.setLevel(logging.INFO)
+
         self.wdir = Path.cwd().joinpath("examples")
-        self.options = pomato.tools.default_options()
-        self.options["data"]["stacked"] = ["demand_el_rt", "demand_el_da", "availability_da", "availability_rt", "net_export"]
+        with open(self.wdir.joinpath("profiles/nrel118.json")) as opt_file:
+                loaded_options = json.load(opt_file)
+        self.options = pomato.tools.add_default_options(loaded_options) 
+
         self.data = pomato.data.DataManagement(self.options, self.wdir)
-        self.data.logger.setLevel(logging.ERROR)
+        self.data.logger.setLevel(logging.INFO)
         self.data.load_data(r'data_input/nrel_118.zip')
+        
+        R2_to_R3 = ["bus118", "bus076", "bus077", "bus078", "bus079", 
+                    "bus080", "bus081", "bus097", "bus098", "bus099"]
+
+        self.data.nodes.loc[R2_to_R3, "zone"] = "R3"
 
         self.grid = pomato.grid.GridTopology()
         self.grid.calculate_parameters(self.data.nodes, self.data.lines)
@@ -99,16 +109,25 @@ class TestPomatoGridRepresentation(unittest.TestCase):
         pd.testing.assert_frame_equal(c_ptdf_fallback, self.grid_model.grid_representation.grid)
 
     def test_cbco_nodal_clarkson(self):
-        
-        self.grid_model.options["optimization"]["type"] = "cbco_nodal"
-        self.grid_model.options["grid"]["cbco_option"] = "clarkson_base"
 
-        self.grid_model.create_grid_representation()
-        file = tools.newest_file_folder(self.grid_model.julia_dir.joinpath("cbco_data"), keyword="cbco")
-        self.assertTrue(file.is_file())
-        self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/A_py.csv").is_file())
-        self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/b_py.csv").is_file())
-        self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/I_py.csv").is_file())
-        self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/x_bounds_py.csv").is_file())
+        test_configs = [("cbco_nodal", "clarkson_base"), 
+                        ("cbco_nodal", "clarkson"), 
+                        ("nodal", "nodal_clarkson"), 
+                        ("zonal", "clarkson"), 
+                        ("cbco_zonal", "clarkson")]
+
+        for (optimization_option, cbco_option) in test_configs:
+            print(optimization_option)
+
+            self.grid_model.options["optimization"]["type"] = optimization_option
+            self.grid_model.options["grid"]["cbco_option"] = cbco_option
+
+            self.grid_model.create_grid_representation()
+            file = tools.newest_file_folder(self.grid_model.julia_dir.joinpath("cbco_data"), keyword="cbco")
+            self.assertTrue(file.is_file())
+            self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/A_py.csv").is_file())
+            self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/b_py.csv").is_file())
+            self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/I_py.csv").is_file())
+            self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/x_bounds_py.csv").is_file())
+              
         self.grid_model.julia_instance.join()
-
