@@ -104,7 +104,7 @@ class TestPomatoMarketModel(unittest.TestCase):
 
         fbmc = pomato.fbmc.FBMCModule(mato.wdir, mato.grid, mato.data, mato.options)
         fbmc_gridrep = fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", 
-                                                        reduce=False)
+                                                        reduce=True)
 
         fbmc_domain = pomato.visualization.FBMCDomainPlots(mato.wdir, mato.grid, 
                                                            mato.data, mato.options, 
@@ -129,10 +129,8 @@ class TestPomatoMarketModel(unittest.TestCase):
         mato.options["optimization"]["constrain_nex"] = False
         mato.options["optimization"]["chance_constrained"]["include"] = False
 
-        # mato.market_model.julia_model = None
         mato.update_market_model_data()
         mato.run_market_model()
         mato.create_geo_plot()
 
-        # mato._join_julia_instance_market_model()
         mato._join_julia_instances()
