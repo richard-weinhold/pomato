@@ -213,7 +213,7 @@ class GridModel():
 
             ptdf_df["ram"] = self.grid.lines.maxflow*self.options["grid"]["capacity_multiplier"]
             self.grid_representation.grid = ptdf_df
-        self.create_ntc()
+        self.grid_representation.ntc = self.create_ntc()
 
     def process_cbco_zonal(self):
         """Process grid information for zonal N-1 representation.
@@ -240,7 +240,7 @@ class GridModel():
 
         self.grid_representation.grid = self.return_cbco(cbco_info, cbco_index)
         self.grid_representation.grid.ram *= grid_option["capacity_multiplier"]
-        self.create_ntc()
+        self.grid_representation.ntc = self.create_ntc()
 
     def _add_zone_to_grid_representation(self, grid):
         """Add information in which country a line is located.
@@ -575,18 +575,28 @@ class GridModel():
         data is generated.
         """
         if self.data.ntc.empty:
-            self.create_ntc()
+            self.grid_representation.ntc = self.create_ntc()
         else:
             self.grid_representation.ntc = self.data.ntc
 
-    def create_ntc(self):
+    def create_ntc(self, default_ntc=1e5):
         """Create NTC data.
 
         The ntc generated in this method are high (10.000) or zero. This is useful
         to limit commercial exchange to connected zones or when the model uses a
         simplified line representation.
-
+        
+        Parameters
+        ----------
+        default_ntc : float, optional
+            NTC value, defaults to 1e5. 
+        Returns
+        -------
+        ntc : pd.DataFrame
+            DataFrame that contains dummy ntc which are the *default_ntc* when market areas are 
+            connected and zero otherwise.  
         """
+
         tmp = []
         for from_zone, to_zone in itertools.combinations(set(self.data.nodes.zone), 2):
             lines = []
@@ -614,11 +624,11 @@ class GridModel():
             dclines += list(self.data.dclines.index[condition_i_to & condition_j_from])
 
             if lines or dclines:
-                tmp.append([from_zone, to_zone, 1e5])
-                tmp.append([to_zone, from_zone, 1e5])
+                tmp.append([from_zone, to_zone, default_ntc])
+                tmp.append([to_zone, from_zone, default_ntc])
             else:
                 tmp.append([from_zone, to_zone, 0])
                 tmp.append([to_zone, from_zone, 0])
 
-        self.grid_representation.ntc = pd.DataFrame(tmp, columns=["zone_i", "zone_j", "ntc"])
+        return pd.DataFrame(tmp, columns=["zone_i", "zone_j", "ntc"])
 

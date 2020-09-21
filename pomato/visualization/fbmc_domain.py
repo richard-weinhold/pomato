@@ -21,12 +21,13 @@ from pomato.fbmc import FBMCModule
 
 class FBMCDomain():
     """Class to store all relevant information of an FBMC Plot"""
-    def __init__(self, plot_information, plot_equations, hull_information, xy_limits, domain_data):
+    def __init__(self, plot_information, plot_equations, hull_information, xy_limits, domain_data, ntc):
         
         self.gsk_strategy = plot_information["gsk_strategy"]
         self.timestep = plot_information["timestep"]
         self.domain_x = plot_information["domain_x"]
         self.domain_y = plot_information["domain_y"]
+        
         if plot_information["filename_suffix"]:
             self.title = self.timestep + "_" + self.gsk_strategy \
                          + "_" + plot_information["filename_suffix"]
@@ -35,45 +36,75 @@ class FBMCDomain():
 
         self.plot_equations = plot_equations
         self.hull_information = hull_information
+        self.ntc = ntc.set_index(["zone_i", "zone_j"])
 
-        self.x_max = xy_limits["x_max"]
-        self.x_min = xy_limits["x_min"]
-        self.y_max = xy_limits["y_max"]
-        self.y_min = xy_limits["y_min"]
+        self.x_max, self.x_min = xy_limits["x_max"], xy_limits["x_min"]
+        self.y_max, self.y_min = xy_limits["y_max"], xy_limits["y_min"]
         self.domain_data = domain_data
 
         # set-up: don't show the graphs when created
         plt.ioff()
 
-    def create_fbmc_figure(self):
-        """Plot the domain and return it"""
-        hull_plot_x = self.hull_information["hull_plot_x"]
-        hull_plot_y = self.hull_information["hull_plot_y"]
-        hull_coord_x = self.hull_information["hull_coord_x"]
-        hull_coord_y = self.hull_information["hull_coord_y"]
+    def create_fbmc_figure(self, include_ntc):
+        """Plot the domain and return
+
+        Parameters
+        ----------
+        include_ntc : bool
+            Include NTC into FBMC domain.
+
+        """        
+        # Setup
         fig = plt.figure()
         axis = plt.subplot()
         scale = 1.05
-        axis.set_xlim(self.x_min*scale, self.x_max*scale)
-        axis.set_ylim(self.y_min*scale, self.y_max*scale)
 
         title = 'FBMC Domain between: ' + "-".join(self.domain_x) \
                 + ' and ' + "-".join(self.domain_y) \
-                + '\n Number of CBCOs: ' + str(len(hull_plot_x)-1) \
+                + '\n Number of CBCOs: ' + str(len(self.hull_information["hull_plot_x"])-1) \
                 + "\n GSK Strategy: " + self.gsk_strategy \
                 + " - Timestep: " + self.timestep
+        
+        # hull_plot contains the halfspaces (as line plots) 
+        # and coord the vertices (corners)
+        hull_plot_x = self.hull_information["hull_plot_x"]
+        hull_plot_y = self.hull_information["hull_plot_y"]
+        hull_coord_x = self.hull_information["hull_coord_x"]
+        hull_coord_y = self.hull_information["hull_coord_y"]      
 
         for elem in self.plot_equations:
             axis.plot(elem[0], elem[1], c='lightgrey', ls='-')
-
+        
         axis.plot(hull_plot_x, hull_plot_y, 'r--', linewidth=2)
-        axis.set_title(title)
         axis.scatter(hull_coord_x, hull_coord_y)
+
+        if include_ntc and not self.ntc.empty:
+            # Include NTC as box in the domain plot
+            ntc_x_pos = self.ntc.loc[(self.domain_x[0], self.domain_x[1]), "ntc"]
+            ntc_x_neg = self.ntc.loc[(self.domain_x[1], self.domain_x[0]), "ntc"]
+            ntc_y_pos = self.ntc.loc[(self.domain_y[0], self.domain_y[1]), "ntc"]
+            ntc_y_neg = self.ntc.loc[(self.domain_y[1], self.domain_y[0]), "ntc"]
+
+            ntc_plot = [[[ntc_x_pos, ntc_x_pos], [ntc_y_pos, -ntc_y_neg]],
+                        [[-ntc_x_neg, -ntc_x_neg], [ntc_y_pos, -ntc_y_neg]],
+                        [[ntc_x_pos, -ntc_x_neg], [ntc_y_pos, ntc_y_pos]],
+                        [[ntc_x_pos, -ntc_x_neg], [-ntc_y_neg, -ntc_y_neg]]]
+
+            for elem in ntc_plot:
+                axis.plot(elem[0], elem[1], c='blue', ls='--')
+            # expand x min/max, y min/max to accommodate the NTC box
+            self.x_min, self.x_max = min(self.x_min, -ntc_x_neg), max(self.x_max, ntc_x_pos)
+            self.y_min, self.y_max = min(self.y_min, -ntc_y_neg), max(self.y_max, ntc_y_pos)
+
+        axis.set_xlim(self.x_min*scale, self.x_max*scale)
+        axis.set_ylim(self.y_min*scale, self.y_max*scale)
+        axis.set_title(title)
+
         return fig
 
-    def save_fbmc_domain(self, folder):
+    def save_fbmc_domain(self, folder, include_ntc=True):
         """Save fbmc domain to folder"""
-        fig = self.create_fbmc_figure() 
+        fig = self.create_fbmc_figure(include_ntc=include_ntc) 
         fig.savefig(str(folder.joinpath(f"FBMC_{self.title}.png")))
         fig.clf()
 
@@ -95,13 +126,13 @@ class FBMCDomainPlots(FBMCModule):
         plt.close("all")
         self.logger.info("FBMCModule  Initialized!")
 
-    def save_all_domain_plots(self, folder):
+    def save_all_domain_plots(self, folder, include_ntc=False):
         """Saving all the FBMC Plots"""
         self.set_xy_limits_forall_plots()
         plt.close("all")
         for plot in self.fbmc_plots:
             self.logger.info("Plotting Domain of %s in folder %s", plot, folder)
-            self.fbmc_plots[plot].save_fbmc_domain(folder)
+            self.fbmc_plots[plot].save_fbmc_domain(folder, include_ntc)
             self.logger.info("Done!")
             plt.close("all")
 
@@ -333,19 +364,17 @@ class FBMCDomainPlots(FBMCModule):
         xy_limits = tools.find_xy_limits([[hull_plot_x, hull_plot_y]])
 
         self.logger.info("Number of CBCOs defining the domain %d", len(hull_plot_x) - 1)
-        fbmc_plot = FBMCDomain({"gsk_strategy": gsk_strategy,
-                                "timestep": timestep,
-                                "domain_x": domain_x,
-                                "domain_y": domain_y,
-                                "filename_suffix": filename_suffix,
-                                },
-                               plot_equations,
-                               {"hull_plot_x": hull_plot_x,
-                                "hull_plot_y": hull_plot_y,
-                                "hull_coord_x": hull_coord_x,
-                                "hull_coord_y": hull_coord_y
-                                },
-                               xy_limits,
-                               self.domain_info.copy())
+
+        plot_information = {"gsk_strategy": gsk_strategy, "timestep": timestep,
+                            "domain_x": domain_x, "domain_y": domain_y,
+                            "filename_suffix": filename_suffix}
+        
+        hull_information = {"hull_plot_x": hull_plot_x,
+                            "hull_plot_y": hull_plot_y,
+                            "hull_coord_x": hull_coord_x,
+                            "hull_coord_y": hull_coord_y}
+
+        fbmc_plot = FBMCDomain(plot_information, plot_equations, hull_information,
+                               xy_limits, self.domain_info.copy(), self.data.ntc)
 
         self.fbmc_plots[fbmc_plot.title] = fbmc_plot
