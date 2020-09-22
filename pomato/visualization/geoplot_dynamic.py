@@ -448,9 +448,9 @@ n.data_source.selected.on_change('indices', update_stacked_bars)
 line_legend_dict = create_line_legend(60, 110)
 source_line_legend = ColumnDataSource(line_legend_dict)
 legend_lines = figure(plot_width=300, plot_height=80,
-                    x_range=(60, 110.1), y_range=(0, 1),
-                    toolbar_location=None, tools="",
-                    title="N-0 Lineloadings in %")
+                      x_range=(60, 110.1), y_range=(0, 1),
+                      toolbar_location=None, tools="",
+                      title="N-0 Lineloadings in %")
 
 legend_lines.quad(top="top", bottom="bottom", left="left", right="right",
                     color="color", source=source_line_legend)
@@ -466,7 +466,7 @@ fig.select(TapTool).renderers = [l]
 # set up layout = row(row|column)
 # UI scaling for everthing except the widget column with the indicator plot
 widgets = column(column(slider, flow_type_botton, select_market_db, width=300),
-                legend_lines, fig_bar)
+                        legend_lines, fig_bar)
 #main_map = row(children=[fig,fig_bar])
 layout = row(children=[fig, widgets], sizing_mode="scale_height")
 curdoc().add_root(layout)

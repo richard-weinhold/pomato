@@ -9,7 +9,7 @@ import numpy as np
 import pandas as pd
 from bokeh import palettes
 from bokeh.io import show
-from bokeh.models import (Circle, HoverTool, Label, LassoSelectTool, 
+from bokeh.models import (Circle, HoverTool, Label, LassoSelectTool,  SaveTool, 
     MultiLine, Select, TapTool, WMTSTileSource)
 from bokeh.plotting import ColumnDataSource, figure
 from bokeh.tile_providers import get_provider
@@ -249,7 +249,7 @@ def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
 
     hover_line, hover_dcline, hover_node = return_hover_dicts()
 
-    fig = figure(tools="pan,wheel_zoom", active_scroll="wheel_zoom", title=title,
+    fig = figure(tools="pan,wheel_zoom,save", active_scroll="wheel_zoom", title=title,
                  x_range=(x_range), y_range=(y_range), 
                  plot_height=plot_dimensions[0], plot_width=plot_dimensions[1])
 
