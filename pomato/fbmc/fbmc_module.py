@@ -1,10 +1,3 @@
-"""
-
-THIS IS FBMC Module
-INPUT: DATA
-OUTPUT: RESULTS
-
-"""
 import datetime as dt
 import logging
 from pathlib import Path
@@ -18,9 +11,26 @@ import pomato.tools as tools
 from pomato.grid import GridModel
 
 class FBMCModule():
-    """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, grid_object, data, options, cbco_list=None, flowbased_region=None):
-        # Import Logger
+    """ Class to do all calculations in connection with cbco calculation
+
+            Parameters
+            ----------
+            wdir : pathlib.Path
+                Working directory
+            grid_object : :class:`~pomato.grid.GridTopology`
+                An instance of the DataManagement class with processed input data.
+            data : :class:`~pomato.data.DataManagement`
+                An instance of the DataManagement class with processed input data.
+            options : dict
+                The options from POMATO main method persist in the CBCOModule.
+            custom_cbco : pd.DataFrame, optional
+                Specify the list of CBCOs considered for the FB paramters, by default None which 
+                will cause CBCOs chosen based on a zone-to-zone sensitivity.
+            flowbased_region : list, optional
+                List of countries for which the FB parameters are calculated, defaults to all zones.
+        """
+    def __init__(self, wdir, grid_object, data, options, custom_cbco=None, flowbased_region=None):
+
         self.logger = logging.getLogger('Log.MarketModel.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
 
@@ -34,7 +44,7 @@ class FBMCModule():
         if not flowbased_region:
             self.flowbased_region = list(data.zones.index)
 
-        self.cbco_list = cbco_list
+        self.custom_cbco = custom_cbco
         self.data = data
         self.nodal_fbmc_ptdf, self.domain_info = self.create_fbmc_info()
 
@@ -124,8 +134,8 @@ class FBMCModule():
         create ptdf, determine CBs
         """
 
-        if isinstance(self.cbco_list, pd.DataFrame):
-            base_cb = list(self.cbco_list.cb[self.cbco_list.co == "basecase"])
+        if isinstance(self.custom_cbco, pd.DataFrame):
+            base_cb = list(self.custom_cbco.cb[self.custom_cbco.co == "basecase"])
 
             index_position = [self.lines.index.get_loc(line) for line in base_cb]
             base_ptdf = self.grid.ptdf[index_position, :]
@@ -133,12 +143,12 @@ class FBMCModule():
             label_lines = list(base_cb)+list(base_cb)
             label_outages = ["basecase" for line in label_lines]
 
-            self.cbco_list = self.cbco_list[~(self.cbco_list.co == "basecase")]
+            self.custom_cbco = self.custom_cbco[~(self.custom_cbco.co == "basecase")]
             select_lines = []
             select_outages = {}
-            for line in self.cbco_list.cb.unique():
+            for line in self.custom_cbco.cb.unique():
                 select_lines.append(line)
-                select_outages[line] = list(self.cbco_list.co[self.cbco_list.cb == line])
+                select_outages[line] = list(self.custom_cbco.co[self.custom_cbco.cb == line])
 
         else:
             self.lines["cb"] = False

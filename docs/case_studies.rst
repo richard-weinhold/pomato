@@ -132,7 +132,7 @@ The data for the underlying dataset comes from multiple sources:
      flows are directly taken from ENTSO-E. 
    - The grid data comes from the `GridKit <https://github.com/bdw/GridKit>`_ project, more specifically 
      `PyPSA/pypsa-eur <https://github.com/PyPSA/pypsa-eur/tree/master/data/entsoegridkit>`_ fork, which 
-     contains more updated data. 
+     contains more recent data. 
    - Generation costs are based on data from `ELMOD-DE <http://www.diw.de/elmod>`_ which is 
      openly available and described in detail in `DIW DataDocumentation 83 
      <https://www.diw.de/documents/publikationen/73/diw_01.c.528927.de/diw_datadoc_2016-083.pdf>`_ 

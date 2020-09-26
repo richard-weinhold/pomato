@@ -161,7 +161,6 @@ class Results():
         # Redispatch Values
         self.logger.info("Redispatch Values per timestep: sum: %d, abs sum: %d", round(gen.delta.sum()/len(gen.t.unique())), 
                          round(gen.delta_abs.sum()/len(gen.t.unique())))
-
         return gen
 
 

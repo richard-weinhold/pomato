@@ -72,6 +72,12 @@
  	"plant": {"type": "plants.index", "default": "none"},
  	"inflow": {"type": "float64", "default": "none"}
 },
+"storage_level": {
+	"index": {"type": "any", "default": "none"},
+	"timestep": {"type": "any", "default": "none"},
+	"plant": {"type": "plants.index", "default": "none"},
+	"storage_level": {"type": "float64", "default": "none"}
+},
  "net_position": {
  	"index": {"type": "any", "default": "none"},
  	"timestep": {"type": "any", "default": "none"},

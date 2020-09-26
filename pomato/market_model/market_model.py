@@ -50,8 +50,6 @@ class MarketModel():
     grid_representation : types.SimpleNamespace
         Grid representation resulting from of :class:`~pomato.cbco.GridRepresentation`. Contains a
         suitable grid representation based on the chosen options.
-    model_horizon : list
-        List containing all timesteps part of the model horizon.
     status : str
         Attribute indicating the model status: Empty, Solved, Error.
     result_folders : list(pathlib.Path)
@@ -106,7 +104,7 @@ class MarketModel():
         run the market model. If the model is not initialized, it will be done here once. The
         model run depends on the supplied options.
         In the case of successful completion, the result folders are stores in the *result_folders*
-        attribute for further processing the in :class:`~pomato.data.ResultProcessing` module.
+        attribute for further processing the in :class:`~pomato.data.Results` module.
 
         """
         t_start = datetime.datetime.now()
@@ -148,7 +146,29 @@ class MarketModel():
         else:
             self.logger.warning("Process not terminated successfully!")
             self.status = 'error'
+    
+    def rolling_horizon_storage_levels(self, model_horizon):
+        """Set start/end storage levels for rolling horizon market clearing.
 
+        When market model horizon shorter than total model horizon, specify storage levels to 
+        adequately represent storages. Per default storage levels are 65% of total capacity, however
+        this can be edited in the storage_level attribute of :class:`~pomato.data.DataManagement`.
+        
+        """
+
+        splits = int(len(model_horizon)/self.options["optimization"]["timeseries"]["market_horizon"])
+        market_model_horizon = self.options["optimization"]["timeseries"]["market_horizon"]
+
+        splits = max(1, int(len(model_horizon)/self.options["optimization"]["timeseries"]["market_horizon"]))
+        splits = [model_horizon[t*market_model_horizon] for t in range(0, splits)]
+        if not all(t in self.data.storage_level.timestep for t in splits):
+            data = []
+            for plant in self.data.plants[self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["es"])].index:
+                for t in splits:
+                    data.append([t, plant, self.options["optimization"]["parameters"]["storage_start"]])
+            self.data.storage_level = pd.DataFrame(columns=self.data.storage_level.columns, data=data)
+
+       
     def data_to_csv(self, model_horizon):
         """Export input data to csv files in the data_dir sub-directory.
 
@@ -160,7 +180,9 @@ class MarketModel():
         """
         if not self.data_dir.is_dir():
             self.data_dir.mkdir()
-
+        
+        self.rolling_horizon_storage_levels(model_horizon)
+        
         for data in [d for d in self.data.model_structure if d != "lines"]:
             cols = [col for col in self.data.model_structure[data].keys() if col != "index"]
             if "timestep" in cols:

@@ -24,8 +24,8 @@ net_export = mato.data.net_export
 
 mato.data.visualize_inputdata()
 # Run the Market Model, including (costbased) Re-Dispatch.
-# The Market Result is determined based on the option file.
-# The Redispatrch is done to N-0 per default.
+# Market Result is determined based on the option file.
+# Redispatch is done to N-0 per default.
 
 mato.run_market_model()
 market_result = next(iter(mato.data.results.values()))
