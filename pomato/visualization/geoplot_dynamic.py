@@ -11,7 +11,7 @@ import pandas as pd
 from bokeh import palettes
 from bokeh.io import curdoc, show
 from bokeh.layouts import column, row, widgetbox
-from bokeh.models import (Circle, HoverTool, Label, LassoSelectTool, 
+from bokeh.models import (Circle, HoverTool, Label, LassoSelectTool, SaveTool, 
     MultiLine, Select, TapTool, WMTSTileSource)
 from bokeh.models.widgets import RadioButtonGroup, Slider
 from bokeh.plotting import ColumnDataSource, figure
@@ -146,7 +146,8 @@ def update_line_loadings(attrname, old, new):
 
     legend_options = {0: {"from": 60, "to": 105, "title": "N-0 Lineloadings in %"},
                       1: {"from": 60, "to": 105, "title": "N-1 Lineloadings in %"},
-                      2: {"from": 60, "to": 105, "title": "Showing Line Info"}}
+                      2: {"from": 60, "to": 105, "title": "Showing Line Info"},
+                      3: {"from": 60, "to": 105, "title": "Showing Critical Branches"}}
 
     source_line_legend.data = create_line_legend(legend_options[flow_type_botton.active]["from"],
                                                  legend_options[flow_type_botton.active]["to"])
@@ -336,7 +337,7 @@ slider = Slider(start=t_first, end=t_last, value=t_first, step=1, title="Timeste
                 # value_throttled=0, callback_policy="throttle") # Throttle doesn't work as of now
 
 flow_type_botton = RadioButtonGroup(name="Choose Flow Case:", width=300,
-                                    labels=["N-0", "N-1", "Voltage Level"], active=0)
+                                    labels=["N-0", "N-1", "Voltage Level", "CB"], active=0)
 flow_type_botton.on_change('active', update_line_loadings)
 
 ##Update things when slider or selects are changed
@@ -403,7 +404,7 @@ for c in de:
     x_range.append(x)
     y_range.append(y)
 
-fig = figure(tools="pan,wheel_zoom,lasso_select,tap", active_scroll="wheel_zoom",
+fig = figure(tools="pan,wheel_zoom,lasso_select,tap,save", active_scroll="wheel_zoom",
                 x_range=(x_range), y_range=(y_range), plot_width=1500, plot_height=1000)
 fig.axis.visible = False
 fig.add_tile(get_tilesource())
