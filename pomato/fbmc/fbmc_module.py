@@ -183,17 +183,42 @@ class FBMCModule():
         return nodal_fbmc_ptdf, domain_info
 
     def create_flowbased_ptdf(self, gsk_strategy, timestep, basecase):
-        """
-        Create Zonal ptdf -> creates both positive and negative line
-        restrictions or ram. Depending on flow != 0
+        """Create Zonal PTDF, reference flows and RAM based on the basecase and GSK.
+
+        For a specific timestep, the reference flow is calculated as the basecase flow 
+        minus the flow resulting from the DA market:
+        
+        F_ref = F_basecase - F_DA
+
+        Where F_DA = PTDF*GSK*NEX, derives from the net position in the basecase.
+        The RAM therefore represents the line capacity minus F_ref and additional security 
+        margins line FRM/FAV. 
+
+        Depending on how the CBCOs are selected and the basecase is cleared, negative RAMs
+        are possible, however for the purpose of market clearing, these have to positive. 
+
+        This either idicates an error in the calculation or the need for relaxation via the 
+        minRAM option. 
+
+        Parameters
+        ----------
+        gsk_strategy : str
+            GSK strategy, which will be generation by :meth:`~pomato.fbmc.create_GSK`
+        timestep : str
+            Timestep for which the paramters are calculated for.
+        basecase : :class:`~pomato.data.Results`
+            Market resultsfrom which the FB paramters are deducted. 
+
+        Returns
+        -------
+        zonal_fbmc_ptdf, np.array
+            Zonal PTDF. Length is the number of CBCOs and width the number zones within 
+            the Flowbased region. 
+        ram, vector
+            RAM for each CBCOs, same order as the zonal_ptdf.
         """
 
         self.logger.info("Creating zonal Ab for timestep %s", timestep)
-        # Calculate zonal ptdf based on ram -> (if current flow is 0 the
-        # zonal ptdf is based on overall
-        # available line capacity (l_max)), ram is calculated for every n-1
-        # ptdf matrix to ensure n-1 security constrained FB Domain
-        # The right side of the equation has to be positive
 
         frm_fav = pd.DataFrame(index=self.domain_info.cb.unique())
         frm_fav["value"] = self.lines.maxflow[frm_fav.index]*0

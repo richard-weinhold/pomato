@@ -100,11 +100,11 @@ class MarketModel():
     def run(self):
         """Run the julia program via command Line.
 
-        Uses :class:`~pomato.tools.InteractiveJuliaProcess` from the attribute *julia_model* to
-        run the market model. If the model is not initialized, it will be done here once. The
-        model run depends on the supplied options.
+        Uses :class:`~pomato.tools.JuliaDaemon` that is initialized into the *julia_model* attribute
+        to run the market model. The model run depends on the supplied options.
         In the case of successful completion, the result folders are stores in the *result_folders*
-        attribute for further processing the in :class:`~pomato.data.Results` module.
+        attribute which will be instantiated as :class:`~pomato.data.Results` as part of the 
+        DataManagement module.
 
         """
         t_start = datetime.datetime.now()
@@ -149,11 +149,15 @@ class MarketModel():
     
     def rolling_horizon_storage_levels(self, model_horizon):
         """Set start/end storage levels for rolling horizon market clearing.
-
-        When market model horizon shorter than total model horizon, specify storage levels to 
-        adequately represent storages. Per default storage levels are 65% of total capacity, however
-        this can be edited in the storage_level attribute of :class:`~pomato.data.DataManagement`.
         
+        This method alters the *storage_level* attribute of the :class:`~pomato.data.DataManagement`
+        instance, when market model horizon shorter than total model horizon. Per default storage levels 
+        are 65% of total capacity, however the storage_level attribute can be edited manually. 
+        
+        Parameters
+        ----------
+        model_horizon : list
+            List of timesteps that are the model horizon
         """
 
         splits = int(len(model_horizon)/self.options["optimization"]["timeseries"]["market_horizon"])

@@ -66,6 +66,7 @@ class JuliaDaemon():
 
     @property
     def is_alive(self):
+        """Check if the julia process is alive."""
         return self.julia_daemon.is_alive()
         
     def start_julia_daemon(self):
@@ -137,6 +138,7 @@ class JuliaDaemon():
 
     def halt_while_processing(self):
         """Halt python main thread, while julia is processing.
+
         Sometimes its better for the user to wait until julia is done.
         """
         progress_indicator = 1
@@ -163,11 +165,9 @@ class JuliaDaemon():
     def halt_until_ready(self):
         """Halt python main thread until julia is initialized.
 
-        Julias startup time can be fairly long, therefore its started immediately 
-        when pomato is initialized.
-
-        However, when a julia process is started it has to be ready. This method 
-        halts the main thread until julia is ready. 
+        Julias startup time can be fairly long, therefore when a julia process is started 
+        it has to be ready before a model can be run. 
+        This method halts the main thread until julia is ready. 
         """
         progress_indicator = 1
         counter = 0
@@ -447,7 +447,23 @@ def _setInDict(dataDict, mapList, value):
     _getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
 
 def copytree(src, dst, symlinks=False, ignore=None):
-    # https://stackoverflow.com/a/12514470
+    """Copy folder from src to dst.
+
+    Utilizes the shutil.copytree function. Is based on 
+    https://stackoverflow.com/a/12514470    
+    
+    Parameters
+    ----------
+    src : str/pathlib.Path 
+        Path to folder that is copied.
+    dst : str/pathlib.Path 
+        Destination path of the copied folder.
+    symlinks : bool, optional
+        copytree option 
+    ignore : None, optional
+        copytree option
+    """
+    
     for item in os.listdir(src):
         s = os.path.join(src, item)
         d = os.path.join(dst, item)
