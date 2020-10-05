@@ -85,7 +85,7 @@ def update_line_colors(lines, n_0_flows, n_1_flows,
     n_1_flows.columns = ["flow"]
 
     if option == 0:
-        n_0_flows["alpha"] = 0.3
+        n_0_flows["alpha"] = 0.4
         n_0_flows["color"] = palettes.RdYlGn[10][0]
         for idx, loading in enumerate(steps):
             condition = abs(n_0_flows.flow.values)/lines.maxflow > loading/100
@@ -94,7 +94,7 @@ def update_line_colors(lines, n_0_flows, n_1_flows,
         line_alpha = list(n_0_flows.alpha.values)
 
     elif option == 1:
-        n_1_flows["alpha"] = 0.3
+        n_1_flows["alpha"] = 0.4
         n_1_flows["color"] = palettes.RdYlGn[10][0]
         for idx, loading in enumerate(steps):
             condition = abs(n_1_flows.flow.values)/lines.maxflow > loading/100
@@ -105,10 +105,6 @@ def update_line_colors(lines, n_0_flows, n_1_flows,
     elif option == 2:
         color = create_voltage_colors(lines)
         line_alpha = [0.6 for i in lines.index]
-
-    elif option == 3 and ("cb" in lines.columns):
-        color = ["blue" if cb else "#bababa" for cb in lines.cb]
-        line_alpha = [0.8 if cb else 0.3 for cb in lines.cb]
 
     return color, line_alpha
 

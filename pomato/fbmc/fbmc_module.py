@@ -11,24 +11,24 @@ import pomato.tools as tools
 from pomato.grid import GridModel
 
 class FBMCModule():
-    """Class to do all calculations in connection with cbco calculation
+    """ Class to do all calculations in connection with cbco calculation
 
-    Parameters
-    ----------
-    wdir : pathlib.Path
-        Working directory
-    grid_object : :class:`~pomato.grid.GridTopology`
-        An instance of the DataManagement class with processed input data.
-    data : :class:`~pomato.data.DataManagement`
-        An instance of the DataManagement class with processed input data.
-    options : dict
-        The options from POMATO main method persist in the CBCOModule.
-    custom_cbco : pd.DataFrame, optional
-        Specify the list of CBCOs considered for the FB paramters, by default None which 
-        will cause CBCOs chosen based on a zone-to-zone sensitivity.
-    flowbased_region : list, optional
-        List of countries for which the FB parameters are calculated, defaults to all zones.
-    """
+            Parameters
+            ----------
+            wdir : pathlib.Path
+                Working directory
+            grid_object : :class:`~pomato.grid.GridTopology`
+                An instance of the DataManagement class with processed input data.
+            data : :class:`~pomato.data.DataManagement`
+                An instance of the DataManagement class with processed input data.
+            options : dict
+                The options from POMATO main method persist in the CBCOModule.
+            custom_cbco : pd.DataFrame, optional
+                Specify the list of CBCOs considered for the FB paramters, by default None which 
+                will cause CBCOs chosen based on a zone-to-zone sensitivity.
+            flowbased_region : list, optional
+                List of countries for which the FB parameters are calculated, defaults to all zones.
+        """
     def __init__(self, wdir, grid_object, data, options, custom_cbco=None, flowbased_region=None):
 
         self.logger = logging.getLogger('Log.MarketModel.FBMCModule')

@@ -118,7 +118,7 @@ import pomato.tools as tools
 from pomato.data import DataManagement, Results
 from pomato.grid import GridTopology, GridModel
 from pomato.market_model import MarketModel
-from pomato.visualization.geoplot import GeoPlot
+from pomato.visualization.geoplot_interface import GeoPlot
 
 def _logging_setup(wdir, logging_level=logging.INFO):
     # Logging setup
