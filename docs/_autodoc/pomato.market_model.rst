@@ -1,11 +1,13 @@
-pomato.market_model
-===================
+pomato.market\_model
+====================
 
 .. automodule:: pomato.market_model
 
    .. rubric:: Classes
 
    .. autosummary::
-      :toctree:
-      
+   
       MarketModel
+
+
+

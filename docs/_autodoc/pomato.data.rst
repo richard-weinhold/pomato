@@ -3,16 +3,19 @@ pomato.data
 
 .. automodule:: pomato.data
 
-   .. rubric:: Modules
+   .. rubric:: Classes
 
    .. autosummary::
-      :toctree:
    
       DataManagement
       DataWorker
-      Results   
+      Results
+   
    
 
    
    
    
+
+
+

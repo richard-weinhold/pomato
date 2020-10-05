@@ -14,7 +14,6 @@ Results
       ~Results.check_infeasibilities
       ~Results.commercial_exchange
       ~Results.default_plots
-      ~Results.heat_price
       ~Results.infeasibility
       ~Results.load_results_from_folder
       ~Results.n_0_flow
@@ -25,9 +24,4 @@ Results
       ~Results.price
       ~Results.redispatch
       ~Results.res_share
-   
-   
-
-   
-   
    

@@ -8,13 +8,11 @@ This module is divided into one main and three sub-modules:
       analyses and access the results.
 This is done within the two sub-modules:
     - :obj:`~pomato.data.DataWorker` : Reading in data from an excel or matpower file.
-    - :obj:`~pomato.data.ResultProcessing` : Since the DataManagement module is available to
+    - :obj:`~pomato.data.Results` : Since the DataManagement module is available to
       the market model the market result is processed alongside the input
       data in the ResultProcessing Module. It collects different methods
       make standard results available to the user in an easy way and is
       meant to simplify result analysis.
-    - additionally the *processing* file provides a collection of functions to allow for some 
-      input data processing.    
 
 """
 from pomato.data.data import DataManagement

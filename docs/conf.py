@@ -28,7 +28,7 @@ release = '0.2.1'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = ["sphinx.ext.autosummary", "sphinx.ext.autodoc", "numpydoc"]
-autosummary_generate = True
+autosummary_generate = False
 numpydoc_show_inherited_class_members = False 
 numpydoc_show_class_members = False 
 autosummary_imported_members = True
