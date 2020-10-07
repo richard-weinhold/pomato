@@ -324,7 +324,8 @@ class FBMCDomainPlots(FBMCModule):
         return(list_coord[:, 0], list_coord[:, 1], intersection_x, intersection_y)
 
     def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None):
-        """
+        """Create FB Domain for specified zonnes and timesteps. 
+
         Combines previous functions to actually plot the FBMC Domain with the
         hull
         """

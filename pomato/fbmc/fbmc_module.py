@@ -304,11 +304,9 @@ class FBMCModule():
 
         self.logger.info("Creating zonal Ab for timestep %s", timestep)
 
-        if not self.data.frm_fav:
-            frm_fav = pd.DataFrame(index=self.domain_info.cb.unique())
-            frm_fav["value"] = self.lines.maxflow[frm_fav.index]*0
-        else:
-            frm_fav = self.data.frm_fav
+        # optional frm/fav margin todo
+        frm_fav = pd.DataFrame(index=self.domain_info.cb.unique())
+        frm_fav["value"] = self.lines.maxflow[frm_fav.index]*0
 
         # F Ref Basecase: The actual flow in the basecase
         # On all CBs under COs

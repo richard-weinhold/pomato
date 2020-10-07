@@ -29,14 +29,14 @@ and julia runs the economic dispatch and N-1 redundancy removal algorithm.
 
 The recommended way to install POMATO:
   - Install Julia and have it available on the system path
-  - Install POMATO through *pip* in python >= 3.6 by creating a virtual environment and install pomato into it
+  - Install POMATO through *pip* in python >= 3.6 by creating a virtual environment and install pomato into it::
 
-      python -m venv pomato
-      ./pomato/Scripts/activate
-      pip install git+https://github.com/richard-weinhold/pomato.git
+        python -m venv pomato
+        ./pomato/Scripts/activate
+        pip install git+https://github.com/richard-weinhold/pomato.git
 
 
-After this is completed pomato can be imported in python:
+After this is completed pomato can be imported in python::
 
     from pomato import POMATO
 
@@ -58,7 +58,7 @@ this folder into the pomato working directory will allow their execution:
 
   - The IEEE 118 bus network, which contains a singular timestep. The data is available under 
     open license at `https://power-grid-lib.github.io/ <https://power-grid-lib.github.io/>`_
-    and re-hosted in this repository.::
+    and re-hosted in this repository::
 
         $ python /run_pomato_ieee.py
 
@@ -66,7 +66,7 @@ this folder into the pomato working directory will allow their execution:
     openly available and described in detail in 
     `DIW DataDocumentation 83 <https://www.diw.de/documents/publikationen/73/diw_01.c.528927.de/diw_datadoc_2016-083.pdf>`_ 
     which represents a more complex system and can be run for longer model horizon (although 
-    shortened to allow to host this data in this git).::
+    shortened to allow to host this data in this git)::
 
         $ python /run_pomato_de.py
 
