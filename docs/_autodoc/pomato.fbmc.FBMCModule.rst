@@ -1,5 +1,5 @@
-pomato.fbmc.FBMCModule
-======================
+FBMCModule
+==========
 
 .. currentmodule:: pomato.fbmc
 

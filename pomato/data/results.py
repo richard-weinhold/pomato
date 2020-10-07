@@ -512,7 +512,7 @@ class Results():
         return n_1_flows.loc[:, ["cb", "co"] + timesteps]
 
     def overloaded_lines_n_0(self, timesteps=None):
-        """Calculate overloaded lines for N-0 power flows.
+        """Calculate overloaded lines (N-0) power.
 
         Calculates what lines are overloaded, without taking into account
         contingencies. This uses the method :meth:`~n_0_flow()` and compares
@@ -554,7 +554,7 @@ class Results():
         return agg_info, n_0_load
 
     def overloaded_lines_n_1(self, timesteps=None, sensitivity=5e-2):
-        """Overloaded lines under contingencies (N-1 power flow).
+        """Overloaded lines under contingencies (N-1).
 
         Uses method :meth:`~n_1_flow()` to obtain N-1 power flows under
         contingencies. Compiles additional information for overloaded lines.

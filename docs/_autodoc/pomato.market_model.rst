@@ -6,7 +6,8 @@ pomato.market\_model
    .. rubric:: Classes
 
    .. autosummary::
-   
+      :toctree: 
+
       MarketModel
 
 

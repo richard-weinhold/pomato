@@ -505,7 +505,7 @@ class GridTopology():
         return n_1_ptdf
 
     def create_n_1_ptdf_cbco(self, line, outage):
-        r"""Create N-1 ptdf for one specific line and one specific outage.
+        """Create N-1 ptdf for one specific line and one specific outage.
 
         Parameters
         ----------

@@ -46,7 +46,7 @@ class FBMCDomain():
         plt.ioff()
 
     def create_fbmc_figure(self, include_ntc):
-        """Plot the domain and return
+        """Plot the domain and return the figure.
 
         Parameters
         ----------

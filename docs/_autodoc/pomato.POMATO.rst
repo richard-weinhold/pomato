@@ -4,16 +4,12 @@ pomato.POMATO
 .. currentmodule:: pomato
 
 .. autoclass:: POMATO
-
-   
-   .. automethod:: __init__
-
+   :members:
    
    .. rubric:: Methods
 
    .. autosummary::
    
-      ~POMATO.__init__
       ~POMATO.create_geo_plot
       ~POMATO.create_grid_representation
       ~POMATO.init_grid_model

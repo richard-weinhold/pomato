@@ -11,7 +11,6 @@ pomato.tools
    
       JuliaDaemon
 
-
    .. rubric:: Functions
 
    .. autosummary::

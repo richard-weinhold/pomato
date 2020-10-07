@@ -1,5 +1,5 @@
-pomato.data.DataWorker
-======================
+DataWorker
+==========
 
 .. currentmodule:: pomato.data
 

@@ -6,6 +6,7 @@ pomato.grid
    .. rubric:: Classes
 
    .. autosummary::
+      :toctree: 
    
       GridModel
       GridTopology

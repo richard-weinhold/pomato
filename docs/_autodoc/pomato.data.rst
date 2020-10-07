@@ -6,6 +6,7 @@ pomato.data
    .. rubric:: Classes
 
    .. autosummary::
+      :toctree: 
    
       DataManagement
       DataWorker
