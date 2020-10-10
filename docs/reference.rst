@@ -12,5 +12,7 @@ Reference
     grid
     market_model
     fbmc
+    visualization
     tools
+
     

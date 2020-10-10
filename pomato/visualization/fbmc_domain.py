@@ -1,9 +1,5 @@
 """
 
-THIS IS FBMC Module
-INPUT: DATA
-OUTPUT: RESULTS
-
 """
 import datetime as dt
 import logging
