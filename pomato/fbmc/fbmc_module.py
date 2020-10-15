@@ -59,7 +59,7 @@ class FBMCModule():
         Parameters
         ----------
         basecase : :class:`~pomato.data.Result`
-            The basecase, that is used for the calulation of the FB paramters.
+            The basecase, that is used for the calculation of the FB paramters.
         timestep : string
             Timestep, for which the GSK is calculated
         
@@ -92,7 +92,7 @@ class FBMCModule():
 
         Input options are: 
             - *flat*: for equal participation of each node to the NEX
-            - *gmax*: for weighted participation propotional to the installed
+            - *gmax*: for weighted participation proportional to the installed
               capacity of conventional generation. 
         
         Conventional generation is defined as generation which is not of plant type
@@ -194,7 +194,7 @@ class FBMCModule():
     def create_fbmc_info(self, lodf_sensitivity=10e-2):
         """Create the nodal ptdf for the FB paramters.
         
-        Which lines are considered critical and thier critical outages are independant 
+        Which lines are considered critical and their critical outages are independent 
         from the basecase. Therefore the CBCOs are obtained once and used throughout this method.
         
         The process is similar to :meth:`~pomato.grid.GridTopology.create_filtered_n_1_ptdf`, 
@@ -281,7 +281,7 @@ class FBMCModule():
         Depending on how the CBCOs are selected and the basecase is cleared, negative RAMs
         are possible, however for the purpose of market clearing, these have to positive. 
 
-        This either idicates an error in the calculation or the need for relaxation via the 
+        This either indicates an error in the calculation or the need for relaxation via the 
         minRAM option. 
 
         Parameters
@@ -306,7 +306,7 @@ class FBMCModule():
 
         # optional frm/fav margin todo
         frm_fav = pd.DataFrame(index=self.domain_info.cb.unique())
-        frm_fav["value"] = self.lines.maxflow[frm_fav.index]*0
+        frm_fav["value"] = self.lines.maxflow[frm_fav.index]*(1 - self.options["grid"]["capacity_multiplier"])
 
         # F Ref Basecase: The actual flow in the basecase
         # On all CBs under COs
@@ -367,7 +367,7 @@ class FBMCModule():
         gsk_strategy : str, optional
             GSK strategy, defaults to "gmax". 
         reduce : bool, optional
-            Runs the RedundancyRevomal for each timestep 
+            Runs the RedundancyRemoval for each timestep 
         
         Returns
         -------
@@ -397,7 +397,7 @@ class FBMCModule():
 
         fb_paramters = grid_model.return_cbco(cbco_info, cbco_index)
         fb_paramters.set_index(fb_paramters.cb + "_" + fb_paramters.co, inplace=True)
- 
+
         if reduce:
             grid_model.julia_instance.join()
             grid_model.julia_instance.julia_instance = None
