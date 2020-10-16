@@ -148,9 +148,7 @@ class GridModel():
         nodal_network["ram"] = self.grid.lines.maxflow.values*self.options["grid"]["capacity_multiplier"]
 
         if grid_option["cbco_option"] == "nodal_clarkson":
-            nodal_network = pd.DataFrame(columns=self.grid.nodes.index, data=self.grid.ptdf)
             nodal_network["cb"] = list(self.grid.lines.index)
-
             nodal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
             nodal_network = nodal_network[["cb", "co", "ram"] + list(self.grid.nodes.index)]
             nodal_injection_limits = self.create_nodal_injection_limits()
@@ -368,9 +366,10 @@ class GridModel():
             info = info.loc[np.sort(idx), :]
 
         if isinstance(gsk, np.ndarray):  # replace nodal ptdf by zonal ptdf
+            A = np.dot(A, gsk)
             info = pd.concat((info.loc[:, ["cb", "co", "ram"]],
                               pd.DataFrame(columns=self.data.zones.index,
-                                           data=np.dot(A, gsk))), axis=1)
+                                           data=A)), axis=1)
         return A, b, info
 
     def write_cbco_info(self, folder, suffix, **kwargs):
@@ -483,7 +482,7 @@ class GridModel():
         if not self.julia_instance.is_alive:
             self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
-        if self.options["optimization"]["type"] == "zonal":
+        if self.options["optimization"]["type"] in ["zonal", "cbco_zonal"]:
             self.julia_instance.disable_multi_threading()
 
         t_start = dt.datetime.now()

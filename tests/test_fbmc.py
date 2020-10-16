@@ -24,7 +24,7 @@ class TestFBMCModule(unittest.TestCase):
 
     def test_nrel_domain(self):
         mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/nrel118.json",
-                             logging_level=logging.INFO)
+                             logging_level=logging.ERROR)
         mato.load_data('data_input/nrel_118.zip')
         
         R2_to_R3 = ["bus118", "bus076", "bus077", "bus078", "bus079", 

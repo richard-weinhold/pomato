@@ -103,8 +103,9 @@ class TestPomatoGridModel(unittest.TestCase):
 
         self.grid_model.options["optimization"]["type"] = "cbco_nodal"
         self.grid_model.options["grid"]["precalc_filename"] = "random_words"
-        self.grid_model.process_cbco_nodal()
-        c_ptdf_fallback = copy.copy(self.grid_model.grid_representation.grid)
+        grid = self.grid_model.create_cbco_nodal_grid_parameters()
+        grid = self.grid_model._add_zone_to_grid_representation(grid)
+        c_ptdf_fallback = copy.copy(grid)
         self.grid_model.options["grid"]["precalc_filename"] = ""
         self.grid_model.options["grid"]["cbco_option"] = "full"
         self.grid_model.create_grid_representation()
@@ -119,19 +120,7 @@ class TestPomatoGridModel(unittest.TestCase):
         self.grid_model.options["optimization"]["type"] = "cbco_nodal"
         self.grid_model.options["grid"]["precalc_filename"] = "cbco_nrel_118"
         self.grid_model.options["grid"]["capacity_multiplier"] = 0.8
-        self.grid_model.process_cbco_nodal()
-
-
-    def test_cbco_nodal_list_precalc(self):
-
-        self.grid_model.options["optimization"]["type"] = "cbco_nodal"
-        self.grid_model.options["grid"]["precalc_filename"] = "random_words"
-        self.grid_model.process_cbco_nodal()
-        c_ptdf_fallback = copy.copy(self.grid_model.grid_representation.grid)
-        self.grid_model.options["grid"]["precalc_filename"] = ""
-        self.grid_model.options["grid"]["cbco_option"] = "full"
-        self.grid_model.create_grid_representation()
-        pd.testing.assert_frame_equal(c_ptdf_fallback, self.grid_model.grid_representation.grid)
+        self.grid_model.create_cbco_nodal_grid_parameters()
 
     def test_clarkson(self):
 
