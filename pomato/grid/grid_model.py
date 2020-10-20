@@ -482,7 +482,7 @@ class GridModel():
         if not self.julia_instance.is_alive:
             self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
-        if self.options["optimization"]["type"] in ["zonal", "cbco_zonal"]:
+        if self.options["optimization"]["type"] in ["zonal"]:
             self.julia_instance.disable_multi_threading()
 
         t_start = dt.datetime.now()

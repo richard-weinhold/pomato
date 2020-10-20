@@ -63,11 +63,8 @@ class GridTopology():
     lodf : np.ndarray
         N-1 lodf (load outage distribution factor) matrix :math:`(L \\times L)`.
     """
-
     numpy_settings = np.seterr(divide="raise")
-
     def __init__(self):
-
         self.logger = logging.getLogger('Log.MarketModel.GridTopology')
         self.nodes = None
         self.lines = None
@@ -78,8 +75,7 @@ class GridTopology():
         self.lodf = None
         self.combined_contingencies = None
 
-    def calculate_parameters(self, nodes, lines):
-        
+    def calculate_parameters(self, nodes, lines):        
         self.logger.info("Calculating Grid Parameters!")
         self.nodes = nodes
         self.lines = lines
