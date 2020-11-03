@@ -1,4 +1,4 @@
-Copyright (c) 2018: Richard Weinhold & Robert Mieth.
+Copyright (c) 2020: Richard Weinhold & Robert Mieth.
 
 The Pomato Python module and its adjacent software (i.e. code written in programming languages other than Python which the Python module utilizes) as well as provided documentation is licensed under the **[LGPL]** version 3:
 

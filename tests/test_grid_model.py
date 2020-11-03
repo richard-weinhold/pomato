@@ -69,7 +69,8 @@ class TestPomatoGridModel(unittest.TestCase):
         self.assertRaises(AssertionError, np.testing.assert_equal, 
                           grid_representation_flat.grid.values, grid_representation_gmax.grid.values)
 
-        test_columns = list(self.grid_model.data.zones.index) + ["ram"]
+        test_columns = ["cb", "co", "ram"] + list(self.grid_model.data.zones.index)
+        print(grid_representation_flat.grid.columns)
         self.assertTrue(all(grid_representation_flat.grid.columns == test_columns))
         self.assertTrue(all(grid_representation_gmax.grid.columns == test_columns))
 
@@ -104,7 +105,6 @@ class TestPomatoGridModel(unittest.TestCase):
         self.grid_model.options["optimization"]["type"] = "cbco_nodal"
         self.grid_model.options["grid"]["precalc_filename"] = "random_words"
         grid = self.grid_model.create_cbco_nodal_grid_parameters()
-        grid = self.grid_model._add_zone_to_grid_representation(grid)
         c_ptdf_fallback = copy.copy(grid)
         self.grid_model.options["grid"]["precalc_filename"] = ""
         self.grid_model.options["grid"]["cbco_option"] = "full"

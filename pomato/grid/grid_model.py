@@ -81,6 +81,7 @@ class GridModel():
                                                          multiple_slack=None,
                                                          slack_zones=None,
                                                          grid=pd.DataFrame(),
+                                                         contingency_groups={},
                                                          redispatch_grid=pd.DataFrame(),
                                                          ntc=pd.DataFrame())
        
@@ -118,19 +119,19 @@ class GridModel():
             self.process_ntc()
         elif self.options["optimization"]["type"] == "nodal":
             self.grid_representation.grid = self.create_nodal_grid_parameters()
-            self.grid_representation.grid = self._add_zone_to_grid_representation(self.grid_representation.grid)
         elif self.options["optimization"]["type"] == "zonal":
             self.grid_representation.grid = self.create_zonal_grid_parameters()
             self.grid_representation.ntc = self.create_ntc()
         elif self.options["optimization"]["type"] == "cbco_nodal":
+            self.grid_representation.contingency_groups = self.grid.contingency_groups
             self.grid_representation.grid = self.create_cbco_nodal_grid_parameters()
-            self.grid_representation.grid = self._add_zone_to_grid_representation(self.grid_representation.grid)
         elif self.options["optimization"]["type"] == "cbco_zonal":
+            self.grid_representation.contingency_groups = self.grid.contingency_groups
             self.grid_representation.grid = self.create_cbco_zonal_grid_parameters()
             self.grid_representation.ntc = self.create_ntc()
         else:
             self.logger.info("No grid representation needed for dispatch model")
-
+        
         if self.options["optimization"]["redispatch"]["include"]:
             self.add_redispatch_grid()
     
@@ -146,20 +147,17 @@ class GridModel():
         grid_option = self.options["grid"]
         nodal_network = pd.DataFrame(columns=self.grid.nodes.index, data=self.grid.ptdf)
         nodal_network["ram"] = self.grid.lines.maxflow.values*self.options["grid"]["capacity_multiplier"]
+        nodal_network["cb"] = list(self.grid.lines.index)
+        nodal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
+        nodal_network = nodal_network[["cb", "co", "ram"] + list(self.grid.nodes.index)]
 
         if grid_option["cbco_option"] == "nodal_clarkson":
-            nodal_network["cb"] = list(self.grid.lines.index)
-            nodal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
-            nodal_network = nodal_network[["cb", "co", "ram"] + list(self.grid.nodes.index)]
             nodal_injection_limits = self.create_nodal_injection_limits()
 
             cbco_index = self.clarkson_algorithm(A=nodal_network.loc[:, self.grid.nodes.index].values, 
                                                  b=nodal_network.loc[:, "ram"].values, 
                                                  x_bounds=nodal_injection_limits)
             nodal_network = self.return_cbco(nodal_network, cbco_index)
-        else:
-            nodal_network.set_index(self.grid.lines.index, inplace=True)
-
 
         return nodal_network
            
@@ -170,10 +168,8 @@ class GridModel():
         """
         if contingencies:
             self.grid_representation.redispatch_grid = self.create_cbco_nodal_grid_parameters()
-            self.grid_representation.redispatch_grid = self._add_zone_to_grid_representation(self.grid_representation.redispatch_grid)
         else:
             self.grid_representation.redispatch_grid = self.create_nodal_grid_parameters()
-            self.grid_representation.redispatch_grid = self._add_zone_to_grid_representation(self.grid_representation.redispatch_grid)
 
     def create_zonal_grid_parameters(self):
         """Process grid information for zonal N-0 representation.
@@ -194,17 +190,15 @@ class GridModel():
         zonal_network = pd.DataFrame(index=self.grid.lines.index,
                                      columns=self.data.zones.index,
                                      data=np.dot(self.grid.ptdf, self.create_gsk(gsk)))
+        zonal_network["cb"] = list(self.grid.lines.index)
+        zonal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
         zonal_network["ram"] = self.grid.lines.maxflow.values*self.options["grid"]["capacity_multiplier"]
+        zonal_network = zonal_network[["cb", "co", "ram"] + list(self.data.zones.index)]
 
         if grid_option["cbco_option"] == "clarkson":
-            zonal_network["cb"] = list(self.grid.lines.index)
-            zonal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
-            zonal_network = zonal_network[["cb", "co", "ram"] + list(self.data.zones.index)]
             cbco_index = self.clarkson_algorithm(A=zonal_network.loc[:, self.data.zones.index].values, 
                                                  b=zonal_network.loc[:, "ram"].values)
             zonal_network = self.return_cbco(zonal_network, cbco_index)
-        else:
-            zonal_network.set_index(self.grid.lines.index, inplace=True)
 
         return zonal_network
 

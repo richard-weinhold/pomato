@@ -187,7 +187,7 @@ class MarketModel():
         
         self.rolling_horizon_storage_levels(model_horizon)
         
-        for data in [d for d in self.data.model_structure if d != "lines"]:
+        for data in [d for d in self.data.model_structure]:
             cols = [col for col in self.data.model_structure[data].keys() if col != "index"]
             if "timestep" in cols:
                 getattr(self.data, data).loc[getattr(self.data, data)["timestep"].isin(model_horizon), cols] \
@@ -203,16 +203,19 @@ class MarketModel():
         plant_types.to_csv(str(self.data_dir.joinpath('plant_types.csv')), index_label='index')
 
         if self.grid_representation.grid.empty:
-            pd.DataFrame(columns=["ram"]).to_csv(str(self.data_dir.joinpath('grid.csv')), index_label='index')
+            pd.DataFrame(columns=["cb", "co", "ram"]).to_csv(str(self.data_dir.joinpath('grid.csv')), index_label='index')
         else:
             self.grid_representation.grid \
                 .to_csv(str(self.data_dir.joinpath('grid.csv')), index_label='index')
 
         if self.grid_representation.redispatch_grid.empty:
-            pd.DataFrame(columns=["ram"]).to_csv(str(self.data_dir.joinpath('redispatch_grid.csv')), index_label='index')
+            pd.DataFrame(columns=["cb", "co", "ram"]).to_csv(str(self.data_dir.joinpath('redispatch_grid.csv')), index_label='index')
         else:
             self.grid_representation.redispatch_grid \
                 .to_csv(str(self.data_dir.joinpath('redispatch_grid.csv')), index_label='index')
+
+        with open(self.data_dir.joinpath('contingency_groups.json'), 'w') as file:
+            json.dump(self.grid_representation.contingency_groups, file, indent=2)
 
         if not self.grid_representation.ntc.empty:
             self.grid_representation.ntc.to_csv(str(self.data_dir.joinpath('ntc.csv')), index_label='index')
