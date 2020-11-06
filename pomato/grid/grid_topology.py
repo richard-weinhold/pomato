@@ -384,15 +384,15 @@ class GridTopology():
             # LODF LxO matrix
             lodf = np.zeros((len(lines), len(outages)))
             
-            # Invalid contingencies, i.e. lines that connot be outaged remain 0 in lodf
+            # Invalid contingencies, i.e. lines that connot be outed remain 0 in lodf
             outages = [outage for outage in outages if self.lines.iloc[outage].contingency]
         
-            # LODF for outaged line is set to -1
+            # LODF for outed line is set to -1
             outages_in_lines = [line in outages for line in lines]
             lines_in_outages = [outage in lines for outage in outages]
             lodf[outages_in_lines, lines_in_outages] = -1
             
-            # For all lines that are not outaged as part of the contingency the LODF is calculated
+            # For all lines that are not outed as part of the contingency the LODF is calculated
             valid_lines = [line not in outages for line in lines]
             lines = [line for line in lines if not line in outages]
          
