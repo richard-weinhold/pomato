@@ -53,26 +53,32 @@ class FBMCDomain():
         # Setup
         fig = plt.figure()
         axis = plt.subplot()
-        scale = 1.05
+        scale = 2
 
         title = 'FBMC Domain between: ' + "-".join(self.domain_x) \
                 + ' and ' + "-".join(self.domain_y) \
-                + '\n Number of CBCOs: ' + str(len(self.hull_information["hull_plot_x"])-1) \
-                + "\n GSK Strategy: " + self.gsk_strategy \
+                + '\nNumber of CBCOs: ' + str(len(self.hull_information["hull_plot_x"])-1) \
+                + "\nGSK Strategy: " + self.gsk_strategy \
                 + " - Timestep: " + self.timestep
         
         # hull_plot contains the halfspaces (as line plots) 
         # and coord the vertices (corners)
         hull_plot_x = self.hull_information["hull_plot_x"]
         hull_plot_y = self.hull_information["hull_plot_y"]
-        hull_coord_x = self.hull_information["hull_coord_x"]
-        hull_coord_y = self.hull_information["hull_coord_y"]      
+        # hull_coord_x = self.hull_information["hull_coord_x"]
+        # hull_coord_y = self.hull_information["hull_coord_y"]      
 
-        for elem in self.plot_equations:
-            axis.plot(elem[0], elem[1], c='lightgrey', ls='-')
+        for i, cbco in enumerate(self.domain_data.index):
+            if self.domain_data.loc[cbco, "co"] == "basecase":
+                axis.plot(self.plot_equations[i][0], self.plot_equations[i][1], 
+                          linewidth=1.5, alpha=1, c='dimgrey', ls='-', zorder=2)
+            else:
+                axis.plot(self.plot_equations[i][0], self.plot_equations[i][1], 
+                          linewidth=1, alpha=0.6, c='lightgrey', ls='-', zorder=1)
+                
         
-        axis.plot(hull_plot_x, hull_plot_y, 'r--', linewidth=2)
-        axis.scatter(hull_coord_x, hull_coord_y)
+        axis.plot(hull_plot_x, hull_plot_y, 'r--', linewidth=1.5, zorder=3)
+        # axis.scatter(hull_coord_x, hull_coord_y, zorder=3)
 
         if include_ntc and not self.ntc.empty:
             # Include NTC as box in the domain plot
@@ -320,7 +326,7 @@ class FBMCDomainPlots(FBMCModule):
         return(list_coord[:, 0], list_coord[:, 1], intersection_x, intersection_y)
 
     def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None):
-        """Create FB Domain for specified zonnes and timesteps. 
+        """Create FB Domain for specified zones and timesteps. 
 
         Combines previous functions to actually plot the FBMC Domain with the
         hull
@@ -346,13 +352,14 @@ class FBMCDomainPlots(FBMCModule):
 
         # Limit the number of constraints to 5000
         full_indices = np.array([x for x in range(0,len(A))])
-        threshold = 5e3
+        threshold = 1e4
         if len(A) > threshold:
             self.logger.info("Plot limited to %d constraints plotted", threshold)
             cbco_plot_indices = np.append(cbco_index,
                                           np.random.choice(full_indices,
                                                            size=int(threshold),
                                                            replace=False))
+            self.domain_info = self.domain_info.loc[np.sort(np.unique(cbco_plot_indices)), :]
         else:
             cbco_plot_indices = full_indices
 
