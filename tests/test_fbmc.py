@@ -46,11 +46,10 @@ class TestFBMCModule(unittest.TestCase):
         basecase = mato.data.results[folder.name]
         mato.options["grid"]["minram"] = 0.1
         mato.options["grid"]["sensitivity"] = 0.05
+        mato.fbmc.calculate_parameters()
 
-        fbmc = pomato.fbmc.FBMCModule(mato.wdir, mato.grid, mato.data, mato.options)
-        
-        fbmc_gridrep_Gmax = fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
-        fbmc_gridrep_G = fbmc.create_flowbased_parameters(basecase, gsk_strategy="dynamic", reduce=False)
+        fbmc_gridrep_Gmax = mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
+        fbmc_gridrep_G = mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="dynamic", reduce=False)
 
         # self.assertRaises(AssertionError, np.testing.assert_almost_equal, 
         #                   fbmc_gridrep_G.loc[:, mato.data.zones.index].values, 

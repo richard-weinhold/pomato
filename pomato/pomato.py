@@ -119,6 +119,7 @@ from pomato.data import DataManagement, Results
 from pomato.grid import GridTopology, GridModel
 from pomato.market_model import MarketModel
 from pomato.visualization.geoplot import GeoPlot
+from pomato.fbmc import FBMCModule
 
 def _logging_setup(wdir, logging_level=logging.INFO):
     # Logging setup
@@ -235,7 +236,10 @@ class POMATO():
         self.grid_representation = self.grid_model.grid_representation
         self.market_model = MarketModel(self.wdir, self.options, self.data, self.grid_representation)
 
-        self.geo_plot = None
+        # Instances for Result Processing 
+        self.geo_plot = GeoPlot(self.wdir)
+        self.fbmc = FBMCModule(self.wdir, self.grid, self.data, self.options)
+
 
     def initialize_options(self, options_file):
         """Initialize options file.
@@ -365,7 +369,7 @@ class POMATO():
         """
         self.grid_model.create_grid_representation()
 
-    def create_geo_plot(self, title=None, plot_type="static", results=None, 
+    def create_geo_plot(self, title=None, results=None, 
                         show=True, plot_dimensions=(700, 800)):
         """Initialize GeoPlot based on the dataset and a market result.
 
@@ -387,7 +391,6 @@ class POMATO():
         plot_dimensions : Tuple (x, y)
             Plot Dimension of the html created, used for embedded plot.
         """
-        self.geo_plot = GeoPlot(self.wdir, plot_type=plot_type)
         if (not self.data.results) and (not results):  # if results dict is empty
             self.logger.info("No result available from market model!")
             self.geo_plot.create_empty_static_plot(self.data)

@@ -46,7 +46,7 @@ class TestPomatoGeoPlot(unittest.TestCase):
 
         mato.data.process_results(folder, mato.grid)
         result = mato.data.results["nodal_result_market"]
-        mato.create_geo_plot(plot_type="dynamic")
+        mato.geo_plot.plot_type = "dynamic"
 
         mato.geo_plot.add_market_result(result, "test_test")
         mato.geo_plot.start_server()
