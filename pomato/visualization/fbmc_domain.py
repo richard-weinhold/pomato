@@ -7,6 +7,7 @@ from pathlib import Path
 
 import imageio
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 import pandas as pd
 from scipy import spatial
@@ -62,11 +63,8 @@ class FBMCDomain():
                 + " - Timestep: " + self.timestep
         
         # hull_plot contains the halfspaces (as line plots) 
-        # and coord the vertices (corners)
         hull_plot_x = self.hull_information["hull_plot_x"]
         hull_plot_y = self.hull_information["hull_plot_y"]
-        # hull_coord_x = self.hull_information["hull_coord_x"]
-        # hull_coord_y = self.hull_information["hull_coord_y"]      
 
         for i, cbco in enumerate(self.domain_data.index):
             if self.domain_data.loc[cbco, "co"] == "basecase":
@@ -78,8 +76,15 @@ class FBMCDomain():
                 
         
         axis.plot(hull_plot_x, hull_plot_y, 'r--', linewidth=1.5, zorder=3)
+        # Coordinates of the vertices (corners), does not look great, but might be useful?
+        # hull_coord_x = self.hull_information["hull_coord_x"]
+        # hull_coord_y = self.hull_information["hull_coord_y"]      
         # axis.scatter(hull_coord_x, hull_coord_y, zorder=3)
 
+        legend = [Line2D([0], [0], color="r", lw=2, ls='--'),
+                  Line2D([0], [0], color="dimgrey", lw=2),
+                  Line2D([0], [0], color="lightgrey", lw=2)]
+        legend_text = ['Flow Based Domain', 'N-0 Constraints', 'N-1 Constraints']
         if include_ntc and not self.ntc.empty:
             # Include NTC as box in the domain plot
             ntc_x_pos = self.ntc.loc[(self.domain_x[0], self.domain_x[1]), "ntc"]
@@ -97,11 +102,15 @@ class FBMCDomain():
             # expand x min/max, y min/max to accommodate the NTC box
             self.x_min, self.x_max = min(self.x_min, -ntc_x_neg), max(self.x_max, ntc_x_pos)
             self.y_min, self.y_max = min(self.y_min, -ntc_y_neg), max(self.y_max, ntc_y_pos)
-
+            legend.append(Line2D([0], [0], color="b", lw=2, ls='--'))
+            legend_text.append("NTC Domain")
         axis.set_xlim(self.x_min*scale, self.x_max*scale)
         axis.set_ylim(self.y_min*scale, self.y_max*scale)
         axis.set_title(title)
-
+        axis.legend(legend, legend_text, bbox_to_anchor=(0,-0.1,1,0), loc="upper left",
+                                         mode="expand", borderaxespad=0, ncol=3)
+        
+        plt.tight_layout(rect=[0,0,1,1])
         return fig
 
     def save_fbmc_domain(self, folder, include_ntc=True):
@@ -113,16 +122,17 @@ class FBMCDomain():
 
 class FBMCDomainPlots(FBMCModule):
     """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, grid_object, data, options, flowbased_parameters):
+    def __init__(self, wdir, grid, data, options, flowbased_parameters):
         # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.FBMCDomainPlots')
         self.logger.info("Initializing the FBMCModule....")
 
-        super().__init__(wdir, grid_object, data, options)
-
+        super().__init__(wdir, grid, data, options)
+        super().calculate_parameters()
+        
         self.fbmc_plots = {}
         self.flowbased_parameters = flowbased_parameters
-
+        
         # set-up: don't show the graphs when created
         plt.ioff()
         plt.close("all")
@@ -155,7 +165,7 @@ class FBMCDomainPlots(FBMCModule):
         domain_info = pd.concat([self.fbmc_plots[plot].domain_data for plot in self.fbmc_plots])
         # oder the columns
         columns = ["timestep", "gsk_strategy", "cb", "co"]
-        columns.extend(list(self.nodes.zone.unique()))
+        columns.extend(list(self.data.nodes.zone.unique()))
         columns.extend(["ram", "in_domain"])
         domain_info = domain_info[columns]
 
@@ -192,7 +202,7 @@ class FBMCDomainPlots(FBMCModule):
         nodes/Zones that are not part of the 2D FBMC are summarized using GSK sink
         """
         self.logger.info("Creating fbmc equations...")
-        list_zones = list(self.nodes.zone.unique())
+        list_zones = list(self.data.nodes.zone.unique())
         if len(domain_x) == 2:
             domain_idx = [[list_zones.index(zone[0]),
                            list_zones.index(zone[1])] for zone in [domain_x, domain_y]]
@@ -340,7 +350,7 @@ class FBMCDomainPlots(FBMCModule):
         else:
             gsk_strategy = self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].gsk_strategy.unique()[0]
 
-        A = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, list(self.nodes.zone.unique())].values
+        A = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, list(self.data.nodes.zone.unique())].values
         b = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, "ram"].values
         
         A, b = self.create_fbmc_equations(domain_x, domain_y, A, b)
@@ -352,7 +362,7 @@ class FBMCDomainPlots(FBMCModule):
 
         # Limit the number of constraints to 5000
         full_indices = np.array([x for x in range(0,len(A))])
-        threshold = 1e4
+        threshold = 1e5
         if len(A) > threshold:
             self.logger.info("Plot limited to %d constraints plotted", threshold)
             cbco_plot_indices = np.append(cbco_index,
