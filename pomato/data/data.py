@@ -218,13 +218,13 @@ class DataManagement():
         # Make sure wdir/file_path or wdir/data/file_path is a file
         if self.wdir.joinpath(filepath).is_file():
             DataWorker(self, self.wdir.joinpath(filepath))
-
         elif self.wdir.joinpath(f"data_input/{filepath}").is_file():
             DataWorker(self, self.wdir.joinpath(f"data/{filepath}"))
-
         elif self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat").is_file():
             DataWorker(self, self.wdir.joinpath(
                 f"data_input/mp_casedata/{filepath}.mat"))
+        elif self.wdir.joinpath(filepath).is_dir():
+            DataWorker(self,self.wdir.joinpath(filepath))
         else:
             self.logger.error("Data File not found!")
             raise FileNotFoundError

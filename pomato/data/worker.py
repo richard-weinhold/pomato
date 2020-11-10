@@ -88,16 +88,21 @@ class DataWorker(object):
             self.read_xls(file_path)
         elif ".zip" in str(file_path):
             self.logger.info("Loading data from zipped data archive")
-            self.read_zipped_csv(file_path)
+            self.read_csv_zipped(file_path)
         elif ".mat" in str(file_path):
             self.logger.info("Loading data from matpower .mat case-file")
             self.process_matpower_case(file_path, ".mat")
         elif ".m" in str(file_path):
             self.logger.info("Loading data from matpower .m case-file")
             self.process_matpower_case(file_path, ".m")
-        else:
-            self.logger.warning("Data Type not supported, only .xls(x), .zip or .mat")
-
+        elif file_path.is_dir():
+            self.logger.info("Loading data from folder")
+            self.read_csv_folder(file_path)
+        else: 
+            
+            self.logger.error("Filepath: %s", str(file_path))
+            self.logger.error("Data Type not supported, only .xls(x), .zip, .mat or folder")
+            raise TypeError
 
     def stack_data(self, data, columns):
         """Stacks data that comes in a wide format.
@@ -136,8 +141,35 @@ class DataWorker(object):
                 self.data.data_attributes[data] = True
             except xlrd.XLRDError:
                 self.logger.warning(f"{data} not in excel file")
+    
+    def read_csv_folder(self, folder):
+        """Read csv files from specified folder.
 
-    def read_zipped_csv(self, zip_filepath):
+        Parameters
+        ----------
+        folder : pathlib.Path
+            Path to folder containing input data .csv files.
+
+        """
+        self.data.data_structure = pd.read_csv(folder.joinpath('data_structure.csv'), index_col=0)
+        self.data.data_attributes.update({d: False for d in self.data.data_structure.index.unique()})
+        for data in self.data.data_attributes:
+            try:
+                csv_file = folder.joinpath(data + ".csv")
+                if data in self.data.options["data"]["stacked"]:
+                    cols = self.data.data_structure.loc[data]["attributes"][1:]
+                    setattr(self.data, data, self.stack_data(pd.read_csv(csv_file, index_col=0), cols))
+                else:
+                    setattr(self.data, data, pd.read_csv(csv_file, index_col=0).infer_objects())
+                self.data.data_attributes[data] = True
+            except KeyError as error_msg:
+                self.logger.warning(f"{data} not in folder")
+                self.logger.warning(error_msg)
+            except FileNotFoundError as error_msg:
+                self.logger.warning(f"{data} not in folder")
+                self.logger.debug(error_msg)
+
+    def read_csv_zipped(self, zip_filepath):
         """Read csv files zipped into archive at specified filepath.
 
         Parameters
@@ -162,7 +194,7 @@ class DataWorker(object):
                         self.data.data_attributes[data] = True
                 except KeyError as error_msg:
                     self.logger.warning(f"{data} not in zip archive")
-                    self.logger.warning(error_msg)
+                    self.logger.debug(error_msg)
 
     def read_mat_file(self, mat_filepath):
         """Read mat file at specified filepath.
