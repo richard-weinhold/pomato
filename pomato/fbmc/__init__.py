@@ -1,7 +1,7 @@
 """The Flow Based Module of POMATO.
 
 Flow based market coupling represents a zonal market clearing process in which the 
-commercial exchnage capacities are calculated based on a forecasted dispatch (basecase) and  
+commercial exchange capacities are calculated based on a forecasted dispatch (basecase) and  
 subset of critical lines under critical outages. 
 
 The Flow Based module generates the flow based paramters based on a supplied basecase and 

@@ -10,3 +10,4 @@ pomato/_installation/pomato
 pomato.sublime-workspace
 *.code-workspace
 examples/notepad.py
+examples/logs/market_tool.log

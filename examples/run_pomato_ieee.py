@@ -54,27 +54,27 @@ print("Number of overloaded lines N-1 (Nodal): ", len(df3))
 
 
 # %% Rerun the model as SCOPF
-mato.options["optimization"]["type"] = "cbco_nodal"
-mato.options["grid"]["cbco_option"] = "clarkson_base"
+# mato.options["optimization"]["type"] = "cbco_nodal"
+# mato.options["grid"]["cbco_option"] = "clarkson_base"
 
-# Requires to presolve the network with the RedundancyRemvoal Algorith
-# if no previous set of essential indices is privided in the option file
-mato.create_grid_representation()
+# # Requires to presolve the network with the RedundancyRemvoal Algorith
+# # if no previous set of essential indices is privided in the option file
+# mato.create_grid_representation()
 
-# # Update the model data
-mato.update_market_model_data()
-mato.run_market_model()
+# # # Update the model data
+# mato.update_market_model_data()
+# mato.run_market_model()
 
-# # Check for overloaded lines (Should be none for N-0 and N-1)
-result_folder = mato.market_model.result_folders[0]
-result = mato.data.results[result_folder.name]
+# # # Check for overloaded lines (Should be none for N-0 and N-1)
+# result_folder = mato.market_model.result_folders[0]
+# result = mato.data.results[result_folder.name]
 
-df1, df2 = result.overloaded_lines_n_0()
-df3, df4 = result.overloaded_lines_n_1()
+# df1, df2 = result.overloaded_lines_n_0()
+# df3, df4 = result.overloaded_lines_n_1()
 
-print("Number of overloaded lines (SCOPF): ", len(df1))
-print("Number of overloaded lines N-1 (SCOPF): ", len(df3))
+# print("Number of overloaded lines (SCOPF): ", len(df1))
+# print("Number of overloaded lines N-1 (SCOPF): ", len(df3))
 
-# %% Show a Geo Plot of the market- and the resulting power flows.
-mato.create_geo_plot(title="IEEE")
+# # %% Show a Geo Plot of the market- and the resulting power flows.
+# mato.create_geo_plot(title="IEEE")
 mato._join_julia_instances()
