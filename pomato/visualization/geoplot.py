@@ -79,7 +79,8 @@ class GeoPlot():
                                               data.dclines, inj, flow_n_0, 
                                               flow_n_1, f_dc, option=2)
 
-    def create_static_plot(self, market_results, title=None, plot_dimensions=(700, 800)):
+    def create_static_plot(self, market_results, include_prices=True, 
+                           title=None, plot_dimensions=(700, 800)):
         """Create static bokeh plot of the market results.
 
         Creates a fairly interactive geographic plot of the provided market
@@ -98,8 +99,7 @@ class GeoPlot():
         if len(market_results) == 1:
             market_result = list(market_results)[0]
             folder = market_results[market_result].result_attributes["source"]
-            self.logger.info(
-                "initializing bokeh plot with from folder: %s", str(folder))
+            self.logger.info("initializing bokeh plot with from folder: %s", str(folder))
             plots = [(market_results[market_result], None)]
 
         elif (len(market_results) == 2) and any(["redispatch" in result for result in market_results]):
@@ -113,7 +113,7 @@ class GeoPlot():
                            "p", "t"], suffixes=("_market", "_redispatch"))
             gen["delta"] = gen["G_redispatch"] - gen["G_market"]
             gen["delta_abs"] = gen["delta"].abs()
-            plots = [(market_result, None), (redisp_result, gen), ]
+            plots = [(redisp_result, gen)]
 
         else:
             plots = []
@@ -121,23 +121,25 @@ class GeoPlot():
                 plots.append((market_results[result], None))
 
         for plot_result, gen in plots:
-            n_0 = plot_result.n_0_flow()
-            n_1 = plot_result.n_1_flow()
+            # Mean power flow calculation
+            # 1) relative power flow, mean flow, then multiply with maxflow
+            n_0, n_1 = plot_result.n_0_flow(),  plot_result.n_1_flow(sensitivity=0.1)
             n_1.loc[:, n_0.columns] = n_1.loc[:, n_0.columns].abs()
-            n_1 = n_1.groupby("cb").max(
-            ).loc[plot_result.data.lines.index, n_0.columns]
+            n_1 = n_1.groupby("cb").max().loc[plot_result.data.lines.index, n_0.columns]
             n_0_rel = n_0.divide(plot_result.data.lines.maxflow, axis=0).abs()
             n_1_rel = n_1.divide(plot_result.data.lines.maxflow, axis=0).abs()
-            inj = plot_result.INJ.groupby("n").mean(
-            ).loc[plot_result.data.nodes.index].values
+            inj = plot_result.INJ.groupby("n").mean().loc[plot_result.data.nodes.index].values
             flow_n_0 = pd.DataFrame(index=plot_result.data.lines.index)
             flow_n_0 = n_0_rel.mean(axis=1).multiply(
                 plot_result.data.lines.maxflow)
             flow_n_1 = pd.DataFrame(index=plot_result.data.lines.index)
             flow_n_1 = n_1_rel.mean(axis=1).multiply(
                 plot_result.data.lines.maxflow)
+            
             f_dc = plot_result.F_DC.pivot(index="dc", columns="t", values="F_DC") \
                 .abs().mean(axis=1).reindex(plot_result.data.dclines.index).fillna(0)
+
+            prices = plot_result.price() if include_prices else None
 
             if not title:
                 title = plot_result.result_attributes["source"].name
@@ -146,7 +148,8 @@ class GeoPlot():
                                                   plot_result.data.nodes,
                                                   plot_result.data.dclines,
                                                   inj, flow_n_0, flow_n_1, f_dc,
-                                                  redispatch=gen, option=0,
+                                                  redispatch=gen, prices=prices,
+                                                  option=0,
                                                   title=title, 
                                                   plot_dimensions=plot_dimensions)
 

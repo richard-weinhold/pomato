@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import scipy
 from bokeh import palettes
 from bokeh.io import show
 from bokeh.models import (Circle, HoverTool, Label, LassoSelectTool,  SaveTool, 
@@ -166,9 +167,58 @@ def prepare_line_plot(lines, nodes):
                        yj + np.sin(alpha2)*d, yj])
     return lx, ly
 
+def _build_raster(nodes, plot_width, plot_hight, alpha=4):
+    """Build Raster for prices layer"""
+
+    raster = np.zeros((plot_width, plot_hight))
+    known_points_coords = [[b.x, b.y] for i,b in nodes.iterrows()]
+    raster[nodes.x.values, nodes.y.values] = nodes.marginal.values
+
+    raster_coords = np.array([[x,y] for x in range(plot_width) for y in range(plot_hight)])
+    distance_matrix = scipy.spatial.distance.cdist(raster_coords, known_points_coords)
+    condition = np.all(distance_matrix > 0, axis=1)
+    distance_matrix = distance_matrix[condition]
+    # tmp = 1/np.power(distance_matrix, alpha)
+    tmp = np.divide(1.0, np.power(distance_matrix, alpha))
+    raster_values = tmp.dot(nodes.marginal.values)/tmp.sum(axis=1)
+    
+    for i, (x, y) in enumerate(raster_coords[condition]):
+        raster[x, y] = raster_values[i]
+    return raster
+
+def add_prices_layer(nodes, prices, compress=True):
+    """Adds prices layer to Geoplot"""
+
+    prices = prices[["n", "marginal"]].groupby("n").mean()
+    if compress:
+        prices.loc[prices.marginal > prices.marginal.quantile(.95), "marginal"] = prices.marginal.quantile(.95)
+        prices.loc[prices.marginal < prices.marginal.quantile(.05), "marginal"] = prices.marginal.quantile(.05)
+    nodes = pd.merge(nodes, prices, left_index=True, right_index=True)
+
+    # Calculate plot dimensions
+    xx, yy = merc(nodes.lat.values, nodes.lon.values)
+    ratio = (max(xx) - min(xx))/(max(yy) - min(yy))
+    size = (max(yy) - min(yy))/5e3
+    padding = size/2
+    # prices Plot Coordinates (0,0) (plot_width, plot_hight)
+    nodes["x"] = ((xx - min(xx))/max(xx - min(xx))*ratio*size + padding*ratio).astype(int)
+    nodes["y"] = ((yy - min(yy))/max(yy - min(yy))*size + padding).astype(int)
+    nodes["y"].min()
+
+    plot_width = nodes["x"].max() + int(padding*ratio) + 1
+    plot_hight = nodes["y"].max() + int(padding) + 1
+
+    prices_layer = _build_raster(nodes, plot_width, plot_hight, alpha=4)
+
+    # Anchor and dimension in GeoPlot
+    geo_plot_root = (min(xx) - padding/size*(max(xx) - min(xx)), min(yy) - padding/size*(max(yy) - min(yy)))
+    geo_plot_dims = ((max(xx) - min(xx))*(1 + 2*padding/size), (max(yy) - min(yy))*(1 + 2*padding/size))
+
+    return prices_layer, geo_plot_root, geo_plot_dims
+
 
 def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
-                       redispatch=None, option=0, title=None, plot_dimensions=(700, 800)):
+                       redispatch=None, prices=None, option=0, title=None, plot_dimensions=(700, 800)):
 
     coords_x, coords_y, lat, lon = [], [], [], []
     for i in nodes.index:
@@ -260,6 +310,13 @@ def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
     STAMEN_LITE = get_tilesource()
     fig.add_tile(STAMEN_LITE)
     fig.axis.visible = False
+
+    if isinstance(prices, pd.DataFrame):
+        prices_layer, geo_plot_root, geo_plot_dims = add_prices_layer(nodes, prices)
+        palette = [p for p in palettes.Spectral11]
+        fig.image(image=[prices_layer.T], x=geo_plot_root[0], y=geo_plot_root[1], 
+                  dw=geo_plot_dims[0], dh=geo_plot_dims[1], alpha=0.4, palette=palette)
+
 
     # lines and dc lines as line plots
     l = fig.multi_line("lx", "ly", color="color", hover_line_color='color',
