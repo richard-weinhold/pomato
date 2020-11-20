@@ -370,7 +370,7 @@ class POMATO():
         self.grid_model.create_grid_representation()
 
     def create_geo_plot(self, title=None, results=None, 
-                        show=True, plot_dimensions=(700, 800)):
+                        show=True, plot_dimensions=(800, 800)):
         """Initialize GeoPlot based on the dataset and a market result.
 
         Parameters

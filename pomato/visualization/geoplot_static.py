@@ -5,14 +5,16 @@
 
 import sys
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import scipy
 from bokeh import palettes
 from bokeh.io import show
-from bokeh.models import (Circle, HoverTool, Label, LassoSelectTool,  SaveTool, 
-    MultiLine, Select, TapTool, WMTSTileSource)
-from bokeh.plotting import ColumnDataSource, figure
+from bokeh.models import (Circle, ColorBar, FixedTicker, HoverTool, Label,
+                          LassoSelectTool, LinearColorMapper, MultiLine,
+                          SaveTool, Select, TapTool, WMTSTileSource, PrintfTickFormatter)
+from bokeh.plotting import ColumnDataSource, figure, output_notebook, show
 from bokeh.tile_providers import get_provider
 
 
@@ -178,7 +180,6 @@ def _build_raster(nodes, plot_width, plot_hight, alpha=4):
     distance_matrix = scipy.spatial.distance.cdist(raster_coords, known_points_coords)
     condition = np.all(distance_matrix > 0, axis=1)
     distance_matrix = distance_matrix[condition]
-    # tmp = 1/np.power(distance_matrix, alpha)
     tmp = np.divide(1.0, np.power(distance_matrix, alpha))
     raster_values = tmp.dot(nodes.marginal.values)/tmp.sum(axis=1)
     
@@ -186,7 +187,7 @@ def _build_raster(nodes, plot_width, plot_hight, alpha=4):
         raster[x, y] = raster_values[i]
     return raster
 
-def add_prices_layer(nodes, prices, compress=True):
+def add_prices_layer(nodes, prices, compress=False):
     """Adds prices layer to Geoplot"""
 
     prices = prices[["n", "marginal"]].groupby("n").mean()
@@ -198,7 +199,7 @@ def add_prices_layer(nodes, prices, compress=True):
     # Calculate plot dimensions
     xx, yy = merc(nodes.lat.values, nodes.lon.values)
     ratio = (max(xx) - min(xx))/(max(yy) - min(yy))
-    size = (max(yy) - min(yy))/5e3
+    size = (max(yy) - min(yy))/1e4
     padding = size/2
     # prices Plot Coordinates (0,0) (plot_width, plot_hight)
     nodes["x"] = ((xx - min(xx))/max(xx - min(xx))*ratio*size + padding*ratio).astype(int)
@@ -312,10 +313,26 @@ def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
     fig.axis.visible = False
 
     if isinstance(prices, pd.DataFrame):
+        # Thanks @ https://stackoverflow.com/a/54681316
+        
         prices_layer, geo_plot_root, geo_plot_dims = add_prices_layer(nodes, prices)
+
         palette = [p for p in palettes.Spectral11]
         fig.image(image=[prices_layer.T], x=geo_plot_root[0], y=geo_plot_root[1], 
                   dw=geo_plot_dims[0], dh=geo_plot_dims[1], alpha=0.4, palette=palette)
+
+        vmin, vmax = prices_layer.min(), prices_layer.max()
+        mapper = LinearColorMapper(palette='Spectral11', low=vmin, high=vmax)
+        levels = np.linspace(vmin, vmax, 12)
+        color_bar = ColorBar(color_mapper=mapper, 
+                            major_label_text_font_size="8pt",
+                            ticker=FixedTicker(ticks=levels),
+                            label_standoff=12, 
+                            formatter=PrintfTickFormatter(format='%.2f'),
+                            border_line_color=None, 
+                            location=(0, 0), 
+                            width=10)
+        fig.add_layout(color_bar, 'right')
 
 
     # lines and dc lines as line plots

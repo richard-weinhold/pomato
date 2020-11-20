@@ -168,7 +168,8 @@ class Results():
         """Return electricity infeasibilities"""
         infeas = pd.merge(self.data.nodes, self.INFEAS_EL_N_POS, left_index=True, right_on="n")
         infeas = pd.merge(infeas, self.INFEAS_EL_N_NEG, on=["t", "n"])
-        return infeas.rename(columns={"INFEAS_EL_N_POS": "pos", "INFEAS_EL_N_NEG": "neg"})
+        infeas = infeas.rename(columns={"INFEAS_EL_N_POS": "pos", "INFEAS_EL_N_NEG": "neg"})
+        return infeas[(infeas.pos > 0) | (infeas.neg > 0)]
 
     def price(self):
         """Return electricity prices.
