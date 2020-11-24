@@ -37,10 +37,6 @@
         "gsk": "gmax"
     },
     "data": {
-        "data_type": "nrel",
-        "stacked": ["demand_el_rt", "demand_el_da", "availability_da", "availability_rt", "net_export"],
-        "process": [],
-        "process_input": true, 
         "default_net_position": 0
     }
 }

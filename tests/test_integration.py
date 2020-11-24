@@ -26,7 +26,7 @@ class TestPomatoMarketModel(unittest.TestCase):
     def test_run_nrel(self):
 
         mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/nrel118.json",
-                             logging_level=logging.ERROR)
+                             logging_level=logging.INFO)
         mato.load_data('data_input/nrel_118.zip')
         
         my_file = self.wdir.parent.joinpath('tests/test_data/cbco_nrel_118.csv')

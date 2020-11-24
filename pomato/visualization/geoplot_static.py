@@ -187,13 +187,17 @@ def _build_raster(nodes, plot_width, plot_hight, alpha=4):
         raster[x, y] = raster_values[i]
     return raster
 
-def add_prices_layer(nodes, prices, compress=False):
+def add_prices_layer(nodes, prices, compress=True):
     """Adds prices layer to Geoplot"""
 
     prices = prices[["n", "marginal"]].groupby("n").mean()
     if compress:
-        prices.loc[prices.marginal > prices.marginal.quantile(.95), "marginal"] = prices.marginal.quantile(.95)
-        prices.loc[prices.marginal < prices.marginal.quantile(.05), "marginal"] = prices.marginal.quantile(.05)
+        # price[price.marginal >= 1000]
+        # quantile = .1
+        # prices.loc[prices.marginal > prices.marginal.quantile(1 - quantile), "marginal"] = prices.marginal.quantile(1 - quantile)
+        # prices.loc[prices.marginal < prices.marginal.quantile(quantile), "marginal"] = prices.marginal.quantile(quantile)
+        prices.loc[prices.marginal > 100] = 100
+
     nodes = pd.merge(nodes, prices, left_index=True, right_index=True)
 
     # Calculate plot dimensions

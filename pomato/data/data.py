@@ -277,7 +277,7 @@ class DataManagement():
                 condition = (attributes.index.isin(required_attr) &
                             (~attributes.index.isin(getattr(self, data).columns)))
                 self.missing_data[data]["required"] = list(attributes.index[condition])
-                self.logger.warning("Required Data not there as expected in %s", data)
+                # self.logger.warning("Required Data not there as expected in %s", data)
 
             else:  # No required attribute is missing, continue with checking the contents of each column
                 tmp = getattr(self, data).loc[:, required_attr + optional_attr]
@@ -289,10 +289,10 @@ class DataManagement():
                         reference_keys = getattr(self, ref_data)[ref_attr]
                     if attr in required_attr and not tmp.loc[~(tmp[attr].isin(reference_keys))].empty:
                         tmp = tmp.loc[(tmp[attr].isin(reference_keys))]
-                        self.logger.warning("Invalid Reference Keys and NaNs removed for %s in %s", attr, data)
+                        # self.logger.warning("Invalid Reference Keys and  NaNs removed for %s in %s", attr, data)
                     elif not tmp.loc[(~tmp[attr].isna()) & (~tmp[attr].isin(reference_keys))].empty:
                         tmp = tmp.loc[(~tmp[attr].isna()) & (tmp[attr].isin(reference_keys))]
-                        self.logger.warning("Invalid Reference Keys without NaNs removed for %s in %s", attr, data)
+                        # self.logger.warning("Invalid Reference Keys without NaNs removed for %s in %s", attr, data)
                 setattr(self, data, tmp.infer_objects())
             
             self.missing_data = tools.remove_empty_subdicts(self.missing_data)

@@ -94,8 +94,9 @@ end
 # Setting everthing up
 ######################
 global model_type = ARGS[1]
+global pdir = ARGS[2]
 global wdir = pwd()
-global daemon_file = wdir*"/data_temp/julia_files/daemon_"*model_type*".json"
+global daemon_file = pdir*"/daemon_"*model_type*".json"
 
 global gurobi_installed 
 global mosek_installed

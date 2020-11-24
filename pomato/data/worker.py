@@ -82,13 +82,15 @@ class DataWorker(object):
     def __init__(self, data, file_path):
         self.logger = logging.getLogger('Log.MarketModel.DataManagement.DataWorker')
         self.data = data
-
         if ".xls" in str(file_path):
             self.logger.info("Loading data from Excel file")
             self.read_xls(file_path)
+            self.data.data_structure.set_index("data", inplace=True)
+
         elif ".zip" in str(file_path):
             self.logger.info("Loading data from zipped data archive")
             self.read_csv_zipped(file_path)
+            self.data.data_structure.set_index("data", inplace=True)
         elif ".mat" in str(file_path):
             self.logger.info("Loading data from matpower .mat case-file")
             self.process_matpower_case(file_path, ".mat")
@@ -98,8 +100,8 @@ class DataWorker(object):
         elif file_path.is_dir():
             self.logger.info("Loading data from folder")
             self.read_csv_folder(file_path)
-        else: 
-            
+            self.data.data_structure.set_index("data", inplace=True)
+        else:             
             self.logger.error("Filepath: %s", str(file_path))
             self.logger.error("Data Type not supported, only .xls(x), .zip, .mat or folder")
             raise TypeError
@@ -128,17 +130,12 @@ class DataWorker(object):
 
         """
         xls = pd.ExcelFile(xls_filepath)
-        self.data.data_structure = xls.parse("data_structure", index_col=0)
-        self.data.data_attributes.update({d: False for d in self.data.data_structure.index.unique()})
-
+        self.data.data_structure = xls.parse("data_structure")
+        self.data.data_attributes.update({d: False for d in self.data.data_structure.data.unique()})
         for data in self.data.data_attributes:
             try:
-                if data in self.data.options["data"]["stacked"]:
-                    setattr(self.data, data, self.stack_data(xls.parse(data, index_col=0),
-                                                             self.data.data_structure.loc[data]["attributes"][1:]))
-                else:
-                    setattr(self.data, data, xls.parse(data, index_col=0).infer_objects())
-                self.data.data_attributes[data] = True
+                raw_data = xls.parse(data, index_col=0).infer_objects()
+                self._set_data_attribute(data, raw_data)
             except xlrd.XLRDError:
                 self.logger.warning(f"{data} not in excel file")
     
@@ -151,23 +148,37 @@ class DataWorker(object):
             Path to folder containing input data .csv files.
 
         """
-        self.data.data_structure = pd.read_csv(folder.joinpath('data_structure.csv'), index_col=0)
-        self.data.data_attributes.update({d: False for d in self.data.data_structure.index.unique()})
+        self.data.data_structure = pd.read_csv(folder.joinpath('data_structure.csv'))
+        self.data.data_attributes.update({d: False for d in self.data.data_structure.data.unique()})
         for data in self.data.data_attributes:
             try:
                 csv_file = folder.joinpath(data + ".csv")
-                if data in self.data.options["data"]["stacked"]:
-                    cols = self.data.data_structure.loc[data]["attributes"][1:]
-                    setattr(self.data, data, self.stack_data(pd.read_csv(csv_file, index_col=0), cols))
-                else:
-                    setattr(self.data, data, pd.read_csv(csv_file, index_col=0).infer_objects())
-                self.data.data_attributes[data] = True
+                raw_data = pd.read_csv(csv_file, index_col=0).infer_objects()
+                self._set_data_attribute(data, raw_data)
             except KeyError as error_msg:
                 self.logger.warning(f"{data} not in folder")
                 self.logger.warning(error_msg)
             except FileNotFoundError as error_msg:
                 self.logger.warning(f"{data} not in folder")
                 self.logger.debug(error_msg)
+
+    def _set_data_attribute(self, data_name, data): 
+        """[summary]
+
+        Parameters
+        ----------
+        data_name : str,
+            name of the data that is read and set as attribute e.g. nodes, lines
+        data : pd.DataFrame,
+            Read in data, as 
+        """        
+        cols = self.data.data_structure.loc[self.data.data_structure.data == data_name]["attributes"][1:]
+        condition_cols = any([col in data.columns for col in cols])
+        if not condition_cols and len(cols) > 1 and not data.empty:
+            setattr(self.data, data_name, self.stack_data(data, cols))
+        else:
+            setattr(self.data, data_name, data)
+        self.data.data_attributes[data_name] = True
 
     def read_csv_zipped(self, zip_filepath):
         """Read csv files zipped into archive at specified filepath.
@@ -181,20 +192,16 @@ class DataWorker(object):
         from zipfile import ZipFile
         with ZipFile(zip_filepath) as zip_archive:
             with zip_archive.open('data_structure.csv', 'r') as csv_file:
-                self.data.data_structure = pd.read_csv(csv_file, index_col=0)
-            self.data.data_attributes.update({d: False for d in self.data.data_structure.index.unique()})
+                self.data.data_structure = pd.read_csv(csv_file)
+            self.data.data_attributes.update({d: False for d in self.data.data_structure.data.unique()})
             for data in self.data.data_attributes:
                 try:
                     with zip_archive.open(data + '.csv', 'r') as csv_file:
-                        if data in self.data.options["data"]["stacked"]:
-                            cols = self.data.data_structure.loc[data]["attributes"][1:]
-                            setattr(self.data, data, self.stack_data(pd.read_csv(csv_file, index_col=0), cols))
-                        else:
-                            setattr(self.data, data, pd.read_csv(csv_file, index_col=0).infer_objects())
-                        self.data.data_attributes[data] = True
+                        raw_data = pd.read_csv(csv_file, index_col=0).infer_objects()
+                        self._set_data_attribute(data, raw_data)
                 except KeyError as error_msg:
                     self.logger.warning(f"{data} not in zip archive")
-                    self.logger.debug(error_msg)
+                    self.logger.warning(error_msg)
 
     def read_mat_file(self, mat_filepath):
         """Read mat file at specified filepath.
