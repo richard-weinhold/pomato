@@ -21,6 +21,7 @@ class JuliaMockup():
 class TestPomatoMarketModel(unittest.TestCase):
     def setUp(self):
         self.wdir = Path.cwd().joinpath("examples")
+        pomato.tools.create_folder_structure(self.wdir)
         self.options = pomato.tools.default_options()
         self.data = pomato.data.DataManagement(self.options, self.wdir)
         self.data.logger.setLevel(logging.ERROR)        
