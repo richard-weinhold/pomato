@@ -40,7 +40,7 @@ class GridModel():
     grid : :class:`~pomato.grid.GridTopology`
        An instance of the GridModel class.
     options : dict
-        The options from POMATO main method persist in the CBCOModule.
+        The options from POMATO main module.
 
     Attributes
     ----------
@@ -63,16 +63,13 @@ class GridModel():
 
     def __init__(self, wdir, grid, data, option):
         # Import Logger
-        self.logger = logging.getLogger('Log.MarketModel.CBCOModule')
-        self.logger.info("Initializing the CBCOModule....")
+        self.logger = logging.getLogger('Log.MarketModel.GridTopology')
+        self.logger.info("Initializing the GridTopology....")
 
         self.options = option
         self.wdir = wdir
         self.package_dir = Path(pomato.__path__[0])
-
-
         self.julia_dir = wdir.joinpath("data_temp/julia_files")
-        tools.create_folder_structure(self.wdir, self.logger)
 
         # Core attributes
         self.grid = grid
@@ -84,9 +81,7 @@ class GridModel():
                                                          contingency_groups={},
                                                          redispatch_grid=pd.DataFrame(),
                                                          ntc=pd.DataFrame())
-       
         self.julia_instance = None
-        self.logger.info("CBCOModule Initialized!")
 
     def _start_julia_daemon(self):
         self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")

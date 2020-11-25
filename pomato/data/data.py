@@ -115,6 +115,9 @@ class DataManagement():
         self.data_structure = {}
         self.model_structure = self.load_model_structure()
         # self.load_structure()
+        self.missing_data = []
+        self.data_validation_report = {}
+        self.model_validation_report = {}
 
         self.data_attributes = {data: False for data in list(self.model_structure)}
         self.data_source = None
@@ -221,13 +224,16 @@ class DataManagement():
         elif self.wdir.joinpath(f"data_input/{filepath}").is_file():
             DataWorker(self, self.wdir.joinpath(f"data/{filepath}"))
         elif self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat").is_file():
-            DataWorker(self, self.wdir.joinpath(
-                f"data_input/mp_casedata/{filepath}.mat"))
+            DataWorker(self, self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat"))
         elif self.wdir.joinpath(filepath).is_dir():
             DataWorker(self,self.wdir.joinpath(filepath))
         else:
             self.logger.error("Data File not found!")
             raise FileNotFoundError
+        
+        if len(self.missing_data) > 0:
+            self.logger.warning(("Not complete list of expected input data found. " \
+                                "See missing_data attribute for more information."))
 
         self.process_input()
         self.data_source = filepath
@@ -258,17 +264,19 @@ class DataManagement():
         problem with the input data, but also wanted (in most cases).
         """
         self.logger.info("Validating Input Data...")
-        self.missing_data = {}
-        for data in self.data_structure.index.unique():  # Data refers to nodes, plants etc...
+        
+        self.data_validation_report = {"missing_data": {}, "removed_data": {}}
+        for data in self.data_structure.index.unique():  
+            # Data refers to nodes, plants etc...
             # Distinguish between required and optional attributes
             attributes = self.data_structure.loc[[data], :].set_index("attributes")
             required_attr = list(attributes.index[attributes.optional & (attributes.index != "index")])
             optional_attr = list(attributes.index[~attributes.optional & (attributes.index.isin(getattr(self, data).columns))])
-            missing_opt_attributes = list(attributes.index[~attributes.optional & 
-                                               (~attributes.index.isin(getattr(self, data).columns))])
-
-            self.missing_data[data] = {"optional": missing_opt_attributes}
-        
+            condition = ((~attributes.optional) 
+                         & (~attributes.index.isin(getattr(self, data).columns)) 
+                         & (attributes.index != "index"))
+            missing_opt_attributes = list(attributes.index[condition])
+            self.data_validation_report["missing_data"][data] = {"optional": missing_opt_attributes}
             reference_attributes = attributes.loc[attributes.type.str.contains(".", regex=False), :]
             # Log error when required attribute is missing in data and store in missing_data
             # Missing means that the column of the attribute does not exist!
@@ -276,10 +284,10 @@ class DataManagement():
                             (~attributes.index.isin(getattr(self, data).columns)))].empty:
                 condition = (attributes.index.isin(required_attr) &
                             (~attributes.index.isin(getattr(self, data).columns)))
-                self.missing_data[data]["required"] = list(attributes.index[condition])
-                # self.logger.warning("Required Data not there as expected in %s", data)
+                self.data_validation_report["missing_data"][data]["required"] = list(attributes.index[condition])
 
             else:  # No required attribute is missing, continue with checking the contents of each column
+                self.data_validation_report["removed_data"][data] = {"reference": [], "reference_nans": []}
                 tmp = getattr(self, data).loc[:, required_attr + optional_attr]
                 for attr, ref in zip(reference_attributes.index, reference_attributes.type):
                     ref_data, ref_attr = ref.split(".")
@@ -287,18 +295,22 @@ class DataManagement():
                         reference_keys = getattr(self, ref_data).index
                     else:
                         reference_keys = getattr(self, ref_data)[ref_attr]
+
                     if attr in required_attr and not tmp.loc[~(tmp[attr].isin(reference_keys))].empty:
                         tmp = tmp.loc[(tmp[attr].isin(reference_keys))]
-                        # self.logger.warning("Invalid Reference Keys and  NaNs removed for %s in %s", attr, data)
+                        self.data_validation_report["removed_data"][data]["reference"].append(attr)
                     elif not tmp.loc[(~tmp[attr].isna()) & (~tmp[attr].isin(reference_keys))].empty:
                         tmp = tmp.loc[(~tmp[attr].isna()) & (tmp[attr].isin(reference_keys))]
-                        # self.logger.warning("Invalid Reference Keys without NaNs removed for %s in %s", attr, data)
+                        self.data_validation_report["removed_data"][data]["reference_nans"].append(attr)
                 setattr(self, data, tmp.infer_objects())
-            
-            self.missing_data = tools.remove_empty_subdicts(self.missing_data)
-            for k in self.missing_data:
-                if "required" in self.missing_data[k].keys():
-                    self.logger.error("attributes missing in %s", k)
+
+        self.data_validation_report = tools.remove_empty_subdicts(self.data_validation_report)
+        if len(self.data_validation_report) > 0: 
+            self.logger.warning(("Data validation completed with warnings, "
+                                  "see the data_validation_report attribute for more info."))
+        else:
+            self.logger.warning("Data validation completed with no issues.")
+
 
     def process_input(self):
         """Input Processing to bring input data is the desired pomato format.
@@ -339,30 +351,44 @@ class DataManagement():
         there no timeseries to cover adjacent regions via net export parameters. So the input data
         can cover a subjet of possible data set but the model data has to be consistent.
         """
+        self.model_validation_report = {"empty": [], "default_values": {}}
         for data in self.model_structure:
             # if getattr(self, data).empty:
             if len(getattr(self, data)) == 0:
                 cols = [col for col in self.model_structure[data].keys() if col != "index"]
                 setattr(self, data, pd.DataFrame(columns=cols))
-                self.logger.warning("%s not in Input Data, initialized as empty", data)
+                self.model_validation_report["empty"].append(data)
+                # self.logger.warning("%s not in Input Data, initialized as empty", data)
             else:
+                self.model_validation_report["default_values"][data] = {}
                 tmp = getattr(self, data)
                 cols = [col for col in self.model_structure[data].keys() if col != "index"]
                 
-                # see if attribute is in data -> add columns with default value
+                # see if attribute is in data, if not -> add columns with default value
                 for attr in [col for col in cols if col not in tmp.columns]:
                     default_value = self.model_structure[data][attr]["default"]
                     tmp.loc[:, attr] = default_value
-                    self.logger.warning("Attribute %s not in %s, initialized as %s", attr, data, str(default_value))
+                    self.model_validation_report["default_values"][data][attr] = default_value
+                    # self.logger.warning("Attribute %s not in %s, initialized as %s", attr, data, str(default_value))
                 
                 # add missing values as default
                 for attr in cols:
                     default_value = self.model_structure[data][attr]["default"]
                     if any(tmp[attr].isna()) and not pd.isna(default_value):
                         tmp.loc[tmp[attr].isna(), attr] = default_value
-                        self.logger.warning("Attribute %s in %s contains NaNs, initialized as %s", attr, data, str(default_value))
-
+                        self.model_validation_report["default_values"][data][attr] = default_value
+                        # self.logger.warning("Attribute %s in %s contains NaNs, initialized as %s", attr, data, str(default_value))
                 setattr(self, data, tmp)
+        
+
+        if len(self.model_validation_report["empty"]) > 0:
+            self.logger.warning(("Some data was initialized empty. "
+                                 "See model_validation_report attribute for more information."))
+        self.model_validation_report["default_values"] = tools.remove_empty_subdicts(self.model_validation_report["default_values"])
+        if len(self.model_validation_report["default_values"]) > 0:
+            self.logger.warning(("Some data missing or contained NaNs. "
+                                 "See model_validation_report attribute for more information."))
+
 
     def process_results(self, result_folder, grid):
         """Initialize :class:`~pomato.data.Results` with `results_folder` and the own instance."""

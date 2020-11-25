@@ -22,11 +22,10 @@ class FBMCModule():
     data : :class:`~pomato.data.DataManagement`
         An instance of the DataManagement class with processed input data.
     options : dict
-        The options from POMATO main method persist in the CBCOModule.
+        The options from POMATO main module.
 
     """
     def __init__(self, wdir, grid, data, options):
-
         self.logger = logging.getLogger('Log.MarketModel.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
 
@@ -35,10 +34,7 @@ class FBMCModule():
 
         self.options = options
         self.grid = grid
-
         self.data = data
-
-        self.logger.info("FBMCModule  Initialized!")
 
     def calculate_parameters(self, custom_cbco=None, flowbased_region=None):
         """Calculate basic, non result specific, paramters.

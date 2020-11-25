@@ -68,9 +68,6 @@ class MarketModel():
         self.data_dir = wdir.joinpath("data_temp/julia_files/data")
         self.results_dir = wdir.joinpath("data_temp/julia_files/results")
         self.julia_model = None
-
-        # Make sure all folders exist
-        tools.create_folder_structure(self.wdir, self.logger)
         self.data = data
         self.grid_representation = grid_representation
 

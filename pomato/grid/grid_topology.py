@@ -79,17 +79,17 @@ class GridTopology():
         self.contingency_groups = None
 
     def calculate_parameters(self, nodes, lines):        
-        self.logger.info("Calculating Grid Parameters!")
+        self.logger.info("Calculating grid parameters!")
         self.nodes = nodes
         self.lines = lines
         self.check_slack()
-        self.logger.info("Calculating PTDF and PSDF Matrices!")
+        self.logger.info("Calculating PTDF and PSDF matrices!")
         self.incidence_matrix = self.create_incidence_matrix()
         self.ptdf = self.create_ptdf_matrix()
         self.psdf = self.create_psdf_matrix()
         self.multiple_slack = False
         self.check_grid_topology()
-        self.logger.info("Calculating LODF Matrix!")
+        self.logger.info("Calculating LODF matrix and contingency groups")
         self.lodf = self.create_n_1_lodf_matrix()
         self.contingency_groups = self.create_contingency_groups()
         self.logger.info("Grid parameters Calculated!")
@@ -103,7 +103,7 @@ class GridTopology():
         """
         A = self.create_incidence_matrix()
         network_components = scipy.sparse.csgraph.connected_components(np.dot(A.T, A))
-        self.logger.info("The network consits of %d components. Making sure a slack is set for each.",
+        self.logger.info("The network consists of %d components. Setting slack for each.",
                          network_components[0])
         for i in range(0, network_components[0]):
             condition_subnetwork = network_components[1] == i
@@ -124,7 +124,7 @@ class GridTopology():
         though the slack. Mathematically this causes a division by zero in the
         lodf matrix calculation.
         """
-        self.logger.info("Checking Grid Topology...")
+        self.logger.info("Checking GridTopology...")
 
         radial_nodes = []
         for node in self.nodes.index:
@@ -144,18 +144,16 @@ class GridTopology():
                     (self.lines.node_j.isin(radial_nodes)) & self.lines.contingency
 
         if not self.lines[condition].empty:
-            self.logger.info("Radial nodes are set as contingency:")
             self.lines.loc[condition, "contingency"] = False
-            self.logger.info("Contingency of %d lines is set to false", len(self.lines.index[condition]))
+            self.logger.info("Radial nodes: Contingency of %d lines is set to false", len(self.lines.index[condition]))
 
         condition = self.lines.index.isin(radial_lines) & self.lines.contingency
         if not self.lines.contingency[condition].empty:
-            self.logger.info("Radial lines are set as contingency:")
             self.lines.loc[condition, "contingency"] = False
-            self.logger.info("Contingency of %d lines is set to false", len(self.lines.index[condition]))
+            self.logger.info("Radial lines: Contingency of %d lines is set to false", len(self.lines.index[condition]))
 
-        self.logger.info("Total number of Lines: %d", len(self.lines.index))
-        self.logger.info("Total number of contingencies: %d", len(self.lines[self.lines.contingency]))
+        self.logger.info("Total number of lines and contingencies: %d, %d", 
+                         len(self.lines.index), len(self.lines[self.lines.contingency]))
 
     def add_number_of_systems(self):
         """Add number of systems to lines dataframe, i.e. how many systems a line is part of."""

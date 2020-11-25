@@ -82,6 +82,7 @@ class DataWorker(object):
     def __init__(self, data, file_path):
         self.logger = logging.getLogger('Log.MarketModel.DataManagement.DataWorker')
         self.data = data
+
         if ".xls" in str(file_path):
             self.logger.info("Loading data from Excel file")
             self.read_xls(file_path)
@@ -136,9 +137,10 @@ class DataWorker(object):
             try:
                 raw_data = xls.parse(data, index_col=0).infer_objects()
                 self._set_data_attribute(data, raw_data)
-            except xlrd.XLRDError:
-                self.logger.warning(f"{data} not in excel file")
-    
+            except xlrd.XLRDError as error_msg:
+                self.data.missing_data.append(data)
+                self.logger.debug(error_msg)
+
     def read_csv_folder(self, folder):
         """Read csv files from specified folder.
 
@@ -156,10 +158,10 @@ class DataWorker(object):
                 raw_data = pd.read_csv(csv_file, index_col=0).infer_objects()
                 self._set_data_attribute(data, raw_data)
             except KeyError as error_msg:
-                self.logger.warning(f"{data} not in folder")
+                self.data.missing_data.append(data)
                 self.logger.warning(error_msg)
             except FileNotFoundError as error_msg:
-                self.logger.warning(f"{data} not in folder")
+                self.data.missing_data.append(data)
                 self.logger.debug(error_msg)
 
     def _set_data_attribute(self, data_name, data): 
@@ -200,8 +202,9 @@ class DataWorker(object):
                         raw_data = pd.read_csv(csv_file, index_col=0).infer_objects()
                         self._set_data_attribute(data, raw_data)
                 except KeyError as error_msg:
-                    self.logger.warning(f"{data} not in zip archive")
-                    self.logger.warning(error_msg)
+                    self.data.missing_data.append(data)
+                    self.logger.debug(error_msg)
+        
 
     def read_mat_file(self, mat_filepath):
         """Read mat file at specified filepath.

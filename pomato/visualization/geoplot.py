@@ -49,10 +49,8 @@ class GeoPlot():
         self.wdir = wdir
         self.package_dir = Path(pomato.__path__[0])
         self.bokeh_dir = wdir.joinpath("data_temp/bokeh_files")
-        # Make sure all folders exist
-        tools.create_folder_structure(self.wdir, self.logger)
-
         self.plot_type = plot_type
+        
         # attributes required for dynamic bokeh plot
         self.bokeh_server = None
         self.bokeh_thread = None
