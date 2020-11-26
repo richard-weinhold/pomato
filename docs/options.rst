@@ -136,8 +136,5 @@ The options are divided into three sections: Optimization, Grid, Data and are as
   the rules on input data got more strict, therefore less input data is processed in pomato itself. 
   The following functions remain:
 
-   - *stacked* (list of data): Excel can have problems with long tables. So for example the demand 
-     table can be read in a wide format and than stacked to fit the predefined structure. This has to 
-     be declared here. 
    - *unique_mc* (bool): Sometimes it can be beneficial to computation time to have unique generation 
      costs. This option add small increments to make all plants have unique marginal costs.  

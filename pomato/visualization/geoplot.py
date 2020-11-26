@@ -208,9 +208,9 @@ class GeoPlot():
         n_1_flows = market_result.n_1_flow()
 
         # convert n_1 flows to the max of N-1 flows
-        time = market_result.result_attributes["model_horizon"]
+        timesteps = market_result.result_attributes["model_horizon"]
         n_1_flows = n_1_flows.drop("co", axis=1)
-        n_1_flows[time] = n_1_flows[time].abs()
+        n_1_flows[timesteps] = n_1_flows[timesteps].abs()
         n_1_flows = n_1_flows.groupby("cb").max().reset_index()
 
         self.logger.info("Done!")
