@@ -165,7 +165,7 @@ class DataWorker(object):
                 self.logger.debug(error_msg)
 
     def _set_data_attribute(self, data_name, data): 
-        """[summary]
+        """Sets the read in data as attribute of DataManagement.
 
         Parameters
         ----------

@@ -20,7 +20,7 @@ copyright = '2020, riw'
 author = 'riw, rom'
 
 # The full version, including alpha/beta/rc tags
-release = '0.2.1'
+release = '0.2.5'
 
 # -- General configuration ---------------------------------------------------
 
@@ -29,9 +29,9 @@ release = '0.2.1'
 # ones.
 extensions = ["sphinx.ext.autosummary", "sphinx.ext.autodoc", "numpydoc"]
 autosummary_generate = False
+autosummary_imported_members = True
 numpydoc_show_inherited_class_members = False 
 numpydoc_show_class_members = False 
-autosummary_imported_members = True
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

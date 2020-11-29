@@ -232,8 +232,7 @@ class DataManagement():
             raise FileNotFoundError
         
         if len(self.missing_data) > 0:
-            self.logger.warning(("Not complete list of expected input data found. " \
-                                "See missing_data attribute for more information."))
+            self.logger.warning(("Not complete list of expected input data found. See .missing_data"))
 
         self.process_input()
         self.data_source = filepath
@@ -306,8 +305,7 @@ class DataManagement():
 
         self.data_validation_report = tools.remove_empty_subdicts(self.data_validation_report)
         if len(self.data_validation_report) > 0: 
-            self.logger.warning(("Data validation completed with warnings, "
-                                  "see the data_validation_report attribute for more info."))
+            self.logger.warning(("Data validation completed with warnings. See the .data_validation_report."))
         else:
             self.logger.warning("Data validation completed with no issues.")
 
@@ -382,12 +380,10 @@ class DataManagement():
         
 
         if len(self.model_validation_report["empty"]) > 0:
-            self.logger.warning(("Some data was initialized empty. "
-                                 "See model_validation_report attribute for more information."))
+            self.logger.warning(("Some data was initialized empty. See model_validation_report."))
         self.model_validation_report["default_values"] = tools.remove_empty_subdicts(self.model_validation_report["default_values"])
         if len(self.model_validation_report["default_values"]) > 0:
-            self.logger.warning(("Some data missing or contained NaNs. "
-                                 "See model_validation_report attribute for more information."))
+            self.logger.warning(("Some data missing or contained NaNs. See model_validation_report."))
 
 
     def process_results(self, result_folder, grid):

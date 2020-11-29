@@ -237,7 +237,7 @@ class POMATO():
         self.market_model = MarketModel(self.wdir, self.options, self.data, self.grid_representation)
 
         # Instances for Result Processing 
-        self.geo_plot = GeoPlot(self.wdir)
+        self.geo_plot = GeoPlot(self.wdir, self.data)
         self.fbmc = FBMCModule(self.wdir, self.grid, self.data, self.options)
 
 
@@ -369,35 +369,22 @@ class POMATO():
         """
         self.grid_model.create_grid_representation()
 
-    def create_geo_plot(self, title=None, results=None, 
-                        show=True, plot_dimensions=(800, 800)):
+    def create_geo_plot(self, show=True, **kwargs):
         """Initialize GeoPlot based on the dataset and a market result.
 
+        This is done with the :meth:`~pomato.visualization.geoplot.create_static_plot` method. 
+        See the correpsonding documentation for the available conditional arguments.
+        
         Parameters
         ----------
-        title : str, optional
-            Name defaults to 'default' is is used to identify the initialized
-            market result in the plot itself and to name the folder within
-            the ``data_temp/bokeh_files`` folder.
-        plot_type : str, optional
-            Specifies if a static or dynamic plot is generated. A dynamic plot
-            requires to run a bokeh server, which is generally more involved.
-            Defaults to static, which outputs a html version of the map with
-            average loads.
-        results : dict(str, :obj:`~pomato.data.Results`)
-            Optionally specify a subset of results to plot.
         show : bool, optional
-            Show Geo Plot after creation.
-        plot_dimensions : Tuple (x, y)
-            Plot Dimension of the html created, used for embedded plot.
+            Show the plot after completion, this will open a browser window.
         """
-        if (not self.data.results) and (not results):  # if results dict is empty
+        if (not self.data.results):  # if results dict is empty
             self.logger.info("No result available from market model!")
-            self.geo_plot.create_empty_static_plot(self.data)
-        elif results:
-            self.geo_plot.create_static_plot(results, title=title, plot_dimensions=plot_dimensions)
+            self.geo_plot.create_empty_static_plot()
         else:
-            self.geo_plot.create_static_plot(self.data.results, title=title, plot_dimensions=plot_dimensions)
+            self.geo_plot.create_static_plot(**kwargs)
         if show:
             self.geo_plot.show_plot()
 

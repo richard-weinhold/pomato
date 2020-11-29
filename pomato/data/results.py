@@ -72,8 +72,10 @@ class Results():
                                   "dual_variables": dual_variables,
                                   "infeasibility_variables": infeasibility_variables,
                                   "model_horizon": None, "source": None, "status": None,
-                                  "objective": None, "t_start": None, "t_end": None
-                                  }
+                                  "objective": None, "t_start": None, "t_end": None,
+                                  "is_redispatch_result": False, 
+                                  "corresponding_market_result_name": None}
+
         self.model_horizon = self.result_attributes["model_horizon"]
 
         for var in self.result_attributes["variables"]:
@@ -87,9 +89,16 @@ class Results():
         self.result_attributes["source"] = result_folder
         self.result_attributes["name"] = str(result_folder).split("\\")[-1]
         self.load_results_from_folder(result_folder)
-        # Set Redispatch = True if result is a redispatch result 
-        self.result_attributes["redispatch"] = True if "redispatch" in self.result_attributes["name"] else False
 
+        # Set Redispatch = True if result is a redispatch result 
+        if "redispatch" in self.result_attributes["name"]:
+            self.result_attributes["is_redispatch_result"] = True
+            market_result_name = "_".join(self.result_attributes["name"].split("_")[:3]) + "_market_results"
+            if market_result_name in self.data.results:
+                self.result_attributes["corresponding_market_result_name"] = "_".join(self.result_attributes["name"].split("_")[:3]) + "_market_results"
+            else:
+                self.logger.warning("Corresponding market results to %s not or with new name instantiated", self.result_attributes["name"])
+                self.logger.warning("Manually set market result name in result attributes.")
         # set-up: don't show the graphs when created
         plt.ioff()
 
@@ -139,6 +148,8 @@ class Results():
         # Model Horizon as attribute
         self.result_attributes["model_horizon"] = list(self.INJ.t.unique())
         self.model_horizon = self.result_attributes["model_horizon"]
+
+
 
     def redispatch(self):
         """Return Redispatch"""
@@ -512,6 +523,29 @@ class Results():
 
         return n_1_flows.loc[:, ["cb", "co"] + timesteps]
 
+    def absolute_max_n_1_flow(self, timesteps=None):
+        """Calculate the absolute max of N-1 Flows.
+
+        This method essentially proviedes a n_1_flow.groupby("cb") yielding the 
+        absolute maximum flow, maintaining the directionality of the flow.
+        Thanks @https://stackoverflow.com/a/64559655
+        
+        Parameters
+        ----------
+        timesteps : list like, optional
+            Subset of model horizon. Defaults to the full model horizon.
+
+        """
+
+        n_1_flows = self.n_1_flow(timesteps=timesteps)
+        n_1_flows = n_1_flows.drop("co", axis=1)
+        n_1_flow_max = n_1_flows.groupby("cb").max()
+        n_1_flow_min = n_1_flows.groupby("cb").min()
+        n_1_flows = pd.DataFrame(np.where(n_1_flow_max > -n_1_flow_min, n_1_flow_max, n_1_flow_min),
+                                 index=n_1_flow_min.index, columns=n_1_flow_min.columns)
+
+        return n_1_flows.reindex(self.grid.lines.index)
+
     def overloaded_lines_n_0(self, timesteps=None):
         """Calculate overloaded lines (N-0) power.
 
@@ -522,7 +556,7 @@ class Results():
         Parameters
         ----------
         timesteps : list like, optional
-            Set of considered timesteps. Defaults to the full model horizon.
+            Subset of model horizon. Defaults to the full model horizon.
 
         Returns
         -------
@@ -566,7 +600,7 @@ class Results():
         Parameters
         ----------
         timesteps : list like, optional
-            Set of considered timesteps. Defaults to the full model horizon.
+            Subset of model horizon. Defaults to the full model horizon.
         sensitivity : float, optional
             The sensitivity defines the threshold from which outages are
             considered critical. Am outage that can impact the line flow,

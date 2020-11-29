@@ -1,5 +1,5 @@
 pomato.visualization
-===========
+====================
 
 .. automodule:: pomato.visualization
 

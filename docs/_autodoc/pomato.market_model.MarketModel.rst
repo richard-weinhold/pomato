@@ -10,7 +10,7 @@ MarketModel
 
    .. autosummary::
 
-      ~MarketModel.data_to_csv
-      ~MarketModel.rolling_horizon_storage_levels
       ~MarketModel.run
       ~MarketModel.update_data
+      ~MarketModel.data_to_csv
+      ~MarketModel.rolling_horizon_storage_levels
