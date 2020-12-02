@@ -42,18 +42,9 @@ class TestPomatoData(unittest.TestCase):
         for data in ["node_i", "node_j", "b", "maxflow", "contingency"]:
             self.assertTrue(self.data.lines.loc[self.data.lines[data].isna(), :].empty)
     def test_data_preprocess(self):
-
         self.data.process_inflows()
         self.data.line_susceptance()
 
-
-    def test_visualize_input_data(self):
-        folder = self.wdir.joinpath("data_output")
-        self.data.visualize_inputdata(folder, show_plot=False)
-
-        self.assertTrue(folder.is_dir())
-        self.assertTrue(folder.joinpath("zonal_demand.png").is_file())
-        self.assertTrue(folder.joinpath("installed_capacity_by_type.png").is_file())
 
     def test_save_data(self):
         folder = self.wdir.joinpath("data_output")
@@ -67,7 +58,7 @@ class TestPomatoData(unittest.TestCase):
     def test_save_results(self):
         grid  = pomato.grid.GridTopology()
         grid.calculate_parameters(self.data.nodes, self.data.lines)
-        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_result_market")
+        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_market_results")
         self.data.process_results(folder, grid)
 
         save_folder = self.wdir.joinpath("data_output")
@@ -75,7 +66,7 @@ class TestPomatoData(unittest.TestCase):
             save_folder.mkdir()
 
         self.data.save_results(save_folder, "dummy_name")
-        self.assertTrue(save_folder.joinpath("dummy_name_" + "dispatch_result_market").is_dir())
+        self.assertTrue(save_folder.joinpath("dummy_name_" + "dispatch_market_results").is_dir())
 
     def system_balance(self, result):
         model_horizon = result.result_attributes["model_horizon"]
@@ -89,7 +80,7 @@ class TestPomatoData(unittest.TestCase):
     def test_results_processing(self):
         grid  = pomato.grid.GridTopology()
         grid.calculate_parameters(self.data.nodes, self.data.lines)
-        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_result_market")
+        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_market_results")
         result = pomato.data.Results(self.data, grid, folder)
 
         system_balance = self.system_balance(result)
@@ -98,7 +89,7 @@ class TestPomatoData(unittest.TestCase):
     def test_misc_result_methods(self):
         grid  = pomato.grid.GridTopology()
         grid.calculate_parameters(self.data.nodes, self.data.lines)
-        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/scopf_result")
+        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/scopf_market_results")
         result = pomato.data.Results(self.data, grid, folder)
         result.output_folder = self.wdir.joinpath("data_output")
         
@@ -109,19 +100,18 @@ class TestPomatoData(unittest.TestCase):
         result.infeasibility()
         res_share = result.res_share(["wind", "solar", "ror_ts"])
         self.assertTrue(0 < res_share < 1)
-
         self.assertRaises(TypeError, result.res_share)
-        result.default_plots()
 
     def test_redispatch_result(self):
         grid  = pomato.grid.GridTopology()
         grid.calculate_parameters(self.data.nodes, self.data.lines)
-        market_folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_result_market")
+        market_folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_market_results")
+        redispatch_folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_redispatch")
 
-        redispatch_folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_result_redispatch")
         self.data.process_results(market_folder, grid)
         self.data.process_results(redispatch_folder, grid)
-        gen = self.data.results["dispatch_result_redispatch"].redispatch()
+        self.data.results["dispatch_redispatch"].result_attributes["corresponding_market_result_name"] = "dispatch_market_results"
+        gen = self.data.results["dispatch_redispatch"].redispatch()
 
         self.assertTrue(gen.delta_abs.sum() > 0)
         self.assertAlmostEqual(gen.delta.sum(), 0)
@@ -131,7 +121,7 @@ class TestPomatoData(unittest.TestCase):
         # n-0 overloads = 15
         grid  = pomato.grid.GridTopology()
         grid.calculate_parameters(self.data.nodes, self.data.lines)
-        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_result_market")
+        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_market_results")
         result = pomato.data.Results(self.data, grid, folder)
 
         system_balance = self.system_balance(result)
@@ -152,7 +142,7 @@ class TestPomatoData(unittest.TestCase):
         # n-0 : 0 OL; n-1 : 23 OL
         grid  = pomato.grid.GridTopology()
         grid.calculate_parameters(self.data.nodes, self.data.lines)
-        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/nodal_result_market")
+        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/nodal_market_results")
         result = pomato.data.Results(self.data, grid, folder)
 
         system_balance = self.system_balance(result)
@@ -172,7 +162,7 @@ class TestPomatoData(unittest.TestCase):
         # n-0 : 0 OL; n-1 : 29 OL
         grid  = pomato.grid.GridTopology()
         grid.calculate_parameters(self.data.nodes, self.data.lines)
-        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/scopf_result")
+        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/scopf_market_results")
         result = pomato.data.Results(self.data, grid, folder)
 
         system_balance = self.system_balance(result)
