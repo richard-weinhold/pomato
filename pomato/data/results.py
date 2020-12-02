@@ -149,38 +149,46 @@ class Results():
         self.result_attributes["model_horizon"] = list(self.INJ.t.unique())
         self.model_horizon = self.result_attributes["model_horizon"]
 
-
-
     def redispatch(self):
         """Return Redispatch"""
-
         # Find corresponding Market Result
-        tmp = [result for result in self.data.results if "market" in result]
-        if len(tmp) == 1:
-            market_result = self.data.results[tmp[0]]
-        else:
-            raise AttributeError("Multiple/None market-results available for redispatch")
-
-        gen = pd.merge(market_result.data.plants[["plant_type", "g_max", "node"]],
-                       market_result.G, left_index=True, right_on="p")
-
+        corresponding_market_result = self.result_attributes["corresponding_market_result_name"]
+        if not self.result_attributes["is_redispatch_result"] and bool(corresponding_market_result):
+            self.logger.warning("Corresponding market result not initialized or found")
+            return None
+        gen = self.generation()
         # Redispatch Calculation G_redispatch - G_market
-        gen = pd.merge(gen, self.G, on=["p", "t"], suffixes=("_market", "_redispatch"))
+        gen = pd.merge(self.data.results[corresponding_market_result].G, gen, on=["p", "t"], 
+                       suffixes=("_market", "_redispatch"))
         gen["delta"] = gen["G_redispatch"] - gen["G_market"]
         gen["delta_abs"] = gen["delta"].abs()
-
-        # Redispatch Values
-        self.logger.info("Redispatch Values per timestep: sum: %d, abs sum: %d", round(gen.delta.sum()/len(gen.t.unique())), 
-                         round(gen.delta_abs.sum()/len(gen.t.unique())))
         return gen
 
+    def infeasibility(self, drop_zero=True):
+        """Return electricity infeasibilities.
+        
+        Infeasibilities occur when the electricity energy balances cannot be satisfied in the 
+        model due to other constraints, like capacity or network constraints. Nodal infeasibilities 
+        represent dropped load (positive) or dumped energy (negative).
 
-    def infeasibility(self):
-        """Return electricity infeasibilities"""
-        infeas = pd.merge(self.data.nodes, self.INFEAS_EL_N_POS, left_index=True, right_on="n")
-        infeas = pd.merge(infeas, self.INFEAS_EL_N_NEG, on=["t", "n"])
-        infeas = infeas.rename(columns={"INFEAS_EL_N_POS": "pos", "INFEAS_EL_N_NEG": "neg"})
-        return infeas[(infeas.pos > 0) | (infeas.neg > 0)]
+        Parameters
+        ----------
+        drop_zero : bool, optional
+            If True drop all infeasibility entries with value 0, by default True
+
+        Returns
+        -------
+        DataFrame
+            DataFrame of nodal infeasibilities with columns [t, n, pos, neg].
+        """        
+        infeasibility = pd.merge(self.data.nodes, self.INFEAS_EL_N_POS, left_index=True, right_on="n")
+        infeasibility = pd.merge(infeasibility, self.INFEAS_EL_N_NEG, on=["t", "n"])
+        infeasibility = infeasibility.rename(columns={"INFEAS_EL_N_POS": "pos", "INFEAS_EL_N_NEG": "neg"})
+        
+        if drop_zero:
+            return infeasibility[(infeasibility.pos > 0) | (infeasibility.neg > 0)]
+        else:
+            return infeasibility
 
     def price(self):
         """Return electricity prices.
@@ -254,23 +262,8 @@ class Results():
             net_position[zone] = self.EX[self.EX.z == zone].groupby("t").sum() - \
                                  self.EX[self.EX.zz == zone].groupby("t").sum()
         return net_position
-
-    def check_infeasibilities(self):
-        """Check for infeasibility variables.
-
-        Checks for infeasibility variables in electricity/heat energy balance
-        and line infeasibility variables. These are added to avoid infeasibility
-        of the model and adding slack to constraints at predefined costs.
-        Logs warning, returns nothing.
-        """
-        numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
-        for infeasibilities in self.result_attributes["infeasibility_variables"]:
-            tmp = getattr(self, infeasibilities)
-            for col in tmp.select_dtypes(include=numerics):
-                if any(tmp[col] > 1e-3):
-                    self.logger.warning("Infeasibilities in %s", col)
-
-    def check_curtailment(self):
+    
+    def curtailment(self):
         """[Deprecated] Check for curtailment of plants of type ts (i.e. with availabilities).
 
         Deprecated: changed curtailment to explicit variable.
@@ -304,15 +297,18 @@ class Results():
 
     def res_share(self, res_plant_type):
         """Calculate the share of renewables.
-        
+
+        Parameters
+        ----------
+        res_plant_type : list of plant_types
+            plant_types (ref. plants.plant_types) that represent renewables.
+
         Returns
         -------
         res_share : float
             Share of reneable generation in the resulting dispatch.
         """
-        
         res_plants = self.data.plants[self.data.plants.plant_type.isin(res_plant_type)]
-        
         gen = self.G
         gen_res = gen[gen.p.isin(res_plants.index)]
         res_share = gen_res.G.sum()/gen.G.sum()
@@ -320,82 +316,53 @@ class Results():
                          round(res_share*100, 2))
         return res_share
 
-    def default_plots(self, show_plot=False):
-        """Set of Standard Plots that can be helpful.
-
-        This is just a bunch of random plots that where helpful to me at some
-        point.
-
-        Plots are saved onto *data_output/self.output_folder*, which is created
-        if it does not exist.
-
-        Parameters
-        ----------
-        show_plot : bool, optional
-            Whether or not plot should be shown immediately.
+    def generation(self):
+        """Generation data.
+        
+        Returns DataFrame with columns [node, plant_type, zone, t, p, G]
         """
-        if show_plot:
-            plt.ion()
-        if not self.output_folder.is_dir():
-            self.output_folder.mkdir()
+        gen = pd.merge(self.data.plants[["plant_type", "fuel", "node"]],
+                        self.G, left_index=True, right_on="p", how="right")
+        gen["zone"] = self.data.nodes.loc[gen.node, "zone"].values
+        return gen
 
-        plant_columns = [col for col in ["node", "fuel", "tech", "plant_type"] if col in self.data.plants.columns]
+    def storage_generation(self):
+        """Return storage generation schedules.
 
-        generation = pd.merge(self.G, self.data.plants[plant_columns],                      
-                            how="left", left_on="p", right_index=True)
+        Returns DataFrame with columns [node, plant_type, zone, t, p, G, D_es, L_es]
+        """
 
-        generation = pd.merge(generation, self.data.nodes.zone.to_frame(),
-                            how="left", left_on="node", right_index=True)
-        model_horizon = self.result_attributes["model_horizon"]
+        es_plant_types = self.data.options["optimization"]["plant_types"]["es"]
+        es_plants = self.data.plants.loc[self.data.plants.plant_type.isin(es_plant_types), ["node", "plant_type"]]
+        es_plants["zone"] = self.data.nodes.loc[es_plants.node, "zone"].values
 
-        fig, ax = plt.subplots()
-        group_by = "plant_type"
-        gen_plot = generation.groupby(["t", group_by], as_index=False).sum()
-        gen_plot.pivot(index="t", columns=group_by,
-                        values="G").plot.area(ax=ax,
-                                            xticks=[x for x in range(0, len(model_horizon))],
-                                            figsize=(20, 10), rot=45)
-        ax.legend(loc='upper right')
-        ax.margins(x=0)
-        fig.savefig(str(self.output_folder.joinpath("gen_type.png")))
+        es_gen = pd.merge(es_plants, self.G, left_index=True, right_on="p")
+        es_gen = pd.merge(es_gen, self.D_es, on=["p", "t"])
+        es_gen = pd.merge(es_gen, self.L_es, on=["p", "t"])
+        return es_gen
 
-        # Aggregated example
-        fig, ax = plt.subplots()
-        gen_plot.groupby(group_by).sum().plot.pie(ax=ax, y="G", figsize=(20, 20),)
-        ax.legend(loc='upper right')
-        ax.margins(x=0)
-        fig.savefig(str(self.output_folder.joinpath("gen_fuel_pichart.png")))
+    def demand(self):
+        """Process total nodal demand composed of load and market results of storage/heatpump usage."""
 
-        # Renewables generation
-        fig, ax = plt.subplots()
-        res_type = self.data.options["optimization"]["plant_types"]["ts"]
-
-        res_gen = (generation[generation.plant_type.isin(res_type)]
-                .groupby(["t", "fuel"], as_index=False).sum())
-        if not res_gen.empty:
-            res_gen.pivot(index="t", columns="fuel",
-                        values="G").plot(ax=ax, xticks=[x for x in range(0, len(model_horizon))],
-                                        figsize=(20, 10), rot=45)
-            ax.legend(loc='upper right')
-            ax.margins(x=0)
-            fig.savefig(str(self.output_folder.joinpath("gen_res.png")))
-
-        # Storage Generation, Demand and LEvel
-        fig, ax = plt.subplots()
-        stor_d = self.D_es.groupby(["t"], as_index=True).sum()
-        stor_l = self.L_es.groupby(["t"], as_index=True).sum()
-        stor_type = self.data.options["optimization"]["plant_types"]["ts"]
-        stor_g = generation[generation.plant_type.isin(stor_type)].groupby(["t"], as_index=True).sum()
-        if not all([data.empty for data in [stor_d, stor_l, stor_g]]):
-            (pd.concat([stor_d, stor_l, stor_g], axis=1)
-            .plot(ax=ax, xticks=[x for x in range(0, len(model_horizon))],
-                figsize=(20, 10), rot=45))
-            ax.legend(loc='upper right')
-            ax.margins(x=0)
-            fig.savefig(str(self.output_folder.joinpath("storage.png")))
-
-        # Close all Figures
-        fig.clf()
+        map_pn = self.data.plants.node.reset_index()
+        map_pn.columns = ['p', 'n']
+        demand = self.data.demand_el.copy()
+        demand.rename(columns={"node": "n", "timestep": "t"}, inplace=True)
+        if not self.D_ph.empty:
+            demand_ph = pd.merge(self.D_ph, map_pn[["p", "n"]], 
+                                 how="left", on="p").groupby(["n", "t"], as_index=False).sum()
+            demand = pd.merge(demand, demand_ph[["D_ph", "n", "t"]], how="outer", on=["n", "t"])
+        else:
+            demand["D_ph"] = 0
+        if not self.D_es.empty:
+            demand_es = pd.merge(self.D_es, map_pn[["p", "n"]], 
+                                 how="left", on="p").groupby(["n", "t"], as_index=False).sum()
+            demand = pd.merge(demand, demand_es[["D_es", "n", "t"]], how="outer", on=["n", "t"])
+        else:
+            demand["D_es"] = 0
+        demand.fillna(value=0, inplace=True)
+        demand["demand"] = demand.demand_el + demand.D_ph + demand.D_es
+        return demand
 
     # Grid Analytics - Load Flows
     def n_0_flow(self, timesteps=None):
@@ -523,7 +490,7 @@ class Results():
 
         return n_1_flows.loc[:, ["cb", "co"] + timesteps]
 
-    def absolute_max_n_1_flow(self, timesteps=None):
+    def absolute_max_n_1_flow(self, timesteps=None, sensitivity=0.05):
         """Calculate the absolute max of N-1 Flows.
 
         This method essentially proviedes a n_1_flow.groupby("cb") yielding the 
@@ -537,7 +504,7 @@ class Results():
 
         """
 
-        n_1_flows = self.n_1_flow(timesteps=timesteps)
+        n_1_flows = self.n_1_flow(timesteps=timesteps, sensitivity=sensitivity)
         n_1_flows = n_1_flows.drop("co", axis=1)
         n_1_flow_max = n_1_flows.groupby("cb").max()
         n_1_flow_min = n_1_flows.groupby("cb").min()

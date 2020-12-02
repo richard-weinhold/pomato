@@ -4,7 +4,7 @@
 	  "model_horizon": [0, 24],
 	  "plant_types": {
 		"es": ["hydro_res", "hydro_psp"],
-		"ts": [ "wind onshore", "wind offshore", "solar"]
+		"ts": ["wind onshore", "wind offshore", "solar"]
 	  },
 	  "infeasibility": {
 		"electricity": {
@@ -13,8 +13,5 @@
 		  "bound": 1000
 		}
 	  }
-	},
-	"data": {
-	  "stacked": ["demand_el", "net_export", "availability"]
 	}
   }

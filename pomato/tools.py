@@ -480,3 +480,10 @@ def remove_empty_subdicts(old_dict):
         if not v in (u'', None, {}, []):
             new_dicts[k] = v
     return new_dicts
+
+def remove_duplicate_words_string(words):
+    """Removes duplicate words from string."""
+    words = words.lower().split(" ")
+    unique_words = []
+    [unique_words.append(x) for x in words if x not in unique_words]
+    return " ".join(unique_words)

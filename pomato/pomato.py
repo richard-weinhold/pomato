@@ -91,12 +91,13 @@ Expect errors, bug, funky behavior and code structures from the minds of two eng
 Related Publications
 --------------------
 
+- `Weinhold and Mieth (2020), Power Market Tool (POMATO) for the Analysis of Zonal 
+  Electricity Markets <https://arxiv.org/abs/2011.11594>`_ (*preprint*).
 - `Weinhold and Mieth (2020), Fast Security-Constrained Optimal Power Flow through 
-  Low-Impact and Redundancy Screening <https://ieeexplore.ieee.org/document/9094021>`_
-
+  Low-Impact and Redundancy Screening <https://ieeexplore.ieee.org/document/9094021>`_.
 - `Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for 
   generation shift keys (GSKs) on the flow-based market coupling domain: A model-based analysis 
-  of Central Western Europe <https://www.sciencedirect.com/science/article/pii/S0306261919317544>`_
+  of Central Western Europe <https://www.sciencedirect.com/science/article/pii/S0306261919317544>`_.
 
 Acknowledgments
 ---------------
@@ -118,7 +119,8 @@ import pomato.tools as tools
 from pomato.data import DataManagement, Results
 from pomato.grid import GridTopology, GridModel
 from pomato.market_model import MarketModel
-from pomato.visualization.geoplot import GeoPlot
+from pomato.visualization import Visualization
+from pomato.visualization import GeoPlot
 from pomato.fbmc import FBMCModule
 
 def _logging_setup(wdir, logging_level=logging.INFO):
@@ -237,9 +239,9 @@ class POMATO():
         self.market_model = MarketModel(self.wdir, self.options, self.data, self.grid_representation)
 
         # Instances for Result Processing 
+        self.visualization = Visualization(self.wdir, self.data)
         self.geo_plot = GeoPlot(self.wdir, self.data)
         self.fbmc = FBMCModule(self.wdir, self.grid, self.data, self.options)
-
 
     def initialize_options(self, options_file):
         """Initialize options file.

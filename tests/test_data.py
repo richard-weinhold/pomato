@@ -93,12 +93,16 @@ class TestPomatoData(unittest.TestCase):
         result = pomato.data.Results(self.data, grid, folder)
         result.output_folder = self.wdir.joinpath("data_output")
         
-        result.check_infeasibilities()
-        result.check_curtailment()
+        result.curtailment()
         result.net_position()
         result.commercial_exchange("R1", "R2")
         result.infeasibility()
         res_share = result.res_share(["wind", "solar", "ror_ts"])
+        result.demand()
+        result.generation()
+        result.storage_generation()
+        result.price()
+
         self.assertTrue(0 < res_share < 1)
         self.assertRaises(TypeError, result.res_share)
 
@@ -175,6 +179,7 @@ class TestPomatoData(unittest.TestCase):
         self.assertEqual(len(overload_n_1), 0)
         self.assertAlmostEqual(result.result_attributes["objective"]["Objective Value"], 
                                3899019.71757418)
+
 
 if __name__ == '__main__':
     unittest.main()

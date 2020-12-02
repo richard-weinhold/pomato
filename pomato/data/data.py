@@ -405,54 +405,6 @@ class DataManagement():
         else:
             self.logger.error("Multiple results initialized that fit criteria")
       
-
-    def visualize_inputdata(self, folder=None, show_plot=True):
-        """Create default Plots for Input Data.
-
-        This methods is currently not maintained, but was thought to provide standard figures
-        to visualize the (processed) input data.
-        """
-        if folder and not Path.is_dir(folder):
-            self.logger.warning("Folder %s does not exist!", folder)
-            self.logger.warning("Creating %s", folder)
-            Path.mkdir(folder)
-        
-        if show_plot or not folder:
-            plt.ion()
-        else:
-            plt.ioff()
-        # Demand by Zone
-        demand_zonal = pd.DataFrame(index=self.demand_el.timestep.unique())
-
-        for zone in self.zones.index:
-            nodes_in_zone = self.nodes.index[self.nodes.zone == zone]
-            condition_node_in_zone = self.demand_el.node.isin(nodes_in_zone)
-            demand_zonal[zone] = (self.demand_el.loc[condition_node_in_zone, ["timestep", "demand_el"]]
-                .groupby("timestep").sum())
-            
-        fig_demand, ax_demand = plt.subplots()
-        demand_zonal.plot.area(ax=ax_demand, xticks=np.arange(0, len(demand_zonal.index), 
-                               step=len(demand_zonal.index)/10))
-        ax_demand.legend(loc='upper right')
-        ax_demand.margins(x=0)
-
-        # Plot Installed Capacity by....
-        plants_zone = pd.merge(self.plants, self.nodes.zone, how="left", 
-                            left_on="node", right_index=True)
-
-        inst_capacity = (plants_zone[["g_max", "zone", "plant_type"]]
-                         .groupby(["plant_type", "zone"], as_index=False).sum())
-        fig_gen, ax_gen = plt.subplots()
-        inst_capacity.pivot(index="zone", columns="plant_type",
-                            values="g_max").plot.bar(stacked=True, ax=ax_gen)
-
-        ax_gen.legend(loc='upper right')
-        ax_gen.margins(x=0)
-        
-        if folder:
-            fig_demand.savefig(str(folder.joinpath("zonal_demand.png")))
-            fig_gen.savefig(str(folder.joinpath(f"installed_capacity_by_type.png")))
-
     def set_default_net_position(self, net_position):
         """Add default net position."""
         self.net_position = pd.DataFrame(index=self.demand_el.timestep.unique(), 

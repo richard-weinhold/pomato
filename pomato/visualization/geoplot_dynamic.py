@@ -236,7 +236,7 @@ def gen_fuel(t, nodes=None):
             fuel_dict[i] = [0, 0]
     fuel_dict["type"] = ["gen", "dem"]
 
-    dem_max = demand.d_total[(demand.n.isin(nodes))&(demand.t == t)].sum()
+    dem_max = demand.demand[(demand.n.isin(nodes))&(demand.t == t)].sum()
 
     fuel_dict["dem"] = [0, dem_max]
     return fuel_dict, max(dem_max, gen_max)

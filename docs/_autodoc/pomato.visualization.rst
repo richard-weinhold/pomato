@@ -7,7 +7,8 @@ pomato.visualization
 
    .. autosummary::
       :toctree: 
-   
+
+      Visualization
       GeoPlot
       FBMCDomainPlots
 

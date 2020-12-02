@@ -40,7 +40,7 @@ class TestFBMCModule(unittest.TestCase):
         mato.options["optimization"]["infeasibility"]["electricity"]["cost"] = 1000
         mato.options["optimization"]["redispatch"]["cost"] = 20
 
-        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/scopf_result")
+        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/scopf_market_results")
         mato.data.process_results(folder, mato.grid)
 
         basecase = mato.data.results[folder.name]
