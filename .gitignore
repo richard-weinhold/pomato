@@ -1,6 +1,5 @@
 *__pycache__*
 docs/build/
-pomato/logs/
 docs/_build/
 build/
 dist/
@@ -10,6 +9,5 @@ pomato/_installation/pomato
 pomato.sublime-workspace
 *.code-workspace
 examples/notepad.py
-examples/logs/market_tool.log
 pomato/daemon_market_model.json
 pomato/daemon_redundancy_removal.json
