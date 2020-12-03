@@ -137,7 +137,15 @@ class FBMCDomainPlots(FBMCModule):
         self.logger.info("FBMCModule  Initialized!")
 
     def save_all_domain_plots(self, folder, include_ntc=False):
-        """Saving all the FBMC Plots"""
+        """Saving all the FBMC Plots.
+
+        Parameters
+        ----------
+        folder : pathlib.Path
+            Destination folder.
+        include_ntc : bool, optional
+            Include the NTC box in the domain plot, by default False
+        """        
         self.set_xy_limits_forall_plots()
         plt.close("all")
         for plot in self.fbmc_plots:
@@ -218,10 +226,12 @@ class FBMCDomainPlots(FBMCModule):
 
 
     def convexhull_ptdf(self, A, b):
-        """
+        """Convex hull algorithm, determining the feasible region of the FB domain.
+
         Given an system Ax = b, where A is a list of ptdf and b the corresponding ram
         Reduce will find the set of ptdf equations which constrain the solution domain
         (which are based on the N-1 ptdfs)
+
         """
         self.logger.info("Reducing Ab")
         A = np.array(A, dtype=np.float)
@@ -232,15 +242,31 @@ class FBMCDomainPlots(FBMCModule):
         return k.vertices
 
     def create_domain_plot(self, A, b, cbco_index):
-        """
-        Creates coordinates for the FBMC Domain
-        create 2D equation from zonal ptdfs for domain x and y
+        """Create linear equations of the inner FB domain feasible region. 
+        
+        Create 2D equation from all zonal ptdfs suitable to for a matplotlib line plot
+        in the form axis.plot(plot_equations[i][0], plot_equations[i][1]) for each ptdf. 
+        
+        Parameters
+        ----------
+        A : np.array
+            Matrix of (zonal) PTDF matrix 
+        b : np.array
+            Vector of RAM
+        cbco_index : list
+            List of indices that compose the FB domain feasible region
+
+        Returns
+        -------
+        plot_equations : list of [[x1;x2],[y1;y2]]
+            Each plot consists of two x and y corrdinates.
+
         """
         A = np.take(np.array(A), cbco_index, axis=0)
         b = np.take(np.array(b), cbco_index, axis=0)
         Ab = np.concatenate((np.array(A), np.array(b).reshape(len(b), 1)), axis=1)
 
-        # Calculate two coordinates for a line plot -> Return X = [X1;X2], Y = [Y!,Y2]
+        # Calculate two coordinates for a line plot -> Return X = [X1;X2], Y = [Y1,Y2]
         x_upper = int(max(b)*20)
         x_lower = -x_upper
         plot_equations = []
@@ -260,7 +286,28 @@ class FBMCDomainPlots(FBMCModule):
         return plot_equations
 
     def get_xy_hull(self, A, b, cbco_index):
-        """get x,y coordinates of the FBMC Hull"""
+        """Calculate x,y coordinates of the FB domain feasible region.
+
+        Parameters
+        ----------
+        A : np.array
+            Matrix of (zonal) PTDF matrix 
+        b : np.array
+            Vector of RAM
+        cbco_index : list
+            List of indices that compose the FB domain feasible region
+
+        Returns
+        -------
+        hull_plot_x : list
+            x coordinates of the linear equations to plot the FB domain feasible region.
+        hull_plot_y : list
+            y coordinates of the linear equations to plot the FB domain feasible region.
+        intersection_x : list
+            x coordinates of intersections of the CBCOs that make up the domain.
+        intersection_y : list
+            x coordinates of intersections of the CBCOs that make up the domain.
+        """        
         # ptdf_x * X + ptdf_y *Y = B
         # Or in Matrix Form A*x = b where X = [X;Y]
         ptdf = np.take(A, cbco_index, axis=0)
@@ -323,6 +370,7 @@ class FBMCDomainPlots(FBMCModule):
                                    360 + np.arcsin(hull_y[idx]/radius)*180/(2*np.pi)])
         from operator import itemgetter
         list_coord = sorted(list_coord, key=itemgetter(2))
+        
         ## Add first element to draw complete circle
         list_coord.append(list_coord[0])
         list_coord = np.array(list_coord)
@@ -348,15 +396,17 @@ class FBMCDomainPlots(FBMCModule):
         else:
             gsk_strategy = self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].gsk_strategy.unique()[0]
 
+        domain_info = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep].reset_index(drop=True)
         A = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, list(self.data.nodes.zone.unique())].values
         b = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, "ram"].values
         
         A, b = self.create_fbmc_equations(domain_x, domain_y, A, b)
         # Reduce
         cbco_index = self.convexhull_ptdf(A, b)
-        self.domain_info["in_domain"] = False
-        self.domain_info.loc[self.domain_info.index.isin(cbco_index), "in_domain"] = True
         self.logger.info("Number of CBCOs %d", len(cbco_index))
+        
+        domain_info["in_domain"] = False
+        domain_info.loc[domain_info.index.isin(cbco_index), "in_domain"] = True
 
         # Limit the number of constraints to 5000
         full_indices = np.array([x for x in range(0,len(A))])
@@ -367,7 +417,8 @@ class FBMCDomainPlots(FBMCModule):
                                           np.random.choice(full_indices,
                                                            size=int(threshold),
                                                            replace=False))
-            self.domain_info = self.domain_info.loc[np.sort(np.unique(cbco_plot_indices)), :]
+            domain_info = domain_info.loc[np.sort(np.unique(cbco_plot_indices)), :]
+
         else:
             cbco_plot_indices = full_indices
 
@@ -387,6 +438,6 @@ class FBMCDomainPlots(FBMCModule):
                             "hull_coord_y": hull_coord_y}
 
         fbmc_plot = FBMCDomain(plot_information, plot_equations, hull_information,
-                               xy_limits, self.domain_info.copy(), self.data.ntc)
+                               xy_limits, domain_info.copy(), self.data.ntc)
 
         self.fbmc_plots[fbmc_plot.title] = fbmc_plot

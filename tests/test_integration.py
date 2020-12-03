@@ -100,7 +100,6 @@ class TestPomatoMarketModel(unittest.TestCase):
         mato.options["grid"]["sensitivity"] = 0.05
 
         mato.fbmc.calculate_parameters()
-
         fbmc_gridrep = mato.fbmc.create_flowbased_parameters(basecase, 
                                                              gsk_strategy="gmax", 
                                                              reduce=False)

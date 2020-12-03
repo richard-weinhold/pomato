@@ -70,12 +70,9 @@ class TestPomatoVisualization(unittest.TestCase):
                                                            self.mato.data, self.mato.options, 
                                                            fb_parameters)
 
-        if not self.mato.wdir.joinpath("domains").is_dir():
-            self.mato.wdir.joinpath("domains").mkdir()     
-
         fbmc_domain.generate_flowbased_domain(["R1", "R2"], ["R1", "R3"], "t0001", "nrel")
-        fbmc_domain.save_all_domain_plots(self.mato.wdir.joinpath("domains"))
-        fbmc_domain.save_all_domain_info(self.mato.wdir.joinpath("domains"))
+        fbmc_domain.save_all_domain_plots(self.mato.wdir.joinpath("data_output"), include_ntc=True)
+        fbmc_domain.save_all_domain_info(self.mato.wdir.joinpath("data_output"))
         
 
     def test_geoplot_static(self):
