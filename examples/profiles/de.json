@@ -20,8 +20,5 @@
 		}
 	},
 	"data": {
-		"stacked": ["demand_el", "net_export",
-			        "availability", "net_position"
-		]
 	}
 }

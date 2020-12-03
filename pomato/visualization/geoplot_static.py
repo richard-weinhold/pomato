@@ -5,13 +5,16 @@
 
 import sys
 from pathlib import Path
+
 import numpy as np
 import pandas as pd
+import scipy
 from bokeh import palettes
 from bokeh.io import show
-from bokeh.models import (Circle, HoverTool, Label, LassoSelectTool,  SaveTool, 
-    MultiLine, Select, TapTool, WMTSTileSource)
-from bokeh.plotting import ColumnDataSource, figure
+from bokeh.models import (Circle, ColorBar, FixedTicker, HoverTool, Label,
+                          LassoSelectTool, LinearColorMapper, MultiLine,
+                          SaveTool, Select, TapTool, WMTSTileSource, PrintfTickFormatter)
+from bokeh.plotting import ColumnDataSource, figure, output_notebook, show
 from bokeh.tile_providers import get_provider
 
 
@@ -62,7 +65,7 @@ def create_voltage_colors(lines):
         elif tmp.loc[line, "voltage"] > 300:
             tmp.loc[line, "color"] = "red"
         elif tmp.loc[line, "voltage"] > 200:
-            tmp.loc[line, "color"] = "red" 
+            tmp.loc[line, "color"] = "green" 
         elif tmp.loc[line, "voltage"] > 100:
             tmp.loc[line, "color"] = "black" 
         elif tmp.loc[line, "voltage"] <= 100:
@@ -166,10 +169,102 @@ def prepare_line_plot(lines, nodes):
                        yj + np.sin(alpha2)*d, yj])
     return lx, ly
 
+def _build_raster(nodes, plot_width, plot_hight, alpha=4):
+    """Build Raster for prices layer"""
 
-def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
-                       redispatch=None, option=0, title=None, plot_dimensions=(700, 800)):
+    raster = np.zeros((plot_width, plot_hight))
+    known_points_coords = [[b.x, b.y] for i,b in nodes.iterrows()]
+    raster[nodes.x.values, nodes.y.values] = nodes.marginal.values
 
+    raster_coords = np.array([[x,y] for x in range(plot_width) for y in range(plot_hight)])
+    distance_matrix = scipy.spatial.distance.cdist(raster_coords, known_points_coords)
+    condition = np.all(distance_matrix > 0, axis=1)
+    distance_matrix = distance_matrix[condition]
+    tmp = np.divide(1.0, np.power(distance_matrix, alpha))
+    raster_values = tmp.dot(nodes.marginal.values)/tmp.sum(axis=1)
+    
+    for i, (x, y) in enumerate(raster_coords[condition]):
+        raster[x, y] = raster_values[i]
+    return raster
+
+def add_prices_layer(nodes, prices, compress=True):
+    """Adds prices layer to Geoplot"""
+
+    if compress:
+        # price[price.marginal >= 1000]
+        quantile = .1
+        prices.loc[prices.marginal > prices.marginal.quantile(1 - quantile), "marginal"] = prices.marginal.quantile(1 - quantile)
+        prices.loc[prices.marginal < prices.marginal.quantile(quantile), "marginal"] = prices.marginal.quantile(quantile)
+        prices.loc[prices.marginal > 100] = 100
+
+    nodes = pd.merge(nodes, prices, left_index=True, right_index=True)
+
+    # Calculate plot dimensions
+    xx, yy = merc(nodes.lat.values, nodes.lon.values)
+    ratio = (max(xx) - min(xx))/(max(yy) - min(yy))
+    size = (max(yy) - min(yy))/1e4
+    padding = size/2
+    # prices Plot Coordinates (0,0) (plot_width, plot_hight)
+    nodes["x"] = ((xx - min(xx))/max(xx - min(xx))*ratio*size + padding*ratio).astype(int)
+    nodes["y"] = ((yy - min(yy))/max(yy - min(yy))*size + padding).astype(int)
+    nodes["y"].min()
+
+    plot_width = nodes["x"].max() + int(padding*ratio) + 1
+    plot_hight = nodes["y"].max() + int(padding) + 1
+
+    prices_layer = _build_raster(nodes, plot_width, plot_hight, alpha=4)
+
+    # Anchor and dimension in GeoPlot
+    geo_plot_root = (min(xx) - padding/size*(max(xx) - min(xx)), min(yy) - padding/size*(max(yy) - min(yy)))
+    geo_plot_dims = ((max(xx) - min(xx))*(1 + 2*padding/size), (max(yy) - min(yy))*(1 + 2*padding/size))
+
+    return prices_layer, geo_plot_root, geo_plot_dims
+
+
+def create_static_plot(geoplot_data, logger,
+                       show_redispatch=False, 
+                       show_prices=False, price_range=None,
+                       flow_option=0, title=None, plot_dimensions=(700, 800)):
+    """Creates static geoplot.
+
+    The static geoplot is a interactive bokeh plot that everrages the depicted results.
+    The optional arguments allow to customize the depicted result to include prices, redispath or 
+    contingency power flows.
+
+
+    Parameters
+    ----------
+    geoplot_data : types.SimpleNamespace
+        Data struct that contains all relevant data.
+    show_redispatch : bool, optional
+        Include redispatch, this requires the redispatch and market results to be instantiated, by 
+        default False
+    show_prices : bool, optional
+        Include a visual representation of the locational marginal prices, by default False.
+    price_range : tuple, optional
+        Limit the depcited price range to a subset. This can be useful when only a certain range is of 
+        interest. By default None
+    flow_option : int, optional
+        Lines are colored based on N-0 flows (flow_option = 0), N-1 flows (flow_option = 1) and 
+        voltage levels (flow_option = 2), by default 0.
+    title : string, optional
+        Title depcited on the top the of geo plot, by default None
+    plot_dimensions : tuple, optional
+        Domensions of the plot in pixels as a tuple (width, hight), by default (700, 800)
+
+    Returns
+    -------
+    figure
+        Returns bokeh figure to be shown or saved.
+    """    
+    nodes = geoplot_data.nodes
+    lines = geoplot_data.lines
+    dclines = geoplot_data.dclines
+    inj = geoplot_data.inj
+    flow_dc = geoplot_data.dc_flow 
+    flow_n_0 = geoplot_data.n_0_flow 
+    flow_n_1 = geoplot_data.n_1_flow 
+                          
     coords_x, coords_y, lat, lon = [], [], [], []
     for i in nodes.index:
         coord_x, coord_y = merc(nodes.lat[i], nodes.lon[i])
@@ -179,8 +274,8 @@ def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
         lon.append(nodes.lon[i])
 
     color, size = [], []
-    if isinstance(redispatch, pd.DataFrame):
-        redispatch = pd.merge(nodes, redispatch[["node", "delta", "G_market"]].groupby("node").mean(),
+    if show_redispatch:
+        redispatch = pd.merge(nodes, geoplot_data.gen[["node", "delta"]].groupby("node").mean(),
                               how="left", left_index=True, right_index=True).fillna(0)
         scaling = 45
         ref_generation = redispatch.delta.abs().max()
@@ -208,8 +303,7 @@ def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
                   "size": size}
 
     lx, ly = prepare_line_plot(lines, nodes)
-    color, line_alpha = update_line_colors(lines, flow_n_0, flow_n_1, option=option)
-
+    color, line_alpha = update_line_colors(lines, flow_n_0, flow_n_1, option=flow_option)
     line_dict = {"lx": lx, "ly": ly,
 	             "line": list(lines.index),
 	             "max_flow": list(lines.maxflow),
@@ -221,17 +315,12 @@ def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
 	             "color": color,
 	             "line_alpha": line_alpha}
 
-    # if flow_dc.empty:
-    #     flow_dc = np.array([])
-
     lx_dc, ly_dc = [], []
     for l in dclines.index:
         xi, yi = merc(nodes.lat[dclines.node_i[l]], nodes.lon[dclines.node_i[l]])
         xj, yj = merc(nodes.lat[dclines.node_j[l]], nodes.lon[dclines.node_j[l]])
         lx_dc.append([xi, (xi+xj)/2, xj])
         ly_dc.append([yi, (yi+yj)/2, yj])
-
-
 
     dcline_dict = {"lx": lx_dc,
                    "ly": ly_dc,
@@ -260,6 +349,32 @@ def create_static_plot(lines, nodes, dclines, inj, flow_n_0, flow_n_1, flow_dc,
     STAMEN_LITE = get_tilesource()
     fig.add_tile(STAMEN_LITE)
     fig.axis.visible = False
+
+    if show_prices:
+        # Thanks @ https://stackoverflow.com/a/54681316
+        prices_layer, geo_plot_root, geo_plot_dims = add_prices_layer(nodes, geoplot_data.prices)
+
+        vmin, vmax = prices_layer.min(), prices_layer.max()
+        # Make sure there are price differences to plot
+        if (vmin + 1  < vmax):  
+            palette = [p for p in palettes.Spectral11]
+            fig.image(image=[prices_layer.T], x=geo_plot_root[0], y=geo_plot_root[1], 
+                    dw=geo_plot_dims[0], dh=geo_plot_dims[1], alpha=0.4, palette=palette)
+            if price_range:
+                vmin, vmax = price_range         
+            mapper = LinearColorMapper(palette='Spectral11', low=vmin, high=vmax)
+            levels = np.linspace(vmin, vmax, 12)
+            color_bar = ColorBar(color_mapper=mapper, 
+                                major_label_text_font_size="8pt",
+                                ticker=FixedTicker(ticks=levels),
+                                label_standoff=12, 
+                                formatter=PrintfTickFormatter(format='%.2f'),
+                                border_line_color=None, 
+                                location=(0, 0), 
+                                width=10)
+            fig.add_layout(color_bar, 'right')
+        else:
+            logger.warning("No difference in nodal prices to plot.")
 
     # lines and dc lines as line plots
     l = fig.multi_line("lx", "ly", color="color", hover_line_color='color',

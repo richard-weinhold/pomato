@@ -31,26 +31,16 @@ class TestFBMCModule(unittest.TestCase):
                     "bus080", "bus081", "bus097", "bus098", "bus099"]
         mato.data.nodes.loc[R2_to_R3, "zone"] = "R3"
 
-        mato.options["optimization"]["timeseries"]["market_horizon"] = 10000
-        mato.options["optimization"]["timeseries"]["redispatch_horizon"] = 24
-        mato.options["optimization"]["constrain_nex"] = False
-        mato.options["optimization"]["redispatch"]["include"] = True
-        mato.options["optimization"]["redispatch"]["zones"] = list(mato.data.zones.index)
-        mato.options["optimization"]["infeasibility"]["electricity"]["bound"] = 200
-        mato.options["optimization"]["infeasibility"]["electricity"]["cost"] = 1000
-        mato.options["optimization"]["redispatch"]["cost"] = 20
-
-        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/scopf_result")
+        folder = self.wdir.parent.joinpath("tests/test_data/nrel_result/scopf_market_results")
         mato.data.process_results(folder, mato.grid)
 
         basecase = mato.data.results[folder.name]
         mato.options["grid"]["minram"] = 0.1
         mato.options["grid"]["sensitivity"] = 0.05
+        mato.fbmc.calculate_parameters()
 
-        fbmc = pomato.fbmc.FBMCModule(mato.wdir, mato.grid, mato.data, mato.options)
-        
-        fbmc_gridrep_Gmax = fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
-        fbmc_gridrep_G = fbmc.create_flowbased_parameters(basecase, gsk_strategy="dynamic", reduce=False)
+        mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
+        mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="dynamic", reduce=False)
 
         # self.assertRaises(AssertionError, np.testing.assert_almost_equal, 
         #                   fbmc_gridrep_G.loc[:, mato.data.zones.index].values, 

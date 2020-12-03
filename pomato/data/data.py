@@ -115,6 +115,9 @@ class DataManagement():
         self.data_structure = {}
         self.model_structure = self.load_model_structure()
         # self.load_structure()
+        self.missing_data = []
+        self.data_validation_report = {}
+        self.model_validation_report = {}
 
         self.data_attributes = {data: False for data in list(self.model_structure)}
         self.data_source = None
@@ -218,16 +221,18 @@ class DataManagement():
         # Make sure wdir/file_path or wdir/data/file_path is a file
         if self.wdir.joinpath(filepath).is_file():
             DataWorker(self, self.wdir.joinpath(filepath))
-
         elif self.wdir.joinpath(f"data_input/{filepath}").is_file():
             DataWorker(self, self.wdir.joinpath(f"data/{filepath}"))
-
         elif self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat").is_file():
-            DataWorker(self, self.wdir.joinpath(
-                f"data_input/mp_casedata/{filepath}.mat"))
+            DataWorker(self, self.wdir.joinpath(f"data_input/mp_casedata/{filepath}.mat"))
+        elif self.wdir.joinpath(filepath).is_dir():
+            DataWorker(self,self.wdir.joinpath(filepath))
         else:
             self.logger.error("Data File not found!")
             raise FileNotFoundError
+        
+        if len(self.missing_data) > 0:
+            self.logger.warning(("Not complete list of expected input data found. See .missing_data"))
 
         self.process_input()
         self.data_source = filepath
@@ -258,17 +263,19 @@ class DataManagement():
         problem with the input data, but also wanted (in most cases).
         """
         self.logger.info("Validating Input Data...")
-        self.missing_data = {}
-        for data in self.data_structure.index.unique():  # Data refers to nodes, plants etc...
+        self.data_validation_report = {"missing_data": {}, "removed_data": {}}
+        
+        for data in self.data_structure.index.unique():  
+            # Data refers to nodes, plants etc...
             # Distinguish between required and optional attributes
             attributes = self.data_structure.loc[[data], :].set_index("attributes")
             required_attr = list(attributes.index[attributes.optional & (attributes.index != "index")])
             optional_attr = list(attributes.index[~attributes.optional & (attributes.index.isin(getattr(self, data).columns))])
-            missing_opt_attributes = list(attributes.index[~attributes.optional & 
-                                               (~attributes.index.isin(getattr(self, data).columns))])
-
-            self.missing_data[data] = {"optional": missing_opt_attributes}
-        
+            condition = ((~attributes.optional) 
+                         & (~attributes.index.isin(getattr(self, data).columns)) 
+                         & (attributes.index != "index"))
+            missing_opt_attributes = list(attributes.index[condition])
+            self.data_validation_report["missing_data"][data] = {"optional": missing_opt_attributes}
             reference_attributes = attributes.loc[attributes.type.str.contains(".", regex=False), :]
             # Log error when required attribute is missing in data and store in missing_data
             # Missing means that the column of the attribute does not exist!
@@ -276,10 +283,10 @@ class DataManagement():
                             (~attributes.index.isin(getattr(self, data).columns)))].empty:
                 condition = (attributes.index.isin(required_attr) &
                             (~attributes.index.isin(getattr(self, data).columns)))
-                self.missing_data[data]["required"] = list(attributes.index[condition])
-                self.logger.warning("Required Data not there as expected in %s", data)
+                self.data_validation_report["missing_data"][data]["required"] = list(attributes.index[condition])
 
             else:  # No required attribute is missing, continue with checking the contents of each column
+                self.data_validation_report["removed_data"][data] = {"reference": [], "reference_nans": []}
                 tmp = getattr(self, data).loc[:, required_attr + optional_attr]
                 for attr, ref in zip(reference_attributes.index, reference_attributes.type):
                     ref_data, ref_attr = ref.split(".")
@@ -287,18 +294,21 @@ class DataManagement():
                         reference_keys = getattr(self, ref_data).index
                     else:
                         reference_keys = getattr(self, ref_data)[ref_attr]
+
                     if attr in required_attr and not tmp.loc[~(tmp[attr].isin(reference_keys))].empty:
                         tmp = tmp.loc[(tmp[attr].isin(reference_keys))]
-                        self.logger.warning("Invalid Reference Keys and NaNs removed for %s in %s", attr, data)
+                        self.data_validation_report["removed_data"][data]["reference"].append(attr)
                     elif not tmp.loc[(~tmp[attr].isna()) & (~tmp[attr].isin(reference_keys))].empty:
                         tmp = tmp.loc[(~tmp[attr].isna()) & (tmp[attr].isin(reference_keys))]
-                        self.logger.warning("Invalid Reference Keys without NaNs removed for %s in %s", attr, data)
+                        self.data_validation_report["removed_data"][data]["reference_nans"].append(attr)
                 setattr(self, data, tmp.infer_objects())
-            
-            self.missing_data = tools.remove_empty_subdicts(self.missing_data)
-            for k in self.missing_data:
-                if "required" in self.missing_data[k].keys():
-                    self.logger.error("attributes missing in %s", k)
+
+        self.data_validation_report = tools.remove_empty_subdicts(self.data_validation_report)
+        if len(self.data_validation_report) > 0: 
+            self.logger.warning(("Data validation completed with warnings. See the .data_validation_report."))
+        else:
+            self.logger.warning("Data validation completed with no issues.")
+
 
     def process_input(self):
         """Input Processing to bring input data is the desired pomato format.
@@ -339,30 +349,42 @@ class DataManagement():
         there no timeseries to cover adjacent regions via net export parameters. So the input data
         can cover a subjet of possible data set but the model data has to be consistent.
         """
+        self.model_validation_report = {"empty": [], "default_values": {}}
         for data in self.model_structure:
             # if getattr(self, data).empty:
             if len(getattr(self, data)) == 0:
                 cols = [col for col in self.model_structure[data].keys() if col != "index"]
                 setattr(self, data, pd.DataFrame(columns=cols))
-                self.logger.warning("%s not in Input Data, initialized as empty", data)
+                self.model_validation_report["empty"].append(data)
+                # self.logger.warning("%s not in Input Data, initialized as empty", data)
             else:
+                self.model_validation_report["default_values"][data] = {}
                 tmp = getattr(self, data)
                 cols = [col for col in self.model_structure[data].keys() if col != "index"]
                 
-                # see if attribute is in data -> add columns with default value
+                # see if attribute is in data, if not -> add columns with default value
                 for attr in [col for col in cols if col not in tmp.columns]:
                     default_value = self.model_structure[data][attr]["default"]
                     tmp.loc[:, attr] = default_value
-                    self.logger.warning("Attribute %s not in %s, initialized as %s", attr, data, str(default_value))
+                    self.model_validation_report["default_values"][data][attr] = default_value
+                    # self.logger.warning("Attribute %s not in %s, initialized as %s", attr, data, str(default_value))
                 
                 # add missing values as default
                 for attr in cols:
                     default_value = self.model_structure[data][attr]["default"]
                     if any(tmp[attr].isna()) and not pd.isna(default_value):
                         tmp.loc[tmp[attr].isna(), attr] = default_value
-                        self.logger.warning("Attribute %s in %s contains NaNs, initialized as %s", attr, data, str(default_value))
-
+                        self.model_validation_report["default_values"][data][attr] = default_value
+                        # self.logger.warning("Attribute %s in %s contains NaNs, initialized as %s", attr, data, str(default_value))
                 setattr(self, data, tmp)
+        
+
+        if len(self.model_validation_report["empty"]) > 0:
+            self.logger.warning(("Some data was initialized empty. See model_validation_report."))
+        self.model_validation_report["default_values"] = tools.remove_empty_subdicts(self.model_validation_report["default_values"])
+        if len(self.model_validation_report["default_values"]) > 0:
+            self.logger.warning(("Some data missing or contained NaNs. See model_validation_report."))
+
 
     def process_results(self, result_folder, grid):
         """Initialize :class:`~pomato.data.Results` with `results_folder` and the own instance."""
@@ -383,54 +405,6 @@ class DataManagement():
         else:
             self.logger.error("Multiple results initialized that fit criteria")
       
-
-    def visualize_inputdata(self, folder=None, show_plot=True):
-        """Create default Plots for Input Data.
-
-        This methods is currently not maintained, but was thought to provide standard figures
-        to visualize the (processed) input data.
-        """
-        if folder and not Path.is_dir(folder):
-            self.logger.warning("Folder %s does not exist!", folder)
-            self.logger.warning("Creating %s", folder)
-            Path.mkdir(folder)
-        
-        if show_plot or not folder:
-            plt.ion()
-        else:
-            plt.ioff()
-        # Demand by Zone
-        demand_zonal = pd.DataFrame(index=self.demand_el.timestep.unique())
-
-        for zone in self.zones.index:
-            nodes_in_zone = self.nodes.index[self.nodes.zone == zone]
-            condition_node_in_zone = self.demand_el.node.isin(nodes_in_zone)
-            demand_zonal[zone] = (self.demand_el.loc[condition_node_in_zone, ["timestep", "demand_el"]]
-                .groupby("timestep").sum())
-            
-        fig_demand, ax_demand = plt.subplots()
-        demand_zonal.plot.area(ax=ax_demand, xticks=np.arange(0, len(demand_zonal.index), 
-                               step=len(demand_zonal.index)/10))
-        ax_demand.legend(loc='upper right')
-        ax_demand.margins(x=0)
-
-        # Plot Installed Capacity by....
-        plants_zone = pd.merge(self.plants, self.nodes.zone, how="left", 
-                            left_on="node", right_index=True)
-
-        inst_capacity = (plants_zone[["g_max", "zone", "plant_type"]]
-                         .groupby(["plant_type", "zone"], as_index=False).sum())
-        fig_gen, ax_gen = plt.subplots()
-        inst_capacity.pivot(index="zone", columns="plant_type",
-                            values="g_max").plot.bar(stacked=True, ax=ax_gen)
-
-        ax_gen.legend(loc='upper right')
-        ax_gen.margins(x=0)
-        
-        if folder:
-            fig_demand.savefig(str(folder.joinpath("zonal_demand.png")))
-            fig_gen.savefig(str(folder.joinpath(f"installed_capacity_by_type.png")))
-
     def set_default_net_position(self, net_position):
         """Add default net position."""
         self.net_position = pd.DataFrame(index=self.demand_el.timestep.unique(), 

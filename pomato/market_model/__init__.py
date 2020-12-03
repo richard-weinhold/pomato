@@ -1,4 +1,4 @@
-"""The MarketModel of POMATO, manages data and options to runs the model and its returns results.
+"""The MarketModel of POMATO, manages data and options to runs the model and returns its results.
 
 The MarketModel interfaces the DataManagement with the MarketModel written in Julia. Its main purpose
 is to save the relevant data, run the model and collecting the results, which are then returned to the

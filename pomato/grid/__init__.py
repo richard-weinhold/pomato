@@ -51,7 +51,7 @@ The two options are:
       often denoted as security constrained optimal power flow (SCOPF). This
       setting comes with multiple methods that enable pomato to find the
       smallest set of constraints to guaranty SCOPF. These are scribed in the
-      methods of :class:`~pomato.cbco.CBCOModule` and in the corresponding
+      methods of :class:`~pomato.grid.GridTopology` and in the corresponding
       paper in the *See Also* section below.
     - cbco_zonal : Creating a zonal version of the security constrained
       nodal representation, similar to the zonal options. Analog to the

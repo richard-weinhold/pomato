@@ -17,8 +17,8 @@ class TestPomatoGridModel(unittest.TestCase):
     def setUp(self):
         self.logger = logging.getLogger('Log.MarketModel')
         self.logger.setLevel(logging.ERROR)
-
         self.wdir = Path.cwd().joinpath("examples")
+        pomato.tools.create_folder_structure(self.wdir)
         with open(self.wdir.joinpath("profiles/nrel118.json")) as opt_file:
                 loaded_options = json.load(opt_file)
         self.options = pomato.tools.add_default_options(loaded_options) 
@@ -135,8 +135,8 @@ class TestPomatoGridModel(unittest.TestCase):
 
             self.grid_model.options["optimization"]["type"] = optimization_option
             self.grid_model.options["grid"]["cbco_option"] = cbco_option
-
             self.grid_model.create_grid_representation()
+            
             file = tools.newest_file_folder(self.grid_model.julia_dir.joinpath("cbco_data"), keyword="cbco")
             self.assertTrue(file.is_file())
             self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/A_py.csv").is_file())

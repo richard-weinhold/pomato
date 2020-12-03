@@ -44,7 +44,7 @@ class JuliaDaemon():
     solved : bool
         Indicator if julia process has successfully concluded.
     wdir : pathlib.Path
-        Workingdirectory, should  be pomato root directory.
+        Workingdirectory, should be pomato root directory.
    
     """
     def __init__(self, logger, wdir, package_dir, julia_module):
@@ -56,7 +56,7 @@ class JuliaDaemon():
         self.logger = logger
         self.wdir = wdir
         self.package_dir = package_dir
-        self.daemon_file = wdir.joinpath(f"data_temp/julia_files/daemon_{julia_module}.json")
+        self.daemon_file = package_dir.joinpath(f"daemon_{julia_module}.json")
         self.julia_daemon_path = package_dir.joinpath("julia_daemon.jl")
         self.write_daemon_file(self.default_daemon_file())
         # Start Julia daemon in a thread
@@ -72,7 +72,7 @@ class JuliaDaemon():
     def start_julia_daemon(self):
         """Stat julia daemon"""
         args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
-                str(self.julia_daemon_path), self.julia_module]
+                str(self.julia_daemon_path), self.julia_module, str(self.package_dir)]
         with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, cwd=str(self.wdir)) as program:
             for line in program.stdout:
@@ -377,10 +377,6 @@ def default_options():
             "electricity": {
                 "include": True,
                 "cost": 1E3,
-                "bound": 20},
-            "lines": {
-                "include": False,
-                "cost": 1E3,
                 "bound": 20}},
         "plant_types": {
             "es": [],
@@ -400,7 +396,6 @@ def default_options():
             }
 
     options_dict["data"] = {
-        "stacked": [],
         "unique_mc": False,
         }
 
@@ -485,3 +480,10 @@ def remove_empty_subdicts(old_dict):
         if not v in (u'', None, {}, []):
             new_dicts[k] = v
     return new_dicts
+
+def remove_duplicate_words_string(words):
+    """Removes duplicate words from string."""
+    words = words.lower().split(" ")
+    unique_words = []
+    [unique_words.append(x) for x in words if x not in unique_words]
+    return " ".join(unique_words)

@@ -1,7 +1,10 @@
 [![PomatoLogo](https://github.com/richard-weinhold/pomato/blob/master/docs/_static/graphics/pomato_logo_small.png "Pomato Soup")](#) POMATO - Power Market Tool
 =====================================================================================================================================
-[![Documentation Status](https://readthedocs.org/projects/pomato/badge/?version=latest)](https://pomato.readthedocs.io/en/latest/?badge=latest)
-[![Build Status](https://travis-ci.org/richard-weinhold/pomato.svg?branch=master)](https://travis-ci.org/richard-weinhold/pomato)
+Master Branch: ![Python package](https://github.com/richard-weinhold/pomato/workflows/Python%20package/badge.svg?branch=master) 
+
+Construction Branch: ![Python package](https://github.com/richard-weinhold/pomato/workflows/Python%20package/badge.svg?branch=construction)
+
+Documentation Status: ![Documentation Status](https://readthedocs.org/projects/pomato/badge/?version=latest)]
 
 
 Overview
@@ -89,7 +92,8 @@ Expect errors, bug, funky behavior and code structures from the minds of two eng
 
 Related Publications
 --------------------
-
+- (*preprint*) [Weinhold and Mieth (2020), Power Market Tool (POMATO) for the Analysis of Zonal 
+   Electricity Markets](https://arxiv.org/abs/2011.11594)
 - [Weinhold and Mieth (2020), Fast Security-Constrained Optimal Power Flow through 
    Low-Impact and Redundancy Screening](https://ieeexplore.ieee.org/document/9094021)
 - [Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for generation 
