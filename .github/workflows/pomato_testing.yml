@@ -31,6 +31,7 @@ jobs:
         python --version
         julia --version
         pip install codecov
+        julia pomato/_installation/julia_install_from_git.jl
     # - name: Test with pytest
     #   run: |
     #     pytest
