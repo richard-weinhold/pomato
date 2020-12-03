@@ -30,8 +30,12 @@ jobs:
       run: |
         python --version
         julia --version
-        pip install codecov
         julia pomato/_installation/julia_install_from_git.jl
-    # - name: Test with pytest
-    #   run: |
-    #     pytest
+        pip install pytest-cov 
+        pip install pytest==4.6
+        pip install -r requirements.txt
+    - name: Test with pytest
+      run: |
+        pytest --cov=./ --cov-report=xml
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v1
