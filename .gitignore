@@ -6,7 +6,7 @@ dist/
 *egg*
 .vscode/*
 pomato/_installation/pomato
-pomato.sublime-workspace
+*.sublime-workspace
 *.code-workspace
 examples/notepad.py
 pomato/daemon_market_model.json
