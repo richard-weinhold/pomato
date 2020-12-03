@@ -1,0 +1,2 @@
+ignore:
+  - "pomato/_installation"  # ignore folders and all its contents

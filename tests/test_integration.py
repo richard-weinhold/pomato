@@ -5,7 +5,8 @@ import os
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-
+from datetime import datetime
+   
 import numpy as np
 import pandas as pd
 
@@ -22,9 +23,9 @@ class TestPomatoMarketModel(unittest.TestCase):
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("domains"), ignore_errors=True)
-
+    
     def test_run_nrel(self):
-
+        # What takes how long
         mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/nrel118.json",
                              logging_level=logging.ERROR)
         mato.load_data('data_input/nrel_118.zip')
@@ -37,8 +38,7 @@ class TestPomatoMarketModel(unittest.TestCase):
                     "bus080", "bus081", "bus097", "bus098", "bus099"]
         mato.data.nodes.loc[R2_to_R3, "zone"] = "R3"
 
-        mato.options["optimization"]["timeseries"]["market_horizon"] = 10000
-        mato.options["optimization"]["timeseries"]["redispatch_horizon"] = 24
+        mato.options["optimization"]["model_horizon"] = [0, 1]
         mato.options["optimization"]["constrain_nex"] = False
         mato.options["optimization"]["redispatch"]["include"] = True
         mato.options["optimization"]["redispatch"]["zones"] = list(mato.data.zones.index)
@@ -52,40 +52,36 @@ class TestPomatoMarketModel(unittest.TestCase):
         mato.options["optimization"]["constrain_nex"] = True
         mato.data.set_default_net_position(0)
         mato.create_grid_representation()
-        mato.grid_representation.ntc["ntc"] = \
-            mato.grid_representation.ntc["ntc"]*0.01
-        mato.update_market_model_data()
-        mato.run_market_model()
+        # mato.update_market_model_data()
+        # mato.run_market_model()
 
         # NTC Model NTC = 100
         mato.data.results = {}
         mato.options["optimization"]["type"] = "ntc"
         mato.options["optimization"]["constrain_nex"] = False
-
         mato.create_grid_representation()
         mato.grid_representation.ntc["ntc"] = \
             mato.grid_representation.ntc["ntc"]*0.001
-        mato.update_market_model_data()
-        mato.run_market_model()
+        # mato.update_market_model_data()
+        # mato.run_market_model()
 
         # %% Zonal PTDF model
         mato.data.results = {}
         mato.options["optimization"]["type"] = "zonal"
         mato.options["grid"]["gsk"] = "gmax"
-
         mato.create_grid_representation()
-        mato.update_market_model_data()
-        mato.run_market_model()
+        # mato.update_market_model_data()
+        # mato.run_market_model()
+        
         # %% Nodal PTDF model
         mato.data.results = {}
         mato.options["optimization"]["type"] = "nodal"
-
         mato.create_grid_representation()
         mato.update_market_model_data()
         mato.run_market_model()
 
         # %% FBMC basecase
-        mato.data.results = {}
+        # mato.data.results = {}
         mato.options["optimization"]["timeseries"]["market_horizon"] = 168
         mato.options["optimization"]["type"] = "cbco_nodal"
         mato.grid_model.options["grid"]["cbco_option"] = "clarkson_base"
@@ -95,15 +91,18 @@ class TestPomatoMarketModel(unittest.TestCase):
 
         mato.grid_model.options["grid"]["precalc_filename"] = "cbco_nrel_118"
         mato.create_grid_representation()
-        mato.update_market_model_data()
-        mato.run_market_model()
+        # mato.update_market_model_data()
+        # mato.run_market_model()
+
         result_name = next(r for r in list(mato.data.results))
         basecase = mato.data.results[result_name]
         mato.options["grid"]["minram"] = 0.1
         mato.options["grid"]["sensitivity"] = 0.05
 
         mato.fbmc.calculate_parameters()
-        fbmc_gridrep = mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", 
+
+        fbmc_gridrep = mato.fbmc.create_flowbased_parameters(basecase, 
+                                                             gsk_strategy="gmax", 
                                                              reduce=False)
 
         fbmc_domain = pomato.visualization.FBMCDomainPlots(mato.wdir, mato.grid, 
@@ -111,7 +110,7 @@ class TestPomatoMarketModel(unittest.TestCase):
                                                            fbmc_gridrep)
         if not mato.wdir.joinpath("domains").is_dir():
             mato.wdir.joinpath("domains").mkdir()     
-                          
+
         for t in basecase.INJ.t.unique():
             fbmc_domain.generate_flowbased_domain(["R1", "R2"], ["R1", "R3"], t, "nrel")
         fbmc_domain.save_all_domain_plots(mato.wdir.joinpath("domains"))
@@ -122,7 +121,6 @@ class TestPomatoMarketModel(unittest.TestCase):
         mato.options["optimization"]["redispatch"]["include"] = True
         mato.options["optimization"]["redispatch"]["zones"] = list(mato.data.zones.index)
         mato.options["optimization"]["type"] = "nodal"
-
         mato.create_grid_representation()
         mato.grid_representation.grid = fbmc_gridrep
         mato.options["optimization"]["type"] = "cbco_zonal"
@@ -131,6 +129,6 @@ class TestPomatoMarketModel(unittest.TestCase):
 
         mato.update_market_model_data()
         mato.run_market_model()
-        mato.create_geo_plot()
 
+        mato.create_geo_plot()
         mato._join_julia_instances()

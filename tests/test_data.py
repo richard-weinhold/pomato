@@ -45,7 +45,6 @@ class TestPomatoData(unittest.TestCase):
         self.data.process_inflows()
         self.data.line_susceptance()
 
-
     def test_save_data(self):
         folder = self.wdir.joinpath("data_output")
         if not folder.is_dir():

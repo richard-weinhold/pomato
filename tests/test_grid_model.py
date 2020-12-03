@@ -135,7 +135,6 @@ class TestPomatoGridModel(unittest.TestCase):
 
             self.grid_model.options["optimization"]["type"] = optimization_option
             self.grid_model.options["grid"]["cbco_option"] = cbco_option
-
             self.grid_model.create_grid_representation()
             file = tools.newest_file_folder(self.grid_model.julia_dir.joinpath("cbco_data"), keyword="cbco")
             self.assertTrue(file.is_file())

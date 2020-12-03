@@ -23,9 +23,15 @@ class TestPomatoVisualization(unittest.TestCase):
         R2_to_R3 = ["bus118", "bus076", "bus077", "bus078", "bus079", 
                     "bus080", "bus081", "bus097", "bus098", "bus099"]
         self.mato.data.nodes.loc[R2_to_R3, "zone"] = "R3"
+        # For GeoPLot option 3
+        self.mato.data.lines["cb"] = False
+        self.mato.data.lines.loc["line001", "cb"] = True  
+        
+        market_folder = self.mato.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_market_results")
+        redispatch_folder = self.mato.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_redispatch")
+        self.mato.initialize_market_results([market_folder, redispatch_folder])
+        self.mato.data.results["dispatch_redispatch"].result_attributes["corresponding_market_result_name"] = "dispatch_market_results"
 
-        folder = wdir.parent.joinpath("tests/test_data/nrel_result/nodal_market_results")
-        self.mato.data.process_results(folder, self.mato.grid)
 
     @classmethod
     def tearDownClass(cls):
@@ -34,29 +40,45 @@ class TestPomatoVisualization(unittest.TestCase):
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
 
     def test_visualization_generation_plot(self):
-        result = self.mato.data.results["nodal_market_results"]
+        result = self.mato.data.results["dispatch_redispatch"]
         self.mato.visualization.create_generation_plot(result)
 
     def test_visualization_create_installed_capacity_plot(self):
-        result = self.mato.data.results["nodal_market_results"]
+        result = self.mato.data.results["dispatch_redispatch"]
         self.mato.visualization.create_installed_capacity_plot(result)
 
     def test_visualization_create_storage_plot(self):
-        result = self.mato.data.results["nodal_market_results"]
+        result = self.mato.data.results["dispatch_redispatch"]
         self.mato.visualization.create_storage_plot(result)
 
+    def test_geoplot_empty(self):
+        self.mato.create_geo_plot(show=False, empty=True)
+        filepath = self.mato.wdir.joinpath("data_output/geoplot.html")
+        self.mato.geo_plot.save_plot(filepath)
+        self.assertTrue(filepath.is_file())
+
     def test_geoplot_static(self):
-        print(self.mato.data.results)
-        self.mato.create_geo_plot()
+
+        self.mato.create_geo_plot(show=False, market_result_name="dispatch_market_results", 
+                                  flow_option=0, show_prices=True)
+        self.mato.create_geo_plot(show=False, market_result_name="dispatch_market_results", 
+                                  flow_option=1)
+        self.mato.create_geo_plot(show=False, market_result_name="dispatch_market_results", 
+                                  flow_option=3)
+        
+        self.mato.create_geo_plot(show=False, market_result_name="dispatch_redispatch",
+                                  show_redispatch=True, show_prices=True)
+        self.mato.create_geo_plot(show=False, market_result_name="dispatch_redispatch",
+                                  show_prices=True, price_range=(0, 100))
 
     def test_geoplot_dynamic(self):
-
-        result = self.mato.data.results["nodal_market_results"]
+        result = self.mato.data.results["dispatch_redispatch"]
         self.mato.geo_plot.add_market_result(result, "test_test")
         self.mato.geo_plot.start_server()
         time.sleep(3)
         self.mato.geo_plot.stop_server()
 
+        # Just including checks for syntax
         from pomato.visualization import geoplot_dynamic
 
 if __name__ == '__main__':

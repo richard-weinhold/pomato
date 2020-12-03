@@ -1,7 +1,10 @@
 [![PomatoLogo](https://github.com/richard-weinhold/pomato/blob/master/docs/_static/graphics/pomato_logo_small.png "Pomato Soup")](#) POMATO - Power Market Tool
 =====================================================================================================================================
 [![Documentation Status](https://readthedocs.org/projects/pomato/badge/?version=latest)](https://pomato.readthedocs.io/en/latest/?badge=latest)
-[![Build Status](https://travis-ci.com/richard-weinhold/pomato.svg?branch=master)](https://travis-ci.com/richard-weinhold/pomato)
+
+Master Branch: ![Python package](https://github.com/richard-weinhold/pomato/workflows/Python%20package/badge.svg?branch=master) 
+
+Construction Branch: ![Python package](https://github.com/richard-weinhold/pomato/workflows/Python%20package/badge.svg?branch=construction)
 
 Overview
 --------

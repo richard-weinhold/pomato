@@ -371,7 +371,7 @@ class POMATO():
         """
         self.grid_model.create_grid_representation()
 
-    def create_geo_plot(self, show=True, **kwargs):
+    def create_geo_plot(self, show=True, empty=False, **kwargs):
         """Initialize GeoPlot based on the dataset and a market result.
 
         This is done with the :meth:`~pomato.visualization.geoplot.create_static_plot` method. 
@@ -380,10 +380,12 @@ class POMATO():
         Parameters
         ----------
         show : bool, optional
-            Show the plot after completion, this will open a browser window.
+            Show the plot after completion, this will open a browser window. Default is True.
+        empty : bool, optional
+            Create a geoplot without results, only showing topology and voltage levels.
         """
-        if (not self.data.results):  # if results dict is empty
-            self.logger.info("No result available from market model!")
+        if (not self.data.results) :  # if results dict is empty
+            self.logger.info("Create empty geoplot!")
             self.geo_plot.create_empty_static_plot()
         else:
             self.geo_plot.create_static_plot(**kwargs)
