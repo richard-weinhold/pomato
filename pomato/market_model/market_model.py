@@ -113,10 +113,7 @@ class MarketModel():
 
         args = {"redispatch": self.options["optimization"]["redispatch"]["include"],
                 "chance_constrained": self.options["optimization"]["chance_constrained"]["include"]}
-                
         self.julia_model.run(args=args)
-        
-        # self.julia_model.run(command)
         t_end = datetime.datetime.now()
         self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
         self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")
@@ -169,7 +166,6 @@ class MarketModel():
                     data.append([t, plant, self.options["optimization"]["parameters"]["storage_start"]])
             self.data.storage_level = pd.DataFrame(columns=self.data.storage_level.columns, data=data)
 
-       
     def data_to_csv(self, model_horizon):
         """Export input data to csv files in the data_dir sub-directory.
 
@@ -178,6 +174,10 @@ class MarketModel():
         certain generation constraints (storages, res etc.), table of slack zones, the grid
         representation and the options.
 
+        Parameters
+        ----------
+        model_horizon : list
+            List of timesteps that are the model horizon
         """
         if not self.data_dir.is_dir():
             self.data_dir.mkdir()

@@ -266,6 +266,7 @@ class FBMCModule():
         domain_info = pd.DataFrame(columns=list(self.data.zones.index))
         domain_info["cb"] = label_lines
         domain_info["co"] = label_outages
+        print(domain_info)
 
         return nodal_fbmc_ptdf, domain_info
 

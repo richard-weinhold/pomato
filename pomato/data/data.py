@@ -263,8 +263,8 @@ class DataManagement():
         problem with the input data, but also wanted (in most cases).
         """
         self.logger.info("Validating Input Data...")
-        
         self.data_validation_report = {"missing_data": {}, "removed_data": {}}
+        
         for data in self.data_structure.index.unique():  
             # Data refers to nodes, plants etc...
             # Distinguish between required and optional attributes

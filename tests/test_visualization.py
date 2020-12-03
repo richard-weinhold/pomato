@@ -57,6 +57,27 @@ class TestPomatoVisualization(unittest.TestCase):
         self.mato.geo_plot.save_plot(filepath)
         self.assertTrue(filepath.is_file())
 
+    def test_fbmc_domain_plot(self):
+        folder = self.mato.wdir.parent.joinpath("tests/test_data/nrel_result/scopf_market_results")
+        self.mato.initialize_market_results([folder])
+        basecase = self.mato.data.results["scopf_market_results"]
+        self.mato.options["grid"]["minram"] = 0.1
+        self.mato.options["grid"]["sensitivity"] = 0.05
+        self.mato.fbmc.calculate_parameters()
+
+        fb_parameters = self.mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
+        fbmc_domain = pomato.visualization.FBMCDomainPlots(self.mato.wdir, self.mato.grid, 
+                                                           self.mato.data, self.mato.options, 
+                                                           fb_parameters)
+
+        if not self.mato.wdir.joinpath("domains").is_dir():
+            self.mato.wdir.joinpath("domains").mkdir()     
+
+        fbmc_domain.generate_flowbased_domain(["R1", "R2"], ["R1", "R3"], "t0001", "nrel")
+        fbmc_domain.save_all_domain_plots(self.mato.wdir.joinpath("domains"))
+        fbmc_domain.save_all_domain_info(self.mato.wdir.joinpath("domains"))
+        
+
     def test_geoplot_static(self):
 
         self.mato.create_geo_plot(show=False, market_result_name="dispatch_market_results", 

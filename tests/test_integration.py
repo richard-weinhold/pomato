@@ -105,16 +105,6 @@ class TestPomatoMarketModel(unittest.TestCase):
                                                              gsk_strategy="gmax", 
                                                              reduce=False)
 
-        fbmc_domain = pomato.visualization.FBMCDomainPlots(mato.wdir, mato.grid, 
-                                                           mato.data, mato.options, 
-                                                           fbmc_gridrep)
-        if not mato.wdir.joinpath("domains").is_dir():
-            mato.wdir.joinpath("domains").mkdir()     
-
-        for t in basecase.INJ.t.unique():
-            fbmc_domain.generate_flowbased_domain(["R1", "R2"], ["R1", "R3"], t, "nrel")
-        fbmc_domain.save_all_domain_plots(mato.wdir.joinpath("domains"))
-
         # %% FBMC market clearing
         mato.data.results = {}
         mato.options["optimization"]["timeseries"]["market_horizon"] = 100
