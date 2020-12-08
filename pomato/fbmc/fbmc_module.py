@@ -11,7 +11,16 @@ import pomato.tools as tools
 from pomato.grid import GridModel
 
 class FBMCModule():
-    """Class to do all calculations in connection with cbco calculation
+    """The FBMC module calculates FB paramerters based on a suitable market result.
+
+    Flow based market coupling derives commercial exchange capacities for a day-ahead 
+    market clearing from a forecasted market results. These day ahead capacities are 
+    reported in a zonal PTDF matrix, representing the impact of changes in zonal net-position (NEX)
+    on network elements under contingencies, together with the remaining capacity on these 
+    network elements (RAM, remaining available margin).
+
+    These are denoted as flow based paramters and represent the main output of this module. 
+
 
     Parameters
     ----------
@@ -161,7 +170,7 @@ class FBMCModule():
         Returns
         -------
         CBs : list
-        List of all critical branches, including all cross border lines. 
+            List of all critical branches, including all cross border lines. 
         
         """
         self.logger.info("List of CBs is generated from zone-to-zone PTDFs with:")
@@ -266,7 +275,6 @@ class FBMCModule():
         domain_info = pd.DataFrame(columns=list(self.data.zones.index))
         domain_info["cb"] = label_lines
         domain_info["co"] = label_outages
-        print(domain_info)
 
         return nodal_fbmc_ptdf, domain_info
 

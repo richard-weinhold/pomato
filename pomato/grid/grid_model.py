@@ -201,7 +201,7 @@ class GridModel():
         """Process grid information for zonal N-1 representation.
 
         Based on chosen sensitivity and GSK the return of
-        :meth:`~pomato.cbco.create_cbco_data` runs the redundancy removal
+        :meth:`~pomato.grid.create_cbco_data` runs the redundancy removal
         algorithm to reduce the number of constraints to a minimal set.
 
         The redundancy removal is very efficient for this type of grid
@@ -244,7 +244,7 @@ class GridModel():
         """Process grid information for nodal N-1 representation.
 
         Based on chosen sensitivity and GSK the return of
-        :meth:`~pomato.cbco.create_cbco_data` runs the redundancy removal
+        :meth:`~pomato.grid.create_cbco_data` runs the redundancy removal
         algorithm to reduce the number of constraints to a minimal set. The
         redundancy removal algorithm can take long to conclude, e.g. about
         2 hours for the DE case study which comprises of ~450 nodes and ~1000

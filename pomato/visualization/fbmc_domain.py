@@ -15,9 +15,24 @@ from pomato.grid import GridModel
 from pomato.fbmc import FBMCModule
 
 class FBMCDomain():
-    """Class to store all relevant information of an FBMC Plot"""
-    def __init__(self, plot_information, plot_equations, hull_information, xy_limits, domain_data, ntc):
-        
+    """Class to store all relevant information of an FBMC Plot
+    
+    Parameters
+    ----------
+    plot_information : [type]
+        [description]
+    plot_equations : [type]
+        [description]
+    hull_information : [type]
+        [description]
+    xy_limits : [type]
+        [description]
+    domain_data : [type]
+        [description]
+    ntc : [type]
+        [description]
+    """ 
+    def __init__(self, plot_information, plot_equations, hull_information, xy_limits, domain_data, ntc):   
         self.gsk_strategy = plot_information["gsk_strategy"]
         self.timestep = plot_information["timestep"]
         self.domain_x = plot_information["domain_x"]
@@ -118,16 +133,35 @@ class FBMCDomain():
         fig.clf()
 
 
-class FBMCDomainPlots(FBMCModule):
-    """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, grid, data, options, flowbased_parameters):
-        # Import Logger
+class FBMCDomainPlots():
+    """Create FB domain plots based on flowbased paramters.
+    
+    This module creates 2D plots of the flow based domain, derived from the 
+    FB paramterters created by :meth:`~pomato.fbmc.FBMCModule.create_flowbased_parameters`.
+
+    The FB parameters are zonal PTDF and RAMs for each timestep, the number of zones
+    defines the width of the matrix, the length is determined by the number of lines
+    defined as cb (critical branch) and co (critical outages). 
+
+    To create a 2D plot, the x and y axis represent commercial exchange between two market areas, 
+    thereby the whole system remains balanced for each point in the graph. 
+    The methods create the necessary data for each domain plot and stores them as an instance of 
+    the :class:`~FBMCDomain` in the *fbmc_plots* attribute. 
+    
+    Parameters
+    ----------
+    wdir : pathlib.Path
+        POMATO working directory.  
+    data : :class:`~pomato.data.DataManagement`
+        Instance of POMATO data management. 
+    flowbased_parameters : pd.DataFrame 
+        FB parameters, as derived from :class:`~pomato.fbmc.FBMCModule`.
+    """  
+    def __init__(self, data, flowbased_parameters):
+              # Import Logger
         self.logger = logging.getLogger('Log.MarketModel.FBMCDomainPlots')
         self.logger.info("Initializing the FBMCModule....")
-
-        super().__init__(wdir, grid, data, options)
-        super().calculate_parameters()
-        
+        self.data = data
         self.fbmc_plots = {}
         self.flowbased_parameters = flowbased_parameters
         
@@ -183,7 +217,6 @@ class FBMCDomainPlots(FBMCModule):
 
         filename = folder.joinpath("domain_info" + name_suffix + ".csv")
         domain_info[domain_info.in_domain].to_csv(filename)
-
         domain_info[mask].to_csv(folder.joinpath("domain_info_full" + name_suffix + ".csv"))
         return domain_info
 
@@ -223,7 +256,6 @@ class FBMCDomainPlots(FBMCModule):
             b[(b < 0)] = 0.1
             self.logger.warning('some b is not right (possibly < 0)')
         return(A, b)
-
 
     def convexhull_ptdf(self, A, b):
         """Convex hull algorithm, determining the feasible region of the FB domain.
@@ -273,7 +305,7 @@ class FBMCDomainPlots(FBMCModule):
         for index in range(0, len(Ab)):
             x_coordinates = []
             y_coordinates = []
-#                for idx in range(-10000, 10001, 20000):
+            # for idx in range(-10000, 10001, 20000):
             for idx in range(x_lower, x_upper +1, (x_upper - x_lower)):
                 if Ab[index][1] != 0:
                     y_coordinates.append((Ab[index][2] - idx*(Ab[index][0])) / (Ab[index][1]))
@@ -382,10 +414,27 @@ class FBMCDomainPlots(FBMCModule):
         return(list_coord[:, 0], list_coord[:, 1], intersection_x, intersection_y)
 
     def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None):
-        """Create FB Domain for specified zones and timesteps. 
+        """Creates flowbased domains for .
+        
+        Parameters
+        ----------
+        domain_x : [type]
+            [description]
+        domain_y : [type]
+            [description]
+        timestep : [type]
+            [description]
+        filename_suffix : [type], optional
+            [description], by default None
 
-        Combines previous functions to actually plot the FBMC Domain with the
-        hull
+        Raises
+        ------
+        AttributeError
+            [description]
+        AttributeError
+            [description]
+        """        """Create FB Domain for specified zones and timesteps. 
+
         """
 
         if not isinstance(self.flowbased_parameters, pd.DataFrame):

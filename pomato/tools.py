@@ -5,6 +5,7 @@ attributed to a specified component of pomato.
 """
 
 import json
+import datetime
 import operator
 import subprocess
 import threading
@@ -12,6 +13,7 @@ import shutil, os
 import time
 from functools import reduce
 from pathlib import Path
+
 
 import pandas as pd
 import pomato._installation.manage_julia_env as julia_management
@@ -487,3 +489,18 @@ def remove_duplicate_words_string(words):
     unique_words = []
     [unique_words.append(x) for x in words if x not in unique_words]
     return " ".join(unique_words)
+
+def print_timestep(start_time, logger, message=""):
+    """Print seconds passed from reference timestep.
+
+    Parameters
+    ----------
+    start_time : datetime.datetime
+        Reference timestep. 
+    logger : logging.Logger
+        Logger to print the message.
+    message : string, optional  
+        Append Message.
+    """    
+    logger.info("%s seconds passed since %s. %s" % ((datetime.datetime.now() - start_time).seconds, 
+                                                     start_time.strftime("%H:%M:%S"), message))
