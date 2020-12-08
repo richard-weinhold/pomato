@@ -4,8 +4,7 @@ Master Branch: ![Python package](https://github.com/richard-weinhold/pomato/work
 
 Construction Branch: ![Python package](https://github.com/richard-weinhold/pomato/workflows/Python%20package/badge.svg?branch=construction)
 
-Documentation Status: ![Documentation Status](https://readthedocs.org/projects/pomato/badge/?version=latest)]
-
+Documentation Status: [![Documentation Status](https://readthedocs.org/projects/pomato/badge/?version=latest)](https://pomato.readthedocs.io/en/latest/?badge=latest)
 
 Overview
 --------
