@@ -130,13 +130,12 @@ class DataWorker(object):
             Filepath to input excel file.
 
         """
-        
-        xls = pd.ExcelFile(xls_filepath)
-
         if xls_filepath.suffix == ".xls":
-            engine = "xlrd"
+            engine = "xldr"
         else:
             engine = "openpyxl"
+        
+        xls = pd.ExcelFile(xls_filepath, engine=engine)
         self.data.data_structure = xls.parse("data_structure", engine=engine)
         self.data.data_attributes.update({d: False for d in self.data.data_structure.data.unique()})
         for data in self.data.data_attributes:
@@ -144,6 +143,9 @@ class DataWorker(object):
                 raw_data = xls.parse(data, engine=engine, index_col=0).infer_objects()
                 self._set_data_attribute(data, raw_data)
             except xlrd.XLRDError as error_msg:
+                self.data.missing_data.append(data)
+                self.logger.debug(error_msg)
+            except KeyError as error_msg:
                 self.data.missing_data.append(data)
                 self.logger.debug(error_msg)
 
