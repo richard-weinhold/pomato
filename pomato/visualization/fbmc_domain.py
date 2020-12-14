@@ -414,27 +414,21 @@ class FBMCDomainPlots():
         return(list_coord[:, 0], list_coord[:, 1], intersection_x, intersection_y)
 
     def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None):
-        """Creates flowbased domains for .
+        """Create FB Domain for specified zones and timesteps. 
         
         Parameters
         ----------
-        domain_x : [type]
-            [description]
-        domain_y : [type]
-            [description]
-        timestep : [type]
-            [description]
-        filename_suffix : [type], optional
-            [description], by default None
-
-        Raises
-        ------
-        AttributeError
-            [description]
-        AttributeError
-            [description]
-        """        """Create FB Domain for specified zones and timesteps. 
-
+        domain_x : 2-element, list-like 
+            Two-element list-like of market areas whose commercial exchange is depicted on the 
+            x-axis, where positive values indicate a commercial exchange from element one to 
+            element two. 
+        domain_y : 2-element, list-like 
+            Analogue to *domain_x*, just for the y-axis of the 2 dimensional plot.
+        timestep : string, 
+            Timestep for which the domain is generated. 
+        filename_suffix : string, optional
+            Optionally append to the resulting filename a suffix that makes it easier to 
+            identify when domains for more scenarios are created, by default None.
         """
 
         if not isinstance(self.flowbased_parameters, pd.DataFrame):
