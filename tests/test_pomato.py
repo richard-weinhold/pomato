@@ -12,7 +12,7 @@ import pandas as pd
 from context import pomato, copytree	
            
 # pylint: disable-msg=E1101
-class TestPomatoMarketModel(unittest.TestCase):
+class TestPomato(unittest.TestCase):
     """Testing instantiation with different input files and options"""
     def setUp(self):
         self.wdir = Path.cwd().joinpath("examples")
