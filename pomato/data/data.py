@@ -218,8 +218,12 @@ class DataManagement():
             Filepath .mat or .xlsx file. There are some path arithmetics to
             catch errors but not a lot.
         """
-        # Make sure wdir/file_path or wdir/data/file_path is a file
-        if self.wdir.joinpath(filepath).is_file():
+        if not isinstance(filepath, Path):
+            filepath = Path(filepath)
+        # Make sure file_path or wdir/file_path or wdir/data/file_path is a file
+        if filepath.is_file():
+            DataWorker(self, filepath)
+        elif self.wdir.joinpath(filepath).is_file():
             DataWorker(self, self.wdir.joinpath(filepath))
         elif self.wdir.joinpath(f"data_input/{filepath}").is_file():
             DataWorker(self, self.wdir.joinpath(f"data/{filepath}"))
