@@ -62,7 +62,7 @@ setup(name='pomato',
         'pyproj',
         'xlrd',
         'scipy',
-        'imageio'
+        'imageio',
         'plotly'],
       cmdclass={
         'develop': DevelopCommand,
