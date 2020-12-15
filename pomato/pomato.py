@@ -313,7 +313,14 @@ class POMATO():
         result_folders : list
             List of folders containing market results.
         """
+        # Initialize market results before redspatch results. 
+        sorted_list = []
         for folder in result_folders:
+            if "redispatch" in folder.name:
+                sorted_list.append(folder)
+            else:
+                sorted_list.insert(folder)
+        for folder in sorted_list:
             self.data.results[folder.name] = Results(self.data, self.grid, folder)
     
     def rename_market_result(self, oldname, newname):

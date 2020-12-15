@@ -84,7 +84,6 @@ class TestPomatoVisualization(unittest.TestCase):
                                   flow_option=1)
         self.mato.create_geo_plot(show=False, market_result_name="dispatch_market_results", 
                                   flow_option=3)
-        
         self.mato.create_geo_plot(show=False, market_result_name="dispatch_redispatch",
                                   show_redispatch=True, show_prices=True)
         self.mato.create_geo_plot(show=False, market_result_name="dispatch_redispatch",
