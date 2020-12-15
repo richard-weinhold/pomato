@@ -319,7 +319,7 @@ class POMATO():
             if "redispatch" in folder.name:
                 sorted_list.append(folder)
             else:
-                sorted_list.insert(folder)
+                sorted_list.insert(0, folder)
         for folder in sorted_list:
             self.data.results[folder.name] = Results(self.data, self.grid, folder)
     

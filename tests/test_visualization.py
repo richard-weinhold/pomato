@@ -36,7 +36,7 @@ class TestPomatoVisualization(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
-        # shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
+        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
 
     def test_visualization_generation_plot(self):
