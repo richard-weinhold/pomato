@@ -87,7 +87,7 @@ class Results():
 
         # Add opt Set-Up to the results attributes
         self.result_attributes["source"] = result_folder
-        self.result_attributes["name"] = str(result_folder).split("\\")[-1]
+        self.result_attributes["name"] = result_folder.parts[-1]
         self.load_results_from_folder(result_folder)
 
         # Set Redispatch = True if result is a redispatch result 
@@ -97,7 +97,7 @@ class Results():
             if market_result_name in self.data.results:
                 self.result_attributes["corresponding_market_result_name"] = "_".join(self.result_attributes["name"].split("_")[:3]) + "_market_results"
             else:
-                self.logger.warning("Corresponding market results to %s not or with new name instantiated", self.result_attributes["name"])
+                self.logger.warning("Corresponding market result %s to %s not or with new name instantiated", market_result_name, self.result_attributes["name"])
                 self.logger.warning("Manually set market result name in result attributes.")
         # set-up: don't show the graphs when created
         plt.ioff()
