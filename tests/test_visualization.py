@@ -36,20 +36,23 @@ class TestPomatoVisualization(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
+        # shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
 
     def test_visualization_generation_plot(self):
         result = self.mato.data.results["dispatch_redispatch"]
-        self.mato.visualization.create_generation_plot(result)
+        filepath = self.mato.wdir.joinpath("data_output/generation_plot.html")
+        self.mato.visualization.create_generation_plot(result, show_plot=False, filepath=filepath)
 
     def test_visualization_create_installed_capacity_plot(self):
         result = self.mato.data.results["dispatch_redispatch"]
-        self.mato.visualization.create_installed_capacity_plot(result)
+        filepath = self.mato.wdir.joinpath("data_output/capacity_plot.html")
+        self.mato.visualization.create_installed_capacity_plot(result, show_plot=False, filepath=filepath)
 
     def test_visualization_create_storage_plot(self):
         result = self.mato.data.results["dispatch_redispatch"]
-        self.mato.visualization.create_storage_plot(result)
+        filepath = self.mato.wdir.joinpath("data_output/storage_plot.html")
+        self.mato.visualization.create_storage_plot(result, show_plot=False, filepath=filepath)
 
     def test_geoplot_empty(self):
         self.mato.create_geo_plot(show=False, empty=True)
@@ -94,7 +97,8 @@ class TestPomatoVisualization(unittest.TestCase):
         time.sleep(3)
         self.mato.geo_plot.stop_server()
 
-        # Just including checks for syntax
+        # Include runs the plot, which chaecks basic syntax, 
+        # pylint: disable-msg=E0401
         from pomato.visualization import geoplot_dynamic
 
 if __name__ == '__main__':

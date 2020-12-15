@@ -32,7 +32,7 @@ class Visualization():
         self.data = data
         self.package_dir = Path(pomato.__path__[0])
     
-    def create_generation_plot(self, market_result):
+    def create_generation_plot(self, market_result, show_plot=True, filepath=None):
         """Create Generation plot.
         """
         gen = market_result.generation()
@@ -61,10 +61,12 @@ class Visualization():
 
         fig.add_trace(go.Scatter(x=d.index, y=d.demand_el - inf.infeasibility, line=dict(color="#000000"), name="demand")) 
         fig.add_trace(go.Scatter(x=d.index, y=d.demand_el - inf.infeasibility + d.D_es + d.D_ph, fill='tonexty', mode= 'none', fillcolor="#BFBDE5", name="storage charging"))
+        if show_plot:
+            plot(fig)
+        if filepath:
+            fig.write_html(str(filepath))
 
-        plot(fig)
-
-    def create_installed_capacity_plot(self, market_result):
+    def create_installed_capacity_plot(self, market_result, show_plot=True, filepath=None):
         """Create plot visualizing installed capacity per market area."""
         plants = market_result.data.plants
         plants["zone"] = market_result.data.nodes.loc[plants.node, "zone"].values
@@ -79,9 +81,12 @@ class Visualization():
 
         fig.layout.yaxis.title="Installed Capacity [GW]"
         fig.layout.xaxis.title="Zone/Country"
-        plot(fig)
+        if show_plot:
+            plot(fig)
+        if filepath:
+            fig.write_html(str(filepath))
 
-    def create_storage_plot(self, market_result):
+    def create_storage_plot(self, market_result, show_plot=True, filepath=None):
         """Storage plot."""
         es_gen = market_result.storage_generation()
         
@@ -100,7 +105,10 @@ class Visualization():
         subfig.layout.yaxis.title="Storage Charging (D_es)/Dischargin (G) [MW]"
         subfig.layout.yaxis2.title="Storage Level [MWh]"
         subfig.for_each_trace(lambda t: t.update(line=dict(color=t.marker.color)))
-        plot(subfig)
+        if show_plot:
+            plot(subfig)
+        if filepath:
+            subfig.write_html(str(filepath))
 
     def result_data_struct(self):
         """Data struct, as a standart template for result processing.

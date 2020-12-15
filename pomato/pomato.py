@@ -257,12 +257,12 @@ class POMATO():
             with open(self.wdir.joinpath(options_file)) as opt_file:
                 loaded_options = json.load(opt_file)
             self.options = tools.add_default_options(loaded_options)  
-            self.logger.info( "Optimization Options:" + json.dumps(self.options, indent=2) + "\n")
+            self.logger.debug( "Optimization Options:" + json.dumps(self.options, indent=2) + "\n")
 
         except FileNotFoundError:
             self.logger.warning("No or invalid options file provided, using default options")
             self.options = tools.default_options()
-            self.logger.info("Optimization Options:" + json.dumps(self.options, indent=2) + "\n")
+            self.logger.debug("Optimization Options:" + json.dumps(self.options, indent=2) + "\n")
         except BaseException as unknown_exception:
             self.logger.exception("Error: %s", unknown_exception)
 
