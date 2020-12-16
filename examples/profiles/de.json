@@ -1,9 +1,13 @@
 {
 	"optimization": {
 		"type": "dispatch",
-		"model_horizon": [0, 24],
+		"model_horizon": [0, 168],
+		"timeseries": {
+			"market_horizon": 168, 
+			"redispatch_horizon": 24
+		},
 		"redispatch": {
-			"include": false,
+			"include": true,
 			"zones": ["DE"],
 			"cost": 50
 		},
@@ -18,7 +22,5 @@
 			"es": ["hydro_res", "hydro_psp"],
 			"ts": ["wind onshore", "wind offshore", "solar"]
 		}
-	},
-	"data": {
 	}
 }
