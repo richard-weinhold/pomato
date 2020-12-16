@@ -252,7 +252,6 @@ class POMATO():
             Providing the name of an option file, usually located in the ``/profiles``
             folder. If not provided, using default options as defined in tools.
         """
-
         try:
             with open(self.wdir.joinpath(options_file)) as opt_file:
                 loaded_options = json.load(opt_file)
@@ -371,12 +370,31 @@ class POMATO():
         self.logger.info("Resetting Data Object")
         self.data = DataManagement(self.options, self.wdir)
 
-    def create_grid_representation(self):
+    def create_flowbased_paramteters(self, basecase, **kwargs):
+        """Create flow based parameters based on a chosen basecase.
+
+        This method collects the respective methods from :class:`~pomato.fbmc.FBMCModule`
+        more specifically :meth:`~pomato.fbmc.FBMCModule.create_flowbased_parameters`.
+
+        Additionally, this method create the appropriate grid representation. 
+        """
+        self.fbmc.calculate_parameters()
+        flowbased_paramters = self.fbmc.create_flowbased_parameters(basecase, **kwargs)
+        self.create_grid_representation(flowbased_paramters=flowbased_paramters)
+        return flowbased_paramters
+
+    def create_grid_representation(self, **kwargs):
         """Grid Representation as property.
 
         Creates grid representation to be used in the market model.
+        
+        Parameters
+        ----------
+        flowbased_paramters : optional, pandas.DataFrame
+            Flowbased parameters, derived using :class:`~pomato.fbmc.FBMCModule`
+
         """
-        self.grid_model.create_grid_representation()
+        self.grid_model.create_grid_representation(**kwargs)
 
     def create_geo_plot(self, show=True, empty=False, **kwargs):
         """Initialize GeoPlot based on the dataset and a market result.

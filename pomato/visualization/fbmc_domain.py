@@ -413,6 +413,16 @@ class FBMCDomainPlots():
         list_coord = np.take(list_coord, unique_rows_idx, axis=0)
         return(list_coord[:, 0], list_coord[:, 1], intersection_x, intersection_y)
 
+
+    def generate_flowbased_domains(self, domain_x, domain_y, filename_suffix=None):
+        """Create FB domains for all timesteps of the supplied FB parameters.
+        
+        This method is based on :meth:`~generate_flowbased_domain`, which create the domain 
+        plot for a specific timestep using the same arguments.       
+        """
+        for timestep in self.flowbased_parameters.timestep.unique():
+            self.generate_flowbased_domain(["R1", "R2"], ["R1", "R3"], timestep, filename_suffix)
+
     def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None):
         """Create FB Domain for specified zones and timesteps. 
         
