@@ -1,81 +1,58 @@
 """DE Test Case."""
 import sys
 from pathlib import Path
+
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt 
+import pomato
 
 # Init POMATO with the options file and the dataset
-from pomato import POMATO
-
-wdir = Path(__file__).parent
+wdir = Path("/examples/") # Change to local copy of examples folder
 mato = POMATO(wdir=wdir, options_file="profiles/de.json")
 mato.load_data('data_input/dataset_de.zip')
 
-# Acess the data.
-nodes = mato.data.nodes
-lines = mato.grid.lines
-dclines = mato.data.dclines
-demand = mato.data.demand_el
-zones = mato.data.zones
-plants = mato.data.plants
-availability = mato.data.availability
-net_export = mato.data.net_export
+# Init POMATO with the options file and the dataset
+mato = pomato.POMATO(wdir=Path('/results'), options_file="de.json")
+mato.load_data(Path('/data/dataset_de.zip'))
 
-mato.data.visualize_inputdata()
-# Run the Market Model, including (costbased) Re-Dispatch.
-# Market Result is determined based on the option file.
-# Redispatch is done to N-0 per default.
-
-mato.run_market_model()
-market_result = next(iter(mato.data.results.values()))
-
-# Some result analysis
-df1, df2 = market_result.overloaded_lines_n_0()
-gen = pd.merge(mato.data.plants, market_result.G, left_index=True, right_on="p")
-util = gen[["plant_type", "g_max", "G"]].groupby("plant_type").sum()
-print(util.G / util.g_max)
-
-# Show Geo Plot
-mato.create_geo_plot()
-
-# Change options, re-create grid representation and re-run
-mato.data.results = {}
-mato.options["optimization"]["redispatch"]["include"] = True
-mato.options["optimization"]["redispatch"]["zones"] = ["DE"]
-mato.options["optimization"]["redispatch"]["cost"] = 50
-
+# Create the grid representation, the options are specified in the 
+# json file supplied in the instantiation. 
+# In this case the model runs a uniform pricing with subsequent redispatch.
 mato.create_grid_representation()
 mato.run_market_model()
 
+# Return the results, in this case two: 
+# market result (uniform pricing, no network constraints)
+# and redispatch (to account for N-0 network feasibility)
 market_result, redisp_result = mato.data.return_results()
 
-# Check for Overloaded lines N-0
+# Check for overloaded lines in the market and redispatch results
 n0_m, _ = market_result.overloaded_lines_n_0()
 print("Number of N-0 Overloads: ", len(n0_m))
-
 n0_r, _  = redisp_result.overloaded_lines_n_0()
 print("Number of N-0 Overloads: ", len(n0_r))
 
-# Check for infeasibilities in market / redispatch result.
-infeas_redisp = redisp_result.infeasibility()
-infeas_market = market_result.infeasibility()
-
 # Generation comparison between Market Result and Redispatch.
+# Redispatch is calculated G_redispatch - G_market as delta
+# The absulute delta represents the total redispatched energy
 gen = pd.merge(market_result.data.plants[["plant_type", "fuel", "tech", "g_max", "node"]],
                market_result.G, left_index=True, right_on="p")
-
-# Redispatch Caluclation G_redispatch - G_market
 gen = pd.merge(gen, redisp_result.G, on=["p", "t"], suffixes=("_market", "_redispatch"))
 gen["delta"] = gen["G_redispatch"] - gen["G_market"]
 gen["delta_abs"] = gen["delta"].abs()
+print("Redispatched energy per hour (abs) [MWh] ", gen.delta_abs.sum()/len(gen.t.unique()))
 
-# Redispatch Values
-gen.delta.sum()
-gen.delta_abs.sum()/24
+# Create Geo Plot. DISCLAiMER: The reported prices are the dual 
+# in the redispatch result, thus including costs for redispatch.
+mato.create_geo_plot(title="DE: Redispatch", show_prices=True)
+mato.geo_plot.save_plot(mato.wdir.joinpath("geoplot_DE.html"))
 
-# Create Geo PLot
-mato.create_geo_plot(title="DE: Redispatch")
-# mato.bokeh_plot.save_plot(mato.wdir.joinpath("bokeh_redispatch.html")
+# Create visualization of the generation schedule in the market result. 
+mato.visualization.create_generation_plot(market_result, show_plot=False, 
+                                          filepath=mato.wdir.joinpath("generation_plot.html"))
+mato.visualization.create_storage_plot(market_result, show_plot=False, 
+                                       filepath=mato.wdir.joinpath("storage_plot.html"))
 
 mato._join_julia_instances()
+

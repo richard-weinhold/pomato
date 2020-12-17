@@ -41,15 +41,18 @@ class TestPomatoVisualization(unittest.TestCase):
 
     def test_visualization_generation_plot(self):
         result = self.mato.data.results["dispatch_redispatch"]
-        self.mato.visualization.create_generation_plot(result)
+        filepath = self.mato.wdir.joinpath("data_output/generation_plot.html")
+        self.mato.visualization.create_generation_plot(result, show_plot=False, filepath=filepath)
 
     def test_visualization_create_installed_capacity_plot(self):
         result = self.mato.data.results["dispatch_redispatch"]
-        self.mato.visualization.create_installed_capacity_plot(result)
+        filepath = self.mato.wdir.joinpath("data_output/capacity_plot.html")
+        self.mato.visualization.create_installed_capacity_plot(result, show_plot=False, filepath=filepath)
 
     def test_visualization_create_storage_plot(self):
         result = self.mato.data.results["dispatch_redispatch"]
-        self.mato.visualization.create_storage_plot(result)
+        filepath = self.mato.wdir.joinpath("data_output/storage_plot.html")
+        self.mato.visualization.create_storage_plot(result, show_plot=False, filepath=filepath)
 
     def test_geoplot_empty(self):
         self.mato.create_geo_plot(show=False, empty=True)
@@ -66,11 +69,9 @@ class TestPomatoVisualization(unittest.TestCase):
         self.mato.fbmc.calculate_parameters()
 
         fb_parameters = self.mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
-        fbmc_domain = pomato.visualization.FBMCDomainPlots(self.mato.wdir, self.mato.grid, 
-                                                           self.mato.data, self.mato.options, 
-                                                           fb_parameters)
+        fbmc_domain = pomato.visualization.FBDomainPlots(self.mato.data, fb_parameters)
 
-        fbmc_domain.generate_flowbased_domain(["R1", "R2"], ["R1", "R3"], "t0001", "nrel")
+        fbmc_domain.generate_flowbased_domain(("R1", "R2"), ["R1", "R3"], "t0001", "nrel")
         fbmc_domain.save_all_domain_plots(self.mato.wdir.joinpath("data_output"), include_ntc=True)
         fbmc_domain.save_all_domain_info(self.mato.wdir.joinpath("data_output"))
         
@@ -83,7 +84,6 @@ class TestPomatoVisualization(unittest.TestCase):
                                   flow_option=1)
         self.mato.create_geo_plot(show=False, market_result_name="dispatch_market_results", 
                                   flow_option=3)
-        
         self.mato.create_geo_plot(show=False, market_result_name="dispatch_redispatch",
                                   show_redispatch=True, show_prices=True)
         self.mato.create_geo_plot(show=False, market_result_name="dispatch_redispatch",
@@ -96,7 +96,8 @@ class TestPomatoVisualization(unittest.TestCase):
         time.sleep(3)
         self.mato.geo_plot.stop_server()
 
-        # Just including checks for syntax
+        # Include runs the plot, which chaecks basic syntax, 
+        # pylint: disable-msg=E0401
         from pomato.visualization import geoplot_dynamic
 
 if __name__ == '__main__':

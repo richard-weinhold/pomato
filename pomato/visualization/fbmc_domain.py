@@ -14,29 +14,46 @@ import pomato.tools as tools
 from pomato.grid import GridModel
 from pomato.fbmc import FBMCModule
 
-class FBMCDomain():
-    """Class to store all relevant information of an FBMC Plot"""
-    def __init__(self, plot_information, plot_equations, hull_information, xy_limits, domain_data, ntc):
+class FBDomain():
+    """Individual FB Domain plot. 
+
+    This class bundles all data of an individual domain plot
+    and the plotting functionality. It gets instantiated 
+    into the *fbmc_plots* of the :class:`~FBDomainPlots`
+    
+    Parameters
+    ----------
+    domain_information : dict 
+        Dictionary with general domain information. 
+    domain_equations : array
+        Equations to be plottet in the domain.
+    feasible_region_vertices : array
+        Array of the domain's feasible region vertices.
+    domain_data : pandas.DataFrame
+        The raw data from which the plot is derived.
+    ntc : pd.DataFrame
+        NTC, which can be optionally included in the domain plot. 
+    """ 
+    def __init__(self, domain_information, domain_equations, feasible_region_vertices, domain_data, ntc):   
+        self.gsk_strategy = domain_information["gsk_strategy"]
+        self.timestep = domain_information["timestep"]
+        self.domain_x = domain_information["domain_x"]
+        self.domain_y = domain_information["domain_y"]
         
-        self.gsk_strategy = plot_information["gsk_strategy"]
-        self.timestep = plot_information["timestep"]
-        self.domain_x = plot_information["domain_x"]
-        self.domain_y = plot_information["domain_y"]
-        
-        if plot_information["filename_suffix"]:
+        if domain_information["filename_suffix"]:
             self.title = self.timestep + "_" + self.gsk_strategy \
-                         + "_" + plot_information["filename_suffix"]
+                         + "_" + domain_information["filename_suffix"]
         else:
             self.title = self.timestep + "_" + self.gsk_strategy
 
-        self.plot_equations = plot_equations
-        self.hull_information = hull_information
+        self.domain_equations = domain_equations
+        self.feasible_region_vertices = feasible_region_vertices
         self.ntc = ntc.set_index(["zone_i", "zone_j"])
 
-        self.x_max, self.x_min = xy_limits["x_max"], xy_limits["x_min"]
-        self.y_max, self.y_min = xy_limits["y_max"], xy_limits["y_min"]
-        self.domain_data = domain_data
+        self.x_max, self.y_max = np.amax(feasible_region_vertices, axis=0)
+        self.x_min, self.y_min = np.amin(feasible_region_vertices, axis=0)
 
+        self.domain_data = domain_data
         # set-up: don't show the graphs when created
         plt.ioff()
 
@@ -50,34 +67,25 @@ class FBMCDomain():
 
         """        
         # Setup
-        fig = plt.figure()
-        axis = plt.subplot()
+        fig, axis = plt.figure(), plt.subplot()
         scale = 2
 
         title = 'FBMC Domain between: ' + "-".join(self.domain_x) \
                 + ' and ' + "-".join(self.domain_y) \
-                + '\nNumber of CBCOs: ' + str(len(self.hull_information["hull_plot_x"])-1) \
+                + '\nNumber of CBCOs: ' + str(len(self.feasible_region_vertices[:, 0]) - 1) \
                 + "\nGSK Strategy: " + self.gsk_strategy \
                 + " - Timestep: " + self.timestep
         
-        # hull_plot contains the halfspaces (as line plots) 
-        hull_plot_x = self.hull_information["hull_plot_x"]
-        hull_plot_y = self.hull_information["hull_plot_y"]
-
         for i, cbco in enumerate(self.domain_data.index):
             if self.domain_data.loc[cbco, "co"] == "basecase":
-                axis.plot(self.plot_equations[i][0], self.plot_equations[i][1], 
+                axis.plot(self.domain_equations[i][0], self.domain_equations[i][1], 
                           linewidth=1.5, alpha=1, c='dimgrey', ls='-', zorder=2)
             else:
-                axis.plot(self.plot_equations[i][0], self.plot_equations[i][1], 
+                axis.plot(self.domain_equations[i][0], self.domain_equations[i][1], 
                           linewidth=1, alpha=0.6, c='lightgrey', ls='-', zorder=1)
-                
         
-        axis.plot(hull_plot_x, hull_plot_y, 'r--', linewidth=1.5, zorder=3)
-        # Coordinates of the vertices (corners), does not look great, but might be useful?
-        # hull_coord_x = self.hull_information["hull_coord_x"]
-        # hull_coord_y = self.hull_information["hull_coord_y"]      
-        # axis.scatter(hull_coord_x, hull_coord_y, zorder=3)
+        axis.plot(self.feasible_region_vertices[:, 0], self.feasible_region_vertices[:, 1],
+                  'r--', linewidth=1.5, zorder=3)
 
         legend = [Line2D([0], [0], color="r", lw=2, ls='--'),
                   Line2D([0], [0], color="dimgrey", lw=2),
@@ -111,23 +119,50 @@ class FBMCDomain():
         plt.tight_layout(rect=[0,0,1,1])
         return fig
 
-    def save_fbmc_domain(self, folder, include_ntc=True):
-        """Save fbmc domain to folder"""
+    def save_fbmc_domain(self, folder, include_ntc=False):
+        """Save fb domain plot to the specified folder. 
+        
+        Parameters
+        ----------
+        folder : pathlib.Path
+            Destination directory.  
+        include_ntc : bool, optional
+            Include the NTC box in the domain plot, by default False
+        """
         fig = self.create_fbmc_figure(include_ntc=include_ntc) 
         fig.savefig(str(folder.joinpath(f"FBMC_{self.title}.png")))
         fig.clf()
 
 
-class FBMCDomainPlots(FBMCModule):
-    """ Class to do all calculations in connection with cbco calculation"""
-    def __init__(self, wdir, grid, data, options, flowbased_parameters):
-        # Import Logger
-        self.logger = logging.getLogger('Log.MarketModel.FBMCDomainPlots')
-        self.logger.info("Initializing the FBMCModule....")
+class FBDomainPlots():
+    """Create FB domain plots based on flowbased paramters.
+    
+    This module creates 2D plots of the flow based domain, derived from the 
+    FB paramterters created by :meth:`~pomato.fbmc.FBMCModule.create_flowbased_parameters`.
 
-        super().__init__(wdir, grid, data, options)
-        super().calculate_parameters()
-        
+    The FB parameters are zonal PTDF and RAMs for each timestep, the number of zones
+    defines the width of the matrix, the length is determined by the number of lines
+    defined as cb (critical branch) and co (critical outages). 
+
+    To create a 2D plot, the x and y axis represent commercial exchange between two market areas, 
+    thereby the whole system remains balanced for each point in the graph. 
+    The methods create the necessary data for each domain plot and stores them as an instance of 
+    the :class:`~FBDomain` in the *fbmc_plots* attribute. 
+    
+    Parameters
+    ----------
+    wdir : pathlib.Path
+        POMATO working directory.  
+    data : :class:`~pomato.data.DataManagement`
+        Instance of POMATO data management. 
+    flowbased_parameters : pd.DataFrame 
+        FB parameters, as derived from :class:`~pomato.fbmc.FBMCModule`.
+    """  
+    def __init__(self, data, flowbased_parameters):
+              # Import Logger
+        self.logger = logging.getLogger('Log.visualization.FBDomainPlots')
+        self.logger.info("Initializing FBDomainPlots....")
+        self.data = data
         self.fbmc_plots = {}
         self.flowbased_parameters = flowbased_parameters
         
@@ -167,7 +202,18 @@ class FBMCDomainPlots(FBMCModule):
                 writer.append_data(np.hstack([img for img in imgs]))
 
     def save_all_domain_info(self, folder, name_suffix=""):
-        """Save the FBMC Domain Info (=Data) """
+        """Save the all domain info. 
+        
+        The domain info contains the raw plot data. This method concatenates
+        all data of all generatied plots and saves it to the designated folder. 
+
+        Parameters
+        ----------
+        folder : pathlib.Path
+            Destination folder.
+        name_suffix : str, optional
+            Optionally include a name suffix.
+        """
         domain_info = pd.concat([self.fbmc_plots[plot].domain_data for plot in self.fbmc_plots])
         # oder the columns
         columns = ["timestep", "gsk_strategy", "cb", "co"]
@@ -183,7 +229,6 @@ class FBMCDomainPlots(FBMCModule):
 
         filename = folder.joinpath("domain_info" + name_suffix + ".csv")
         domain_info[domain_info.in_domain].to_csv(filename)
-
         domain_info[mask].to_csv(folder.joinpath("domain_info_full" + name_suffix + ".csv"))
         return domain_info
 
@@ -202,68 +247,65 @@ class FBMCDomainPlots(FBMCModule):
             self.fbmc_plots[plots].y_min = y_min
             self.fbmc_plots[plots].y_max = y_max
 
-    def create_fbmc_equations(self, domain_x, domain_y, A, b):
-        """
-        from zonal ptdf calculate linear equations ax = b to plot the FBMC domain
-        nodes/Zones that are not part of the 2D FBMC are summarized using GSK sink
-        """
-        self.logger.info("Creating fbmc equations...")
-        list_zones = list(self.data.nodes.zone.unique())
-        if len(domain_x) == 2:
-            domain_idx = [[list_zones.index(zone[0]),
-                           list_zones.index(zone[1])] for zone in [domain_x, domain_y]]
-            A = np.vstack([np.dot(A[:, domain], np.array([1, -1])) for domain in domain_idx]).T
-        else:
-            raise ZeroDivisionError("Domains not set in the right way!")
-
-        #Clean reduce Ax=b only works if b_i != 0 for all i,
-        #which should be but sometimes wired stuff comes up
-        #Therefore if b == 0, b-> 1 (or something small>0)
-        if not (b > 0).all():
-            b[(b < 0)] = 0.1
-            self.logger.warning('some b is not right (possibly < 0)')
-        return(A, b)
-
-
-    def convexhull_ptdf(self, A, b):
-        """Convex hull algorithm, determining the feasible region of the FB domain.
-
-        Given an system Ax = b, where A is a list of ptdf and b the corresponding ram
-        Reduce will find the set of ptdf equations which constrain the solution domain
-        (which are based on the N-1 ptdfs)
+    def domain_feasible_region(self, A, b):
+        """Determining the feasible region of the FB domain, utilizing a convexhull algorithm.
+        
+        Based on the 2D input argument A and vector v, the convex hull is used to find the linear
+        inequations that define the inner feasible region of the domain. 
+        
+        Returns
+        -------
+        indices : array
+            Indices of A,b that define the domain's feasible region. 
 
         """
-        self.logger.info("Reducing Ab")
         A = np.array(A, dtype=np.float)
         b = np.array(b, dtype=np.float).reshape(len(b), 1)
         D = A/b
         k = spatial.ConvexHull(D, qhull_options="QJ") #pylint: disable=no-member
-        self.logger.info("Done!")
         return k.vertices
 
-    def create_domain_plot(self, A, b, cbco_index):
-        """Create linear equations of the inner FB domain feasible region. 
+    def zonal_ptdf_projection(self, domain_x, domain_y, A):
+        """The zonal PTDF has to be projected into 2D to be visualized as a domain plot. 
+
+        The input matrix A is projected into 2D. The x,y axis represent commercial exchange 
+        between two market areas define in the domain_x and domain_y input arguments, 
+        therefore are net zero.  
+
+        """
+        list_zones = list(self.data.nodes.zone.unique())
+        domain_idx = [[list_zones.index(zone[0]),
+                        list_zones.index(zone[1])] for zone in [domain_x, domain_y]]
+        A = np.vstack([np.dot(A[:, domain], np.array([1, -1])) for domain in domain_idx]).T
+        return A
+
+    def create_domain_plot(self, A, b, indices):
+        """Create linear equations of the FB domain. 
         
-        Create 2D equation from all zonal ptdfs suitable to for a matplotlib line plot
-        in the form axis.plot(plot_equations[i][0], plot_equations[i][1]) for each ptdf. 
+        Create 2D equation from the 2D projection of the zonal PTDF, suitable to for a 
+        matplotlib line plot in the form axis.plot(plot_equations[i][0], plot_equations[i][1])
+        for each linear inequation that represents a specific line under contingency.
+
+        The indices represent a subset of equations to be plottet if the size of A is too high. 
         
         Parameters
         ----------
         A : np.array
-            Matrix of (zonal) PTDF matrix 
+            Projected zonal PTDF with width 2. 
         b : np.array
-            Vector of RAM
-        cbco_index : list
-            List of indices that compose the FB domain feasible region
+            Vector of RAMs
+        indices : list-like
+            List of indices that compose the domain plot.
 
         Returns
         -------
         plot_equations : list of [[x1;x2],[y1;y2]]
-            Each plot consists of two x and y corrdinates.
+            Each plot consists of two x and y coordinates.
 
         """
-        A = np.take(np.array(A), cbco_index, axis=0)
-        b = np.take(np.array(b), cbco_index, axis=0)
+
+        A = np.take(np.array(A), indices, axis=0)
+        b = np.take(np.array(b), indices, axis=0)
         Ab = np.concatenate((np.array(A), np.array(b).reshape(len(b), 1)), axis=1)
 
         # Calculate two coordinates for a line plot -> Return X = [X1;X2], Y = [Y1,Y2]
@@ -273,7 +315,7 @@ class FBMCDomainPlots(FBMCModule):
         for index in range(0, len(Ab)):
             x_coordinates = []
             y_coordinates = []
-#                for idx in range(-10000, 10001, 20000):
+            # for idx in range(-10000, 10001, 20000):
             for idx in range(x_lower, x_upper +1, (x_upper - x_lower)):
                 if Ab[index][1] != 0:
                     y_coordinates.append((Ab[index][2] - idx*(Ab[index][0])) / (Ab[index][1]))
@@ -282,36 +324,38 @@ class FBMCDomainPlots(FBMCModule):
                     y_coordinates.append(idx)
                     x_coordinates.append((Ab[index][2] - idx*(Ab[index][1])) / (Ab[index][0]))
             plot_equations.append([x_coordinates, y_coordinates])
-
         return plot_equations
 
-    def get_xy_hull(self, A, b, cbco_index):
-        """Calculate x,y coordinates of the FB domain feasible region.
+    def create_feasible_region_vertices(self, A, b, feasible_region_indices):
+        """Calculate vertices of the FB domain feasible region.
+
+        To plot the feasible region of the domain, this method calculates all intersections 
+        of the linear inequalities A x <= b that make up the domain, filters the vertices that 
+        are part of the domain (and not intersection more outward) and sorts them clockwise, 
+        so that matplotlib can create a continuosly connected domain plot (and not a star shape). 
+        This method is pretty high up on the list to be rewritten :/ 
 
         Parameters
         ----------
         A : np.array
-            Matrix of (zonal) PTDF matrix 
+            Projected zonal PTDF with width 2. 
         b : np.array
-            Vector of RAM
-        cbco_index : list
-            List of indices that compose the FB domain feasible region
+            Vector of RAMs.
+        feasible_region_indices : list
+            List of indices of linear inequations that compose the FB domain 
+            feasible region.
 
         Returns
         -------
-        hull_plot_x : list
-            x coordinates of the linear equations to plot the FB domain feasible region.
-        hull_plot_y : list
-            y coordinates of the linear equations to plot the FB domain feasible region.
-        intersection_x : list
-            x coordinates of intersections of the CBCOs that make up the domain.
-        intersection_y : list
-            x coordinates of intersections of the CBCOs that make up the domain.
+        vertices : array of width 2 and length of however many constraints make 
+            up the domain/feasible region.
+        all_intersections : [list x-coordinates, list y-coordinates] 
+            Coordinates of all intersections of CBCOs that make up the domain.
         """        
-        # ptdf_x * X + ptdf_y *Y = B
+        # ptdf_x * X + ptdf_y * Y = B
         # Or in Matrix Form A*x = b where X = [X;Y]
-        ptdf = np.take(A, cbco_index, axis=0)
-        ram = np.take(b, cbco_index, axis=0)
+        ptdf = np.take(A, feasible_region_indices, axis=0)
+        ram = np.take(b, feasible_region_indices, axis=0)
 
         ### Find all intersections between CO
         intersection_x = []
@@ -321,7 +365,7 @@ class FBMCDomainPlots(FBMCModule):
                 ### x*ptdf_A0 +  y*ptdf_A1 = C_A ----- x*ptdf_B0 + y*ptdf_B1 = C_B
                 ### ptdf[idx,0] ptdf[idx,1] = ram[idx] <-> ptdf[idy,0] ptdf[idy,1] = ram[idy]
                 if idx != idy:
-                        # A0 close to 0
+                    # A0 close to 0
                     if np.square(ptdf[idx, 0]) < 1E-9 and np.square(ptdf[idy, 0]) > 1E-9:
                         intersection_x.append((ram[idy]*ptdf[idx, 1] - ram[idx]*ptdf[idy, 1])\
                                  /(ptdf[idx, 1]*ptdf[idy, 0]))
@@ -339,8 +383,8 @@ class FBMCDomainPlots(FBMCModule):
                         intersection_y.append((ram[idx]*ptdf[idy, 0] - ram[idy]*ptdf[idx, 0]) \
                                 / (ptdf[idx, 1]*ptdf[idy, 0] - ptdf[idy, 1]*ptdf[idx, 0]))
 
-        hull_x = []
-        hull_y = []
+        vertices_x = []
+        vertices_y = []
         ### Filter intersection points for those which define the FB Domain
         for idx in range(0, len(intersection_x)):
             temp = 0
@@ -349,95 +393,108 @@ class FBMCDomainPlots(FBMCModule):
                     ptdf[idy, 1]*intersection_y[idx] <= ram[idy]*1.0001:
                     temp += 1
                 if temp >= len(ptdf):
-                    hull_x.append(intersection_x[idx])
-                    hull_y.append(intersection_y[idx])
+                    vertices_x.append(intersection_x[idx])
+                    vertices_y.append(intersection_y[idx])
 
         ### Sort them Counter Clockwise to plot them
-        list_coord = []
-        for idx in range(0, len(hull_x)):
-            radius = np.sqrt(np.power(hull_y[idx], 2) + np.power(hull_x[idx], 2))
-            if hull_x[idx] >= 0 and hull_y[idx] >= 0:
-                list_coord.append([hull_x[idx], hull_y[idx],
-                                   np.arcsin(hull_y[idx]/radius)*180/(2*np.pi)])
-            elif hull_x[idx] < 0 and hull_y[idx] > 0:
-                list_coord.append([hull_x[idx], hull_y[idx],
-                                   180 - np.arcsin(hull_y[idx]/radius)*180/(2*np.pi)])
-            elif hull_x[idx] <= 0 and hull_y[idx] <= 0:
-                list_coord.append([hull_x[idx], hull_y[idx],
-                                   180 - np.arcsin(hull_y[idx]/radius)*180/(2*np.pi)])
-            elif hull_x[idx] > 0 and hull_y[idx] < 0:
-                list_coord.append([hull_x[idx], hull_y[idx],
-                                   360 + np.arcsin(hull_y[idx]/radius)*180/(2*np.pi)])
+        vertices_sorted = []
+        for idx in range(0, len(vertices_x)):
+            radius = np.sqrt(np.power(vertices_y[idx], 2) + np.power(vertices_x[idx], 2))
+            if vertices_x[idx] >= 0 and vertices_y[idx] >= 0:
+                vertices_sorted.append([vertices_x[idx], vertices_y[idx],
+                                   np.arcsin(vertices_y[idx]/radius)*180/(2*np.pi)])
+            elif vertices_x[idx] < 0 and vertices_y[idx] > 0:
+                vertices_sorted.append([vertices_x[idx], vertices_y[idx],
+                                   180 - np.arcsin(vertices_y[idx]/radius)*180/(2*np.pi)])
+            elif vertices_x[idx] <= 0 and vertices_y[idx] <= 0:
+                vertices_sorted.append([vertices_x[idx], vertices_y[idx],
+                                   180 - np.arcsin(vertices_y[idx]/radius)*180/(2*np.pi)])
+            elif vertices_x[idx] > 0 and vertices_y[idx] < 0:
+                vertices_sorted.append([vertices_x[idx], vertices_y[idx],
+                                   360 + np.arcsin(vertices_y[idx]/radius)*180/(2*np.pi)])
         from operator import itemgetter
-        list_coord = sorted(list_coord, key=itemgetter(2))
+        vertices_sorted = sorted(vertices_sorted, key=itemgetter(2))
         
         ## Add first element to draw complete circle
-        list_coord.append(list_coord[0])
-        list_coord = np.array(list_coord)
-        list_coord = np.round(list_coord, decimals=3)
-        unique_rows_idx = [x for x in range(0, len(list_coord)-1) \
-                           if not np.array_equal(list_coord[x, 0:2], list_coord[x+1, 0:2])]
-        unique_rows_idx.append(len(list_coord)-1)
-        list_coord = np.take(list_coord, unique_rows_idx, axis=0)
-        return(list_coord[:, 0], list_coord[:, 1], intersection_x, intersection_y)
+        vertices_sorted.append(vertices_sorted[0])
+        vertices_sorted = np.array(vertices_sorted)
+        vertices_sorted = np.round(vertices_sorted, decimals=3)
+        unique_rows_idx = [x for x in range(0, len(vertices_sorted)-1) \
+                           if not np.array_equal(vertices_sorted[x, 0:2], vertices_sorted[x+1, 0:2])]
+        unique_rows_idx.append(len(vertices_sorted)-1)
+        vertices_sorted = np.take(vertices_sorted, unique_rows_idx, axis=0)
+    
+        return vertices_sorted[:, [0,1]], [intersection_x, intersection_y]
+
+
+    def generate_flowbased_domains(self, domain_x, domain_y, filename_suffix=None):
+        """Create FB domains for all timesteps of the supplied FB parameters.
+        
+        This method is based on :meth:`~generate_flowbased_domain`, which create the domain 
+        plot for a specific timestep using the same arguments.       
+        """
+        for timestep in self.flowbased_parameters.timestep.unique():
+            self.generate_flowbased_domain(["R1", "R2"], ["R1", "R3"], timestep, filename_suffix)
 
     def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None):
         """Create FB Domain for specified zones and timesteps. 
-
-        Combines previous functions to actually plot the FBMC Domain with the
-        hull
+        
+        Parameters
+        ----------
+        domain_x : 2-element, list-like 
+            Two-element list-like of market areas whose commercial exchange is depicted on the 
+            x-axis, where positive values indicate a commercial exchange from element one to 
+            element two. 
+        domain_y : 2-element, list-like 
+            Analogue to *domain_x*, just for the y-axis of the 2 dimensional plot.
+        timestep : string, 
+            Timestep for which the domain is generated. 
+        filename_suffix : string, optional
+            Optionally append to the resulting filename a suffix that makes it easier to 
+            identify when domains for more scenarios are created, by default None.
         """
+        
+        domain_info = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep].reset_index(drop=True)
+        A = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, list(self.data.nodes.zone.unique())].values
+        b = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, "ram"].values
 
+        # Checks 
+        if not len(domain_x) == len(domain_y) == 2:
+            raise AttributeError("Attributes domain_x, domain_y must have 2 elements")
+        if not all(b >= 0):
+            raise ValueError("Not all RAM >= 0, check FB paramters.")
         if not isinstance(self.flowbased_parameters, pd.DataFrame):
             raise AttributeError("No precalculated flow based parameters available, run create_flowbased_parameters with basecase and GSK")
-        
         if not len(self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].gsk_strategy.unique()) == 1:
             raise AttributeError("Multiple GSK Strategies in flow based parameters, slice first!")
         else:
             gsk_strategy = self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].gsk_strategy.unique()[0]
 
-        domain_info = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep].reset_index(drop=True)
-        A = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, list(self.data.nodes.zone.unique())].values
-        b = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, "ram"].values
-        
-        A, b = self.create_fbmc_equations(domain_x, domain_y, A, b)
-        # Reduce
-        cbco_index = self.convexhull_ptdf(A, b)
-        self.logger.info("Number of CBCOs %d", len(cbco_index))
-        
+        A = self.zonal_ptdf_projection(domain_x, domain_y, A)
+        feasible_region_indices = self.domain_feasible_region(A, b)
         domain_info["in_domain"] = False
-        domain_info.loc[domain_info.index.isin(cbco_index), "in_domain"] = True
+        domain_info.loc[domain_info.index.isin(feasible_region_indices), "in_domain"] = True
 
-        # Limit the number of constraints to 5000
-        full_indices = np.array([x for x in range(0,len(A))])
-        threshold = 1e5
+        # Limit the number of constraints plottet to a threshold
+        threshold = int(1e5)
         if len(A) > threshold:
             self.logger.info("Plot limited to %d constraints plotted", threshold)
-            cbco_plot_indices = np.append(cbco_index,
-                                          np.random.choice(full_indices,
-                                                           size=int(threshold),
-                                                           replace=False))
-            domain_info = domain_info.loc[np.sort(np.unique(cbco_plot_indices)), :]
-
+            random_choice = np.random.choice(domain_info.index, size=threshold, replace=False)
+            plot_indices = np.sort(np.unique(np.append(feasible_region_indices, random_choice)))
+            domain_info = domain_info.loc[plot_indices, :]
         else:
-            cbco_plot_indices = full_indices
+            plot_indices = domain_info.index
 
-        plot_equations = self.create_domain_plot(A, b, cbco_plot_indices)
-        hull_plot_x, hull_plot_y, hull_coord_x, hull_coord_y = self.get_xy_hull(A, b, cbco_index)
-        xy_limits = tools.find_xy_limits([[hull_plot_x, hull_plot_y]])
-
-        self.logger.info("Number of CBCOs defining the domain %d", len(hull_plot_x) - 1)
+        plot_equations = self.create_domain_plot(A, b, plot_indices)
+        feasible_region_vertices, _ = self.create_feasible_region_vertices(A, b, feasible_region_indices)
+        
+        self.logger.info("Number of CBCOs defining the domain %d", len(feasible_region_vertices[:, 0]) - 1)
 
         plot_information = {"gsk_strategy": gsk_strategy, "timestep": timestep,
                             "domain_x": domain_x, "domain_y": domain_y,
                             "filename_suffix": filename_suffix}
         
-        hull_information = {"hull_plot_x": hull_plot_x,
-                            "hull_plot_y": hull_plot_y,
-                            "hull_coord_x": hull_coord_x,
-                            "hull_coord_y": hull_coord_y}
-
-        fbmc_plot = FBMCDomain(plot_information, plot_equations, hull_information,
-                               xy_limits, domain_info.copy(), self.data.ntc)
+        fbmc_plot = FBDomain(plot_information, plot_equations, feasible_region_vertices,
+                               domain_info.copy(), self.data.ntc)
 
         self.fbmc_plots[fbmc_plot.title] = fbmc_plot

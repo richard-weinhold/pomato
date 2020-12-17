@@ -92,7 +92,6 @@ class MarketModel():
         timesteps = self.data.demand_el.timestep.unique()
         model_horizon = [str(x) for x in timesteps[model_horizon_range]]
         self.data_to_csv(model_horizon)
-        self.logger.info("MarketModel Initialized!")
 
     def run(self):
         """Run the julia program via command Line.

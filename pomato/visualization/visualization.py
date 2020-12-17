@@ -1,4 +1,4 @@
-""""""
+"""Visualiztazion Module of POMATO"""
 
 import logging
 import types
@@ -24,7 +24,6 @@ class Visualization():
     the latter to create interactive visualization of capacity, generation and storage usage. 
    
     """
-
     def __init__(self, wdir, data):
         # Impoort Logger
         self.logger = logging.getLogger('Log.visualization.Visualization')
@@ -32,7 +31,7 @@ class Visualization():
         self.data = data
         self.package_dir = Path(pomato.__path__[0])
     
-    def create_generation_plot(self, market_result):
+    def create_generation_plot(self, market_result, show_plot=True, filepath=None):
         """Create Generation plot.
         """
         gen = market_result.generation()
@@ -61,10 +60,12 @@ class Visualization():
 
         fig.add_trace(go.Scatter(x=d.index, y=d.demand_el - inf.infeasibility, line=dict(color="#000000"), name="demand")) 
         fig.add_trace(go.Scatter(x=d.index, y=d.demand_el - inf.infeasibility + d.D_es + d.D_ph, fill='tonexty', mode= 'none', fillcolor="#BFBDE5", name="storage charging"))
+        if show_plot:
+            plot(fig)
+        if filepath:
+            fig.write_html(str(filepath))
 
-        plot(fig)
-
-    def create_installed_capacity_plot(self, market_result):
+    def create_installed_capacity_plot(self, market_result, show_plot=True, filepath=None):
         """Create plot visualizing installed capacity per market area."""
         plants = market_result.data.plants
         plants["zone"] = market_result.data.nodes.loc[plants.node, "zone"].values
@@ -75,20 +76,20 @@ class Visualization():
         plant_colors = self.color_map(plants)
         plants = pd.merge(plants, plant_colors, on=["fuel", "tech"])
         fig = px.bar(plants, x="zone", y="g_max", color="name", 
-                    color_discrete_map=plant_colors[["color", "name"]].set_index("name").color.to_dict())
+                     color_discrete_map=plant_colors[["color", "name"]].set_index("name").color.to_dict())
+        fig.layout.yaxis.title = "Installed Capacity [GW]"
+        fig.layout.xaxis.title = "Zone/Country"
+        if show_plot:
+            plot(fig)
+        if filepath:
+            fig.write_html(str(filepath))
 
-        fig.layout.yaxis.title="Installed Capacity [GW]"
-        fig.layout.xaxis.title="Zone/Country"
-        plot(fig)
-
-    def create_storage_plot(self, market_result):
+    def create_storage_plot(self, market_result, show_plot=True, filepath=None):
         """Storage plot."""
         es_gen = market_result.storage_generation()
-        
         if es_gen.empty:
             self.logger.warning("No storage results to plot.")
             return None
-
         es_gen = es_gen[["t", "G", "D_es", "L_es"]].groupby(["t"]).sum().reset_index()
         fig = px.line(pd.melt(es_gen, id_vars=["t"], value_vars=["G", "D_es"]), x="t", y="value", color='variable')
         fig2 = px.line(pd.melt(es_gen, id_vars=["t"], value_vars=["L_es"]), x="t", y="value", color='variable')
@@ -96,11 +97,14 @@ class Visualization():
         # Create figure with secondary y-axis
         subfig = make_subplots(specs=[[{"secondary_y": True}]])
         subfig.add_traces(fig.data + fig2.data)
-        subfig.layout.xaxis.title="Time"
-        subfig.layout.yaxis.title="Storage Charging (D_es)/Dischargin (G) [MW]"
-        subfig.layout.yaxis2.title="Storage Level [MWh]"
+        subfig.layout.xaxis.title = "Time"
+        subfig.layout.yaxis.title = "Storage Charging (D_es)/Discharging (G) [MW]"
+        subfig.layout.yaxis2.title = "Storage Level [MWh]"
         subfig.for_each_trace(lambda t: t.update(line=dict(color=t.marker.color)))
-        plot(subfig)
+        if show_plot:
+            plot(subfig)
+        if filepath:
+            subfig.write_html(str(filepath))
 
     def result_data_struct(self):
         """Data struct, as a standart template for result processing.

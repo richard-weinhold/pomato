@@ -98,24 +98,14 @@ class TestPomatoMarketModel(unittest.TestCase):
         basecase = mato.data.results[result_name]
         mato.options["grid"]["minram"] = 0.1
         mato.options["grid"]["sensitivity"] = 0.05
-
-        mato.fbmc.calculate_parameters()
-        fbmc_gridrep = mato.fbmc.create_flowbased_parameters(basecase, 
-                                                             gsk_strategy="gmax", 
-                                                             reduce=False)
+        fb_parameters = mato.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
 
         # %% FBMC market clearing
         mato.data.results = {}
         mato.options["optimization"]["timeseries"]["market_horizon"] = 100
         mato.options["optimization"]["redispatch"]["include"] = True
         mato.options["optimization"]["redispatch"]["zones"] = list(mato.data.zones.index)
-        mato.options["optimization"]["type"] = "nodal"
-        mato.create_grid_representation()
-        mato.grid_representation.grid = fbmc_gridrep
-        mato.options["optimization"]["type"] = "cbco_zonal"
-        mato.options["optimization"]["constrain_nex"] = False
-        mato.options["optimization"]["chance_constrained"]["include"] = False
-
+        mato.create_grid_representation(flowbased_paramters=fb_parameters)
         mato.update_market_model_data()
         mato.run_market_model()
 

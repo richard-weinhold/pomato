@@ -86,7 +86,7 @@ class GridModel():
     def _start_julia_daemon(self):
         self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
-    def create_grid_representation(self):
+    def create_grid_representation(self, flowbased_paramters=None):
         """Create grid representation based on model type.
 
         Options are: dispatch, ntc, nodal, zonal, cbco_nodal, cbco_zonal.
@@ -104,13 +104,23 @@ class GridModel():
             - *ntc*: DataFrame with the zonal commercial exchange capacities.
 
         All values are set according the chosen option and might remain empty.
+        If flow based parameters are supplied, the grid representation will be 
+        generated accordingly. 
+
+        Parameters
+        ----------
+        flowbased_paramters : optional, pandas.DataFrame
+            Flowbased parameters, derived using :class:`~pomato.fbmc.FBMCModule`
+
         """
         # Data Structure of grid_representation dict
         self.grid_representation.option = self.options["optimization"]["type"]
         self.grid_representation.multiple_slack = self.grid.multiple_slack
         self.grid_representation.slack_zones = self.grid.slack_zones()
 
-        if self.options["optimization"]["type"] == "ntc":
+        if isinstance(flowbased_paramters, pd.DataFrame):
+            self.process_flowbased_grid_representation(flowbased_paramters)
+        elif self.options["optimization"]["type"] == "ntc":
             self.process_ntc()
         elif self.options["optimization"]["type"] == "nodal":
             self.grid_representation.grid = self.create_nodal_grid_parameters()
@@ -130,6 +140,25 @@ class GridModel():
         if self.options["optimization"]["redispatch"]["include"]:
             self.add_redispatch_grid()
     
+    def process_flowbased_grid_representation(self, flowbased_paramters):
+        """Process grid information for flow based grid representation.
+        
+        The flow based parameters reflect a zonal ptdf, including contingencies,
+        for a preselected set of critical branches under critical outages (cbco)
+        and available capacities (RAM) depending on the chosen basecase. 
+        Therefore the optimization type has to be cbco_zonal, for the model to 
+        account for a zonal, timedependant ptdf.
+
+        Parameters
+        ----------
+        flowbased_paramters : pandas.DataFrame
+            Flowbased parameters, derived using :class:`~pomato.fbmc.FBMCModule`
+
+        """
+        self.options["optimization"]["type"] = "cbco_zonal"
+        self.grid_representation.option = "cbco_zonal"
+        self.grid_representation.grid = flowbased_paramters
+
     def create_nodal_grid_parameters(self):
         """Process grid information for nodal N-0 representation.
 
@@ -158,8 +187,9 @@ class GridModel():
            
     def add_redispatch_grid(self, contingencies=False):
         """Add nodal N-0 grid representation as redispatch grid.
-
-        Here *grid_representation.redispatch_grid* consists of the N-0 ptdf.
+        
+        Depending on the optional argument *grid_representation.redispatch_grid* 
+        will reflect N-0 or N-1, i.e. including contingencies, grid representation.
         """
         if contingencies:
             self.grid_representation.redispatch_grid = self.create_cbco_nodal_grid_parameters()
@@ -201,7 +231,7 @@ class GridModel():
         """Process grid information for zonal N-1 representation.
 
         Based on chosen sensitivity and GSK the return of
-        :meth:`~pomato.cbco.create_cbco_data` runs the redundancy removal
+        :meth:`~pomato.grid.create_cbco_data` runs the redundancy removal
         algorithm to reduce the number of constraints to a minimal set.
 
         The redundancy removal is very efficient for this type of grid
@@ -244,7 +274,7 @@ class GridModel():
         """Process grid information for nodal N-1 representation.
 
         Based on chosen sensitivity and GSK the return of
-        :meth:`~pomato.cbco.create_cbco_data` runs the redundancy removal
+        :meth:`~pomato.grid.create_cbco_data` runs the redundancy removal
         algorithm to reduce the number of constraints to a minimal set. The
         redundancy removal algorithm can take long to conclude, e.g. about
         2 hours for the DE case study which comprises of ~450 nodes and ~1000
@@ -312,7 +342,7 @@ class GridModel():
         return cbco_nodal_network
 
     def create_cbco_data(self, sensitivity=5e-2, preprocess=True, gsk=None):
-        """Create all relevant N-1 ptdfs in the form of Ax<b (ptdf x < ram).
+        """Create all relevant N-1 PTDFs in the form of Ax<b (PTDF x < ram).
 
         This uses the method :meth:`~pomato.grid.create_filtered_n_1_ptdf` to
         generate a filtered ptdf matrix, including outages with a higher impact
@@ -522,7 +552,7 @@ class GridModel():
 
         Returns
         -------
-        gsk : np.ndarrays
+        gsk : np.ndarray
             gsk in the form of a NxZ matrix (Nodes, Zones). With each column representing
             the weighting of nodes within a zone. The product ptdf * gsk yields the zonal
             ptdf matrix.

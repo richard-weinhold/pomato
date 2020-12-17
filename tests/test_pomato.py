@@ -12,7 +12,7 @@ import pandas as pd
 from context import pomato, copytree	
            
 # pylint: disable-msg=E1101
-class TestPomatoMarketModel(unittest.TestCase):
+class TestPomato(unittest.TestCase):
     """Testing instantiation with different input files and options"""
     def setUp(self):
         self.wdir = Path.cwd().joinpath("examples")
@@ -48,11 +48,16 @@ class TestPomatoMarketModel(unittest.TestCase):
     def test_init_de_xlsx(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
         mato.load_data('data_input/dataset_de.xlsx')
+
     
     def test_init_de_zip(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
         mato.load_data('data_input/dataset_de.zip')
 
+    def test_init_nrel_direct_filepath(self):
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        filepath = self.wdir.joinpath('data_input/nrel_118.zip')
+        mato.load_data(filepath)
     def test_init_nrel_xlsx(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
         mato.load_data('data_input/nrel_118.xlsx')

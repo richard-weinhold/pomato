@@ -4,7 +4,6 @@ import json
 import logging
 
 import matplotlib.pyplot as plt
-# import sys
 import numpy as np
 import pandas as pd
 
@@ -87,7 +86,7 @@ class Results():
 
         # Add opt Set-Up to the results attributes
         self.result_attributes["source"] = result_folder
-        self.result_attributes["name"] = str(result_folder).split("\\")[-1]
+        self.result_attributes["name"] = result_folder.parts[-1]
         self.load_results_from_folder(result_folder)
 
         # Set Redispatch = True if result is a redispatch result 
@@ -97,7 +96,7 @@ class Results():
             if market_result_name in self.data.results:
                 self.result_attributes["corresponding_market_result_name"] = "_".join(self.result_attributes["name"].split("_")[:3]) + "_market_results"
             else:
-                self.logger.warning("Corresponding market results to %s not or with new name instantiated", self.result_attributes["name"])
+                self.logger.warning("Corresponding market result %s to %s not or with new name instantiated", market_result_name, self.result_attributes["name"])
                 self.logger.warning("Manually set market result name in result attributes.")
         # set-up: don't show the graphs when created
         plt.ioff()
@@ -545,14 +544,20 @@ class Results():
         rel_load = pd.DataFrame(index=flows.index, columns=flows.columns,
                                 data=rel_load_array)
 
-        # Only those with over loadings
+        # Only those with overloads (with 1% tolerance)
         n_0_load = rel_load[np.any(rel_load.values > 1.01, axis=1)]
 
         agg_info = pd.DataFrame(index=n_0_load.index)
         condition = np.any(rel_load.values > 1.01, axis=1)
-        agg_info["# of overloads"] = np.sum(rel_load.values > 1.01, axis=1)[condition]
-        agg_info["avg load"] = n_0_load.mean(axis=1)
 
+        overloaded_energy = (n_0_load - 1)
+        overloaded_energy[overloaded_energy < 0] = 0
+        line_capacities = self.data.lines.loc[condition, "maxflow"]
+        overloaded_energy = overloaded_energy.multiply(line_capacities, axis=0).sum(axis=1)
+
+        agg_info["# of overloads"] = np.sum(rel_load.values > 1.01, axis=1)[condition]
+        agg_info["avg load [%]"] = n_0_load.mean(axis=1)
+        agg_info["overloaded energy [GWh]"] = overloaded_energy/1000
         return agg_info, n_0_load
 
     def overloaded_lines_n_1(self, timesteps=None, sensitivity=5e-2):
@@ -596,8 +601,8 @@ class Results():
         maxflow_values = self.grid.lines.maxflow[n_1_load.cb].values
         n_1_load.loc[:, timesteps] = n_1_flow.loc[:, timesteps].div(maxflow_values, axis=0).abs()
 
-        # 2% overload as tolerance
-        n_1_overload = n_1_load[~(n_1_load[timesteps] <= 1.02).all(axis=1)]
+        # 1% overload as tolerance
+        n_1_overload = n_1_load[~(n_1_load[timesteps] <= 1.01).all(axis=1)]
         agg_info = n_1_overload[["cb", "co"]].copy()
         agg_info["# of overloads"] = np.sum(n_1_overload[timesteps] > 1, axis=1).values
         agg_info["# of COs"] = 1

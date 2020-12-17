@@ -1,8 +1,7 @@
 {
     "optimization": {
         "type": "dispatch",
-        "model_horizon": [0, 2],
-        "heat_model": false,
+        "model_horizon": [0, 1],
         "infeasibility": {
             "electricity": {
                 "include": true,
@@ -16,7 +15,5 @@
         "precalc_filename": "",
         "sensitivity": 5e-2,
         "preprocess": true
-    },
-    "data": {
     }
 }

@@ -8,7 +8,7 @@ The Flow Based module generates the flow based paramters based on a supplied bas
 utilizes from other POMATO modules :class:`~pomato.data.DataManagement`, 
 :class:`~pomato.grid.GridTopology` and :class:`~pomato.grid.GridModel`. 
 
-The main method is :meth:`~pomato.fbmc.create_flowbased_parameters` that will yield the 
+The main method is :meth:`~pomato.fbmc.FBMCModule.create_flowbased_parameters` that will yield the 
 the final product that is essentially a time-dependent zonal PTDF that is commonly denoted 
 as the flow based domain. 
 
