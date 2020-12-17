@@ -10,7 +10,7 @@ pomato.visualization
 
       Visualization
       GeoPlot
-      FBMCDomainPlots
+      FBDomainPlots
 
 
 

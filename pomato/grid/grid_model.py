@@ -106,7 +106,7 @@ class GridModel():
         All values are set according the chosen option and might remain empty.
         If flow based parameters are supplied, the grid representation will be 
         generated accordingly. 
-        
+
         Parameters
         ----------
         flowbased_paramters : optional, pandas.DataFrame
@@ -143,7 +143,7 @@ class GridModel():
     def process_flowbased_grid_representation(self, flowbased_paramters):
         """Process grid information for flow based grid representation.
         
-        The flow based parameters refelxt a zonal ptdf, including contingencies,
+        The flow based parameters reflect a zonal ptdf, including contingencies,
         for a preselected set of critical branches under critical outages (cbco)
         and available capacities (RAM) depending on the chosen basecase. 
         Therefore the optimization type has to be cbco_zonal, for the model to 
@@ -342,7 +342,7 @@ class GridModel():
         return cbco_nodal_network
 
     def create_cbco_data(self, sensitivity=5e-2, preprocess=True, gsk=None):
-        """Create all relevant N-1 ptdfs in the form of Ax<b (ptdf x < ram).
+        """Create all relevant N-1 PTDFs in the form of Ax<b (PTDF x < ram).
 
         This uses the method :meth:`~pomato.grid.create_filtered_n_1_ptdf` to
         generate a filtered ptdf matrix, including outages with a higher impact
@@ -552,7 +552,7 @@ class GridModel():
 
         Returns
         -------
-        gsk : np.ndarrays
+        gsk : np.ndarray
             gsk in the form of a NxZ matrix (Nodes, Zones). With each column representing
             the weighting of nodes within a zone. The product ptdf * gsk yields the zonal
             ptdf matrix.

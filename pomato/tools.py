@@ -11,6 +11,7 @@ import subprocess
 import threading
 import shutil, os 
 import time
+import numpy as np
 from functools import reduce
 from pathlib import Path
 
@@ -299,31 +300,7 @@ def create_folder_structure(base_path, logger=None):
             logger.error("Could not create folder structure!")
         else:
             print("Could not create folder structure!")
-
-def find_xy_limits(list_plots):
-    """Find max/min of a list of coordinates, i.e. a canvas where all points are included."""
-    try:
-        x_max = 0
-        x_min = 0
-        y_max = 0
-        y_min = 0
-        for plots in list_plots:
-            tmp_x = plots[0].reshape(len(plots[0]),)
-            tmp_y = plots[1].reshape(len(plots[1]),)
-            x_coords = tmp_x.tolist()
-            y_coords = tmp_y.tolist()
-            x_coords.extend([x_max,x_min])
-            y_coords.extend([y_max,y_min])
-            x_max = max(x_coords)
-            x_min = min(x_coords)
-            y_max = max(y_coords)
-            y_min = min(y_coords)
-
-        return {"x_max": x_max, "x_min": x_min,
-                "y_max": y_max, "y_min": y_min}
-    except:
-        print('error:find_xy_limits')
-        
+       
 def split_length_in_ranges(step_size, length):
     """Split a range 1:N in a list of ranges with specified length."""
     ranges = []
