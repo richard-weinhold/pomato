@@ -13,6 +13,7 @@ from context import pomato, copytree
            
 # pylint: disable-msg=E1101
 class TestPomatoMarketModel(unittest.TestCase):
+    """Testing instantiation with different input files and options"""
     def setUp(self):
         self.wdir = Path.cwd().joinpath("examples")
 
@@ -43,5 +44,23 @@ class TestPomatoMarketModel(unittest.TestCase):
     def test_init_ieee_matfile(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
         mato.load_data('data_input/pglib_opf_case118_ieee.mat')
-
     
+    def test_init_de_xlsx(self):
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato.load_data('data_input/dataset_de.xlsx')
+    
+    def test_init_de_zip(self):
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato.load_data('data_input/dataset_de.zip')
+
+    def test_init_nrel_xlsx(self):
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato.load_data('data_input/nrel_118.xlsx')
+    
+    def test_init_nrel_zip(self):
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato.load_data('data_input/nrel_118.zip')
+
+    def test_init_nrel_folder(self):
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato.load_data('data_input/nrel_118/')

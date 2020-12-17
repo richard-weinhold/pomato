@@ -5,20 +5,28 @@ GridModel
 
 .. autoclass:: GridModel
    :members:
-   
+
    .. rubric:: Methods
 
    .. autosummary::
    
-      ~GridModel.clarkson_algorithm
-      ~GridModel.create_cbco_data
       ~GridModel.create_grid_representation
+      ~GridModel.process_ntc
+      ~GridModel.create_zonal_grid_parameters
+      ~GridModel.create_cbco_nodal_grid_parameters
+      ~GridModel.create_cbco_zonal_grid_parameters
+      ~GridModel.create_nodal_grid_parameters
+      ~GridModel.create_cbco_data
+      ~GridModel.add_redispatch_grid
+      ~GridModel.clarkson_algorithm
       ~GridModel.create_gsk
       ~GridModel.create_nodal_injection_limits
-      ~GridModel.process_cbco_nodal
-      ~GridModel.process_cbco_zonal
-      ~GridModel.process_nodal
       ~GridModel.create_ntc
-      ~GridModel.process_zonal
       ~GridModel.return_cbco
       ~GridModel.write_cbco_info
+   
+   
+
+   
+   
+   

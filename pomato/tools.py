@@ -44,7 +44,7 @@ class JuliaDaemon():
     solved : bool
         Indicator if julia process has successfully concluded.
     wdir : pathlib.Path
-        Workingdirectory, should  be pomato root directory.
+        Workingdirectory, should be pomato root directory.
    
     """
     def __init__(self, logger, wdir, package_dir, julia_module):
@@ -56,7 +56,7 @@ class JuliaDaemon():
         self.logger = logger
         self.wdir = wdir
         self.package_dir = package_dir
-        self.daemon_file = wdir.joinpath(f"data_temp/julia_files/daemon_{julia_module}.json")
+        self.daemon_file = package_dir.joinpath(f"daemon_{julia_module}.json")
         self.julia_daemon_path = package_dir.joinpath("julia_daemon.jl")
         self.write_daemon_file(self.default_daemon_file())
         # Start Julia daemon in a thread
@@ -66,12 +66,13 @@ class JuliaDaemon():
 
     @property
     def is_alive(self):
+        """Check if the julia process is alive."""
         return self.julia_daemon.is_alive()
         
     def start_julia_daemon(self):
         """Stat julia daemon"""
         args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
-                str(self.julia_daemon_path), self.julia_module]
+                str(self.julia_daemon_path), self.julia_module, str(self.package_dir)]
         with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                               stderr=subprocess.STDOUT, cwd=str(self.wdir)) as program:
             for line in program.stdout:
@@ -137,6 +138,7 @@ class JuliaDaemon():
 
     def halt_while_processing(self):
         """Halt python main thread, while julia is processing.
+
         Sometimes its better for the user to wait until julia is done.
         """
         progress_indicator = 1
@@ -163,11 +165,9 @@ class JuliaDaemon():
     def halt_until_ready(self):
         """Halt python main thread until julia is initialized.
 
-        Julias startup time can be fairly long, therefore its started immediately 
-        when pomato is initialized.
-
-        However, when a julia process is started it has to be ready. This method 
-        halts the main thread until julia is ready. 
+        Julias startup time can be fairly long, therefore when a julia process is started 
+        it has to be ready before a model can be run. 
+        This method halts the main thread until julia is ready. 
         """
         progress_indicator = 1
         counter = 0
@@ -377,10 +377,6 @@ def default_options():
             "electricity": {
                 "include": True,
                 "cost": 1E3,
-                "bound": 20},
-            "lines": {
-                "include": False,
-                "cost": 1E3,
                 "bound": 20}},
         "plant_types": {
             "es": [],
@@ -400,7 +396,6 @@ def default_options():
             }
 
     options_dict["data"] = {
-        "stacked": [],
         "unique_mc": False,
         }
 
@@ -447,7 +442,23 @@ def _setInDict(dataDict, mapList, value):
     _getFromDict(dataDict, mapList[:-1])[mapList[-1]] = value
 
 def copytree(src, dst, symlinks=False, ignore=None):
-    # https://stackoverflow.com/a/12514470
+    """Copy folder from src to dst.
+
+    Utilizes the shutil.copytree function. Is based on 
+    https://stackoverflow.com/a/12514470    
+    
+    Parameters
+    ----------
+    src : str/pathlib.Path 
+        Path to folder that is copied.
+    dst : str/pathlib.Path 
+        Destination path of the copied folder.
+    symlinks : bool, optional
+        copytree option 
+    ignore : None, optional
+        copytree option
+    """
+    
     for item in os.listdir(src):
         s = os.path.join(src, item)
         d = os.path.join(dst, item)
@@ -469,3 +480,10 @@ def remove_empty_subdicts(old_dict):
         if not v in (u'', None, {}, []):
             new_dicts[k] = v
     return new_dicts
+
+def remove_duplicate_words_string(words):
+    """Removes duplicate words from string."""
+    words = words.lower().split(" ")
+    unique_words = []
+    [unique_words.append(x) for x in words if x not in unique_words]
+    return " ".join(unique_words)

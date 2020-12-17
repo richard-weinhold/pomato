@@ -17,8 +17,8 @@ class TestPomatoGridModel(unittest.TestCase):
     def setUp(self):
         self.logger = logging.getLogger('Log.MarketModel')
         self.logger.setLevel(logging.ERROR)
-
         self.wdir = Path.cwd().joinpath("examples")
+        pomato.tools.create_folder_structure(self.wdir)
         with open(self.wdir.joinpath("profiles/nrel118.json")) as opt_file:
                 loaded_options = json.load(opt_file)
         self.options = pomato.tools.add_default_options(loaded_options) 
@@ -69,7 +69,8 @@ class TestPomatoGridModel(unittest.TestCase):
         self.assertRaises(AssertionError, np.testing.assert_equal, 
                           grid_representation_flat.grid.values, grid_representation_gmax.grid.values)
 
-        test_columns = list(self.grid_model.data.zones.index) + ["ram"]
+        test_columns = ["cb", "co", "ram"] + list(self.grid_model.data.zones.index)
+        print(grid_representation_flat.grid.columns)
         self.assertTrue(all(grid_representation_flat.grid.columns == test_columns))
         self.assertTrue(all(grid_representation_gmax.grid.columns == test_columns))
 
@@ -103,8 +104,8 @@ class TestPomatoGridModel(unittest.TestCase):
 
         self.grid_model.options["optimization"]["type"] = "cbco_nodal"
         self.grid_model.options["grid"]["precalc_filename"] = "random_words"
-        self.grid_model.process_cbco_nodal()
-        c_ptdf_fallback = copy.copy(self.grid_model.grid_representation.grid)
+        grid = self.grid_model.create_cbco_nodal_grid_parameters()
+        c_ptdf_fallback = copy.copy(grid)
         self.grid_model.options["grid"]["precalc_filename"] = ""
         self.grid_model.options["grid"]["cbco_option"] = "full"
         self.grid_model.create_grid_representation()
@@ -119,19 +120,7 @@ class TestPomatoGridModel(unittest.TestCase):
         self.grid_model.options["optimization"]["type"] = "cbco_nodal"
         self.grid_model.options["grid"]["precalc_filename"] = "cbco_nrel_118"
         self.grid_model.options["grid"]["capacity_multiplier"] = 0.8
-        self.grid_model.process_cbco_nodal()
-
-
-    def test_cbco_nodal_list_precalc(self):
-
-        self.grid_model.options["optimization"]["type"] = "cbco_nodal"
-        self.grid_model.options["grid"]["precalc_filename"] = "random_words"
-        self.grid_model.process_cbco_nodal()
-        c_ptdf_fallback = copy.copy(self.grid_model.grid_representation.grid)
-        self.grid_model.options["grid"]["precalc_filename"] = ""
-        self.grid_model.options["grid"]["cbco_option"] = "full"
-        self.grid_model.create_grid_representation()
-        pd.testing.assert_frame_equal(c_ptdf_fallback, self.grid_model.grid_representation.grid)
+        self.grid_model.create_cbco_nodal_grid_parameters()
 
     def test_clarkson(self):
 
@@ -146,8 +135,8 @@ class TestPomatoGridModel(unittest.TestCase):
 
             self.grid_model.options["optimization"]["type"] = optimization_option
             self.grid_model.options["grid"]["cbco_option"] = cbco_option
-
             self.grid_model.create_grid_representation()
+            
             file = tools.newest_file_folder(self.grid_model.julia_dir.joinpath("cbco_data"), keyword="cbco")
             self.assertTrue(file.is_file())
             self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/A_py.csv").is_file())

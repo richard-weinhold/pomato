@@ -3,7 +3,7 @@
 These two modules provide the grid functionality to POMATO. And is initialied as
 an attribute to the POMATO instance when data is (successfully) loaded.
 
-The functionality of the GridTopology are include:
+The functionality of the GridTopology include:
 
     - Calculation of the ptdf matrix (power transfer distribution factor),
       used in linear power flow analysis.
@@ -51,7 +51,7 @@ The two options are:
       often denoted as security constrained optimal power flow (SCOPF). This
       setting comes with multiple methods that enable pomato to find the
       smallest set of constraints to guaranty SCOPF. These are scribed in the
-      methods of :class:`~pomato.cbco.CBCOModule` and in the corresponding
+      methods of :class:`~pomato.grid.GridTopology` and in the corresponding
       paper in the *See Also* section below.
     - cbco_zonal : Creating a zonal version of the security constrained
       nodal representation, similar to the zonal options. Analog to the
@@ -69,9 +69,6 @@ There are multiple options available:
     - clarkson/clarkson_base : Will reduce the number constraints significantly.
       Takes a fairly long time for large networks (a few hours for the 995
       line DE case study, with gurobi).
-    - [Legacy] convex_hull : Using the vertices of a the ptdf projected to
-      low dimension (n=6). This ways the model obtains a small set of relevant
-      ptdfs, but incomplete, therefore not guaranteeing SCOPF.
 
 The options which grid representation is generated is ["optimization"]["type"]
 and option for the reduction level is under ["grid"]["cbco_option"].

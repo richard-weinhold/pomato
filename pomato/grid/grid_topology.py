@@ -62,12 +62,12 @@ class GridTopology():
         psdf (phase shifting distribution factor) matrix :math:`(L \\times L)`.
     lodf : np.ndarray
         N-1 lodf (load outage distribution factor) matrix :math:`(L \\times L)`.
+    contingency_groups : dict
+        Dictionary that indicates which group of lines is outate, when a line is considered a 
+        contingency.
     """
-
     numpy_settings = np.seterr(divide="raise")
-
     def __init__(self):
-
         self.logger = logging.getLogger('Log.MarketModel.GridTopology')
         self.nodes = None
         self.lines = None
@@ -76,23 +76,22 @@ class GridTopology():
         self.psdf = None
         self.multiple_slack = False
         self.lodf = None
-        self.combined_contingencies = None
+        self.contingency_groups = None
 
-    def calculate_parameters(self, nodes, lines):
-        
-        self.logger.info("Calculating Grid Parameters!")
+    def calculate_parameters(self, nodes, lines):        
+        self.logger.info("Calculating grid parameters!")
         self.nodes = nodes
         self.lines = lines
         self.check_slack()
-        self.logger.info("Calculating PTDF and PSDF Matrices!")
+        self.logger.info("Calculating PTDF and PSDF matrices!")
         self.incidence_matrix = self.create_incidence_matrix()
         self.ptdf = self.create_ptdf_matrix()
         self.psdf = self.create_psdf_matrix()
         self.multiple_slack = False
         self.check_grid_topology()
-        self.logger.info("Calculating LODF Matrix!")
+        self.logger.info("Calculating LODF matrix and contingency groups")
         self.lodf = self.create_n_1_lodf_matrix()
-        self.combined_contingencies = self.create_contingency_groups()
+        self.contingency_groups = self.create_contingency_groups()
         self.logger.info("Grid parameters Calculated!")
 
     def check_slack(self):
@@ -104,7 +103,7 @@ class GridTopology():
         """
         A = self.create_incidence_matrix()
         network_components = scipy.sparse.csgraph.connected_components(np.dot(A.T, A))
-        self.logger.info("The network consits of %d components. Making sure a slack is set for each.",
+        self.logger.info("The network consists of %d components. Setting slack for each.",
                          network_components[0])
         for i in range(0, network_components[0]):
             condition_subnetwork = network_components[1] == i
@@ -125,7 +124,7 @@ class GridTopology():
         though the slack. Mathematically this causes a division by zero in the
         lodf matrix calculation.
         """
-        self.logger.info("Checking Grid Topology...")
+        self.logger.info("Checking GridTopology...")
 
         radial_nodes = []
         for node in self.nodes.index:
@@ -145,18 +144,16 @@ class GridTopology():
                     (self.lines.node_j.isin(radial_nodes)) & self.lines.contingency
 
         if not self.lines[condition].empty:
-            self.logger.info("Radial nodes are set as contingency:")
             self.lines.loc[condition, "contingency"] = False
-            self.logger.info("Contingency of %d lines is set to false", len(self.lines.index[condition]))
+            self.logger.info("Radial nodes: Contingency of %d lines is set to false", len(self.lines.index[condition]))
 
         condition = self.lines.index.isin(radial_lines) & self.lines.contingency
         if not self.lines.contingency[condition].empty:
-            self.logger.info("Radial lines are set as contingency:")
             self.lines.loc[condition, "contingency"] = False
-            self.logger.info("Contingency of %d lines is set to false", len(self.lines.index[condition]))
+            self.logger.info("Radial lines: Contingency of %d lines is set to false", len(self.lines.index[condition]))
 
-        self.logger.info("Total number of Lines: %d", len(self.lines.index))
-        self.logger.info("Total number of contingencies: %d", len(self.lines[self.lines.contingency]))
+        self.logger.info("Total number of lines and contingencies: %d, %d", 
+                         len(self.lines.index), len(self.lines[self.lines.contingency]))
 
     def add_number_of_systems(self):
         """Add number of systems to lines dataframe, i.e. how many systems a line is part of."""
@@ -184,30 +181,30 @@ class GridTopology():
             Rule of what outages are grouped. Options are: double_lines (default), by value or none.
 
         """
-        combined_contingencies = {line : [line] for line in self.lines.index}
+        contingency_groups = {line : [line] for line in self.lines.index}
         
         if isinstance(option, (int, float)):
-            combined_contingencies = {line : [line] for line in self.lines.index}
+            contingency_groups = {line : [line] for line in self.lines.index}
             for idx, line in enumerate(self.lines.index):
-                combined_contingencies[line].extend(list(self.lines.index[np.abs(self.lodf[idx, :]) > option]))
-                combined_contingencies[line] = list(set(combined_contingencies[line]))    
+                contingency_groups[line].extend(list(self.lines.index[np.abs(self.lodf[idx, :]) > option]))
+                contingency_groups[line] = list(set(contingency_groups[line]))    
 
         if option == "double_lines": # double lines
             if "systems" not in self.lines.columns:
                 self.add_number_of_systems()
           
-        double_lines = list(self.lines[self.lines.systems == 2].index)
-        for line in double_lines:
-            condition = (self.lines.loc[double_lines, ["node_i", "node_j"]].apply(tuple, axis=1) == tuple(self.lines.loc[line, ["node_i", "node_j"]])).values
-            double_line = list(self.lines.loc[double_lines][condition].index)
-            double_line_idx = [self.lines.index.get_loc(line) for line in double_line]
-            
-            # However if the double line is radial, do not consider a combined outage
-            if not any(np.sum(np.around(np.abs(self.ptdf[double_line_idx, :]), decimals=3), axis=0) == 1):
-                combined_contingencies[line] = double_line
-            # combined_contingencies[line] = list(set(combined_contingencies[line]))
+            double_lines = list(self.lines[self.lines.systems == 2].index)
+            for line in double_lines:
+                condition = (self.lines.loc[double_lines, ["node_i", "node_j"]].apply(tuple, axis=1) == tuple(self.lines.loc[line, ["node_i", "node_j"]])).values
+                double_line = list(self.lines.loc[double_lines][condition].index)
+                double_line_idx = [self.lines.index.get_loc(line) for line in double_line]
+                
+                # However if the double line is radial, do not consider a combined outage
+                if not any(np.sum(np.around(np.abs(self.ptdf[double_line_idx, :]), decimals=3), axis=0) == 1):
+                    contingency_groups[line] = double_line
+                # contingency_groups[line] = list(set(contingency_groups[line]))
 
-        return combined_contingencies
+        return contingency_groups
 
 
     def slack_zones(self):
@@ -404,6 +401,7 @@ class GridTopology():
                 
             return lodf
 
+
         except:
             # self.logger.exception("error in create_lodf_matrix ", sys.exc_info()[0])
             raise ZeroDivisionError('LODFError: Check Slacks, radial Lines/Nodes')
@@ -497,7 +495,7 @@ class GridTopology():
 
         combines_outages = []
         for outage in outages:
-            tmp = self.combined_contingencies[self.lines.index[outage]]
+            tmp = self.contingency_groups[self.lines.index[outage]]
             combines_outages.extend([self.lines.index.get_loc(line) for line in tmp])
 
         lodf = self.create_lodf([line for line in range(0, len(self.lines))], combines_outages)
@@ -505,7 +503,7 @@ class GridTopology():
         return n_1_ptdf
 
     def create_n_1_ptdf_cbco(self, line, outage):
-        r"""Create N-1 ptdf for one specific line and one specific outage.
+        """Create N-1 ptdf for one specific line and one specific outage.
 
         Parameters
         ----------
@@ -526,7 +524,7 @@ class GridTopology():
         if not isinstance(line, int):
             line = self.lines.index.get_loc(line)
 
-        outages = [self.lines.index.get_loc(line) for line in self.combined_contingencies[self.lines.index[outage]]]
+        outages = [self.lines.index.get_loc(line) for line in self.contingency_groups[self.lines.index[outage]]]
 
         n_1_ptdf_cbco = self.ptdf[line, :] + np.dot(self.create_lodf([line], outages), self.ptdf[outages, :])
         return n_1_ptdf_cbco

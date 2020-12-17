@@ -68,9 +68,6 @@ class MarketModel():
         self.data_dir = wdir.joinpath("data_temp/julia_files/data")
         self.results_dir = wdir.joinpath("data_temp/julia_files/results")
         self.julia_model = None
-
-        # Make sure all folders exist
-        tools.create_folder_structure(self.wdir, self.logger)
         self.data = data
         self.grid_representation = grid_representation
 
@@ -100,11 +97,11 @@ class MarketModel():
     def run(self):
         """Run the julia program via command Line.
 
-        Uses :class:`~pomato.tools.InteractiveJuliaProcess` from the attribute *julia_model* to
-        run the market model. If the model is not initialized, it will be done here once. The
-        model run depends on the supplied options.
+        Uses :class:`~pomato.tools.JuliaDaemon` that is initialized into the *julia_model* attribute
+        to run the market model. The model run depends on the supplied options.
         In the case of successful completion, the result folders are stores in the *result_folders*
-        attribute for further processing the in :class:`~pomato.data.Results` module.
+        attribute which will be instantiated as :class:`~pomato.data.Results` as part of the 
+        DataManagement module.
 
         """
         t_start = datetime.datetime.now()
@@ -116,10 +113,7 @@ class MarketModel():
 
         args = {"redispatch": self.options["optimization"]["redispatch"]["include"],
                 "chance_constrained": self.options["optimization"]["chance_constrained"]["include"]}
-                
         self.julia_model.run(args=args)
-        
-        # self.julia_model.run(command)
         t_end = datetime.datetime.now()
         self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
         self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")
@@ -149,11 +143,15 @@ class MarketModel():
     
     def rolling_horizon_storage_levels(self, model_horizon):
         """Set start/end storage levels for rolling horizon market clearing.
-
-        When market model horizon shorter than total model horizon, specify storage levels to 
-        adequately represent storages. Per default storage levels are 65% of total capacity, however
-        this can be edited in the storage_level attribute of :class:`~pomato.data.DataManagement`.
         
+        This method alters the *storage_level* attribute of the :class:`~pomato.data.DataManagement`
+        instance, when market model horizon shorter than total model horizon. Per default storage levels 
+        are 65% of total capacity, however the storage_level attribute can be edited manually. 
+        
+        Parameters
+        ----------
+        model_horizon : list
+            List of timesteps that are the model horizon
         """
 
         splits = int(len(model_horizon)/self.options["optimization"]["timeseries"]["market_horizon"])
@@ -168,7 +166,6 @@ class MarketModel():
                     data.append([t, plant, self.options["optimization"]["parameters"]["storage_start"]])
             self.data.storage_level = pd.DataFrame(columns=self.data.storage_level.columns, data=data)
 
-       
     def data_to_csv(self, model_horizon):
         """Export input data to csv files in the data_dir sub-directory.
 
@@ -177,13 +174,17 @@ class MarketModel():
         certain generation constraints (storages, res etc.), table of slack zones, the grid
         representation and the options.
 
+        Parameters
+        ----------
+        model_horizon : list
+            List of timesteps that are the model horizon
         """
         if not self.data_dir.is_dir():
             self.data_dir.mkdir()
         
         self.rolling_horizon_storage_levels(model_horizon)
         
-        for data in [d for d in self.data.model_structure if d != "lines"]:
+        for data in [d for d in self.data.model_structure]:
             cols = [col for col in self.data.model_structure[data].keys() if col != "index"]
             if "timestep" in cols:
                 getattr(self.data, data).loc[getattr(self.data, data)["timestep"].isin(model_horizon), cols] \
@@ -199,16 +200,19 @@ class MarketModel():
         plant_types.to_csv(str(self.data_dir.joinpath('plant_types.csv')), index_label='index')
 
         if self.grid_representation.grid.empty:
-            pd.DataFrame(columns=["ram"]).to_csv(str(self.data_dir.joinpath('grid.csv')), index_label='index')
+            pd.DataFrame(columns=["cb", "co", "ram"]).to_csv(str(self.data_dir.joinpath('grid.csv')), index_label='index')
         else:
             self.grid_representation.grid \
                 .to_csv(str(self.data_dir.joinpath('grid.csv')), index_label='index')
 
         if self.grid_representation.redispatch_grid.empty:
-            pd.DataFrame(columns=["ram"]).to_csv(str(self.data_dir.joinpath('redispatch_grid.csv')), index_label='index')
+            pd.DataFrame(columns=["cb", "co", "ram"]).to_csv(str(self.data_dir.joinpath('redispatch_grid.csv')), index_label='index')
         else:
             self.grid_representation.redispatch_grid \
                 .to_csv(str(self.data_dir.joinpath('redispatch_grid.csv')), index_label='index')
+
+        with open(self.data_dir.joinpath('contingency_groups.json'), 'w') as file:
+            json.dump(self.grid_representation.contingency_groups, file, indent=2)
 
         if not self.grid_representation.ntc.empty:
             self.grid_representation.ntc.to_csv(str(self.data_dir.joinpath('ntc.csv')), index_label='index')

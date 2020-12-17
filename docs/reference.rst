@@ -11,5 +11,7 @@ Reference
     data
     grid
     market_model
+    fbmc
+    visualization
     tools
-    
+

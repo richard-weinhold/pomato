@@ -1,12 +1,13 @@
 *__pycache__*
 docs/build/
-pomato/logs/
 docs/_build/
 build/
 dist/
 *egg*
 .vscode/*
 pomato/_installation/pomato
-pomato.sublime-workspace
-pomato.code-workspace
+*.sublime-workspace
+*.code-workspace
 examples/notepad.py
+pomato/daemon_market_model.json
+pomato/daemon_redundancy_removal.json

@@ -110,11 +110,11 @@ class TestPomatoGrid(unittest.TestCase):
                                             
         np.testing.assert_almost_equal(ptdf_l10l9, ptdf_9_10)
 
-    def test_combined_contingencies_sensitivity(self):
+    def test_contingency_groups_sensitivity(self):
         tmp = self.grid.create_contingency_groups(0.4)
         self.assertTrue(all([outage in tmp[outage] for outage in tmp]))
 
-    def test_combined_contingencies(self):
+    def test_contingency_groups(self):
         node_in = self.grid.nodes.index.get_loc("n10")
         node_out = self.grid.nodes.index.get_loc("n112")
 
@@ -123,9 +123,9 @@ class TestPomatoGrid(unittest.TestCase):
         inj[node_out] = -100
 
         # pre_contingency_flow = np.dot(self.grid.ptdf, inj)
-        outages = [outage for outage in self.grid.combined_contingencies if len(self.grid.combined_contingencies[outage]) > 1]
+        outages = [outage for outage in self.grid.contingency_groups if len(self.grid.contingency_groups[outage]) > 1]
         outage = outages[0]
-        outages = self.grid.combined_contingencies[outage]
+        outages = self.grid.contingency_groups[outage]
 
         c_ptdf = self.grid.create_n_1_ptdf_outage(outage)
         post_contingency_flow = np.dot(c_ptdf, inj)
