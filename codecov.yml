@@ -1,2 +1,5 @@
 ignore:
+  - setup.py
   - "pomato/_installation"  # ignore folders and all its contents
+fixes:
+  - "/home/runner/work/<project name>/<project name>/::" # Correct paths
