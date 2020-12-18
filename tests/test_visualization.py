@@ -83,7 +83,7 @@ class TestPomatoVisualization(unittest.TestCase):
         self.mato.create_geo_plot(show=False, market_result_name="dispatch_market_results", 
                                   flow_option=1)
         self.mato.create_geo_plot(show=False, market_result_name="dispatch_market_results", 
-                                  flow_option=3)
+                                  flow_option=2)
         self.mato.create_geo_plot(show=False, market_result_name="dispatch_redispatch",
                                   show_redispatch=True, show_prices=True)
         self.mato.create_geo_plot(show=False, market_result_name="dispatch_redispatch",
@@ -96,7 +96,7 @@ class TestPomatoVisualization(unittest.TestCase):
         time.sleep(3)
         self.mato.geo_plot.stop_server()
 
-        # Include runs the plot, which chaecks basic syntax, 
+        # Include runs the plot, which checks basic syntax, 
         # pylint: disable-msg=E0401
         from pomato.visualization import geoplot_dynamic
 
