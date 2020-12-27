@@ -6,9 +6,10 @@ import logging
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import types
 
 import pomato.tools as tools
-# pylint: disable-msg=E1101
+# # pylint: disable-msg=E1101
 
 class Results():
     """Results of POMATO makes market results available to the user.
@@ -64,8 +65,7 @@ class Results():
 
         infeasibility_variables = {variable: False
                                    for variable in ["INFEAS_H_POS", "INFEAS_H_NEG",
-                                                    "INFEAS_EL_N_POS", "INFEAS_EL_N_NEG",
-                                                    "INFEAS_LINES"]}
+                                                    "INFEAS_EL_N_POS", "INFEAS_EL_N_NEG"]}
 
         self.result_attributes = {"variables": variables,
                                   "dual_variables": dual_variables,
@@ -77,6 +77,9 @@ class Results():
 
         self.model_horizon = self.result_attributes["model_horizon"]
 
+        self._cached_flows = types.SimpleNamespace(n_0_flows=pd.DataFrame(), 
+                                                   n_1_flows=pd.DataFrame())
+
         for var in self.result_attributes["variables"]:
             setattr(self, var, pd.DataFrame())
         for var in self.result_attributes["dual_variables"]:
@@ -85,7 +88,7 @@ class Results():
             setattr(self, var, pd.DataFrame())
 
         # Add opt Set-Up to the results attributes
-        self.result_attributes["source"] = result_folder
+        self.result_attributes["source"] = str(result_folder)
         self.result_attributes["name"] = result_folder.parts[-1]
         self.load_results_from_folder(result_folder)
 
@@ -364,7 +367,7 @@ class Results():
         return demand
 
     # Grid Analytics - Load Flows
-    def n_0_flow(self, timesteps=None):
+    def n_0_flow(self, force_recalc=False):
         """Calculate N-0 Flows.
 
         Calculates the N-0 power flows on all lines. Optionally just calculate
@@ -372,50 +375,39 @@ class Results():
 
         Parameters
         ----------
-        timesteps : list like, optional
-            Set of timesteps to calculate the power flow for. Defaults to the
-            full model horizon.
+        force_recalc : bool, optional
+            Power flow results are automatically cached to avoid recalculation.
+            This argument forces recalculation e.g. when paramters have been altered. 
 
         Returns
         -------
         n_0_flows : DataFrame
             N-0 power flows for each line.
         """
-        if not timesteps:
-            self.logger.info("Calculating N-0 Flows for the full model horizon")
-            timesteps = self.result_attributes["model_horizon"]
-
-        # n_0_flows = pd.DataFrame(index=self.data.lines.index)
-        # for t in timesteps:
-        #     n_0_flows[t] = np.dot(self.grid.ptdf, self.INJ.INJ[self.INJ.t == t].values)
+        if not (self._cached_flows.n_0_flows.empty or force_recalc):
+            return self._cached_flows.n_0_flows
 
         inj = self.INJ.pivot(index="t", columns="n", values="INJ")
-        inj = inj.loc[timesteps, self.data.nodes.index]
+        inj = inj.loc[self.model_horizon, self.data.nodes.index]
         flow = np.dot(self.grid.ptdf, inj.T)
-        n_0_flows = pd.DataFrame(index=self.data.lines.index, columns=timesteps, data=flow)
+        n_0_flows = pd.DataFrame(index=self.data.lines.index, columns=self.model_horizon, data=flow)
 
+        self._cached_flows.n_0_flows = n_0_flows
         return n_0_flows
 
-    def n_1_flow(self, timesteps=None, lines=None, outages=None, sensitivity=5e-2):
+    def n_1_flow(self, sensitivity=5e-2, force_recalc=False):
         """N-1 power flows on lines (cb) under outages (co).
 
-        Calculates the power flows on the specified lines under the specified
-        outages for the specified timesteps.
-
-        All arguments are optional and per default this method calculates the
-        power flow on all lines considering outages with significant impact.
+        Calculates the power flows on all lines under the outages with significant impact.
         This is calculated with :meth:`~pomato.grid.create_filtered_n_1_ptdf`
         where this is described in greater detail.
 
         Parameters
         ----------
-        timesteps : list like, optional
-            Set of timesteps to calculate the power flow for. Defaults to the
-            full model horizon.
-        lines : list like, optional
-            Considered lines, defaults to all.
-        outages : list like, optional
-            Considered lines, defaults those with > 5% sensitivity.
+        force_recalc : bool, optional
+            Power flow results are automatically cached to avoid recalculation.
+            This argument forces recalculation e.g. when paramters have been altered. 
+
         sensitivity : float, optional
             The sensitivity defines the threshold from which outages are
             considered critical. An outage that can impact the line flow,
@@ -428,37 +420,16 @@ class Results():
             Returns Dataframe of N-1 power flows with lines and contingencies
             specified.
         """
-        if not self.grid:
-            self.logger.error("Grid not available in results object!")
-            return None
+        if not (self._cached_flows.n_1_flows.empty or force_recalc):
+            return self._cached_flows.n_1_flows
 
-        if (lines and not all([l in self.data.lines.index for l in lines])) or \
-                (outages and not all([o in self.data.lines.index for o in outages])):
-
-            self.logger.error("Not all CBs/COs are indices of lines!")
-            return None
-
-        if not timesteps:
-            self.logger.info("Calculating N-1 Flows for the full model horizon")
-            timesteps = self.result_attributes["model_horizon"]
-
-        if not lines:
-            self.logger.info("Using all lines from grid model as CBs")
-            lines = list(self.grid.lines.index)
-
-        use_lodf = False
-        if not outages:
-            self.logger.info("Using COs with a sensitivity of %d percent to CBs",
-                             round(sensitivity*100, 2))
-            use_lodf = True
 
         ptdf = [self.grid.ptdf]
         label_lines = list(self.grid.lines.index)
         label_outages = ["basecase" for i in range(0, len(self.grid.lines.index))]
 
         for line in self.grid.lines.index[self.grid.lines.contingency]:
-            if use_lodf:
-                outages = list(self.grid.lodf_filter(line, sensitivity))
+            outages = list(self.grid.lodf_filter(line, sensitivity))
             label_lines.extend([line for i in range(0, len(outages))])
             label_outages.extend(outages)
 
@@ -470,8 +441,7 @@ class Results():
             raise Exception('Matrix N-1 PTDF MAtrix too large! Use a higher sensitivity!')
 
         for line in self.grid.lines.index[self.grid.lines.contingency]:
-            if use_lodf:
-                outages = list(self.grid.lodf_filter(line, sensitivity))
+            outages = list(self.grid.lodf_filter(line, sensitivity))
             tmp_ptdf = np.vstack([self.grid.create_n_1_ptdf_cbco(line, out) for out in outages])
             ptdf.append(tmp_ptdf)
 
@@ -479,17 +449,18 @@ class Results():
                                             len(list(self.grid.nodes.index)))
 
         inj = self.INJ.pivot(index="t", columns="n", values="INJ")
-        inj = inj.loc[timesteps, self.data.nodes.index]
+        inj = inj.loc[self.model_horizon, self.data.nodes.index]
         flow = np.dot(ptdf, inj.T)
-        n_1_flows = pd.DataFrame(columns=timesteps, data=flow)
+        n_1_flows = pd.DataFrame(columns=self.model_horizon, data=flow)
         n_1_flows["cb"] = label_lines
         n_1_flows["co"] = label_outages
 
         self.logger.info("Done Calculating N-1 Flows")
+        self._cached_flows.n_1_flows = n_1_flows
 
-        return n_1_flows.loc[:, ["cb", "co"] + timesteps]
-
-    def absolute_max_n_1_flow(self, timesteps=None, sensitivity=0.05):
+        return n_1_flows.loc[:, ["cb", "co"] + self.model_horizon]
+    
+    def absolute_max_n_1_flow(self, sensitivity=0.05):
         """Calculate the absolute max of N-1 Flows.
 
         This method essentially proviedes a n_1_flow.groupby("cb") yielding the 
@@ -498,12 +469,15 @@ class Results():
         
         Parameters
         ----------
-        timesteps : list like, optional
-            Subset of model horizon. Defaults to the full model horizon.
+        sensitivity : float, optional
+            The sensitivity defines the threshold from which outages are
+            considered critical. An outage that can impact the line flow,
+            relative to its maximum capacity, more than the sensitivity is
+            considered critical. Defaults to 5%.
 
         """
 
-        n_1_flows = self.n_1_flow(timesteps=timesteps, sensitivity=sensitivity)
+        n_1_flows = self.n_1_flow(sensitivity=sensitivity)
         n_1_flows = n_1_flows.drop("co", axis=1)
         n_1_flow_max = n_1_flows.groupby("cb").max()
         n_1_flow_min = n_1_flows.groupby("cb").min()
@@ -512,7 +486,7 @@ class Results():
 
         return n_1_flows.reindex(self.grid.lines.index)
 
-    def overloaded_lines_n_0(self, timesteps=None):
+    def overloaded_lines_n_0(self):
         """Calculate overloaded lines (N-0) power.
 
         Calculates what lines are overloaded, without taking into account
@@ -534,12 +508,9 @@ class Results():
         n_0_load : DataFrame
             Line loadings for the overloaded lines and considered timesteps.
         """
-        if not timesteps:
-            # if not specified use full model horizon
-            timesteps = self.result_attributes["model_horizon"]
+        flows = self.n_0_flow()
 
-        flows = self.n_0_flow(timesteps)
-
+        timesteps = self.model_horizon
         rel_load_array = np.vstack([(abs(flows[t]))/self.data.lines.maxflow for t in timesteps]).T
         rel_load = pd.DataFrame(index=flows.index, columns=flows.columns,
                                 data=rel_load_array)
@@ -589,15 +560,12 @@ class Results():
         n_1_overload : DataFrame
             Line loadings for the overloaded cbco's and considered timesteps.
         """
-        if not timesteps:
-            # if not specified use full model horizon
-            timesteps = self.result_attributes["model_horizon"]
-
-        n_1_flow = self.n_1_flow(timesteps=timesteps, sensitivity=sensitivity)
+        n_1_flow = self.n_1_flow(sensitivity=sensitivity)
         n_1_load = n_1_flow.copy()
 
         self.logger.info("Processing Flows")
         # timesteps = self.result_attributes["model_horizon"]
+        timesteps = self.model_horizon
         maxflow_values = self.grid.lines.maxflow[n_1_load.cb].values
         n_1_load.loc[:, timesteps] = n_1_flow.loc[:, timesteps].div(maxflow_values, axis=0).abs()
 

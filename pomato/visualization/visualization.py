@@ -1,21 +1,22 @@
-"""Visualiztazion Module of POMATO"""
+"""Visualization Module of POMATO"""
 
 import logging
 import types
 from pathlib import Path
 
+import matplotlib
 import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import pomato
 import pomato.tools as tools
+from matplotlib import cm
 from plotly.offline import plot
 from plotly.subplots import make_subplots
 
-
 class Visualization():
     """
-    The visualisation module of Pomato bundles processing and plotting methods to visualize pomato results.
+    The visualization module of Pomato bundles processing and plotting methods to visualize pomato results.
 
     Its instantiated with access to DataManagement and in extention to market results instantiated
     into in it. The plotting functionality is implemented with the plotting libraries Bokeh and Plotly. 
@@ -60,10 +61,61 @@ class Visualization():
 
         fig.add_trace(go.Scatter(x=d.index, y=d.demand_el - inf.infeasibility, line=dict(color="#000000"), name="demand")) 
         fig.add_trace(go.Scatter(x=d.index, y=d.demand_el - inf.infeasibility + d.D_es + d.D_ph, fill='tonexty', mode= 'none', fillcolor="#BFBDE5", name="storage charging"))
-        if show_plot:
-            plot(fig)
+            
         if filepath:
             fig.write_html(str(filepath))
+        if show_plot:
+            plot(fig)
+        else:
+            return fig
+
+    def create_lineflow_plot(self, market_result, lines, show_plot=True, filepath=None):
+        """Create line flow plot for selected lines."""        
+
+        n_0 = market_result.n_0_flow()
+        n_1 = market_result.absolute_max_n_1_flow()
+        fig = make_subplots(rows=3, cols=1)
+
+        for i,line in enumerate(lines):
+            color_n_0 = matplotlib.colors.rgb2hex(matplotlib.cm.Paired(i))
+            color_n_1 = matplotlib.colors.rgb2hex(matplotlib.cm.Accent(i))
+            
+            fig.append_trace(go.Scatter(
+                x=n_0.loc[line, :].index,
+                y=n_0.loc[line, :].values,
+                legendgroup=line,
+                name=line + " N-0", line=dict(color=color_n_0)
+            ), row=1, col=1)
+            
+            fig.append_trace(go.Scatter(
+                x=n_1.loc[line, :].index,
+                y=n_1.loc[line, :].values,
+                legendgroup=line,
+                name=line + " N-1", line=dict(color=color_n_1)
+            ), row=2, col=1)
+            
+            fig.append_trace(go.Scatter(
+                y=n_0.loc[line, :].abs().sort_values(ascending=False),
+                legendgroup=line, showlegend=False,
+                line=dict(color=color_n_0)
+            ), row=3, col=1)
+            
+            fig.append_trace(go.Scatter(
+                y=n_1.loc[line, :].abs().sort_values(ascending=False),
+                legendgroup=line, showlegend=False,
+                line=dict(color=color_n_1)
+            ), row=3, col=1)
+
+        fig.update_yaxes(title_text="N-0 Flow in [MW]", row=1, col=1)
+        fig.update_yaxes(title_text="N-1 Flow in [MW]", row=2, col=1)
+        fig.update_yaxes(title_text="Power Flow Duration [MW]", row=3, col=1)
+        
+        if filepath:
+            fig.write_html(str(filepath))
+        if show_plot:
+            plot(fig)
+        else:
+            return fig
 
     def create_installed_capacity_plot(self, market_result, show_plot=True, filepath=None):
         """Create plot visualizing installed capacity per market area."""
@@ -79,10 +131,13 @@ class Visualization():
                      color_discrete_map=plant_colors[["color", "name"]].set_index("name").color.to_dict())
         fig.layout.yaxis.title = "Installed Capacity [GW]"
         fig.layout.xaxis.title = "Zone/Country"
-        if show_plot:
-            plot(fig)
         if filepath:
             fig.write_html(str(filepath))
+        if show_plot:
+            plot(fig)
+        else:
+            return fig
+
 
     def create_storage_plot(self, market_result, show_plot=True, filepath=None):
         """Storage plot."""
@@ -101,10 +156,13 @@ class Visualization():
         subfig.layout.yaxis.title = "Storage Charging (D_es)/Discharging (G) [MW]"
         subfig.layout.yaxis2.title = "Storage Level [MWh]"
         subfig.for_each_trace(lambda t: t.update(line=dict(color=t.marker.color)))
-        if show_plot:
-            plot(subfig)
+        
         if filepath:
             subfig.write_html(str(filepath))
+        if show_plot:
+            plot(subfig)
+        else:
+            return subfig
 
     def result_data_struct(self):
         """Data struct, as a standart template for result processing.
