@@ -188,10 +188,11 @@ def add_prices_layer(nodes, prices, compress=True):
 
     if compress:
         # price[price.marginal >= 1000]
+        # prices.loc[prices.marginal > 100] = 100
+
         quantile = .1
         prices.loc[prices.marginal > prices.marginal.quantile(1 - quantile), "marginal"] = prices.marginal.quantile(1 - quantile)
         prices.loc[prices.marginal < prices.marginal.quantile(quantile), "marginal"] = prices.marginal.quantile(quantile)
-        prices.loc[prices.marginal > 100] = 100
 
     nodes = pd.merge(nodes, prices, left_index=True, right_index=True)
 

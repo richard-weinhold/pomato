@@ -1,4 +1,5 @@
 """Visualization Module of POMATO"""
+# pylint: disable-msg=E1101
 
 import logging
 import types
@@ -32,29 +33,43 @@ class Visualization():
         self.data = data
         self.package_dir = Path(pomato.__path__[0])
     
-    def create_generation_plot(self, market_result, show_plot=True, filepath=None):
+    def create_generation_plot(self, market_result, nodes=None, show_plot=True, filepath=None):
         """Create Generation plot.
         """
+
         gen = market_result.generation()
+        demand = market_result.demand()
+        inf = market_result.infeasibility(drop_zero=False)
+        net_export = market_result.data.net_export
+
+        if isinstance(nodes, list):
+            gen = gen[gen.node.isin(nodes)]
+            demand = demand[demand.n.isin(nodes)]
+            inf = inf[inf.n.isin(nodes)]
+            net_export = net_export[net_export.node.isin(nodes)]
+
+        if gen.empty:
+            return go.Figure()
+
         if "tech" in market_result.data.plants.columns:
             gen = pd.merge(gen, market_result.data.plants.tech, left_on="p", right_index=True)
         else:
             gen["tech"] = gen.plant_type
+
         gen = gen[["fuel", "tech", "t", "G"]].groupby(["fuel", "tech", "t"]).sum().reset_index()
         gen_colors = self.color_map(gen)
         gen = pd.merge(gen, gen_colors, on=["fuel", "tech"])
         gen.loc[:, "G"] *= 1/1000
         fig = px.area(gen, x="t", y="G", color="name", 
-                    color_discrete_map=gen_colors[["color", "name"]].set_index("name").color.to_dict())
+                      color_discrete_map=gen_colors[["color", "name"]].set_index("name").color.to_dict())
 
         fig.layout.xaxis.title="Time"
         fig.layout.yaxis.title="Generation/Load [GW]"
-
-        inf = market_result.infeasibility(drop_zero=False)
+        
         inf["infeasibility"] = inf.pos - inf.neg
         inf = inf[["t", "infeasibility"]].groupby("t").sum()/1000
 
-        d = pd.merge(market_result.demand(), market_result.data.net_export, left_on=["t", "n"], right_on=["timestep", "node"])
+        d = pd.merge(demand, net_export, left_on=["t", "n"], right_on=["timestep", "node"])
         d = d[["t", "demand_el", "D_ph", "D_es", "net_export"]].groupby("t").sum()/1000
         d.loc[:, "demand_el"] -= (d.net_export)
         d = d.loc[market_result.model_horizon, :]
@@ -74,7 +89,10 @@ class Visualization():
 
         n_0 = market_result.n_0_flow()
         n_1 = market_result.absolute_max_n_1_flow()
-        fig = make_subplots(rows=3, cols=1)
+        fig = make_subplots(rows=3, cols=1,
+                            subplot_titles=("N-0 Flow in [MW]", "N-1 Flow in [MW]", 
+                                            "Power Flow Duration [MW]"),
+                            shared_xaxes=True, vertical_spacing=0.1)
 
         for i,line in enumerate(lines):
             color_n_0 = matplotlib.colors.rgb2hex(matplotlib.cm.Paired(i))
@@ -84,32 +102,37 @@ class Visualization():
                 x=n_0.loc[line, :].index,
                 y=n_0.loc[line, :].values,
                 legendgroup=line,
-                name=line + " N-0", line=dict(color=color_n_0)
+                name=line, line=dict(color=color_n_0)
             ), row=1, col=1)
             
             fig.append_trace(go.Scatter(
                 x=n_1.loc[line, :].index,
                 y=n_1.loc[line, :].values,
                 legendgroup=line,
-                name=line + " N-1", line=dict(color=color_n_1)
+                name=line, line=dict(color=color_n_1)
             ), row=2, col=1)
             
             fig.append_trace(go.Scatter(
+                x=market_result.model_horizon,
                 y=n_0.loc[line, :].abs().sort_values(ascending=False),
                 legendgroup=line, showlegend=False,
-                line=dict(color=color_n_0)
+                line=dict(color=color_n_0),
+                name=line,
             ), row=3, col=1)
             
             fig.append_trace(go.Scatter(
+                x=market_result.model_horizon,
                 y=n_1.loc[line, :].abs().sort_values(ascending=False),
                 legendgroup=line, showlegend=False,
-                line=dict(color=color_n_1)
+                line=dict(color=color_n_1),
+                name=line,
             ), row=3, col=1)
 
-        fig.update_yaxes(title_text="N-0 Flow in [MW]", row=1, col=1)
-        fig.update_yaxes(title_text="N-1 Flow in [MW]", row=2, col=1)
-        fig.update_yaxes(title_text="Power Flow Duration [MW]", row=3, col=1)
-        
+        # fig.update_xaxes(visible=False, row=1, col=1)
+        # fig.update_xaxes(visible=False, row=2, col=1)
+        # fig.update_yaxes(title="Power Flow Duration [MW]", row=3, col=1)
+
+        fig.update_layout(autosize=True)
         if filepath:
             fig.write_html(str(filepath))
         if show_plot:

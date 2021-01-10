@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import types
+from copy import deepcopy
+
 
 import pomato.tools as tools
 # # pylint: disable-msg=E1101
@@ -48,7 +50,7 @@ class Results():
 
     def __init__(self, data, grid, result_folder):
         self.logger = logging.getLogger('Log.MarketModel.DataManagement.ResultData')
-        self.data = data
+        self.data = deepcopy(data)
         self.grid = grid
 
         result_folder_name = str(result_folder).split("\\")[-1]
@@ -77,8 +79,10 @@ class Results():
 
         self.model_horizon = self.result_attributes["model_horizon"]
 
-        self._cached_flows = types.SimpleNamespace(n_0_flows=pd.DataFrame(), 
-                                                   n_1_flows=pd.DataFrame())
+        self._cached_results = types.SimpleNamespace(n_0_flows=pd.DataFrame(), 
+                                                     n_1_flows=pd.DataFrame(),
+                                                     generation=pd.DataFrame(),
+                                                     demand=pd.DataFrame())
 
         for var in self.result_attributes["variables"]:
             setattr(self, var, pd.DataFrame())
@@ -155,7 +159,7 @@ class Results():
         """Return Redispatch"""
         # Find corresponding Market Result
         corresponding_market_result = self.result_attributes["corresponding_market_result_name"]
-        if not self.result_attributes["is_redispatch_result"] and bool(corresponding_market_result):
+        if not (self.result_attributes["is_redispatch_result"] and bool(corresponding_market_result)):
             self.logger.warning("Corresponding market result not initialized or found")
             return None
         gen = self.generation()
@@ -318,11 +322,14 @@ class Results():
                          round(res_share*100, 2))
         return res_share
 
-    def generation(self):
+    def generation(self, force_recalc=False):
         """Generation data.
         
         Returns DataFrame with columns [node, plant_type, zone, t, p, G]
         """
+        if not (self._cached_results.generation.empty or force_recalc):
+            return self._cached_results.generation
+
         gen = pd.merge(self.data.plants[["plant_type", "fuel", "node"]],
                         self.G, left_index=True, right_on="p", how="right")
         gen["zone"] = self.data.nodes.loc[gen.node, "zone"].values
@@ -343,8 +350,11 @@ class Results():
         es_gen = pd.merge(es_gen, self.L_es, on=["p", "t"])
         return es_gen
 
-    def demand(self):
+    def demand(self, force_recalc=False):
         """Process total nodal demand composed of load and market results of storage/heatpump usage."""
+        
+        if not (self._cached_results.demand.empty or force_recalc):
+            return self._cached_results.demand
 
         map_pn = self.data.plants.node.reset_index()
         map_pn.columns = ['p', 'n']
@@ -384,15 +394,15 @@ class Results():
         n_0_flows : DataFrame
             N-0 power flows for each line.
         """
-        if not (self._cached_flows.n_0_flows.empty or force_recalc):
-            return self._cached_flows.n_0_flows
+        if not (self._cached_results.n_0_flows.empty or force_recalc):
+            return self._cached_results.n_0_flows
 
         inj = self.INJ.pivot(index="t", columns="n", values="INJ")
         inj = inj.loc[self.model_horizon, self.data.nodes.index]
         flow = np.dot(self.grid.ptdf, inj.T)
         n_0_flows = pd.DataFrame(index=self.data.lines.index, columns=self.model_horizon, data=flow)
 
-        self._cached_flows.n_0_flows = n_0_flows
+        self._cached_results.n_0_flows = n_0_flows
         return n_0_flows
 
     def n_1_flow(self, sensitivity=5e-2, force_recalc=False):
@@ -420,8 +430,8 @@ class Results():
             Returns Dataframe of N-1 power flows with lines and contingencies
             specified.
         """
-        if not (self._cached_flows.n_1_flows.empty or force_recalc):
-            return self._cached_flows.n_1_flows
+        if not (self._cached_results.n_1_flows.empty or force_recalc):
+            return self._cached_results.n_1_flows
 
 
         ptdf = [self.grid.ptdf]
@@ -456,7 +466,7 @@ class Results():
         n_1_flows["co"] = label_outages
 
         self.logger.info("Done Calculating N-1 Flows")
-        self._cached_flows.n_1_flows = n_1_flows
+        self._cached_results.n_1_flows = n_1_flows
 
         return n_1_flows.loc[:, ["cb", "co"] + self.model_horizon]
     
