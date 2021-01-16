@@ -29,7 +29,7 @@ def check_for_julia():
 class DevelopCommand(develop):
     """Pre-installation for development mode."""
     def run(self):
-        check_for_julia()
+        #check_for_julia()
         develop.run(self)
 
 class InstallCommand(install):
