@@ -80,6 +80,9 @@ class TestPomatoVisualization(unittest.TestCase):
         filepath = self.mato.wdir.joinpath("data_output/generation_overview.html")
         self.mato.visualization.create_geo_plot(result, show_prices=True, show_redispatch=True, 
                                                 show_plot=False, filepath=filepath)
+
+    def test_geoplot_timestep(self):    
+        result = self.mato.data.results["dispatch_redispatch"]
         filepath = self.mato.wdir.joinpath("data_output/generation_overview_timestep.html")                                     
         self.mato.visualization.create_geo_plot(result, show_prices=True, show_redispatch=True, 
                                                 show_plot=False, timestep=0, filepath=filepath)
