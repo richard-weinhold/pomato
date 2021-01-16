@@ -404,9 +404,9 @@ class POMATO():
     
     def stop_dashboard(self):
         """Stop Dashboard server."""
-        self.dashboard.join()
-        self.dashboard = None
-
+        if isinstance(self.dashboard, Dashboard):
+            self.dashboard.join()
+            self.dashboard = None
 
     def _instantiate_julia_dev(self, redundancyremoval_path, marketmodel_path):
         """Instantiate the pomato julia environment from local repositories, 
