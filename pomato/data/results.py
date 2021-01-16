@@ -7,10 +7,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import types
+import threading
 from copy import deepcopy
 
-
 import pomato.tools as tools
+from pomato.visualization.geoplot_functions import line_coordinates
+
 # # pylint: disable-msg=E1101
 
 class Results():
@@ -50,12 +52,9 @@ class Results():
 
     def __init__(self, data, grid, result_folder):
         self.logger = logging.getLogger('Log.MarketModel.DataManagement.ResultData')
-        self.data = deepcopy(data)
         self.grid = grid
-
-        result_folder_name = str(result_folder).split("\\")[-1]
-
-        self.output_folder = self.data.wdir.joinpath("data_output").joinpath(result_folder_name)
+        self.data = data
+        self.output_folder = self.data.wdir.joinpath("data_output").joinpath(result_folder.name)
 
         variables = {variable: False for variable in ["G", "H",
                                                       "D_es", "L_es",
@@ -72,8 +71,7 @@ class Results():
         self.result_attributes = {"variables": variables,
                                   "dual_variables": dual_variables,
                                   "infeasibility_variables": infeasibility_variables,
-                                  "model_horizon": None, "source": None, "status": None,
-                                  "objective": None, "t_start": None, "t_end": None,
+                                  "model_horizon": None, "source_folder": None, "objective": None,
                                   "is_redispatch_result": False, 
                                   "corresponding_market_result_name": None}
 
@@ -82,7 +80,9 @@ class Results():
         self._cached_results = types.SimpleNamespace(n_0_flows=pd.DataFrame(), 
                                                      n_1_flows=pd.DataFrame(),
                                                      generation=pd.DataFrame(),
-                                                     demand=pd.DataFrame())
+                                                     demand=pd.DataFrame(),
+                                                     result_data=None,
+                                                     averaged_result_data=None)
 
         for var in self.result_attributes["variables"]:
             setattr(self, var, pd.DataFrame())
@@ -92,12 +92,16 @@ class Results():
             setattr(self, var, pd.DataFrame())
 
         # Add opt Set-Up to the results attributes
-        self.result_attributes["source"] = str(result_folder)
-        self.result_attributes["name"] = result_folder.parts[-1]
+
         self.load_results_from_folder(result_folder)
+
+        # precalculate common results
+        download_thread = threading.Thread(target=self.create_result_data, name="result data")
+        download_thread.start()
 
         # Set Redispatch = True if result is a redispatch result 
         if "redispatch" in self.result_attributes["name"]:
+            self.result_attributes["title"] += "_redispatch"
             self.result_attributes["is_redispatch_result"] = True
             market_result_name = "_".join(self.result_attributes["name"].split("_")[:3]) + "_market_results"
             if market_result_name in self.data.results:
@@ -123,7 +127,7 @@ class Results():
         folder : pathlib.Path
             Folder with the results of the market model.
         """
-        folder_name = str(folder).split("\\")[-1]
+        folder_name = folder.name
         self.logger.info("Loading Results from results folder %s", folder_name)
 
         for variable_type in ["variables", "dual_variables", "infeasibility_variables"]:
@@ -149,11 +153,93 @@ class Results():
             self.logger.warning("No options file found in result folder, \
                                 using data.options")
             self.result_attributes = {**self.result_attributes,
-                                      **self.data.options["optimization"]}
+                                      **self.data.options}
 
+
+        self.result_attributes["source_folder"] = str(folder)
+        self.result_attributes["name"] = folder.name
+        if not "title" in self.result_attributes:
+            self.result_attributes["title"] = self.result_attributes["name"]
         # Model Horizon as attribute
         self.result_attributes["model_horizon"] = list(self.INJ.t.unique())
         self.model_horizon = self.result_attributes["model_horizon"]
+
+    def result_data_struct(self):
+        """Data struct, as a standart template for result processing.
+        
+        Returns
+        -------
+        result_data, types.SimpleNamespace
+            Returns empty data struct, with predefined data structure. 
+        """        
+
+        return types.SimpleNamespace(nodes=self.data.nodes,
+                                     lines=self.data.lines,
+                                     line_coordinates=line_coordinates(self.data.lines, self.data.nodes),
+                                     dclines=self.data.dclines,
+                                     dcline_coordinates=line_coordinates(self.data.dclines, self.data.nodes),
+                                     inj=pd.Series(index=self.data.nodes.index, data=0),
+                                     dc_flow= pd.Series(index=self.data.dclines.index, data=0),
+                                     gen=pd.DataFrame(),
+                                     demand=pd.DataFrame(),
+                                     prices=pd.DataFrame(),
+                                     n_0_flow=pd.Series(index=self.data.lines.index, data=0),
+                                     n_1_flow=pd.Series(index=self.data.lines.index, data=0))
+    
+    def create_result_data(self, force_recalc=False):
+        """Creates result data struct from result instance.
+
+        Based on :meth:`~result_data_struct`this method fills the data struct with data and results
+        from the market result specified which is an instance of :class:`~pomato.data.Results`.
+        This data struct is intended for the generation of visualizations of result in e.g. the
+        dynamic geoplot.
+
+        Parameters
+        ----------
+        market_result : :class:`~pomato.data.Results`
+            Market result which gets subsumed into the predefined data struct.
+        """
+        if not (not isinstance(self._cached_results.result_data, types.SimpleNamespace) or force_recalc):
+            self.logger.debug("Returning cached result for result_data.")
+            return deepcopy(self._cached_results.result_data)
+        
+        self.logger.info("Precalculating and chaching common results..")
+        data_struct = self.result_data_struct()
+        data_struct.inj = self.INJ
+        data_struct.dc_flow = self.F_DC
+        data_struct.gen = self.generation()
+        data_struct.demand = self.demand()
+        data_struct.n_0_flow = self.n_0_flow()
+        data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.1)
+        data_struct.prices = self.price()
+        self._cached_results.result_data = data_struct
+        self.logger.info("Done calculating common results.")
+
+        return data_struct
+
+    def create_averaged_result_data(self, force_recalc=False):
+        """Creates averaged result data struct.
+
+        Based on :meth:`~result_data_struct` and  :meth:`~create_result_data` this method fills 
+        the data struct with data and results from the market result specified which is an 
+        instance of :class:`~pomato.data.Results`. All results are averaged in useful ways. This 
+        data struct is intended for the static geoplot, which visualizes the results in 
+        average flows, injections, generation and prices. 
+        """
+        if not (not isinstance(self._cached_results.averaged_result_data, types.SimpleNamespace) or force_recalc):
+            self.logger.debug("Returning cached result for averaged_result_data.")
+            return deepcopy(self._cached_results.averaged_result_data)
+
+        data_struct = self.create_result_data()
+
+        data_struct.inj = data_struct.inj.groupby("n").mean().reindex(self.grid.nodes.index).INJ
+        data_struct.n_0_flow = data_struct.n_0_flow.abs().mean(axis=1)
+        data_struct.n_1_flow = data_struct.n_1_flow.abs().mean(axis=1)
+        data_struct.dc_flow = data_struct.dc_flow.pivot(index="dc", columns="t", values="F_DC") \
+                                .abs().mean(axis=1).reindex(self.data.dclines.index).fillna(0)
+        data_struct.prices = data_struct.prices[["n", "marginal"]].groupby("n").mean()
+        self._cached_results.averaged_result_data = data_struct
+        return data_struct
 
     def redispatch(self):
         """Return Redispatch"""
@@ -162,6 +248,7 @@ class Results():
         if not (self.result_attributes["is_redispatch_result"] and bool(corresponding_market_result)):
             self.logger.warning("Corresponding market result not initialized or found")
             return None
+
         gen = self.generation()
         # Redispatch Calculation G_redispatch - G_market
         gen = pd.merge(self.data.results[corresponding_market_result].G, gen, on=["p", "t"], 
@@ -282,7 +369,7 @@ class Results():
             timestep.
         """
         
-        ts_option = self.data.options["optimization"]["plant_types"]["ts"]
+        ts_option = self.data.options["plant_types"]["ts"]
         res_plants = self.data.plants[self.data.plants.plant_type.isin(ts_option)].copy()
 
         gen = self.G.copy()
@@ -292,7 +379,6 @@ class Results():
         gen = gen[gen.p.isin(res_plants.index)]
         gen = pd.merge(gen, res_plants[["g_max"]], how="left", left_on="p", right_index=True)
         gen = pd.merge(gen, ava, how="left", on=["p", "t"])
-
         gen.ava.fillna(1, inplace=True)
 
         gen["ava_gen"] = gen.g_max*gen.ava
@@ -325,15 +411,33 @@ class Results():
     def generation(self, force_recalc=False):
         """Generation data.
         
-        Returns DataFrame with columns [node, plant_type, zone, t, p, G]
+        Returns DataFrame with columns [node, plant_type, g_max, zone, t, p, G]
         """
         if not (self._cached_results.generation.empty or force_recalc):
+            self.logger.debug("Returning cached result for generation.")
             return self._cached_results.generation
 
-        gen = pd.merge(self.data.plants[["plant_type", "fuel", "node"]],
+        gen = pd.merge(self.data.plants[["plant_type", "fuel", "node", "g_max"]],
                         self.G, left_index=True, right_on="p", how="right")
         gen["zone"] = self.data.nodes.loc[gen.node, "zone"].values
+        if "technology" in self.data.plants.columns:
+            gen = pd.merge(gen, self.data.plants[["technology"]], 
+                           right_index=True, left_on="p")
+        else:
+            gen["technology"] = gen.plant_type
+
+        self._cached_results.generation = gen
         return gen
+
+    def full_load_hours(self):
+        """Returns plant data including full load hours."""        
+        gen = self.generation()[["t", "p", "fuel", "technology", "G", "g_max"]]
+        ava = self.data.availability.copy()[["timestep", "plant", "availability"]]
+        ava.columns = ["t", "p", "availability"]
+        flh = pd.merge(gen, ava, on=["t", "p"], how="left").fillna(1)
+        flh["utilization"] = flh.G/(flh.g_max * flh.availability)
+        flh["flh"] = flh.G/(gen.g_max)
+        return flh.groupby([ "p", "fuel", "technology"]).mean()[["flh", "utilization"]].reset_index()
 
     def storage_generation(self):
         """Return storage generation schedules.
@@ -341,7 +445,7 @@ class Results():
         Returns DataFrame with columns [node, plant_type, zone, t, p, G, D_es, L_es]
         """
 
-        es_plant_types = self.data.options["optimization"]["plant_types"]["es"]
+        es_plant_types = self.data.options["plant_types"]["es"]
         es_plants = self.data.plants.loc[self.data.plants.plant_type.isin(es_plant_types), ["node", "plant_type"]]
         es_plants["zone"] = self.data.nodes.loc[es_plants.node, "zone"].values
 
@@ -354,6 +458,7 @@ class Results():
         """Process total nodal demand composed of load and market results of storage/heatpump usage."""
         
         if not (self._cached_results.demand.empty or force_recalc):
+            self.logger.debug("Returning cached result for demand.")
             return self._cached_results.demand
 
         map_pn = self.data.plants.node.reset_index()
@@ -374,6 +479,7 @@ class Results():
             demand["D_es"] = 0
         demand.fillna(value=0, inplace=True)
         demand["demand"] = demand.demand_el + demand.D_ph + demand.D_es
+        self._cached_results.demand = demand
         return demand
 
     # Grid Analytics - Load Flows
@@ -395,6 +501,7 @@ class Results():
             N-0 power flows for each line.
         """
         if not (self._cached_results.n_0_flows.empty or force_recalc):
+            self.logger.debug("Returning cached result for n_0_flows.")
             return self._cached_results.n_0_flows
 
         inj = self.INJ.pivot(index="t", columns="n", values="INJ")
@@ -431,6 +538,7 @@ class Results():
             specified.
         """
         if not (self._cached_results.n_1_flows.empty or force_recalc):
+            self.logger.debug("Returning cached result for n_1_flows.")
             return self._cached_results.n_1_flows
 
 
@@ -521,7 +629,7 @@ class Results():
         flows = self.n_0_flow()
 
         timesteps = self.model_horizon
-        rel_load_array = np.vstack([(abs(flows[t]))/self.data.lines.maxflow for t in timesteps]).T
+        rel_load_array = np.vstack([(abs(flows[t]))/self.data.lines.capacity for t in timesteps]).T
         rel_load = pd.DataFrame(index=flows.index, columns=flows.columns,
                                 data=rel_load_array)
 
@@ -533,7 +641,7 @@ class Results():
 
         overloaded_energy = (n_0_load - 1)
         overloaded_energy[overloaded_energy < 0] = 0
-        line_capacities = self.data.lines.loc[condition, "maxflow"]
+        line_capacities = self.data.lines.loc[condition, "capacity"]
         overloaded_energy = overloaded_energy.multiply(line_capacities, axis=0).sum(axis=1)
 
         agg_info["# of overloads"] = np.sum(rel_load.values > 1.01, axis=1)[condition]
@@ -541,7 +649,7 @@ class Results():
         agg_info["overloaded energy [GWh]"] = overloaded_energy/1000
         return agg_info, n_0_load
 
-    def overloaded_lines_n_1(self, timesteps=None, sensitivity=5e-2):
+    def overloaded_lines_n_1(self, sensitivity=5e-2):
         """Overloaded lines under contingencies (N-1).
 
         Uses method :meth:`~n_1_flow()` to obtain N-1 power flows under
@@ -574,10 +682,10 @@ class Results():
         n_1_load = n_1_flow.copy()
 
         self.logger.info("Processing Flows")
-        # timesteps = self.result_attributes["model_horizon"]
+
         timesteps = self.model_horizon
-        maxflow_values = self.grid.lines.maxflow[n_1_load.cb].values
-        n_1_load.loc[:, timesteps] = n_1_flow.loc[:, timesteps].div(maxflow_values, axis=0).abs()
+        capacity_values = self.grid.lines.capacity[n_1_load.cb].values
+        n_1_load.loc[:, timesteps] = n_1_flow.loc[:, timesteps].div(capacity_values, axis=0).abs()
 
         # 1% overload as tolerance
         n_1_overload = n_1_load[~(n_1_load[timesteps] <= 1.01).all(axis=1)]

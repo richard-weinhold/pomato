@@ -13,10 +13,8 @@ def _mpc_data_pu_to_real(lines,  base_kv, base_mva):
     v_base = base_kv * 1e3
     s_base = base_mva * 1e6
     z_base = np.power(v_base,2)/s_base
-    lines['r'] = np.multiply(lines['r'], z_base)
-    lines['x'] = np.divide(lines['x'], z_base)
-    lines['b_other'] = np.divide(lines['b_other'], z_base)
-    lines['b'] = np.divide(1, lines['x'])
+    lines['r_pu'] = np.divide(lines['r'], z_base)
+    lines['x_pu'] = np.divide(lines['x'], z_base)
     return lines
 
 def _mpc_data_structure():
@@ -39,7 +37,7 @@ def _mpc_data_structure():
         ["lines", "node_i", "nodes.index", False],
         ["lines", "node_j", "nodes.index", False],
         ["lines", "b", "float64", False],
-        ["lines", "maxflow", "float64", False],
+        ["lines", "capacity", "float64", False],
         ["lines", "contingency", "bool", False],
         ["lines", "technology", "float64", True],
         ["lines", "type", "float64", True],
@@ -410,7 +408,7 @@ class DataWorker(object):
                 'idx': line_idx,
                 'node_i': branch_df['fbus'],
                 'node_j': branch_df['tbus'],
-                'maxflow': branch_df['rateA'],
+                'capacity': branch_df['rateA'],
                 'b_other': branch_df['b'],
                 'r': branch_df['r'],
                 'x': branch_df['x']

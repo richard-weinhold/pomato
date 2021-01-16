@@ -267,9 +267,6 @@ def create_folder_structure(base_path, logger=None):
         "data_input": {},
         "data_output": {},
         "data_temp": {
-                "bokeh_files": {
-                        "market_result": {}
-                        },
                 "julia_files": {
                         "data": {},
                         "results": {},
@@ -323,8 +320,8 @@ def _delete_empty_subfolders(folder):
 
 def default_options():
     """Returns the default options of POMATO."""
-    options_dict = {"optimization": {}, "grid": {}, "data": {}}
-    options_dict["optimization"] = {
+    options = {
+        "title": "default", 
         "type": "ntc",
         "model_horizon": [0, 2],
         "heat_model": False,
@@ -361,10 +358,9 @@ def default_options():
             "es": [],
             "hs": [],
             "ts": [],
-            "ph": [],}
-        }
-
-    options_dict["grid"] = {
+            "ph": [],
+            },
+        "grid": {
             "cbco_option": "full",
             "precalc_filename": "",
             "sensitivity": 5e-2,
@@ -372,13 +368,13 @@ def default_options():
             "preprocess": True,
             "gsk": "gmax",
             "minram": 0.2,
-            }
-
-    options_dict["data"] = {
-        "unique_mc": False,
+            },
+        "data": {
+            "result_copy": False,
+            "unique_mc": False,
         }
-
-    return options_dict
+    }
+    return options
 
 def add_default_options(option_dict):
     """Takes the loaded option dict and adds missing values from default options.

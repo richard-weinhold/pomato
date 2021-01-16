@@ -8,8 +8,9 @@
 	"index": {"type": "any", "default": "none"},
 	"node_i": {"type": "nodes.index", "default": "none"},
 	"node_j": {"type": "nodes.index", "default": "none"},
-	"b": {"type": "float64", "default": "none"},
-	"maxflow": {"type": "float64", "default": "none"},
+	"x_pu": {"type": "float64", "default": "none"},
+	"r_pu": {"type": "float64", "default": "none"},
+	"capacity": {"type": "float64", "default": "none"},
 	"contingency": {"type": "bool", "default": "True"}
  },
  "zones": {
@@ -40,7 +41,7 @@
  	"index": {"type": "any", "default": "none"},
  	"node_i": {"type": "nodes.index", "default": "none"},
  	"node_j": {"type": "nodes.index", "default": "none"},
- 	"maxflow": {"type": "float64", "default": "none"}
+ 	"capacity": {"type": "float64", "default": "none"}
 },
  "demand_el": {
  	"index": {"type": "any", "default": "none"},

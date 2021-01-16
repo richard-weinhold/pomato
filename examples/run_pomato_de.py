@@ -9,12 +9,8 @@ import pomato
 
 # Init POMATO with the options file and the dataset
 wdir = Path("/examples/") # Change to local copy of examples folder
-mato = POMATO(wdir=wdir, options_file="profiles/de.json")
+mato = pomato.POMATO(wdir=wdir, options_file="profiles/de.json")
 mato.load_data('data_input/dataset_de.zip')
-
-# Init POMATO with the options file and the dataset
-mato = pomato.POMATO(wdir=Path('/results'), options_file="de.json")
-mato.load_data(Path('/data/dataset_de.zip'))
 
 # Create the grid representation, the options are specified in the 
 # json file supplied in the instantiation. 
@@ -35,8 +31,8 @@ print("Number of N-0 Overloads: ", len(n0_r))
 
 # Generation comparison between Market Result and Redispatch.
 # Redispatch is calculated G_redispatch - G_market as delta
-# The absulute delta represents the total redispatched energy
-gen = pd.merge(market_result.data.plants[["plant_type", "fuel", "tech", "g_max", "node"]],
+# The absolute delta represents the total redispatched energy
+gen = pd.merge(market_result.data.plants[["plant_type", "fuel", "technology", "g_max", "node"]],
                market_result.G, left_index=True, right_on="p")
 gen = pd.merge(gen, redisp_result.G, on=["p", "t"], suffixes=("_market", "_redispatch"))
 gen["delta"] = gen["G_redispatch"] - gen["G_market"]
@@ -45,8 +41,8 @@ print("Redispatched energy per hour (abs) [MWh] ", gen.delta_abs.sum()/len(gen.t
 
 # Create Geo Plot. DISCLAiMER: The reported prices are the dual 
 # in the redispatch result, thus including costs for redispatch.
-mato.create_geo_plot(title="DE: Redispatch", show_prices=True)
-mato.geo_plot.save_plot(mato.wdir.joinpath("geoplot_DE.html"))
+mato.visualization.create_geo_plot(redisp_result, show_prices=True, show_plot=False,
+                                   filepath=mato.wdir.joinpath("geoplot_DE.html"))
 
 # Create visualization of the generation schedule in the market result. 
 mato.visualization.create_generation_plot(market_result, show_plot=False, 

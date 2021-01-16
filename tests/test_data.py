@@ -19,7 +19,7 @@ class TestPomatoData(unittest.TestCase):
         with open(self.wdir.joinpath("profiles/nrel118.json")) as opt_file:
                 loaded_options = json.load(opt_file)
         self.options = pomato.tools.add_default_options(loaded_options) 
-        self.options["optimization"]["model_horizon"] = [0, 24]
+        self.options["model_horizon"] = [0, 24]
 
         self.data = pomato.data.DataManagement(self.options, self.wdir)
         self.data.logger.setLevel(logging.ERROR)
@@ -39,11 +39,10 @@ class TestPomatoData(unittest.TestCase):
         self.assertEqual(len(self.data.lines), 186)
         for data in ["slack"]:
             self.assertTrue(self.data.nodes.loc[self.data.nodes[data].isna(), :].empty)
-        for data in ["node_i", "node_j", "b", "maxflow", "contingency"]:
+        for data in ["node_i", "node_j", "x_pu", "capacity", "contingency"]:
             self.assertTrue(self.data.lines.loc[self.data.lines[data].isna(), :].empty)
     def test_data_preprocess(self):
         self.data.process_inflows()
-        self.data.line_susceptance()
 
     def test_save_data(self):
         folder = self.wdir.joinpath("data_output")

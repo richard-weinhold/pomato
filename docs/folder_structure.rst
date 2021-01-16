@@ -14,7 +14,6 @@ be automatically generated when running the model:
     ├── data_input/
     ├── data_output/
     ├── data_temp/
-        ├── bokeh_files/
         └── julia_files/
              ├── cbco_data/
              ├── results/

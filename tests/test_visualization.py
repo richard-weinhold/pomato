@@ -54,11 +54,10 @@ class TestPomatoVisualization(unittest.TestCase):
         filepath = self.mato.wdir.joinpath("data_output/storage_plot.html")
         self.mato.visualization.create_storage_plot(result, show_plot=False, filepath=filepath)
 
-    def test_geoplot_empty(self):
-        self.mato.create_geo_plot(show=False, empty=True)
-        filepath = self.mato.wdir.joinpath("data_output/geoplot.html")
-        self.mato.geo_plot.save_plot(filepath)
-        self.assertTrue(filepath.is_file())
+    def test_visualization_create_generation_overview(self):
+        result = self.mato.data.results["dispatch_redispatch"]
+        filepath = self.mato.wdir.joinpath("data_output/generation_overview.html")
+        self.mato.visualization.create_generation_overview(result, show_plot=False, filepath=filepath)
 
     def test_fbmc_domain_plot(self):
         folder = self.mato.wdir.parent.joinpath("tests/test_data/nrel_result/scopf_market_results")
@@ -76,29 +75,19 @@ class TestPomatoVisualization(unittest.TestCase):
         fbmc_domain.save_all_domain_info(self.mato.wdir.joinpath("data_output"))
         
 
-    def test_geoplot_static(self):
-
-        self.mato.create_geo_plot(show=False, market_result_name="dispatch_market_results", 
-                                  flow_option=0, show_prices=True)
-        self.mato.create_geo_plot(show=False, market_result_name="dispatch_market_results", 
-                                  flow_option=1)
-        self.mato.create_geo_plot(show=False, market_result_name="dispatch_market_results", 
-                                  flow_option=2)
-        self.mato.create_geo_plot(show=False, market_result_name="dispatch_redispatch",
-                                  show_redispatch=True, show_prices=True)
-        self.mato.create_geo_plot(show=False, market_result_name="dispatch_redispatch",
-                                  show_prices=True, price_range=(0, 100))
-
-    def test_geoplot_dynamic(self):
+    def test_geoplot(self):
         result = self.mato.data.results["dispatch_redispatch"]
-        self.mato.geo_plot.add_market_result(result, "test_test")
-        self.mato.geo_plot.start_server()
-        time.sleep(3)
-        self.mato.geo_plot.stop_server()
+        filepath = self.mato.wdir.joinpath("data_output/generation_overview.html")
+        self.mato.visualization.create_geo_plot(result, show_prices=True, show_redispatch=True, 
+                                                show_plot=False, filepath=filepath)
+        filepath = self.mato.wdir.joinpath("data_output/generation_overview_timestep.html")                                     
+        self.mato.visualization.create_geo_plot(result, show_prices=True, show_redispatch=True, 
+                                                show_plot=False, timestep=0, filepath=filepath)
 
-        # Include runs the plot, which checks basic syntax, 
-        # pylint: disable-msg=E0401
-        from pomato.visualization import geoplot_dynamic
+    def test_dashboard(self):
+        self.mato.start_dashboard()
+        time.sleep(5)
+        self.mato.stop_dashboard()
 
 if __name__ == '__main__':
     unittest.main()

@@ -114,30 +114,30 @@ class GridModel():
 
         """
         # Data Structure of grid_representation dict
-        self.grid_representation.option = self.options["optimization"]["type"]
+        self.grid_representation.option = self.options["type"]
         self.grid_representation.multiple_slack = self.grid.multiple_slack
         self.grid_representation.slack_zones = self.grid.slack_zones()
 
         if isinstance(flowbased_paramters, pd.DataFrame):
             self.process_flowbased_grid_representation(flowbased_paramters)
-        elif self.options["optimization"]["type"] == "ntc":
+        elif self.options["type"] == "ntc":
             self.process_ntc()
-        elif self.options["optimization"]["type"] == "nodal":
+        elif self.options["type"] == "nodal":
             self.grid_representation.grid = self.create_nodal_grid_parameters()
-        elif self.options["optimization"]["type"] == "zonal":
+        elif self.options["type"] == "zonal":
             self.grid_representation.grid = self.create_zonal_grid_parameters()
             self.grid_representation.ntc = self.create_ntc()
-        elif self.options["optimization"]["type"] == "cbco_nodal":
+        elif self.options["type"] == "cbco_nodal":
             self.grid_representation.contingency_groups = self.grid.contingency_groups
             self.grid_representation.grid = self.create_cbco_nodal_grid_parameters()
-        elif self.options["optimization"]["type"] == "cbco_zonal":
+        elif self.options["type"] == "cbco_zonal":
             self.grid_representation.contingency_groups = self.grid.contingency_groups
             self.grid_representation.grid = self.create_cbco_zonal_grid_parameters()
             self.grid_representation.ntc = self.create_ntc()
         else:
             self.logger.info("No grid representation needed for dispatch model")
         
-        if self.options["optimization"]["redispatch"]["include"]:
+        if self.options["redispatch"]["include"]:
             self.add_redispatch_grid()
     
     def process_flowbased_grid_representation(self, flowbased_paramters):
@@ -155,7 +155,7 @@ class GridModel():
             Flowbased parameters, derived using :class:`~pomato.fbmc.FBMCModule`
 
         """
-        self.options["optimization"]["type"] = "cbco_zonal"
+        self.options["type"] = "cbco_zonal"
         self.grid_representation.option = "cbco_zonal"
         self.grid_representation.grid = flowbased_paramters
 
@@ -170,7 +170,7 @@ class GridModel():
             
         grid_option = self.options["grid"]
         nodal_network = pd.DataFrame(columns=self.grid.nodes.index, data=self.grid.ptdf)
-        nodal_network["ram"] = self.grid.lines.maxflow.values*self.options["grid"]["capacity_multiplier"]
+        nodal_network["ram"] = self.grid.lines.capacity.values*self.options["grid"]["capacity_multiplier"]
         nodal_network["cb"] = list(self.grid.lines.index)
         nodal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
         nodal_network = nodal_network[["cb", "co", "ram"] + list(self.grid.nodes.index)]
@@ -216,7 +216,7 @@ class GridModel():
                                      data=np.dot(self.grid.ptdf, self.create_gsk(gsk)))
         zonal_network["cb"] = list(self.grid.lines.index)
         zonal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
-        zonal_network["ram"] = self.grid.lines.maxflow.values*self.options["grid"]["capacity_multiplier"]
+        zonal_network["ram"] = self.grid.lines.capacity.values*self.options["grid"]["capacity_multiplier"]
         zonal_network = zonal_network[["cb", "co", "ram"] + list(self.data.zones.index)]
 
         if grid_option["cbco_option"] == "clarkson":
@@ -436,13 +436,13 @@ class GridModel():
             Contains the abs maximum power injected/load at each node.
 
         """
-        infeasibility_upperbound = self.options["optimization"]["infeasibility"]["electricity"]["bound"]
+        infeasibility_upperbound = self.options["infeasibility"]["electricity"]["bound"]
         nodal_injection_limits = []
         demand_el = self.data.demand_el.copy()
         net_export = self.data.net_export[self.data.net_export.net_export > 0].copy()
 
         for node in self.data.nodes.index:
-            plant_types = self.options["optimization"]["plant_types"]
+            plant_types = self.options["plant_types"]
 
             condition_plant_node = self.data.plants.node == node
 
@@ -451,7 +451,7 @@ class GridModel():
             condition_el_heat = condition_plant_node & \
                                 (self.data.plants.plant_type.isin(plant_types["ph"]))
 
-            max_dc_inj = self.data.dclines.maxflow[(self.data.dclines.node_i == node) |
+            max_dc_inj = self.data.dclines.capacity[(self.data.dclines.node_i == node) |
                                                    (self.data.dclines.node_j == node)].sum()
             
             condition_nex = net_export.node == node
@@ -500,7 +500,7 @@ class GridModel():
         if not self.julia_instance.is_alive:
             self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
-        if self.options["optimization"]["type"] in ["zonal"]:
+        if self.options["type"] in ["zonal"]:
             self.julia_instance.disable_multi_threading()
 
         t_start = dt.datetime.now()
@@ -560,8 +560,8 @@ class GridModel():
         """
         self.logger.info("Creating gsk with option: %s", option)
         gsk = pd.DataFrame(index=self.data.nodes.index)
-        condition = (self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["ts"]) 
-                        & (~self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["es"])))
+        condition = (self.data.plants.plant_type.isin(self.options["plant_types"]["ts"]) 
+                        & (~self.data.plants.plant_type.isin(self.options["plant_types"]["es"])))
         gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]].groupby("node").sum()
 
         for zone in self.data.zones.index:

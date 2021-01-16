@@ -47,7 +47,7 @@ folder, which can be accessed via the :code:`mato.market_model.result_folders` a
 
 .. code-block:: python
    
-   mato.options["optimization"]["type"] = "dispatch"
+   mato.options["type"] = "dispatch"
    mato.create_grid_representation()
    mato.run_market_model()
 
@@ -66,7 +66,7 @@ the optimization type is changed to "nodal" and the model is re-run.
 
 .. code-block:: python
    
-   mato.options["optimization"]["type"] = "nodal"
+   mato.options["type"] = "nodal"
    mato.create_grid_representation()
    mato.run_market_model()
 
@@ -97,7 +97,7 @@ increase complexity prohibitively.
 
 .. code-block:: python
 
-   mato.options["optimization"]["type"] = "cbco_nodal"
+   mato.options["type"] = "cbco_nodal"
    mato.options["grid"]["cbco_option"] = "clarkson_base"
 
    mato.create_grid_representation()
@@ -210,10 +210,10 @@ of utilization per *plant_type*:
    print(util.G / util.g_max)
 
 Finally, the visualization functionality of pomato allows to create a comprehensive geo-plot, utilizing
-the bokeh package, with the command :code:`mato.create_geo_plot()`. 
+the plotly package, with the command :code:`mato.create_geo_plot()`. 
 
 .. raw:: html
-   :file: _static/files//bokeh_market_result.html
+   :file: _static/files//plotly_market_result.html
 
 To include redispatch into the model the options have to be altered and the model re-run. The options 
 can be directly changed by editing the *options* and change the redispatch options to include it, 
@@ -225,9 +225,9 @@ Also it might be a good idea to clear the result dictionary.
 .. code-block:: python
 
    mato.data.results = {}
-   mato.options["optimization"]["redispatch"]["include"] = True
-   mato.options["optimization"]["redispatch"]["zones"] = ["DE"]
-   mato.options["optimization"]["redispatch"]["cost"] = 50
+   mato.options["redispatch"]["include"] = True
+   mato.options["redispatch"]["zones"] = ["DE"]
+   mato.options["redispatch"]["cost"] = 50
  
    mato.create_grid_representation()
    mato.run_market_model()
@@ -255,7 +255,7 @@ be done in a similar way to the result analysis above:
 .. code-block:: python 
 
    # Merge G market result into plant data
-   relevant_cols = ["plant_type", "fuel", "tech", "g_max", "node"]
+   relevant_cols = ["plant_type", "fuel", "technology", "g_max", "node"]
    gen = pd.merge(market_result.data.plants[relevant_cols],
                   market_result.G, left_index=True, right_on="p")
 

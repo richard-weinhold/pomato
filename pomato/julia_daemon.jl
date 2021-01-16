@@ -137,6 +137,7 @@ file = read_daemon_file()
 ##############
 @info("Done with Initialization. Starting daemon process $(file["type"])!")
 while true
+    local file
     file = read_daemon_file()
     if file["break"]
         @info("EXIT")

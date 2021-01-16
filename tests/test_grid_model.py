@@ -45,18 +45,18 @@ class TestPomatoGridModel(unittest.TestCase):
 
     def test_ntc(self):
 
-        self.grid_model.options["optimization"]["type"] = "ntc"
-        self.options["optimization"]["redispatch"]["include"] = True
+        self.grid_model.options["type"] = "ntc"
+        self.options["redispatch"]["include"] = True
 
         self.grid_model.create_grid_representation()
         gr = self.grid_model.grid_representation
         np.testing.assert_equal(gr.redispatch_grid[self.data.nodes.index].values, self.grid.ptdf)
         np.testing.assert_equal(gr.redispatch_grid["ram"].values, 
-                                self.data.lines.maxflow.values*self.options["grid"]["capacity_multiplier"])
+                                self.data.lines.capacity.values*self.options["grid"]["capacity_multiplier"])
 
     def test_zonal(self):
         
-        self.grid_model.options["optimization"]["type"] = "zonal"
+        self.grid_model.options["type"] = "zonal"
         self.grid_model.options["grid"]["gsk"] = "gmax"
 
         self.grid_model.create_grid_representation()
@@ -75,15 +75,15 @@ class TestPomatoGridModel(unittest.TestCase):
         self.assertTrue(all(grid_representation_gmax.grid.columns == test_columns))
 
     def test_nodal(self):
-        self.grid_model.options["optimization"]["type"] = "nodal"
+        self.grid_model.options["type"] = "nodal"
         self.grid_model.create_grid_representation()
         gr = self.grid_model.grid_representation
         np.testing.assert_equal(gr.grid[self.data.nodes.index].values, self.grid.ptdf)
-        np.testing.assert_equal(gr.grid["ram"].values/self.grid_model.options["grid"]["capacity_multiplier"], self.data.lines.maxflow.values)
+        np.testing.assert_equal(gr.grid["ram"].values/self.grid_model.options["grid"]["capacity_multiplier"], self.data.lines.capacity.values)
         
 
     def test_cbco_nodal(self):
-        self.grid_model.options["optimization"]["type"] = "cbco_nodal"
+        self.grid_model.options["type"] = "cbco_nodal"
         self.grid_model.options["grid"]["cbco_option"] = "full"
 
         self.grid_model.create_grid_representation()
@@ -102,7 +102,7 @@ class TestPomatoGridModel(unittest.TestCase):
 
     def test_cbco_nodal_no_precalc(self):
 
-        self.grid_model.options["optimization"]["type"] = "cbco_nodal"
+        self.grid_model.options["type"] = "cbco_nodal"
         self.grid_model.options["grid"]["precalc_filename"] = "random_words"
         grid = self.grid_model.create_cbco_nodal_grid_parameters()
         c_ptdf_fallback = copy.copy(grid)
@@ -117,7 +117,7 @@ class TestPomatoGridModel(unittest.TestCase):
         to_file = self.wdir.joinpath('data_temp/julia_files/cbco_data/cbco_nrel_118.csv')
         shutil.copyfile(str(my_file), str(to_file))
 
-        self.grid_model.options["optimization"]["type"] = "cbco_nodal"
+        self.grid_model.options["type"] = "cbco_nodal"
         self.grid_model.options["grid"]["precalc_filename"] = "cbco_nrel_118"
         self.grid_model.options["grid"]["capacity_multiplier"] = 0.8
         self.grid_model.create_cbco_nodal_grid_parameters()
@@ -133,7 +133,7 @@ class TestPomatoGridModel(unittest.TestCase):
         for (optimization_option, cbco_option) in test_configs:
             print(optimization_option)
 
-            self.grid_model.options["optimization"]["type"] = optimization_option
+            self.grid_model.options["type"] = optimization_option
             self.grid_model.options["grid"]["cbco_option"] = cbco_option
             self.grid_model.create_grid_representation()
             

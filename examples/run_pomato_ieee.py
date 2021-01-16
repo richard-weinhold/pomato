@@ -17,7 +17,7 @@ zones = mato.data.zones
 plants = mato.data.plants
 
 # %% Run uniform pricing
-mato.options["optimization"]["type"] = "dispatch"
+mato.options["type"] = "dispatch"
 mato.create_grid_representation()
 mato.run_market_model()
 
@@ -32,7 +32,7 @@ print("Number of overloaded lines (Dispatch): ", len(df1))
 print("Number of overloaded lines N-1 (Dispatch): ", len(df3))
 
 # %% Run nodal-prcing market clearing
-mato.options["optimization"]["type"] = "nodal"
+mato.options["type"] = "nodal"
 mato.create_grid_representation()
 mato.run_market_model()
 
@@ -53,7 +53,7 @@ mato.create_geo_plot(show=True, show_prices=True, market_result_name=nodal_resul
 mato.geo_plot.save_plot(mato.wdir.joinpath("geoplot_nodal.html"))
 
 # %% Rerun the model as SCOPF
-mato.options["optimization"]["type"] = "cbco_nodal"
+mato.options["type"] = "cbco_nodal"
 mato.options["grid"]["cbco_option"] = "clarkson_base"
 # Requires to presolve the network with the RedundancyRemvoal Algorithm
 mato.create_grid_representation()

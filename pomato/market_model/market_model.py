@@ -86,8 +86,8 @@ class MarketModel():
         model horizon by running :meth:`~data_to_csv`.
         """
 
-        model_horizon_range = range(self.options["optimization"]["model_horizon"][0],
-                                    self.options["optimization"]["model_horizon"][1])
+        model_horizon_range = range(self.options["model_horizon"][0],
+                                    self.options["model_horizon"][1])
 
         timesteps = self.data.demand_el.timestep.unique()
         model_horizon = [str(x) for x in timesteps[model_horizon_range]]
@@ -110,8 +110,8 @@ class MarketModel():
 
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
 
-        args = {"redispatch": self.options["optimization"]["redispatch"]["include"],
-                "chance_constrained": self.options["optimization"]["chance_constrained"]["include"]}
+        args = {"redispatch": self.options["redispatch"]["include"],
+                "chance_constrained": self.options["chance_constrained"]["include"]}
         self.julia_model.run(args=args)
         t_end = datetime.datetime.now()
         self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
@@ -120,9 +120,9 @@ class MarketModel():
         if self.julia_model.solved:
             # find latest folders created in julia result folder
             # last for normal dispatch, least 2 for redispatch
-            if self.options["optimization"]["redispatch"]["include"]:
-                if self.options["optimization"]["redispatch"]["zonal_redispatch"]:
-                    num_of_results = len(self.options["optimization"]["redispatch"]["zones"]) + 1
+            if self.options["redispatch"]["include"]:
+                if self.options["redispatch"]["zonal_redispatch"]:
+                    num_of_results = len(self.options["redispatch"]["zones"]) + 1
                 else:
                     num_of_results = 2
                 self.result_folders = tools.newest_file_folder(self.results_dir,
@@ -133,7 +133,7 @@ class MarketModel():
 
             for folder in self.result_folders:
                 with open(folder.joinpath("optionfile.json"), 'w') as file:
-                    json.dump(self.options["optimization"], file, indent=2)
+                    json.dump(self.options, file, indent=2)
 
             self.status = 'solved'
         else:
@@ -153,16 +153,16 @@ class MarketModel():
             List of timesteps that are the model horizon
         """
 
-        splits = int(len(model_horizon)/self.options["optimization"]["timeseries"]["market_horizon"])
-        market_model_horizon = self.options["optimization"]["timeseries"]["market_horizon"]
+        splits = int(len(model_horizon)/self.options["timeseries"]["market_horizon"])
+        market_model_horizon = self.options["timeseries"]["market_horizon"]
 
-        splits = max(1, int(len(model_horizon)/self.options["optimization"]["timeseries"]["market_horizon"]))
+        splits = max(1, int(len(model_horizon)/self.options["timeseries"]["market_horizon"]))
         splits = [model_horizon[t*market_model_horizon] for t in range(0, splits)]
         if not all(t in self.data.storage_level.timestep for t in splits):
             data = []
-            for plant in self.data.plants[self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["es"])].index:
+            for plant in self.data.plants[self.data.plants.plant_type.isin(self.options["plant_types"]["es"])].index:
                 for t in splits:
-                    data.append([t, plant, self.options["optimization"]["parameters"]["storage_start"]])
+                    data.append([t, plant, self.options["parameters"]["storage_start"]])
             self.data.storage_level = pd.DataFrame(columns=self.data.storage_level.columns, data=data)
 
     def data_to_csv(self, model_horizon):
@@ -192,9 +192,9 @@ class MarketModel():
                 getattr(self.data, data)[cols].to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
 
         plant_types = pd.DataFrame(index=self.data.plants.plant_type.unique())
-        for ptype in self.options["optimization"]["plant_types"]:
+        for ptype in self.options["plant_types"]:
             plant_types[ptype] = 0
-            condition = plant_types.index.isin(self.options["optimization"]["plant_types"][ptype])
+            condition = plant_types.index.isin(self.options["plant_types"][ptype])
             plant_types[ptype][condition] = 1
         plant_types.to_csv(str(self.data_dir.joinpath('plant_types.csv')), index_label='index')
 
@@ -225,4 +225,4 @@ class MarketModel():
         slack_zones.to_csv(str(self.data_dir.joinpath('slack_zones.csv')), index_label='index')
 
         with open(self.data_dir.joinpath('options.json'), 'w') as file:
-            json.dump(self.options["optimization"], file, indent=2)
+            json.dump(self.options, file, indent=2)

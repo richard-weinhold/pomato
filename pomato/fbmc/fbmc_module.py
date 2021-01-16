@@ -83,7 +83,7 @@ class FBMCModule():
         """
         
         gsk = pd.DataFrame(index=self.grid.nodes.index)
-        plant_types = self.data.options["optimization"]["plant_types"]
+        plant_types = self.data.options["plant_types"]
         condition = (~self.data.plants.plant_type.isin(plant_types["ts"])) & \
                     (~self.data.plants.plant_type.isin(plant_types["es"]))
         
@@ -123,7 +123,7 @@ class FBMCModule():
         """        
         gsk = pd.DataFrame(index=self.grid.nodes.index)
 
-        plant_types = self.data.options["optimization"]["plant_types"]
+        plant_types = self.data.options["plant_types"]
         condition = (~self.data.plants.plant_type.isin(plant_types["ts"])) & \
                     (~self.data.plants.plant_type.isin(plant_types["es"]))
         
@@ -318,7 +318,7 @@ class FBMCModule():
 
         # optional frm/fav margin todo
         frm_fav = pd.DataFrame(index=self.domain_info.cb.unique())
-        frm_fav["value"] = self.grid.lines.maxflow[frm_fav.index]*(1 - self.options["grid"]["capacity_multiplier"])
+        frm_fav["value"] = self.grid.lines.capacity[frm_fav.index]*(1 - self.options["grid"]["capacity_multiplier"])
 
         # F Ref Basecase: The actual flow in the basecase
         # On all CBs under COs
@@ -342,13 +342,13 @@ class FBMCModule():
         f_ref_nonmarket = f_ref_base_case - f_da
 
         # RAMs
-        ram = (self.grid.lines.maxflow[self.domain_info.cb] 
+        ram = (self.grid.lines.capacity[self.domain_info.cb] 
                - frm_fav.value[self.domain_info.cb] 
                - f_ref_nonmarket)
 
         self.logger.info("Applying minRAM at %i percent of line capacity", 
                          int(self.options["grid"]["minram"]*100))
-        minram = self.grid.lines.maxflow[self.domain_info.cb] * self.options["grid"]["minram"] 
+        minram = self.grid.lines.capacity[self.domain_info.cb] * self.options["grid"]["minram"] 
         ram[ram < minram] = minram[ram < minram]
 
         ram = ram.values.reshape(len(ram), 1)
@@ -393,7 +393,7 @@ class FBMCModule():
         if reduce:
             grid_model._start_julia_daemon()
             
-        grid_model.options["optimization"]["type"] = "cbco_zonal"
+        grid_model.options["type"] = "cbco_zonal"
         grid_model.options["grid"]["cbco_option"] = "clarkson"
 
         for timestep in basecase.INJ.t.unique():

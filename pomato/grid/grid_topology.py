@@ -137,20 +137,20 @@ class GridTopology():
             tmp = np.around(tmp, decimals=3)
             if 1 in tmp:
                 radial_lines.append(line)
-#           elif self.lines.at["l1", "b"] == 0:
-#               radial_lines.append(line)
 
         condition = (self.lines.node_i.isin(radial_nodes)) | \
                     (self.lines.node_j.isin(radial_nodes)) & self.lines.contingency
 
         if not self.lines[condition].empty:
             self.lines.loc[condition, "contingency"] = False
-            self.logger.info("Radial nodes: Contingency of %d lines is set to false", len(self.lines.index[condition]))
+            self.logger.info("Radial nodes: Contingency of %d lines is set to false", 
+                             len(self.lines.index[condition]))
 
         condition = self.lines.index.isin(radial_lines) & self.lines.contingency
         if not self.lines.contingency[condition].empty:
             self.lines.loc[condition, "contingency"] = False
-            self.logger.info("Radial lines: Contingency of %d lines is set to false", len(self.lines.index[condition]))
+            self.logger.info("Radial lines: Contingency of %d lines is set to false", 
+                             len(self.lines.index[condition]))
 
         self.logger.info("Total number of lines and contingencies: %d, %d", 
                          len(self.lines.index), len(self.lines[self.lines.contingency]))
@@ -172,8 +172,8 @@ class GridTopology():
     def create_contingency_groups(self, option="double_lines"):
         """Create contingency groups i.e. contingencies that occur together.
         
-        This can be done by evaluating high lodf values or by topology, i.e. double lines are affected. 
-        However, contingency groups still cannot disconnect the network. 
+        This can be done by evaluating high lodf values or by topology, i.e. double lines 
+        are affected. However, contingency groups still cannot disconnect the network. 
 
         Parameters
         ----------
@@ -263,7 +263,7 @@ class GridTopology():
         node_susceptance : np.ndarray
             Node susceptance matrix.
         """
-        susceptance_vector = self.lines.b
+        susceptance_vector = 1/self.lines.x_pu
         incidence = self.incidence_matrix
         susceptance_diag = np.diag(susceptance_vector)
         line_susceptance = np.dot(susceptance_diag, incidence)
@@ -305,7 +305,7 @@ class GridTopology():
 
         """
         line_susceptance, _ = self.create_susceptance_matrices()
-        psdf = np.diag(self.lines.b) - np.dot(self.ptdf, line_susceptance.T)
+        psdf = np.diag(1/self.lines.x_pu) - np.dot(self.ptdf, line_susceptance.T)
         return psdf
 
     def shift_phase_on_line(self, phase_shift):
@@ -438,8 +438,8 @@ class GridTopology():
         if not isinstance(line, int):
             line = self.lines.index.get_loc(line)
 
-        condition = abs(np.multiply(self.lodf[line], self.lines.maxflow.values)) >= \
-            sensitivity*self.lines.maxflow[line]
+        condition = abs(np.multiply(self.lodf[line], self.lines.capacity.values)) >= \
+            sensitivity*self.lines.capacity[line]
 
         if as_index:
             return [self.lines.index.get_loc(line) for line in self.lines.index[condition]]
@@ -586,7 +586,7 @@ class GridTopology():
                 A.append(tmp_ptdf)
 
             A = np.concatenate(A).reshape(len(label_lines), len(list(self.nodes.index)))
-            b = self.lines.maxflow[label_lines].values.reshape(len(label_lines), 1)
+            b = self.lines.capacity[label_lines].values.reshape(len(label_lines), 1)
 
             df_info = pd.DataFrame(columns=list(self.nodes.index), data=A)
             df_info["cb"] = label_lines

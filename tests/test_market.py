@@ -41,12 +41,12 @@ class TestPomatoMarketModel(unittest.TestCase):
         shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
 
     def test_init(self):
-        self.grid_model.options["optimization"]["type"] = "ntc"
+        self.grid_model.options["type"] = "ntc"
         self.grid_model.create_grid_representation()
         self.market_model.update_data()
     
     def test_save_files(self):
-        self.grid_model.options["optimization"]["type"] = "ntc"
+        self.grid_model.options["type"] = "ntc"
         self.grid_model.create_grid_representation()
         self.market_model.update_data()
 
@@ -61,7 +61,7 @@ class TestPomatoMarketModel(unittest.TestCase):
     
     def test_market_model_missing_result(self):
         self.market_model.julia_model = JuliaMockup()
-        self.grid_model.options["optimization"]["type"] = "ntc"
+        self.grid_model.options["type"] = "ntc"
         self.grid_model.create_grid_representation()
         self.market_model.update_data()
         self.assertRaises(FileNotFoundError, self.market_model.run)

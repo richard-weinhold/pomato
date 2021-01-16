@@ -120,7 +120,8 @@ from pomato.data import DataManagement, Results
 from pomato.grid import GridTopology, GridModel
 from pomato.market_model import MarketModel
 from pomato.visualization import Visualization
-from pomato.visualization import GeoPlot
+# from pomato.visualization import GeoPlot
+from pomato.visualization.dashboard import Dashboard
 from pomato.fbmc import FBMCModule
 
 def _logging_setup(wdir, logging_level=logging.INFO):
@@ -199,13 +200,9 @@ class POMATO():
         Module containing and managing the market model. This includes storing
         the necessary data, running and managing a julia process instance and
         initializing the result object inside ``data``.
-    geo_plot : :class:`~pomato.visualization.GeoPlot`
-        Enabling a geographic visualization of the market results through the
-        library ``Bokeh``. This module processes the results and input data to
-        create a static map plot containing mean line loadings or a
-        dynamic/interactive plot for a timeseries. The latter is implemented
-        through a bokeh server which requires some subprocess management.
-
+    visualization : :class:`~pomato.visualization.Visualization`
+        Module that collects all visualization functionality. Including a geoplot and dashboard
+        based around the library plotly. 
     Parameters
     ----------
     wdir : pathlib.Path, optional
@@ -240,7 +237,7 @@ class POMATO():
 
         # Instances for Result Processing 
         self.visualization = Visualization(self.wdir, self.data)
-        self.geo_plot = GeoPlot(self.wdir, self.data)
+        self.dashboard = None
         self.fbmc = FBMCModule(self.wdir, self.grid, self.data, self.options)
 
     def initialize_options(self, options_file):
@@ -395,26 +392,21 @@ class POMATO():
         """
         self.grid_model.create_grid_representation(**kwargs)
 
-    def create_geo_plot(self, show=True, empty=False, **kwargs):
-        """Initialize GeoPlot based on the dataset and a market result.
+    def start_dashboard(self):
+        """Initialize Dashboard for result analysis.
 
-        This is done with the :meth:`~pomato.visualization.geoplot.create_static_plot` method. 
+        This is done with the :meth:`~pomato.visualization.dashboard.Dashboard` class. 
         See the correpsonding documentation for the available conditional arguments.
-        
-        Parameters
-        ----------
-        show : bool, optional
-            Show the plot after completion, this will open a browser window. Default is True.
-        empty : bool, optional
-            Create a geoplot without results, only showing topology and voltage levels.
+
         """
-        if (not self.data.results) :  # if results dict is empty
-            self.logger.info("Create empty geoplot!")
-            self.geo_plot.create_empty_static_plot()
-        else:
-            self.geo_plot.create_static_plot(**kwargs)
-        if show:
-            self.geo_plot.show_plot()
+        self.dashboard = Dashboard(self)
+        self.dashboard.start()
+    
+    def stop_dashboard(self):
+        """Stop Dashboard server."""
+        self.dashboard.join()
+        self.dashboard = None
+
 
     def _instantiate_julia_dev(self, redundancyremoval_path, marketmodel_path):
         """Instantiate the pomato julia environment from local repositories, 
@@ -454,3 +446,4 @@ class POMATO():
     def __del__(self):
         """Join Julia instances on deletion."""
         self._join_julia_instances()
+        self.stop_dashboard()
