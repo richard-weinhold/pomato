@@ -152,19 +152,18 @@ def page_2():
     return layout
 
 class Dashboard():
-    def __init__(self, pomato_instance):
+    def __init__(self, pomato_instance, host="0.0.0.0", port="8050"):
         self.pomato_instance = pomato_instance
         self.app = None
         self.init_app()      
-        self.dash_thread = threading.Thread(target=self.run, args=())
+        self.dash_thread = threading.Thread(target=self.run, kwargs={"host": host, "port": port})
         # self.start()
         
     def start(self):
         self.dash_thread.start()
     
-    def run(self):
-        self.app.run_server(debug=True, use_reloader=False,
-                            host='0.0.0.0')
+    def run(self, host="0.0.0.0", port="8050"):
+        self.app.run_server(debug=True, use_reloader=False, host=host, port=port)
 
     def join(self):
         """Close the locally hosted dash plot"""

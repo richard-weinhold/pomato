@@ -392,14 +392,14 @@ class POMATO():
         """
         self.grid_model.create_grid_representation(**kwargs)
 
-    def start_dashboard(self):
+    def start_dashboard(self, host="0.0.0.0", port="8050"):
         """Initialize Dashboard for result analysis.
 
         This is done with the :meth:`~pomato.visualization.dashboard.Dashboard` class. 
         See the correpsonding documentation for the available conditional arguments.
 
         """
-        self.dashboard = Dashboard(self)
+        self.dashboard = Dashboard(self, host=host, port=port)
         self.dashboard.start()
     
     def stop_dashboard(self):
