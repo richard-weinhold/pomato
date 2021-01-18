@@ -163,7 +163,8 @@ class Dashboard():
         self.dash_thread.start()
     
     def run(self):
-        self.app.run_server(debug=True, use_reloader=False)
+        self.app.run_server(debug=True, use_reloader=False,
+                            host='0.0.0.0')
 
     def join(self):
         """Close the locally hosted dash plot"""
