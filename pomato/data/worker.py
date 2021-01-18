@@ -4,7 +4,6 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pyproj
 import scipy.io as sio
 import xlrd
 
@@ -472,16 +471,8 @@ class DataWorker(object):
 
         # add coordinates from CSV with X and Y columns for the grid coordinates
         if Path(str(casefile).split(".")[0] + "_coordinates.csv").is_file():
-            xy = pd.read_csv(str(casefile).split(".")[0] + "_coordinates.csv",
-                             sep=";", index_col=0)
-            lat0, lon0 = 25, 82.5
-            projection = pyproj.Proj(f"+proj=stere +lat_0={str(lat0)} +lon_0={str(lon0)} \
-                                         +k=1 +x_0=0 +y_0=0 +a=6371200 +b=6371200 +units=m +no_defs")
-
-            coord = pd.DataFrame(columns=["lon", "lat"], index=self.data.nodes.index,
-                                data = [projection(x*4000,y*4000, inverse=True) for x,y in zip(xy.X, xy.Y)])
-            coord = coord[["lat", "lon"]]
-            self.data.nodes[["lat", "lon"]] = coord
+            xy = pd.read_csv(str(casefile).split(".")[0] + "_coordinates.csv", sep=",", index_col=0)
+            self.data.nodes[["lat", "lon"]] = xy
         else:
             self.data.nodes.loc[:, "lat"] = 0
             self.data.nodes.loc[:, "lon"] = 0
