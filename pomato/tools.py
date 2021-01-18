@@ -376,24 +376,37 @@ def default_options():
     }
     return options
 
-def add_default_options(option_dict):
+def add_default_values_to_dict(value_dict, default_dict):
+    """Combines values from user dict with default values from default_dict.
+
+    Parameters
+    ----------
+    value_dict : dict
+        Dict with values.
+    default_dict : dict
+        Dict containing default values that are added if not present in value_dict.
+    """    
+    for i in _dict_generator(value_dict):
+        try: 
+            _setInDict(default_dict, i, _getFromDict(value_dict, i))
+        except:
+            raise ValueError(".".join(i) + " is not a valid option")
+    return default_dict
+
+def add_default_options(input_options):
     """Takes the loaded option dict and adds missing values from default options.
     
     Uses function that are a result from https://stackoverflow.com/a/14692747.
 
     Parameters
     ----------
-    option_dict : option_dict
-        Optionfile loaded from disk.
+    input_options : dict
+        Optionfile from user input.
     """
-    options = default_options()
-    for i in _dict_generator(option_dict):
-        try: 
-            _setInDict(options, i, _getFromDict(option_dict, i))
-        except:
-            raise ValueError(".".join(i) + " is not a valid option")
-    return options
-
+    default_option_values = default_options()
+    options = add_default_values_to_dict(input_options, default_option_values)
+    return options 
+    
 def _dict_generator(indict, pre=None):
     """Flatten Option Dict.
 

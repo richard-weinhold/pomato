@@ -15,6 +15,8 @@ import plotly.graph_objects as go
 import requests
 from dash.dependencies import Input, Output
 from flask import request
+from pomato.tools import add_default_values_to_dict
+
 
 external_stylesheets = [dbc.themes.BOOTSTRAP, dbc.themes.GRID, 'https://codepen.io/chriddyp/pen/bWLwgP.css']
 
@@ -152,18 +154,25 @@ def page_2():
     return layout
 
 class Dashboard():
-    def __init__(self, pomato_instance, host="0.0.0.0", port="8050"):
+    def __init__(self, pomato_instance, **kwargs):
         self.pomato_instance = pomato_instance
         self.app = None
         self.init_app()      
-        self.dash_thread = threading.Thread(target=self.run, kwargs={"host": host, "port": port})
+        self.dash_thread = threading.Thread(target=self.run, kwargs=kwargs)
         # self.start()
         
     def start(self):
         self.dash_thread.start()
     
-    def run(self, host="0.0.0.0", port="8050"):
-        self.app.run_server(debug=True, use_reloader=False, host=host, port=port)
+    def run(self,  **kwargs):
+        default_options = {"debug": True, 
+                           "use_reloader": False,
+                           "port": "8050", 
+                           "host": "127.0.0.1"}
+
+        server_args = add_default_values_to_dict(kwargs, default_options)
+        print()
+        self.app.run_server(**server_args)
 
     def join(self):
         """Close the locally hosted dash plot"""
