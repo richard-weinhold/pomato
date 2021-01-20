@@ -9,6 +9,7 @@ import pandas as pd
 import pomato
 import pomato.tools as tools
 from pomato.grid import GridModel
+from progress.bar import Bar
 
 class FBMCModule():
     """The FBMC module calculates FB paramerters based on a suitable market result.
@@ -45,9 +46,15 @@ class FBMCModule():
         self.grid = grid
         self.data = data
 
+        # Attributes that are calculated once, as they only depend on the topology and are 
+        # independent from the basecase. 
+        self.custom_cbco = None
+        self.flowbased_region = None
+        self.nodal_fbmc_ptdf = None
+        self.fbmc_data = None
+
     def calculate_parameters(self, custom_cbco=None, flowbased_region=None):
         """Calculate basic, non result specific, paramters.
-
 
         Parameters
         ----------
@@ -60,7 +67,7 @@ class FBMCModule():
         self.custom_cbco = custom_cbco
         if not flowbased_region:
             self.flowbased_region = list(self.data.zones.index)
-        self.nodal_fbmc_ptdf, self.domain_info = self.create_fbmc_info()
+        self.nodal_fbmc_ptdf, self.fbmc_data = self.create_base_fbmc_parameters()
 
     def create_dynamic_gsk(self, basecase, timestep):
         """Returns GSK based on the included basecase.
@@ -203,11 +210,12 @@ class FBMCModule():
 
         return all_cbs
 
-    def create_fbmc_info(self, lodf_sensitivity=10e-2):
+    def create_base_fbmc_parameters(self, lodf_sensitivity=10e-2):
         """Create the nodal ptdf for the FB paramters.
         
         Which lines are considered critical and their critical outages are independent 
-        from the basecase. Therefore the CBCOs are obtained once and used throughout this method.
+        from the basecase. Therefore the ptdf for all CBCOs are obtained once and used throughout 
+        this method.
         
         The process is similar to :meth:`~pomato.grid.GridTopology.create_filtered_n_1_ptdf`, 
         for a list of CBs, that are obtained in :meth:`~return_critical_branches`,
@@ -226,7 +234,7 @@ class FBMCModule():
         -------
         nodal_fbmc_ptdf : numpy.array
             nodal PTDF for each CBCO
-        domain_info : pandas.DataFrame
+        fbmc_data : pandas.DataFrame
             The ptdf, together with all information, like CBCO, capacity, nodes.
         """
 
@@ -272,11 +280,11 @@ class FBMCModule():
         nodal_fbmc_ptdf = np.concatenate(full_ptdf)
         nodal_fbmc_ptdf = nodal_fbmc_ptdf.reshape(len(label_lines), len(list(self.grid.nodes.index)))
 
-        domain_info = pd.DataFrame(columns=list(self.data.zones.index))
-        domain_info["cb"] = label_lines
-        domain_info["co"] = label_outages
+        fbmc_data = pd.DataFrame(columns=list(self.data.zones.index))
+        fbmc_data["cb"] = label_lines
+        fbmc_data["co"] = label_outages
 
-        return nodal_fbmc_ptdf, domain_info
+        return nodal_fbmc_ptdf, fbmc_data
 
     def create_flowbased_ptdf(self, gsk_strategy, timestep, basecase):
         """Create Zonal PTDF, reference flows and RAM based on the basecase and GSK.
@@ -307,17 +315,13 @@ class FBMCModule():
 
         Returns
         -------
-        zonal_fbmc_ptdf, np.array
-            Zonal PTDF. Length is the number of CBCOs and width the number zones within 
-            the Flowbased region. 
-        ram, vector
-            RAM for each CBCOs, same order as the zonal_ptdf.
+        fbmc_domain_data, pd.DataFrame
+            Based on the precalculated attribute *fbmc_data*, the domain parameters are calculated 
+            for a specific timestep and GSK. This is returned, including the zonal ptdf and ram. 
         """
-
-        self.logger.info("Creating zonal Ab for timestep %s", timestep)
-
+        domain_data = self.fbmc_data.copy()
         # optional frm/fav margin todo
-        frm_fav = pd.DataFrame(index=self.domain_info.cb.unique())
+        frm_fav = pd.DataFrame(index=domain_data.cb.unique())
         frm_fav["value"] = self.grid.lines.capacity[frm_fav.index]*(1 - self.options["grid"]["capacity_multiplier"])
 
         # F Ref Basecase: The actual flow in the basecase
@@ -330,25 +334,21 @@ class FBMCModule():
         else:
             gsk = self.create_gsk(gsk_strategy)
 
-
         # F Day Ahead: The Flow on each CBCO, without injection from the market 
         # coupling. The market is "removed" by removing the NEX via a zonal ptdf and GSK
-        net_position = basecase.net_position() * 1
+        net_position = basecase.net_position()
         zonal_fbmc_ptdf = np.dot(self.nodal_fbmc_ptdf, gsk)
-
         f_da = np.dot(zonal_fbmc_ptdf, net_position.loc[timestep].values)
 
         # F_ref without the DA market = F Ref Basecase - F DA
         f_ref_nonmarket = f_ref_base_case - f_da
 
         # RAMs
-        ram = (self.grid.lines.capacity[self.domain_info.cb] 
-               - frm_fav.value[self.domain_info.cb] 
+        ram = (self.grid.lines.capacity[domain_data.cb] 
+               - frm_fav.value[domain_data.cb] 
                - f_ref_nonmarket)
 
-        self.logger.info("Applying minRAM at %i percent of line capacity", 
-                         int(self.options["grid"]["minram"]*100))
-        minram = self.grid.lines.capacity[self.domain_info.cb] * self.options["grid"]["minram"] 
+        minram = self.grid.lines.capacity[domain_data.cb] * self.options["grid"]["minram"] 
         ram[ram < minram] = minram[ram < minram]
 
         ram = ram.values.reshape(len(ram), 1)
@@ -357,15 +357,14 @@ class FBMCModule():
             self.logger.warning("Number of RAMs below: [0 - %d, 10 - %d, 100 - %d, 1000 - %d]", 
                                 sum(ram<0), sum(ram<10), sum(ram<100), sum(ram<1000))
 
-        self.domain_info[list(self.data.zones.index)] = zonal_fbmc_ptdf
-        self.domain_info["ram"] = ram
-        self.domain_info["timestep"] = timestep
-        self.domain_info["gsk_strategy"] = gsk_strategy
-        self.domain_info = self.domain_info[["cb", "co", "ram", "timestep", "gsk_strategy"] + list(list(self.data.zones.index))]
-        # self.logger.info("Done!")
-        return zonal_fbmc_ptdf, ram
+        domain_data[list(self.data.zones.index)] = zonal_fbmc_ptdf
+        domain_data["ram"] = ram
+        domain_data["timestep"] = timestep
+        domain_data["gsk_strategy"] = gsk_strategy
+        domain_data = domain_data[["cb", "co", "ram", "timestep", "gsk_strategy"] + list(list(self.data.zones.index))]
+        return domain_data
 
-    def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=True):
+    def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=False):
         """Create Flow-Based Paramters.
 
         Creates the FB Paramters for the basecase arguments. Optional arguments are 
@@ -388,20 +387,27 @@ class FBMCModule():
             on the reference flows derived from the basecase for each timestep. 
         """
         domain_data = {}
+        if not all([self.custom_cbco, self.flowbased_region, self.nodal_fbmc_ptdf, self.fbmc_data]):
+                    self.calculate_parameters()
+
         grid_model = GridModel(self.wdir, self.grid, self.data, self.data.options)
-        
         if reduce:
             grid_model._start_julia_daemon()
-            
         grid_model.options["type"] = "cbco_zonal"
         grid_model.options["grid"]["cbco_option"] = "clarkson"
 
-        for timestep in basecase.INJ.t.unique():
-            self.create_flowbased_ptdf(gsk_strategy, timestep, basecase)
-            domain_data[timestep] = self.domain_info.copy()
+        self.logger.info("Generating FB parameters for each timestep...")
+        self.logger.info("Enforcing minRAM of %s%%", str(round(self.options["grid"]["minram"]*100)))
+
+        bar = Bar('Processing', max=len(basecase.model_horizon), 
+                  check_tty=False, hide_cursor=True)
+        for timestep in basecase.model_horizon:
+            domain_data[timestep] = self.create_flowbased_ptdf(gsk_strategy, timestep, basecase)
+            bar.next()
+        bar.finish()
+        self.logger.info("Done with FB parameters.")
 
         cbco_info =  pd.concat([domain_data[t] for t in domain_data.keys()], ignore_index=True)
-        
         if reduce:
             cbco_index = grid_model.clarkson_algorithm(args={"fbmc_domain": True}, Ab_info=cbco_info)
         else:

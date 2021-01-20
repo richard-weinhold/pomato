@@ -6,9 +6,11 @@ from pathlib import Path
 import imageio
 import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
+from matplotlib.collections import LineCollection
 import numpy as np
 import pandas as pd
 from scipy import spatial
+from progress.bar import Bar
 
 import pomato.tools as tools
 from pomato.grid import GridModel
@@ -64,7 +66,6 @@ class FBDomain():
         ----------
         include_ntc : bool
             Include NTC into FBMC domain.
-
         """        
         # Setup
         fig, axis = plt.figure(), plt.subplot()
@@ -76,13 +77,20 @@ class FBDomain():
                 + "\nGSK Strategy: " + self.gsk_strategy \
                 + " - Timestep: " + self.timestep
         
-        for i, cbco in enumerate(self.domain_data.index):
-            if self.domain_data.loc[cbco, "co"] == "basecase":
-                axis.plot(self.domain_equations[i][0], self.domain_equations[i][1], 
-                          linewidth=1.5, alpha=1, c='dimgrey', ls='-', zorder=2)
-            else:
-                axis.plot(self.domain_equations[i][0], self.domain_equations[i][1], 
-                          linewidth=1, alpha=0.6, c='lightgrey', ls='-', zorder=1)
+        n0_lines = []
+        n1_lines = []  
+        tmp = self.domain_data.reset_index(drop=True)
+        for i in tmp[tmp.co == "basecase"].index:
+            n0_lines.append([(self.domain_equations[i][0][0], self.domain_equations[i][1][0]),
+                             (self.domain_equations[i][0][1], self.domain_equations[i][1][1])])
+        for i in tmp[tmp.co != "basecase"].index:
+            n1_lines.append([(self.domain_equations[i][0][0], self.domain_equations[i][1][0]),
+                             (self.domain_equations[i][0][1], self.domain_equations[i][1][1])])
+            
+        n1_segments = LineCollection(n1_lines, linewidths=1, alpha=0.6, colors="lightgrey", linestyle='-')
+        n0_segments = LineCollection(n0_lines, linewidths=1.5, alpha=1, colors="dimgrey", linestyle='-')
+        axis.add_collection(n1_segments)
+        axis.add_collection(n0_segments)
         
         axis.plot(self.feasible_region_vertices[:, 0], self.feasible_region_vertices[:, 1],
                   'r--', linewidth=1.5, zorder=3)
@@ -97,19 +105,19 @@ class FBDomain():
             ntc_x_neg = self.ntc.loc[(self.domain_x[1], self.domain_x[0]), "ntc"]
             ntc_y_pos = self.ntc.loc[(self.domain_y[0], self.domain_y[1]), "ntc"]
             ntc_y_neg = self.ntc.loc[(self.domain_y[1], self.domain_y[0]), "ntc"]
-
             ntc_plot = [[[ntc_x_pos, ntc_x_pos], [ntc_y_pos, -ntc_y_neg]],
                         [[-ntc_x_neg, -ntc_x_neg], [ntc_y_pos, -ntc_y_neg]],
                         [[ntc_x_pos, -ntc_x_neg], [ntc_y_pos, ntc_y_pos]],
                         [[ntc_x_pos, -ntc_x_neg], [-ntc_y_neg, -ntc_y_neg]]]
-
             for elem in ntc_plot:
                 axis.plot(elem[0], elem[1], c='blue', ls='--')
+            
             # expand x min/max, y min/max to accommodate the NTC box
             self.x_min, self.x_max = min(self.x_min, -ntc_x_neg), max(self.x_max, ntc_x_pos)
             self.y_min, self.y_max = min(self.y_min, -ntc_y_neg), max(self.y_max, ntc_y_pos)
             legend.append(Line2D([0], [0], color="b", lw=2, ls='--'))
             legend_text.append("NTC Domain")
+        
         axis.set_xlim(self.x_min*scale, self.x_max*scale)
         axis.set_ylim(self.y_min*scale, self.y_max*scale)
         axis.set_title(title)
@@ -183,11 +191,14 @@ class FBDomainPlots():
         """        
         self.set_xy_limits_forall_plots()
         plt.close("all")
+        self.logger.info("Saving %s FB domains to folder %s", str(len(self.fbmc_plots)), folder)
+        bar = Bar('Processing', max=len(self.fbmc_plots), 
+                  check_tty=False, hide_cursor=True)
         for plot in self.fbmc_plots:
-            self.logger.info("Plotting Domain of %s in folder %s", plot, folder)
             self.fbmc_plots[plot].save_fbmc_domain(folder, include_ntc)
-            self.logger.info("Done!")
             plt.close("all")
+            bar.next()
+        bar.finish()
 
         self.logger.info("Plotting Domains as .gif")    
         plot_types = set(["_".join(plot.split("_")[1:]) for plot in self.fbmc_plots])
@@ -309,7 +320,7 @@ class FBDomainPlots():
         Ab = np.concatenate((np.array(A), np.array(b).reshape(len(b), 1)), axis=1)
 
         # Calculate two coordinates for a line plot -> Return X = [X1;X2], Y = [Y1,Y2]
-        x_upper = int(max(b)*20)
+        x_upper = int(max(b)*10)
         x_lower = -x_upper
         plot_equations = []
         for index in range(0, len(Ab)):
@@ -433,9 +444,14 @@ class FBDomainPlots():
         This method is based on :meth:`~generate_flowbased_domain`, which create the domain 
         plot for a specific timestep using the same arguments.       
         """
-        for timestep in self.flowbased_parameters.timestep.unique():
-            self.generate_flowbased_domain(["R1", "R2"], ["R1", "R3"], timestep, filename_suffix)
 
+        timesteps = self.flowbased_parameters.timestep.unique()
+        bar = Bar('Processing', max=len(timesteps), 
+                  check_tty=False, hide_cursor=True)
+        for timestep in timesteps:
+            self.generate_flowbased_domain(["R1", "R2"], ["R1", "R3"], timestep, filename_suffix)
+            bar.next()
+        bar.finish()
     def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None):
         """Create FB Domain for specified zones and timesteps. 
         
@@ -454,9 +470,11 @@ class FBDomainPlots():
             identify when domains for more scenarios are created, by default None.
         """
         
-        domain_info = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep].reset_index(drop=True)
-        A = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, list(self.data.nodes.zone.unique())].values
-        b = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep, "ram"].values
+        domain_info = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep]
+        domain_info = domain_info[~(domain_info[self.data.zones.index] == 0).all(axis=1)].reset_index()
+
+        A = domain_info.loc[:, list(self.data.zones.index)].values
+        b = domain_info.loc[:, "ram"].values
 
         # Checks 
         if not len(domain_x) == len(domain_y) == 2:
@@ -476,11 +494,12 @@ class FBDomainPlots():
         domain_info.loc[domain_info.index.isin(feasible_region_indices), "in_domain"] = True
 
         # Limit the number of constraints plottet to a threshold
-        threshold = int(1e5)
+        threshold = int(1e3)
         if len(A) > threshold:
             self.logger.info("Plot limited to %d constraints plotted", threshold)
             random_choice = np.random.choice(domain_info.index, size=threshold, replace=False)
-            plot_indices = np.sort(np.unique(np.append(feasible_region_indices, random_choice)))
+            n_0_indices = domain_info.index[domain_info.co == "basecase"].values
+            plot_indices = np.sort(np.unique(np.hstack([feasible_region_indices, random_choice, n_0_indices])))
             domain_info = domain_info.loc[plot_indices, :]
         else:
             plot_indices = domain_info.index

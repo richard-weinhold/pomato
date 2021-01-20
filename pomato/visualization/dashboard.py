@@ -171,7 +171,6 @@ class Dashboard():
                            "host": "127.0.0.1"}
 
         server_args = add_default_values_to_dict(kwargs, default_options)
-        print()
         self.app.run_server(**server_args)
 
     def join(self):

@@ -375,7 +375,6 @@ class POMATO():
 
         Additionally, this method create the appropriate grid representation. 
         """
-        self.fbmc.calculate_parameters()
         flowbased_paramters = self.fbmc.create_flowbased_parameters(basecase, **kwargs)
         self.create_grid_representation(flowbased_paramters=flowbased_paramters)
         return flowbased_paramters
