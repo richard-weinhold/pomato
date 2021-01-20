@@ -101,7 +101,7 @@ global daemon_file = pdir*"/daemon_"*model_type*".json"
 global gurobi_installed 
 global mosek_installed
 
-if VERSION >= v"1.5"
+if VERSION >= v"1.4"
     isinstalled(pkg::String) = any(x -> x.name == pkg && x.is_direct_dep, values(Pkg.dependencies()))
     mosek_installed = isinstalled("Mosek") 
     gurobi_installed = isinstalled("Gurobi") 
