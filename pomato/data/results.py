@@ -50,7 +50,7 @@ class Results():
         Folder with the results of the market model in .csv files.
     """
 
-    def __init__(self, data, grid, result_folder):
+    def __init__(self, data, grid, result_folder, auto_precalc=True):
         self.logger = logging.getLogger('log.pomato.data.DataWorker.Results')
         self.grid = grid
         self.data = data
@@ -96,8 +96,9 @@ class Results():
         self.load_results_from_folder(result_folder)
 
         # precalculate common results
-        download_thread = threading.Thread(target=self.create_result_data, name="result data")
-        download_thread.start()
+        precalc_thread = threading.Thread(target=self.create_result_data, name="result data")
+        if auto_precalc:
+            precalc_thread.start()
 
         # Set Redispatch = True if result is a redispatch result 
         if "redispatch" in self.result_attributes["name"]:
@@ -155,13 +156,12 @@ class Results():
             self.result_attributes = {**self.result_attributes,
                                       **self.data.options}
 
-
         self.result_attributes["source_folder"] = str(folder)
         self.result_attributes["name"] = folder.name
         if not "title" in self.result_attributes:
             self.result_attributes["title"] = self.result_attributes["name"]
         # Model Horizon as attribute
-        self.result_attributes["model_horizon"] = list(self.INJ.t.unique())
+        self.result_attributes["model_horizon"] = list(self.INJ['t'].drop_duplicates().sort_values())
         self.model_horizon = self.result_attributes["model_horizon"]
 
     def result_data_struct(self):
@@ -242,7 +242,11 @@ class Results():
         return data_struct
 
     def redispatch(self):
-        """Return Redispatch"""
+        """Return Redispatch.
+        Calculates a delta between redispatch,- and market result. 
+        Positive delta represents a higher generation after redispatch i.e. positive and negative 
+        vice versa. 
+        """
         # Find corresponding Market Result
         corresponding_market_result = self.result_attributes["corresponding_market_result_name"]
         if not (self.result_attributes["is_redispatch_result"] and bool(corresponding_market_result)):
@@ -431,8 +435,8 @@ class Results():
 
     def full_load_hours(self):
         """Returns plant data including full load hours."""        
-        gen = self.generation()[["t", "p", "fuel", "technology", "G", "g_max"]]
-        ava = self.data.availability.copy()[["timestep", "plant", "availability"]]
+        gen = self.generation()[["t", "p", "fuel", "technology", "G", "g_max"]].copy()
+        ava = self.data.availability.copy()[["timestep", "plant", "availability"]].copy()
         ava.columns = ["t", "p", "availability"]
         flh = pd.merge(gen, ava, on=["t", "p"], how="left").fillna(1)
         flh["utilization"] = flh.G/(flh.g_max * flh.availability)
@@ -453,6 +457,11 @@ class Results():
         es_gen = pd.merge(es_gen, self.D_es, on=["p", "t"])
         es_gen = pd.merge(es_gen, self.L_es, on=["p", "t"])
         return es_gen
+
+    def _sort_timesteps(self, column):
+        """Helper function to sort timesteps explicitly."""
+        order = {timestep: index for index, timestep in enumerate(self.model_horizon)}
+        return column.map(order)
 
     def demand(self, force_recalc=False):
         """Process total nodal demand composed of load and market results of storage/heatpump usage."""
@@ -479,6 +488,7 @@ class Results():
             demand["D_es"] = 0
         demand.fillna(value=0, inplace=True)
         demand["demand"] = demand.demand_el + demand.D_ph + demand.D_es
+        demand = demand.sort_values(by='t', key=self._sort_timesteps)
         self._cached_results.demand = demand
         return demand
 

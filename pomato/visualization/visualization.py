@@ -369,7 +369,7 @@ class Visualization():
         d = d[["t", "demand_el", "D_ph", "D_es", "net_export"]].groupby("t").sum()/1000
         d.loc[:, "demand_el"] -= (d.net_export)
         d = d.loc[market_result.model_horizon, :]
-
+        
         fig.add_trace(go.Scatter(x=d.index, y=d.demand_el - inf.infeasibility, line=dict(color="#000000"), name="demand")) 
         fig.add_trace(go.Scatter(x=d.index, y=d.demand_el - inf.infeasibility + d.D_es + d.D_ph, fill='tonexty', mode= 'none', fillcolor="#BFBDE5", name="storage charging"))
             

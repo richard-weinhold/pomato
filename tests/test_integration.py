@@ -109,4 +109,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         mato.create_grid_representation(flowbased_paramters=fb_parameters)
         mato.update_market_model_data()
         mato.run_market_model()
+
+        _, redisp = mato.data.return_results()
+        mato.visualization.create_geo_plot(redisp, show_plot=False)
         mato._join_julia_instances()

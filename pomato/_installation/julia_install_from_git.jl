@@ -2,8 +2,8 @@ using Pkg
 
 cd(@__DIR__)
 
-marketmodel_branch = ARGS[1]
-redundancyremoval_branch = ARGS[2]
+redundancyremoval_branch = ARGS[1]
+marketmodel_branch = ARGS[2]
 
 # runs from the pomato base folder
 if isdir("pomato")

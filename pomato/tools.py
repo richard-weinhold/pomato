@@ -40,6 +40,7 @@ class TimeSinceLastLog(logging.Handler):
     """A handler class which stores custom logrecord attribute for last log."""
     def __init__(self):
         super().__init__()
+        self.value = 0
     def emit(self, record):
         self.value = record.time_since_last
 
