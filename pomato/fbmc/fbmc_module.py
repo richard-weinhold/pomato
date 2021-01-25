@@ -5,6 +5,8 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import progress
+progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
 
 import pomato
 import pomato.tools as tools
@@ -36,7 +38,7 @@ class FBMCModule():
 
     """
     def __init__(self, wdir, grid, data, options):
-        self.logger = logging.getLogger('Log.MarketModel.FBMCModule')
+        self.logger = logging.getLogger('log.pomato.fbmc.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
 
         self.wdir = wdir
@@ -399,13 +401,12 @@ class FBMCModule():
         self.logger.info("Generating FB parameters for each timestep...")
         self.logger.info("Enforcing minRAM of %s%%", str(round(self.options["grid"]["minram"]*100)))
 
-        bar = Bar('Processing', max=len(basecase.model_horizon), 
+        bar = Bar('Processing FB Parameters...', max=len(basecase.model_horizon), 
                   check_tty=False, hide_cursor=True)
         for timestep in basecase.model_horizon:
             domain_data[timestep] = self.create_flowbased_ptdf(gsk_strategy, timestep, basecase)
             bar.next()
         bar.finish()
-        self.logger.info("Done with FB parameters.")
 
         cbco_info =  pd.concat([domain_data[t] for t in domain_data.keys()], ignore_index=True)
         if reduce:

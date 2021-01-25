@@ -10,6 +10,8 @@ from matplotlib.collections import LineCollection
 import numpy as np
 import pandas as pd
 from scipy import spatial
+import progress
+progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
 from progress.bar import Bar
 
 import pomato.tools as tools
@@ -167,8 +169,8 @@ class FBDomainPlots():
         FB parameters, as derived from :class:`~pomato.fbmc.FBMCModule`.
     """  
     def __init__(self, data, flowbased_parameters):
-              # Import Logger
-        self.logger = logging.getLogger('Log.visualization.FBDomainPlots')
+        # Import Logger
+        self.logger = logging.getLogger('log.pomato.visualization.FBDomainPlots')
         self.logger.info("Initializing FBDomainPlots....")
         self.data = data
         self.fbmc_plots = {}
@@ -192,13 +194,14 @@ class FBDomainPlots():
         self.set_xy_limits_forall_plots()
         plt.close("all")
         self.logger.info("Saving %s FB domains to folder %s", str(len(self.fbmc_plots)), folder)
+
         bar = Bar('Processing', max=len(self.fbmc_plots), 
                   check_tty=False, hide_cursor=True)
         for plot in self.fbmc_plots:
             self.fbmc_plots[plot].save_fbmc_domain(folder, include_ntc)
             plt.close("all")
             bar.next()
-        bar.finish()
+        # bar.finish()
 
         self.logger.info("Plotting Domains as .gif")    
         plot_types = set(["_".join(plot.split("_")[1:]) for plot in self.fbmc_plots])
@@ -245,14 +248,13 @@ class FBDomainPlots():
 
     def set_xy_limits_forall_plots(self):
         """For each fbmc plot object, set x and y limits"""
-
+        self.logger.info("Resetting x and y limits for all domain plots")
         x_min = min([self.fbmc_plots[plot].x_min for plot in self.fbmc_plots])
         x_max = max([self.fbmc_plots[plot].x_max for plot in self.fbmc_plots])
         y_min = min([self.fbmc_plots[plot].y_min for plot in self.fbmc_plots])
         y_max = max([self.fbmc_plots[plot].y_max for plot in self.fbmc_plots])
 
         for plots in self.fbmc_plots:
-            self.logger.info("Resetting x and y limits for %s", self.fbmc_plots[plots].title)
             self.fbmc_plots[plots].x_min = x_min
             self.fbmc_plots[plots].x_max = x_max
             self.fbmc_plots[plots].y_min = y_min
@@ -444,14 +446,14 @@ class FBDomainPlots():
         This method is based on :meth:`~generate_flowbased_domain`, which create the domain 
         plot for a specific timestep using the same arguments.       
         """
-
         timesteps = self.flowbased_parameters.timestep.unique()
         bar = Bar('Processing', max=len(timesteps), 
                   check_tty=False, hide_cursor=True)
         for timestep in timesteps:
-            self.generate_flowbased_domain(["R1", "R2"], ["R1", "R3"], timestep, filename_suffix)
+            self.generate_flowbased_domain(domain_x, domain_y, timestep, filename_suffix)
             bar.next()
-        bar.finish()
+        # bar.finish()
+
     def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None):
         """Create FB Domain for specified zones and timesteps. 
         
@@ -496,7 +498,7 @@ class FBDomainPlots():
         # Limit the number of constraints plottet to a threshold
         threshold = int(1e3)
         if len(A) > threshold:
-            self.logger.info("Plot limited to %d constraints plotted", threshold)
+            self.logger.debug("Plot limited to %d constraints plotted", threshold)
             random_choice = np.random.choice(domain_info.index, size=threshold, replace=False)
             n_0_indices = domain_info.index[domain_info.co == "basecase"].values
             plot_indices = np.sort(np.unique(np.hstack([feasible_region_indices, random_choice, n_0_indices])))
@@ -507,7 +509,7 @@ class FBDomainPlots():
         plot_equations = self.create_domain_plot(A, b, plot_indices)
         feasible_region_vertices, _ = self.create_feasible_region_vertices(A, b, feasible_region_indices)
         
-        self.logger.info("Number of CBCOs defining the domain %d", len(feasible_region_vertices[:, 0]) - 1)
+        self.logger.debug("Number of CBCOs defining the domain %d", len(feasible_region_vertices[:, 0]) - 1)
 
         plot_information = {"gsk_strategy": gsk_strategy, "timestep": timestep,
                             "domain_x": domain_x, "domain_y": domain_y,

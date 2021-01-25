@@ -68,7 +68,7 @@ class GridTopology():
     """
     numpy_settings = np.seterr(divide="raise")
     def __init__(self):
-        self.logger = logging.getLogger('Log.MarketModel.GridTopology')
+        self.logger = logging.getLogger('log.pomato.grid.GridTopology')
         self.nodes = None
         self.lines = None
         self.incidence_matrix = None

@@ -51,7 +51,7 @@ class Results():
     """
 
     def __init__(self, data, grid, result_folder):
-        self.logger = logging.getLogger('Log.MarketModel.DataManagement.ResultData')
+        self.logger = logging.getLogger('log.pomato.data.DataWorker.Results')
         self.grid = grid
         self.data = data
         self.output_folder = self.data.wdir.joinpath("data_output").joinpath(result_folder.name)

@@ -4,20 +4,51 @@ This collection is characterized by a certain degree of generality and they cann
 attributed to a specified component of pomato.
 """
 
-import json
 import datetime
+import json
+import logging
 import operator
+import os
+import shutil
 import subprocess
+import sys
 import threading
-import shutil, os 
 import time
-import numpy as np
 from functools import reduce
 from pathlib import Path
 
-
+import logaugment
+import numpy as np
 import pandas as pd
+import progress
+from progress.spinner import Spinner
 import pomato._installation.manage_julia_env as julia_management
+
+progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
+
+
+def _process_record(record):
+    now = datetime.datetime.utcnow()
+    try:
+        delta = (now - _process_record.now).total_seconds()
+    except AttributeError:
+        delta = 0
+    _process_record.now = now
+    return {'time_since_last': delta}
+
+class TimeSinceLastLog(logging.Handler):
+    """A handler class which stores custom logrecord attribute for last log."""
+    def __init__(self):
+        super().__init__()
+    def emit(self, record):
+        self.value = record.time_since_last
+
+def remove_unsupported_chars(line):
+    """Remove string from julia log, that are not supported by python logging."""
+    remove_str = ["└", "┌", "│", "[ Info: "]
+    for r in remove_str:
+        line = line.replace(r, "")
+    return line.strip()
 
 class JuliaDaemon():
     """Class to communicate with a julia daemon process.
@@ -57,6 +88,10 @@ class JuliaDaemon():
         self.julia_module = julia_module
 
         self.logger = logger
+        logaugment.add(self.logger, _process_record)
+        self._last_log = TimeSinceLastLog()
+        logger.addHandler(self._last_log)
+
         self.wdir = wdir
         self.package_dir = package_dir
         self.daemon_file = package_dir.joinpath(f"daemon_{julia_module}.json")
@@ -76,11 +111,12 @@ class JuliaDaemon():
         """Stat julia daemon"""
         args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
                 str(self.julia_daemon_path), self.julia_module, str(self.package_dir)]
-        with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, cwd=str(self.wdir)) as program:
-            for line in program.stdout:
-                if not any(w in line.decode(errors="ignore") for w in ["Academic license"]):
-                    self.logger.info(line.decode("UTF-8", errors="ignore").replace("[ Info:", "").strip())
+        process = subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT, cwd=str(self.wdir))
+        while process.returncode is None:    
+            for line in process.stdout:
+                self.logger.info(remove_unsupported_chars(line.decode()))
+            process.poll()
 
     def join(self):
         """Exit the julia daemon and join python threads"""
@@ -125,7 +161,7 @@ class JuliaDaemon():
                     json.dump(file, config, indent=2)
                     break
             except:
-                self.logger.warning("Failed to write to daemon file.")
+                self.logger.debug("Failed to write to daemon file.")
                 time.sleep(1)
 
     def read_daemon_file(self):
@@ -136,7 +172,7 @@ class JuliaDaemon():
                     file = json.load(jsonfile)
                 return file
             except:
-                self.logger.warning("Failed to read from daemon file.")
+                self.logger.debug("Failed to read from daemon file.")
                 time.sleep(1)
 
     def halt_while_processing(self):
@@ -144,8 +180,7 @@ class JuliaDaemon():
 
         Sometimes its better for the user to wait until julia is done.
         """
-        progress_indicator = 1
-        counter = 0
+        spinner = Spinner('Processing... ', check_tty=False, hide_cursor=True)
         while True:
             time.sleep(0.1)
             file = self.read_daemon_file()
@@ -153,17 +188,8 @@ class JuliaDaemon():
                 self.logger.info("Program Done")
                 break
             else:
-                # self.logger.info("Waiting for processing to complete")
-                counter += 1
-                if counter > 100:
-                    if progress_indicator < 0:
-                        dots = "\\"
-                    else:
-                        dots = "/"
-                    print("\r" + dots + "Waiting for processing to complete" + dots, end="")
-                    progress_indicator *= -1
-                    counter = 0
-
+                if self._last_log.value > 10:
+                    spinner.next()
 
     def halt_until_ready(self):
         """Halt python main thread until julia is initialized.
@@ -172,8 +198,7 @@ class JuliaDaemon():
         it has to be ready before a model can be run. 
         This method halts the main thread until julia is ready. 
         """
-        progress_indicator = 1
-        counter = 0
+        spinner = Spinner('Starting Julia Process... ', check_tty=False, hide_cursor=True)
         while True:
             time.sleep(0.1)
             file = self.read_daemon_file()
@@ -181,15 +206,8 @@ class JuliaDaemon():
                 self.logger.info("Process ready!")
                 break
             else:
-                counter += 1
-                if counter > 50:
-                    if progress_indicator < 0:
-                        dots = "\\"
-                    else:
-                        dots = "/"
-                    print("\r" + dots + "Waiting until Julia is ready" + dots, end="")
-                    progress_indicator *= -1
-                    counter = 0
+                if self._last_log.value > 10:
+                    spinner.next()
 
     def run(self, args=None):
         """Run julia process.

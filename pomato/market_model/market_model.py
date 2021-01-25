@@ -58,7 +58,7 @@ class MarketModel():
     """
 
     def __init__(self, wdir, options, data, grid_representation):
-        self.logger = logging.getLogger('Log.MarketModel.JuliaInterface')
+        self.logger = logging.getLogger('log.pomato.market_model.MarketModel')
         self.logger.info("Initializing MarketModel...")
         self.options = options
 

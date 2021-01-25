@@ -10,11 +10,9 @@ def julia_instantiate(install_lib_path):
     args = ["julia", "_installation/julia_install_from_git.jl"]   
     # raise ImportError("package path %s", package_path)
     package_path = Path(install_lib_path).joinpath("pomato")
-    with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, cwd=str(package_path)) as program:
-        for line in program.stdout:
-          pass
-            # print(line.decode(errors="ignore").strip())
+    process = subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
+                          stderr=subprocess.STDOUT, cwd=str(package_path))
+    process.communicate()
 
 def check_for_julia():
     # Check if julia exists
@@ -61,6 +59,8 @@ setup(name='pomato',
         'scipy',
         'imageio',
         'plotly',
+        'progress',
+        'logaugment',
         'kaleido',
         'dash',
         'dash_bootstrap_components',

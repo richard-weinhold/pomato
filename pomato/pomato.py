@@ -126,7 +126,7 @@ from pomato.fbmc import FBMCModule
 
 def _logging_setup(wdir, logging_level=logging.INFO):
     # Logging setup
-    logger = logging.getLogger('Log.MarketModel')
+    logger = logging.getLogger('log.pomato')
     logger.setLevel(logging_level)
     if len(logger.handlers) < 2:
         # create file handler which logs even debug messages

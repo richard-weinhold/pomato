@@ -77,7 +77,7 @@ class DataWorker(object):
     """
 
     def __init__(self, data, file_path):
-        self.logger = logging.getLogger('Log.MarketModel.DataManagement.DataWorker')
+        self.logger = logging.getLogger('log.pomato.data.DataWorker')
         self.data = data
 
         if ".xls" in str(file_path):

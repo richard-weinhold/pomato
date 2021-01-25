@@ -105,7 +105,7 @@ class DataManagement():
 
     def __init__(self, options, wdir):
         # import logger
-        self.logger = logging.getLogger('Log.MarketModel.DataManagement')
+        self.logger = logging.getLogger('log.pomato.data.DataManagement')
         self.logger.info("Initializing DataObject")
 
         self.wdir = wdir

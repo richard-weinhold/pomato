@@ -60,10 +60,15 @@ def page_0():
             ])                   
     return layout
 
-def page_1():
+def page_generation():
 
     layout = dbc.Container(
         [
+            dbc.Row(
+                [
+                    dbc.Col(html.Button('Update Results', id='results-botton', n_clicks=0), style={"padding": "15px"}),
+                    dbc.Col(dcc.Dropdown(id='results-dropdown'), style={"padding": "15px"})
+                ]),
             dbc.Row(
                 [    
                     dbc.Col(html.P("Click or select nodes to see plants and generation.", className="control_label"),
@@ -79,23 +84,25 @@ def page_1():
             dbc.Row(
                 [
                     dbc.Col(
-                        html.Div([dcc.Markdown("""**Hover Data**"""),
-                                    html.Pre(id='hover-geo-generation')]), width=4),
-                    dbc.Col(
                         html.Div([dcc.Markdown("""**Hover Plant Table**"""),
                             dash_table.DataTable(id='plant-table')]), width=4),
-                    dbc.Col(
-                        html.Div([
-                            dcc.Markdown("""**Selection Data**"""),
-                            html.Pre(id='selection-geo-generation')]), width=4)
+                    # dbc.Col(
+                    #     html.Div([
+                    #         dcc.Markdown("""**Selection Data**"""),
+                    #         html.Pre(id='selection-geo-generation')]), width=4)
                     ]),
             ], fluid=True)
                                     
     return layout
 
-def page_2():
+def page_transmission():
     layout = dbc.Container(
         [
+            dbc.Row(
+                [
+                    dbc.Col(html.Button('Update Results', id='results-botton', n_clicks=0), style={"padding": "15px"}),
+                    dbc.Col(dcc.Dropdown(id='results-dropdown'), style={"padding": "15px"})
+            ]),
             dbc.Row(
                 [
                     dbc.Col([html.Div(id='timestep-display'),
@@ -116,13 +123,11 @@ def page_2():
                                     {'label': 'N-1 Flows', 'value': 1},
                                     {'label': 'Voltage Levels', 'value': 2}],
                                 value=0),
-                            html.P("Click Mode:", className="control_label",
+                            html.Div(id='lineloading-display', className="control_label",
                                     style={"margin-top": "15px"}),
-                            dcc.RadioItems(id='line-click-option',
-                                options=[
-                                    {'label': 'Add to Line Plot', 'value': 0},
-                                    {'label': 'Show LODF', 'value': 1}],
-                                value=0),
+                            dbc.Input(id="input-lineloading", type="number", 
+                                      placeholder="Lineloading", value=0, debounce=True,
+                                      min=0, max=100, step=1),
                             html.P("Show Prices:", className="control_label",
                                     style={"margin-top": "15px"}),
                             BooleanSwitch(id='toggle-prices', on=False),
@@ -139,19 +144,21 @@ def page_2():
             dbc.Row(
                 [
                     dbc.Col(
-                        html.Div([dcc.Markdown("""**Hover Data**"""),
-                                    html.Pre(id='hover-geo-lines')]), width=4),
-                    dbc.Col(
                         html.Div([dcc.Markdown("""**Click Data**"""),
                                     dash_table.DataTable(id='node-table')]), width=4),
-                    dbc.Col(
-                        html.Div([
-                            dcc.Markdown("""**Selection Data**"""),
-                            html.Pre(id='selection-geo-lines')]), width=4)
                 ], className="h-25"),
             ], 
         fluid=True)
     return layout
+
+def render_content(tab):
+    if tab == 'overview_tab':
+        return page_0()
+    elif tab == 'generation_tab':
+        return page_generation()
+    elif tab == "transmission_tab":
+        return page_transmission()
+
 
 class Dashboard():
     def __init__(self, pomato_instance, **kwargs):
@@ -185,14 +192,19 @@ class Dashboard():
     
     def init_app(self):
         self.app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
+        self.app.config['suppress_callback_exceptions'] = True
         # self.app.layout = self.create_layout()
         self.app.layout = html.Div([
-            dcc.Tabs([
-                dcc.Tab(label='Overview', children=[page_0()]),
-                dcc.Tab(label='Generation', children=[page_1()]),
-                dcc.Tab(label='Transmission', children=[page_2()]),
-                ])
-            ])
+            dcc.Tabs(id='pomato-tabs', value='overview_tab', children=[
+                dcc.Tab(label='Overview', value='overview_tab'),
+                dcc.Tab(label='Generation', value='generation_tab'),
+                dcc.Tab(label='Transmission', value='transmission_tab'),
+            ]),
+            html.Div(id='tab-content')
+        ])
+
+        self.app.callback(dash.dependencies.Output('tab-content', 'children'),
+                          dash.dependencies.Input('pomato-tabs', 'value'))(render_content)
         # Callbacks
         # Page 1: Summary 
         self.app.callback([dash.dependencies.Output('results-dropdown', 'options'),
@@ -229,22 +241,13 @@ class Dashboard():
         # Geoplot
         self.app.callback(dash.dependencies.Output('geo-figure-generation', 'figure'),
             [dash.dependencies.Input('results-dropdown', 'value')])(self.update_geo_plot)
-
-        # Hover Geoplot
-        self.app.callback(dash.dependencies.Output('hover-geo-generation', 'children'),
-            [dash.dependencies.Input('geo-figure-generation', 'hoverData')])(display_hover_data)
         
         # Click Plant Table
         self.app.callback([dash.dependencies.Output('plant-table', 'columns'),
                            dash.dependencies.Output('plant-table', 'data')],
                           [dash.dependencies.Input('results-dropdown', 'value'),
                            dash.dependencies.Input('geo-figure-generation', 'clickData')])(self.display_plant_data)
-                
-        # Select Geoplot
-        self.app.callback(dash.dependencies.Output('selection-geo-generation', 'children'),
-            [dash.dependencies.Input('geo-figure-generation', 'selectedData')])(display_hover_data)
-        
-
+                        
         ### Page 3: Lines 
         # Geoplot 
         self.app.callback(dash.dependencies.Output('geo-figure-lines', 'figure'),
@@ -252,7 +255,8 @@ class Dashboard():
              dash.dependencies.Input('toggle-redispatch', 'on'),
              dash.dependencies.Input('toggle-prices', 'on'),
              dash.dependencies.Input('flow-option', 'value'),
-             dash.dependencies.Input('timestep-selector', 'value')])(self.update_geo_plot)
+             dash.dependencies.Input('timestep-selector', 'value'),
+             dash.dependencies.Input('input-lineloading', 'value'),])(self.update_geo_plot)
         
         # Click Lines Geoplot
         self.app.callback(dash.dependencies.Output('line-selector', 'value'),
@@ -269,18 +273,14 @@ class Dashboard():
         self.app.callback(dash.dependencies.Output('timestep-display', 'children'),
             [dash.dependencies.Input('results-dropdown', 'value'),
              dash.dependencies.Input('timestep-selector', 'value')])(self.display_timestep)
-
-        # Hover Geoplot 
-        self.app.callback(dash.dependencies.Output('hover-geo-lines', 'children'),
-            [dash.dependencies.Input('geo-figure-lines', 'hoverData')])(display_hover_data)
-    
+        # Lineloading display
+        self.app.callback(dash.dependencies.Output('lineloading-display', 'children'),
+                          dash.dependencies.Input('input-lineloading', 'value'))(self.display_lineloading)
+        # Display Node data    
         self.app.callback([dash.dependencies.Output('node-table', 'columns'),
                            dash.dependencies.Output('node-table', 'data')],
                           [dash.dependencies.Input('results-dropdown', 'value'),
                            dash.dependencies.Input('geo-figure-lines', 'clickData')])(self.display_node_data)
-        # Select Geoplot
-        self.app.callback(dash.dependencies.Output('selection-geo-lines', 'children'),
-            [dash.dependencies.Input('geo-figure-lines', 'selectedData')])(display_hover_data)
 
         self.app.server.route('/shutdown', methods=['POST'])(shutdown)
                 
@@ -335,6 +335,9 @@ class Dashboard():
     def display_timestep(self, result_name, timestep):
         result = self.pomato_instance.data.results[result_name]
         return "Select timestep with slider - currently selected: " + result.model_horizon[timestep]
+    
+    def display_lineloading(self, lineloading):
+        return "Show lines >" + str(lineloading) + "% loading."
         
     def update_result_selection(self, n_clicks):
         options = []
@@ -391,7 +394,7 @@ class Dashboard():
         return fig
     
     def update_geo_plot(self, result_name, show_redispatch=False, show_prices=False, line_color_option=0, 
-                        timestep=None):
+                        timestep=None, threshold=0):
         result = self.pomato_instance.data.results[result_name]
         vis = self.pomato_instance.visualization
         fig =  vis.create_geo_plot(result, 
@@ -399,6 +402,7 @@ class Dashboard():
                                    show_prices=show_prices,
                                    line_color_option=line_color_option,
                                    timestep=timestep, 
+                                   threshold=threshold,
                                    show_plot=False)
         fig.update_layout(uirevision = True)
         return fig

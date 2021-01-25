@@ -73,12 +73,12 @@ class Visualization():
     """
     def __init__(self, wdir, data):
         # Impoort Logger
-        self.logger = logging.getLogger('Log.visualization.Visualization')
+        self.logger = logging.getLogger('Log.pomato.visualization.Visualization')
         self.wdir = wdir
         self.data = data
 
     def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, 
-                        timestep=None, line_color_option=0, show_plot=True, filepath=None):
+                        timestep=None, threshold=0, line_color_option=0, show_plot=True, filepath=None):
         """Creates Geoplot of market result.
 
         The geoplot is a interactive plotly figure showing lineloading, redispatch and prices 
@@ -169,17 +169,19 @@ class Visualization():
         )
 
         line_coords = np.array(result_data.line_coordinates)
-        lines["colors"], lines["alpha"] = line_colors(lines, n_0_flows, 
-                                                      n_1_flows, option=line_color_option)
+        lines["colors"], lines["alpha"] = line_colors(lines, n_0_flows, n_1_flows, 
+                                                      option=line_color_option,
+                                                      threshold=threshold)
+
         hovertemplate_lines = "<br>".join(["Line: %{customdata[0]}", 
                                            "Capcity: %{customdata[1]:.2f} MW",
                                            "N-0 Flow %{customdata[2]:.2f} MW",
                                            "N-1 Flow %{customdata[3]:.2f} MW"]) + "<extra></extra>"
         # Add Lines for each color
-        for c in lines.colors.unique():
-            tmp_lines = lines[lines.colors == c]
+        for color, alpha in (lines[["colors", "alpha"]].apply(tuple, axis=1).unique()):
+            tmp_lines = lines[(lines.colors == color)&(lines.alpha == alpha)]
             # tmp_lines_idx = [lines.index.get_loc(line) for line in tmp_lines.index]
-            alpha = lines.alpha.unique()[0]
+            alpha = alpha
             lons, lats = [], []
             customdata = None
             for line in tmp_lines.index:
@@ -202,7 +204,7 @@ class Visualization():
                     lon = lons,
                     lat = lats,
                     mode = 'lines',
-                    line = dict(width = 2, color=c),
+                    line = dict(width = 2, color=color),
                     opacity = alpha,
                     customdata=customdata,
                     hovertemplate=hovertemplate_lines
@@ -276,8 +278,8 @@ class Visualization():
                                         marker=dict(
                                             colorscale="Viridis", 
                                             showscale=True,
-                                            cmin=prices_layer.min(),
-                                            cmax=prices_layer.max(),
+                                            cmin=prices_layer.min().round(2),
+                                            cmax=prices_layer.max().round(2),
                                             colorbar=dict(thickness=5)
                                         ), hoverinfo='none')
             fig.add_trace(price_colorbar)

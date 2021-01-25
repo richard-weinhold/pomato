@@ -63,7 +63,7 @@ class GridModel():
 
     def __init__(self, wdir, grid, data, option):
         # Import Logger
-        self.logger = logging.getLogger('Log.MarketModel.GridTopology')
+        self.logger = logging.getLogger('log.pomato.grid.GridTopology')
         self.logger.info("Initializing the GridTopology....")
 
         self.options = option

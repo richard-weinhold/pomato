@@ -66,7 +66,7 @@ def add_prices_layer(nodes, prices, compress=True):
     return prices_layer, corners, plot_hight/plot_width
 
 
-def line_colors(lines, n_0_flows, n_1_flows,
+def line_colors(lines, n_0_flows, n_1_flows, threshold=0,
                 option=0, range_start=0, range_end=100):
     """Line colors in 10 shades of RedYellowGreen palette"""
     ## 0: N-0 Flows, 1: N-1 Flows 2: Line voltage levels
@@ -78,7 +78,9 @@ def line_colors(lines, n_0_flows, n_1_flows,
     if option == 0:
         n_0_flows = n_0_flows.to_frame()
         n_0_flows.columns = ["flow"]
-        n_0_flows["alpha"] = 0.4
+        n_0_flows["alpha"] = 0.7
+        condition_threshold = abs(n_0_flows.flow.values)/lines.capacity < threshold/100
+        n_0_flows.loc[condition_threshold, "alpha"] = 0.1
         n_0_flows["color"] = RdYlGn[0]
         for idx, loading in enumerate(steps):
             condition = abs(n_0_flows.flow.values)/lines.capacity > loading/100
@@ -89,13 +91,17 @@ def line_colors(lines, n_0_flows, n_1_flows,
     elif option == 1:
         n_1_flows = n_1_flows.to_frame()
         n_1_flows.columns = ["flow"]
-        n_1_flows["alpha"] = 0.4
+        n_1_flows["alpha"] = 0.7
+        condition_threshold = abs(n_1_flows.flow.values)/lines.capacity < threshold/100
+        n_1_flows.loc[condition_threshold, "alpha"] = 0.1
+
         n_1_flows["color"] = RdYlGn[0]
         for idx, loading in enumerate(steps):
             condition = abs(n_1_flows.flow.values)/lines.capacity > loading/100
             n_1_flows.loc[condition, "color"] = RdYlGn[idx]
         color = list(n_1_flows.color.values)
         line_alpha = list(n_1_flows.alpha.values)
+    
     elif option == 2:
         color = create_voltage_colors(lines)
         line_alpha = [0.6 for i in lines.index]

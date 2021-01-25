@@ -12,7 +12,7 @@ function write_daemon_file(file::Dict)
             close(io)
             break
         catch e
-            @info("Failed to write to file $(daemon_file))")
+            @debug("Failed to write to file $(daemon_file))")
         end
         sleep(1)
     end
@@ -27,7 +27,7 @@ function read_daemon_file()
             close(io)
             return file
         catch e
-            @info("Failed to read from file $(daemon_file))")
+            @debug("Failed to read from file $(daemon_file))")
         end
         sleep(1)
     end
@@ -62,7 +62,7 @@ function run_redundancy_removal_fbmc_domain(multi_threaded::Bool)
     end
 end
 
-function run_market_model(redisp_arg::Bool)
+function run_julia_market_model(redisp_arg::Bool)
     global wdir
     global optimizer
 
@@ -93,10 +93,10 @@ end
 
 # Setting everthing up
 ######################
-global model_type = ARGS[1]
+global julia_package_type = ARGS[1]
 global pdir = ARGS[2]
 global wdir = pwd()
-global daemon_file = pdir*"/daemon_"*model_type*".json"
+global daemon_file = pdir*"/daemon_"*julia_package_type*".json"
 
 global gurobi_installed 
 global mosek_installed
@@ -122,9 +122,9 @@ else
     using Clp
 end
 
-if model_type == "redundancy_removal"
+if julia_package_type == "redundancy_removal"
     using RedundancyRemoval
-elseif model_type == "market_model"
+elseif julia_package_type == "market_model"
     using MarketModel
 else
     throw(ArgumentError("No valid argument given"))
@@ -165,7 +165,7 @@ while true
             global wdir
             redispatch = file["redispatch"]
             data_dir = file["data_dir"]
-            run_market_model(redispatch)
+            run_julia_market_model(redispatch)
         end
         file["processing"] = false
         write_daemon_file(file)

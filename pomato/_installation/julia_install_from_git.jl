@@ -2,13 +2,16 @@ using Pkg
 
 cd(@__DIR__)
 
+marketmodel_branch = ARGS[1]
+redundancyremoval_branch = ARGS[2]
+
 # runs from the pomato base folder
 if isdir("pomato")
 	rm("pomato", recursive=true)
 end
 Pkg.activate("pomato")
-Pkg.add(PackageSpec(url="https://github.com/richard-weinhold/MarketModel.git", rev="construction")) 
-Pkg.add(PackageSpec(url="https://github.com/richard-weinhold/RedundancyRemoval.git", rev="master")) 
+Pkg.add(PackageSpec(url="https://github.com/richard-weinhold/MarketModel.git", rev=marketmodel_branch)) 
+Pkg.add(PackageSpec(url="https://github.com/richard-weinhold/RedundancyRemoval.git", rev=redundancyremoval_branch)) 
 Pkg.add("JSON")
 Pkg.add("Clp")
 
