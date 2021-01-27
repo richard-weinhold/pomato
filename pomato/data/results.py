@@ -212,7 +212,7 @@ class Results():
         data_struct.n_0_flow = self.n_0_flow()
         data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.1)
         data_struct.prices = self.price()
-        self._cached_results.result_data = data_struct
+        self._cached_results.result_data = deepcopy(data_struct)
         self.logger.info("Done calculating common results.")
 
         return data_struct
@@ -238,7 +238,7 @@ class Results():
         data_struct.dc_flow = data_struct.dc_flow.pivot(index="dc", columns="t", values="F_DC") \
                                 .abs().mean(axis=1).reindex(self.data.dclines.index).fillna(0)
         data_struct.prices = data_struct.prices[["n", "marginal"]].groupby("n").mean()
-        self._cached_results.averaged_result_data = data_struct
+        self._cached_results.averaged_result_data = deepcopy(data_struct)
         return data_struct
 
     def redispatch(self):
