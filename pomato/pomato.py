@@ -119,9 +119,7 @@ import pomato.tools as tools
 from pomato.data import DataManagement, Results
 from pomato.grid import GridTopology, GridModel
 from pomato.market_model import MarketModel
-from pomato.visualization import Visualization
-# from pomato.visualization import GeoPlot
-from pomato.visualization.dashboard import Dashboard
+from pomato.visualization import Visualization, Dashboard
 from pomato.fbmc import FBMCModule
 
 def _logging_setup(wdir, logging_level=logging.INFO):

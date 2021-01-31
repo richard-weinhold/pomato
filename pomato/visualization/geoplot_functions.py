@@ -1,8 +1,16 @@
 """Collection of functions used in the generation of the GeoPlot."""
 
-import pandas as pd
+from math import atan2
+
+import geojson
 import numpy as np
+import pandas as pd
 import scipy
+import scipy.spatial
+import shapely
+import shapely.geometry
+import shapely.ops
+
 
 def merc(lat, lon):
     """convert lat lon to x,y"""
@@ -11,6 +19,38 @@ def merc(lat, lon):
     scale = coord_x/lon
     coord_y = 180.0/np.pi * np.log(np.tan(np.pi/4.0 + lat * (np.pi/180.0)/2.0)) * scale
     return(coord_x, coord_y)
+
+
+def _create_geo_json(zones, nodes, boundaries=None):
+    node_coordinates = nodes.loc[:, ["lon", "lat"]].values
+    if not boundaries:
+        lon_min, lat_min = node_coordinates.min(axis=0)*.99
+        lon_max, lat_max= node_coordinates.max(axis=0)*1.01
+        # Four corners counter clockwise, first element == last element
+        boundaries = [[lon_min, lat_min], [lon_min, lat_max], 
+                        [lon_max, lat_max], [lon_max, lat_min], 
+                        [lon_min, lat_min]]
+
+    points = np.vstack([node_coordinates, np.array(boundaries)])
+    vor = scipy.spatial.Voronoi(points) #pylint: disable=no-member
+    boundaries = shapely.geometry.Polygon(boundaries)
+    features = []
+    for zone in zones.index:
+        node_polygons = []
+        for node in nodes[nodes.zone == zone].index:
+            node_index = nodes.index.get_loc(node)
+            vor_regions = vor.regions[vor.point_region[node_index]]
+            if -1 in vor_regions:
+                vor_regions.remove(-1)
+            vertices = vor.vertices[vor.regions[vor.point_region[node_index]]]
+            center_x, center_y = (max(vertices[:, 0]) + min(vertices[:, 0])) / 2, (max(vertices[:, 1]) + min(vertices[:, 1])) / 2
+            vertices = [list(x) for x in vertices]
+            vertices.sort(key=lambda c:atan2(c[0] - center_x, c[1] - center_y))
+            vertices.append(vertices[0])
+            node_polygons.append(shapely.geometry.Polygon(vertices).intersection(boundaries))
+        zone_polygon = shapely.ops.unary_union(node_polygons)    
+        features.append(geojson.Feature(geometry=zone_polygon.__geo_interface__, id=zone))  
+    return geojson.FeatureCollection(features)
 
 def _build_raster(nodes, plot_width, plot_hight, alpha=4):
     """Build Raster for prices layer"""
@@ -34,9 +74,6 @@ def add_prices_layer(nodes, prices, compress=True):
     """Adds prices layer to Geoplot"""
 
     if compress:
-        # price[price.marginal >= 1000]
-        # prices.loc[prices.marginal > 100] = 100
-
         quantile = .1
         prices.loc[prices.marginal > prices.marginal.quantile(1 - quantile), "marginal"] = prices.marginal.quantile(1 - quantile)
         prices.loc[prices.marginal < prices.marginal.quantile(quantile), "marginal"] = prices.marginal.quantile(quantile)
@@ -61,7 +98,7 @@ def add_prices_layer(nodes, prices, compress=True):
     lon_min, lon_max = min(lon), max(lon)
     lat_min, lat_max = min(lat), max(lat)
     corners = [[lon_max, lat_min], [lon_max, lat_max], 
-               [lon_min, lat_max], [lon_min, lat_min], ]
+               [lon_min, lat_max], [lon_min, lat_min]]
 
     return prices_layer, corners, plot_hight/plot_width
 

@@ -5,18 +5,25 @@ import random
 import shutil
 import time
 import unittest
+import tempfile
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from context import pomato
+from context import pomato, copytree
 
 # pylint: disable-msg=E1101
 class TestPomatoVisualization(unittest.TestCase):
     
     def setUp(self):
-        wdir = Path.cwd().joinpath("examples")
-        self.mato = pomato.POMATO(wdir=wdir, options_file="profiles/nrel118.json",
+
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.wdir = Path(self.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), self.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), self.wdir)
+
+
+        self.mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/nrel118.json",
                                   logging_level=logging.ERROR)
         self.mato.load_data('data_input/nrel_118.zip')
         
@@ -27,8 +34,8 @@ class TestPomatoVisualization(unittest.TestCase):
         self.mato.data.lines["cb"] = False
         self.mato.data.lines.loc["line001", "cb"] = True  
         
-        market_folder = self.mato.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_market_results")
-        redispatch_folder = self.mato.wdir.parent.joinpath("tests/test_data/nrel_result/dispatch_redispatch")
+        market_folder = self.mato.wdir.joinpath("dispatch_market_results")
+        redispatch_folder = self.mato.wdir.joinpath("dispatch_redispatch")
         self.mato.initialize_market_results([market_folder, redispatch_folder])
         self.mato.data.results["dispatch_redispatch"].result_attributes["corresponding_market_result_name"] = "dispatch_market_results"
 
@@ -60,7 +67,7 @@ class TestPomatoVisualization(unittest.TestCase):
         self.mato.visualization.create_generation_overview(result, show_plot=False, filepath=filepath)
 
     def test_fbmc_domain_plot(self):
-        folder = self.mato.wdir.parent.joinpath("tests/test_data/nrel_result/scopf_market_results")
+        folder = self.mato.wdir.joinpath("scopf_market_results")
         self.mato.initialize_market_results([folder])
         basecase = self.mato.data.results["scopf_market_results"]
         self.mato.options["grid"]["minram"] = 0.1
@@ -77,15 +84,24 @@ class TestPomatoVisualization(unittest.TestCase):
 
     def test_geoplot(self):
         result = self.mato.data.results["dispatch_redispatch"]
-        filepath = self.mato.wdir.joinpath("data_output/generation_overview.html")
+        filepath = self.mato.wdir.joinpath("data_output/geoplot.html")
         self.mato.visualization.create_geo_plot(result, show_prices=True, show_redispatch=True, 
                                                 show_plot=False, filepath=filepath)
 
     def test_geoplot_timestep(self):    
         result = self.mato.data.results["dispatch_redispatch"]
-        filepath = self.mato.wdir.joinpath("data_output/generation_overview_timestep.html")                                     
+        filepath = self.mato.wdir.joinpath("data_output/geoplot_timestep.html")                                     
         self.mato.visualization.create_geo_plot(result, show_prices=True, show_redispatch=True, 
                                                 show_plot=False, timestep=0, filepath=filepath)
+    def test_zonal_geoplot(self):
+        result = self.mato.data.results["dispatch_redispatch"]
+        filepath = self.mato.wdir.joinpath("data_output/geoplot_zonal.html")
+        self.mato.visualization.create_zonal_geoplot(result, show_plot=False, filepath=filepath)
+
+    def test_zonal_geoplot_timestep(self):    
+        result = self.mato.data.results["dispatch_redispatch"]
+        filepath = self.mato.wdir.joinpath("data_output/geoplot_zonal_timestep.html")                                     
+        self.mato.visualization.create_zonal_geoplot(result, show_plot=False, timestep=0, filepath=filepath)
 
     def test_dashboard(self):
         self.mato.start_dashboard()

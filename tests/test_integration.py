@@ -10,20 +10,21 @@ import time
 
 import numpy as np
 import pandas as pd
-
-from context import pomato, copytree	
+import tempfile
+from context import pomato, copytree
            
 # pylint: disable-msg=E1101
 class TestPomatoMarketModel(unittest.TestCase):
     def setUp(self):
-        self.wdir = Path.cwd().joinpath("examples")
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.wdir = Path(self.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), self.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data/cbco_lists"), self.wdir)
+
 
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("domains"), ignore_errors=True)
+        pass
     
     def test_run_nrel(self):
         # What takes how long
@@ -31,7 +32,7 @@ class TestPomatoMarketModel(unittest.TestCase):
                              logging_level=logging.INFO)
         mato.load_data('data_input/nrel_118.zip')
         
-        my_file = self.wdir.parent.joinpath('tests/test_data/cbco_nrel_118.csv')
+        my_file = self.wdir.joinpath('cbco_nrel_118.csv')
         to_file = self.wdir.joinpath('data_temp/julia_files/cbco_data/cbco_nrel_118.csv')
         shutil.copyfile(str(my_file), str(to_file))
 

@@ -101,6 +101,7 @@ class FBDomain():
                   Line2D([0], [0], color="dimgrey", lw=2),
                   Line2D([0], [0], color="lightgrey", lw=2)]
         legend_text = ['Flow Based Domain', 'N-0 Constraints', 'N-1 Constraints']
+
         if include_ntc and not self.ntc.empty:
             # Include NTC as box in the domain plot
             ntc_x_pos = self.ntc.loc[(self.domain_x[0], self.domain_x[1]), "ntc"]
@@ -142,7 +143,6 @@ class FBDomain():
         fig = self.create_fbmc_figure(include_ntc=include_ntc) 
         fig.savefig(str(folder.joinpath(f"FBMC_{self.title}.png")))
         fig.clf()
-
 
 class FBDomainPlots():
     """Create FB domain plots based on flowbased paramters.
@@ -286,13 +286,13 @@ class FBDomainPlots():
         therefore are net zero.  
 
         """
-        list_zones = list(self.data.nodes.zone.unique())
+        list_zones = list(self.data.zones.index)
         domain_idx = [[list_zones.index(zone[0]),
                         list_zones.index(zone[1])] for zone in [domain_x, domain_y]]
         A = np.vstack([np.dot(A[:, domain], np.array([1, -1])) for domain in domain_idx]).T
         return A
 
-    def create_domain_plot(self, A, b, indices):
+    def create_domain_plot(self, A, b, indices, plot_limits=None):
         """Create linear equations of the FB domain. 
         
         Create 2D equation from the 2D projection of the zonal PTDF, suitable to for a 
@@ -320,24 +320,36 @@ class FBDomainPlots():
         A = np.take(np.array(A), indices, axis=0)
         b = np.take(np.array(b), indices, axis=0)
         Ab = np.concatenate((np.array(A), np.array(b).reshape(len(b), 1)), axis=1)
-
+        
         # Calculate two coordinates for a line plot -> Return X = [X1;X2], Y = [Y1,Y2]
-        x_upper = int(max(b)*10)
-        x_lower = -x_upper
+        if plot_limits:
+            ((x_max, x_min), (y_max, y_min)) = plot_limits
+        else: 
+            x_max, y_max = max(b)*2, max(b)*2
+            x_min, y_min = -max(b)*2, -max(b)*2
+
         plot_equations = []
+        plot_indices = []
+        print("Range: ", x_max, x_min, y_max, y_min)
         for index in range(0, len(Ab)):
             x_coordinates = []
             y_coordinates = []
-            # for idx in range(-10000, 10001, 20000):
-            for idx in range(x_lower, x_upper +1, (x_upper - x_lower)):
-                if Ab[index][1] != 0:
-                    y_coordinates.append((Ab[index][2] - idx*(Ab[index][0])) / (Ab[index][1]))
-                    x_coordinates.append(idx)
-                elif Ab[index][0] != 0:
-                    y_coordinates.append(idx)
-                    x_coordinates.append((Ab[index][2] - idx*(Ab[index][1])) / (Ab[index][0]))
-            plot_equations.append([x_coordinates, y_coordinates])
-        return plot_equations
+            if (Ab[index][0] != 0) and abs(Ab[index][1]/Ab[index][0]) > 1:
+                x_range_max = (Ab[index][2] - y_max*Ab[index][1])/Ab[index][0]
+                x_range_min = (Ab[index][2] - y_min*Ab[index][1])/Ab[index][0]
+                x_coordinates = [y for y in np.linspace(max(x_min, min(x_range_max, x_range_min)), min(x_max, max(x_range_max, x_range_min)), 10)]
+                y_coordinates = [(Ab[index][2] - x*Ab[index][0]) / Ab[index][1] for x in x_coordinates]
+            else:
+                y_range_max = (Ab[index][2] - x_max*Ab[index][0])/Ab[index][1] 
+                y_range_min = (Ab[index][2] - x_min*Ab[index][0])/Ab[index][1] 
+                y_coordinates = [y for y in np.linspace(max(y_min, min(y_range_max, y_range_min)), min(y_max, max(y_range_max, y_range_min)), 10)]
+                x_coordinates = [(Ab[index][2] - y*Ab[index][1]) / Ab[index][0] for y in y_coordinates]
+
+            if (all([(x <= x_max) and (x >= x_min) for x in x_coordinates]) and \
+                all([(y <= y_max) and (y >= y_min) for y in y_coordinates])):
+                plot_equations.append([x_coordinates, y_coordinates])
+                plot_indices.append(index)
+        return plot_equations, plot_indices
 
     def create_feasible_region_vertices(self, A, b, feasible_region_indices):
         """Calculate vertices of the FB domain feasible region.
@@ -502,12 +514,14 @@ class FBDomainPlots():
             random_choice = np.random.choice(domain_info.index, size=threshold, replace=False)
             n_0_indices = domain_info.index[domain_info.co == "basecase"].values
             plot_indices = np.sort(np.unique(np.hstack([feasible_region_indices, random_choice, n_0_indices])))
-            domain_info = domain_info.loc[plot_indices, :]
         else:
             plot_indices = domain_info.index
 
-        plot_equations = self.create_domain_plot(A, b, plot_indices)
         feasible_region_vertices, _ = self.create_feasible_region_vertices(A, b, feasible_region_indices)
+        x_max, y_max = feasible_region_vertices.max(axis=0)*2
+        x_min, y_min = feasible_region_vertices.min(axis=0)*2
+        plot_equations, plot_indices = self.create_domain_plot(A, b, plot_indices,  ((x_max, x_min), (y_max, y_min)))
+        domain_info = domain_info.loc[plot_indices, :]
         
         self.logger.debug("Number of CBCOs defining the domain %d", len(feasible_region_vertices[:, 0]) - 1)
 
@@ -519,3 +533,4 @@ class FBDomainPlots():
                                domain_info.copy(), self.data.ntc)
 
         self.fbmc_plots[fbmc_plot.title] = fbmc_plot
+        return fbmc_plot

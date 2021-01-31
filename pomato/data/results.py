@@ -104,11 +104,14 @@ class Results():
         if "redispatch" in self.result_attributes["name"]:
             self.result_attributes["title"] += "_redispatch"
             self.result_attributes["is_redispatch_result"] = True
-            market_result_name = "_".join(self.result_attributes["name"].split("_")[:3]) + "_market_results"
-            if market_result_name in self.data.results:
-                self.result_attributes["corresponding_market_result_name"] = "_".join(self.result_attributes["name"].split("_")[:3]) + "_market_results"
+            # Look for different names 
+            market_result_names = ["_".join(self.result_attributes["name"].split("_")[:n]) + "_market_results" for n in range(0,4)]
+            result_exists = [(name in self.data.results) for name in market_result_names]
+            if sum(result_exists) > 0:
+                result = [market_result_names[i] for i, exists in enumerate(result_exists) if exists][0]
+                self.result_attributes["corresponding_market_result_name"] = result
             else:
-                self.logger.warning("Corresponding market result %s to %s not or with new name instantiated", market_result_name, self.result_attributes["name"])
+                self.logger.warning("Corresponding market result to %s not or with new name instantiated", self.result_attributes["name"])
                 self.logger.warning("Manually set market result name in result attributes.")
         # set-up: don't show the graphs when created
         plt.ioff()
@@ -472,7 +475,7 @@ class Results():
 
         map_pn = self.data.plants.node.reset_index()
         map_pn.columns = ['p', 'n']
-        demand = self.data.demand_el.copy()
+        demand = self.data.demand_el[self.data.demand_el.timestep.isin(self.model_horizon)].copy()
         demand.rename(columns={"node": "n", "timestep": "t"}, inplace=True)
         if not self.D_ph.empty:
             demand_ph = pd.merge(self.D_ph, map_pn[["p", "n"]], 

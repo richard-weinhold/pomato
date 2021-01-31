@@ -1,8 +1,6 @@
 *__pycache__*
 docs/build/
 docs/_build/
-build/
-dist/
 *egg*
 .vscode/*
 pomato/_installation/pomato

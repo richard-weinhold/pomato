@@ -4,7 +4,7 @@ import shutil
 import os
 import unittest
 from pathlib import Path
-from unittest.mock import patch
+import tempfile
 
 import numpy as np
 import pandas as pd
@@ -15,15 +15,14 @@ from context import pomato, copytree
 class TestPomato(unittest.TestCase):
     """Testing instantiation with different input files and options"""
     def setUp(self):
-        self.wdir = Path.cwd().joinpath("examples")
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.wdir = Path(self.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), self.wdir)
 
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("domains"), ignore_errors=True)
-
+        pass
+    
     def test_run_ieee_init_invalid_option(self):
         mato = pomato.POMATO(wdir=self.wdir, options_file="INVALID_PATH",
                              logging_level=logging.ERROR)

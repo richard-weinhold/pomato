@@ -8,8 +8,9 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import tempfile
 
-from context import pomato
+from context import pomato, copytree
 from pomato import tools
 
 # pylint: disable-msg=E1101
@@ -17,7 +18,12 @@ class TestPomatoGridModel(unittest.TestCase):
     def setUp(self):
         self.logger = logging.getLogger('Log.MarketModel')
         self.logger.setLevel(logging.ERROR)
-        self.wdir = Path.cwd().joinpath("examples")
+
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.wdir = Path(self.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), self.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data/cbco_lists"), self.wdir)
+
         pomato.tools.create_folder_structure(self.wdir)
         with open(self.wdir.joinpath("profiles/nrel118.json")) as opt_file:
                 loaded_options = json.load(opt_file)
@@ -39,9 +45,7 @@ class TestPomatoGridModel(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
+        pass
 
     def test_ntc(self):
 
@@ -113,7 +117,7 @@ class TestPomatoGridModel(unittest.TestCase):
 
     def test_cbco_nodal_index_precalc(self):
         
-        my_file = self.wdir.parent.joinpath('tests/test_data/cbco_nrel_118.csv')
+        my_file = self.wdir.joinpath('cbco_nrel_118.csv')
         to_file = self.wdir.joinpath('data_temp/julia_files/cbco_data/cbco_nrel_118.csv')
         shutil.copyfile(str(my_file), str(to_file))
 

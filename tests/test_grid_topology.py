@@ -7,14 +7,17 @@ from unittest.mock import patch
 
 import numpy as np
 import pandas as pd
-
-from context import pomato
+import tempfile
+from context import pomato, copytree
 
 # pylint: disable-msg=E1101
 class TestPomatoGrid(unittest.TestCase):
     
     def setUp(self):
-        self.wdir = Path.cwd().joinpath("examples")
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.wdir = Path(self.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), self.wdir)
+
         self.options = pomato.tools.default_options()
         self.data = pomato.data.DataManagement(self.options, self.wdir)
         self.data.logger.setLevel(logging.ERROR)

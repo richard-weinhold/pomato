@@ -10,13 +10,16 @@ import dash_html_components as html
 import dash_table
 import numpy as np
 import pandas as pd
+import itertools
 import requests
 from dash.dependencies import Input, Output, State
 from flask import request
 from pomato.tools import add_default_values_to_dict
+from pomato.visualization import FBDomainPlots
+from dash.exceptions import PreventUpdate
+import plotly.graph_objects as go
 
 external_stylesheets = [dbc.themes.BOOTSTRAP, dbc.themes.GRID, 'https://codepen.io/chriddyp/pen/bWLwgP.css']
-
 styles = {
     'pre': {
         'border': 'thin lightgrey solid',
@@ -116,12 +119,12 @@ def page_transmission():
             basic_layout("transmission"),
             dbc.Row(
                 [
-                    dbc.Col([html.Div(id='timestep-display'),
-                             dcc.Slider(id='timestep-selector', min=0, step=1)],
-                             width={"size": 5, "offset": 2}, style={"padding": "15px"}),
+                    dbc.Col([html.Div(id='timestep-display-transmission'),
+                             dcc.Slider(id='timestep-selector-transmission', min=0, step=1)],
+                             width={"size": 4, "offset": 2}, style={"padding": "15px"}),
                     dbc.Col([dcc.Markdown("""**Lines** (use clicks or dropdown for selection) """),
                                 dcc.Dropdown(id='line-selector', multi=True, persistence=True, persistence_type="local")],
-                                            width={"size": 5, "offset": 0}, style={"padding": "15px"}),
+                                            width={"size": 5, "offset": 1}, style={"padding": "15px"}),
                     ]),
             dbc.Row(
                 [   dbc.Col(
@@ -166,15 +169,91 @@ def page_transmission():
         fluid=True)
     return layout
 
+def page_fbmc():
+    layout = dbc.Container([
+        dbc.Row([
+            dbc.Col([
+                html.Br(),
+                html.Button('Update Results', id='results-botton-fbmc', n_clicks=0),
+            ], style={"padding": "15px"}),
+            dbc.Col([
+                html.Div("Select Basecase:"),
+                dcc.Dropdown(id='results-dropdown-fbmc')
+            ], style={"padding": "15px"}),
+            dbc.Col([
+                html.Div("Select GSK"),
+                dcc.Dropdown(id='gsk-dropdown',
+                options=[
+                    {'label': 'gmax', 'value': "gmax"},
+                    {'label': 'dynamic', 'value': "dynamic"},
+                    {'label': 'flat', 'value': "flat"}],
+                    value="gmax"),
+            ], style={"padding": "15px"}),
+            dbc.Col([
+                html.Div("Select minRAM [%]:"),
+                dbc.Input(
+                    id="input-minram", type="number", 
+                    value=20, min=0, max=100, step=5),
+                ], style={"padding": "15px"}),
+            dbc.Col([
+                html.Div("Zone-to-Zone sensitivity [%]:"),
+                dbc.Input(
+                    id="input-sensitivity", type="number", 
+                    value=5, min=0, max=100, step=0.1),
+                ], style={"padding": "15px"}),
+            dbc.Col([
+                html.Br(),
+                html.Button('Calculate FB Parameters', id='botton-fb-parameters', n_clicks=0)
+            ], style={"padding": "15px"}),
+            dbc.Col([
+                html.Br(),
+                dcc.Loading(
+                    id="fb-parameter-processing",
+                    children=[html.Div(id="fb-parameter-processing-output")],
+                    type="circle")
+                    ], style={"padding": "15px"}),
+        ]),
+        dbc.Row([
+            dbc.Col([
+                html.Div(id='timestep-display-fbmc-market'),
+                dcc.Slider(id='timestep-selector-fbmc-market', min=0, step=1, persistence=True),
+            ],  width={"size": 4}, style={"padding": "15px"}),
+            dbc.Col([
+                html.Div("Select Domain X:"),
+                dcc.Dropdown(id='domain-x-dropdown')
+            ], style={"padding": "15px"}),
+            dbc.Col([
+                html.Div("Select Domain Y"),
+                dcc.Dropdown(id='domain-y-dropdown'),
+            ], style={"padding": "15px"}),
+            dbc.Col([
+                html.Br(),
+                html.Button('Calculate FB Domain', id='botton-fb-domains', n_clicks=0)
+            ], style={"padding": "15px"}),
+            ]),
+        dbc.Row([
+            dbc.Col([
+                html.Div("Select Market Result:"),
+                dcc.Dropdown(id='results-dropdown-fbmc-market'),
+            ], style={"padding": "15px"}),
+        ]),
+        dbc.Row([
+            dbc.Col(dcc.Graph(id='fb-geo-figure'), width={"size": 6, "offset": 0}, style={"padding": "15px"}),
+            dbc.Col(dcc.Graph(id='fb-domain-figure'), width={"size": 6, "offset": 0}, style={"padding": "15px"}),
+            ])
+        ], fluid=True)
+    return layout
+
 class Dashboard():
     def __init__(self, pomato_instance, **kwargs):
+
         self.pomato_instance = pomato_instance
         for result in self.pomato_instance.data.results:
             self.pomato_instance.data.results[result].create_result_data()
         self.app = None
         self.init_app()      
         self.dash_thread = threading.Thread(target=self.run, kwargs=kwargs)
-        # self.start()
+        self._fb_domain = None
         
     def start(self):
         self.dash_thread.start()
@@ -200,22 +279,131 @@ class Dashboard():
     
     def init_app(self):
         self.app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-        self.app.config['suppress_callback_exceptions'] = True
-        # self.app.layout = self.create_layout()
+        # self.app.config['suppress_callback_exceptions'] = True
         self.app.layout = html.Div([
+            dcc.Location(id='url'),
+            dcc.Store(id='viewport-container'),
             dcc.Tabs(id='pomato-tabs', children=[
                 dcc.Tab(label='Overview', children=[page_overview()]),
                 dcc.Tab(label='Generation', children=[page_generation()]),
                 dcc.Tab(label='Transmission', children=[page_transmission()]),
+                dcc.Tab(label='FBMC', children=[page_fbmc()]),
             ]),
         ])
-        # basic callbacks for updating the result choices
-        for page in ["overview", "generation", "transmission"]:
+        self.app.server.route('/shutdown', methods=['POST'])(shutdown)
+        
+        self.app.clientside_callback(
+            """
+            function(href) {
+                var w = window.innerWidth;
+                var h = window.innerHeight;
+                return {'height': h, 'width': w};
+            }
+            """,
+            Output('viewport-container', 'data'),
+            Input('url', 'href')
+        )
+
+        for page in ["overview", "generation", "transmission", "fbmc"]:
             self.app.callback(
                 [Output(f'results-dropdown-{page}', 'options'),
                  Output(f'results-dropdown-{page}', 'value')],
-                 Input(f'results-botton-{page}', 'n_clicks'))(self.update_result_selection)
+                Input(f'results-botton-{page}', 'n_clicks'))(self.update_result_selection)
+        
+        self.app.callback(
+            [Output('results-dropdown-fbmc-market', 'options'),
+            Output('results-dropdown-fbmc-market', 'value')],
+            Input('results-botton-fbmc', 'n_clicks'))(self.update_result_selection)
+        
+        for page in ["transmission", "fbmc-market"]:
+            self.app.callback([Output(f'timestep-selector-{page}', 'max'),
+                               Output(f'timestep-selector-{page}', 'marks'),
+                               Output(f'timestep-selector-{page}', 'value')],
+                              [Input(f"results-dropdown-{page}", "value"),
+                               Input("viewport-container", "data")])(self.update_timestep_slider)
 
+            self.app.callback(Output(f'timestep-display-{page}', 'children'),
+                             [Input(f'results-dropdown-{page}', 'value'),
+                              Input(f'timestep-selector-{page}', 'value')])(self.display_timestep)
+
+        self.add_overview_callbacks()
+        self.add_generation_callbacks()
+        self.add_tranmission_callbacks()
+        
+        # FB Parameters
+        self.app.callback([Output('fb-parameter-processing-output', 'children'),
+                           Output('domain-x-dropdown', 'options'),
+                           Output('domain-y-dropdown', 'options')],
+                           Input('botton-fb-parameters', 'n_clicks'),
+                          [State("results-dropdown-fbmc", "value"),
+                           State("gsk-dropdown", "value"),
+                           State("input-minram", "value"),
+                           State("input-sensitivity", "value")])(self.update_fb_parameters)
+
+        self.app.callback(Output("fb-domain-figure", "figure"),
+                          Input("botton-fb-domains", "n_clicks"),
+                          [State('results-dropdown-fbmc-market', 'value'),
+                           State('timestep-selector-fbmc-market', 'value'),
+                           State('domain-x-dropdown', 'value'),
+                           State('domain-y-dropdown', 'value')])(self.update_domain_plot)
+        
+        self.app.callback(Output("fb-geo-figure", "figure"),
+                          Input("botton-fb-domains", "n_clicks"),
+                          [State('timestep-selector-fbmc-market', 'value'),
+                           State('results-dropdown-fbmc-market', 'value')])(self.update_fb_geo_plot)
+        
+    def update_fb_geo_plot(self, click, timestep, result_name):
+        if not result_name:
+            return {}
+        else:
+            print(timestep, result_name)
+            result = self.pomato_instance.data.results[result_name]
+            vis = self.pomato_instance.visualization
+            fig = vis.create_zonal_geoplot(result, timestep=timestep, show_plot=False)
+            fig.update_layout(uirevision = True)
+            fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+            return fig
+
+    def update_domain_plot(self, click, result_name, timestep, domain_x, domain_y):
+        if not result_name:
+            return {}
+        result = self.pomato_instance.data.results[result_name]
+        if isinstance(timestep, int):
+            timestep = result.model_horizon[timestep]
+        domain_x, domain_y = domain_x.split("-"), domain_y.split("-")
+        domain_plot = self._fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep)
+        fig = self.pomato_instance.visualization.create_fb_domain_plot(domain_plot, show_plot=False)
+        commercial_exchange = result.EX[result.EX.t == timestep].copy()
+        nex_x = commercial_exchange.loc[(commercial_exchange.z == domain_x[0])&(commercial_exchange.zz == domain_x[1]), "EX"].sum() - commercial_exchange.loc[(commercial_exchange.z == domain_x[1])&(commercial_exchange.zz == domain_x[0]), "EX"].sum()
+        nex_y = commercial_exchange.loc[(commercial_exchange.z == domain_y[0])&(commercial_exchange.zz == domain_y[1]), "EX"].sum() - commercial_exchange.loc[(commercial_exchange.z == domain_y[1])&(commercial_exchange.zz == domain_y[0]), "EX"].sum()
+        fig.add_trace(go.Scatter(x=[nex_x], y=[nex_y], mode="markers", name="Market Outcome"))
+        fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
+        return fig 
+
+    def update_fb_parameters(self, n_click, basecase, gsk, minram, sensitivity):
+        if not basecase:
+            raise PreventUpdate
+        else:
+            basecase = self.pomato_instance.data.results[basecase]
+            self.pomato_instance.options["grid"]["minram"] = minram/100
+            self.pomato_instance.options["grid"]["sensitivity"] = sensitivity/100
+            fb_parameters = self.pomato_instance.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
+            self._fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
+            option_domain = [{"label": "-".join(x), "value": "-".join(x)} for x in itertools.combinations(self.pomato_instance.data.zones.index, 2)]
+            return "Done", option_domain, option_domain
+
+    def update_timestep_slider(self, result_name, size):
+
+        if not result_name:
+            raise PreventUpdate
+        result = self.pomato_instance.data.results[result_name]
+        slider_max = len(result.model_horizon)
+        number_labels = int(size["width"] * (4/12) / 50)
+        slider_steps = int(len(result.model_horizon)/number_labels)
+        marks = {x : result.model_horizon[x] for x in range(0, slider_max) if (x%slider_steps == 0)}
+        return slider_max, marks, 0
+
+    def add_overview_callbacks(self):
         # Page 1: Summary 
         # Print Result Attributes 
         self.app.callback(Output('results-summary', 'children'),
@@ -229,6 +417,7 @@ class Dashboard():
         self.app.callback(Output('generation-pie-chart', 'figure'),
                           Input('results-dropdown-overview', 'value'))(self.update_generation_pie_chart)
 
+    def add_generation_callbacks(self):
         # Page 2: Generation
         # Update All components that have options based on the result
         self.app.callback(Output('switches-generation', 'options'),
@@ -252,13 +441,11 @@ class Dashboard():
                            Output('plant-table', 'data')],
                           [Input('results-dropdown-generation', 'value'),
                            Input('geo-figure-generation', 'clickData')])(self.display_plant_data)
-                        
+
+    def add_tranmission_callbacks(self):
         ### Page 3: Lines 
         # Update All components that have options based on the result
-        self.app.callback([Output('timestep-selector', 'max'),
-                           Output('timestep-selector', 'marks'),
-                           Output('timestep-selector', 'value'),
-                           Output('line-selector', 'options'),
+        self.app.callback([Output('line-selector', 'options'),
                            Output('switches-transmission', 'options')],
                            Input('results-dropdown-transmission', 'value'))(self.update_components_transmission)
 
@@ -267,7 +454,7 @@ class Dashboard():
                           [Input('results-dropdown-transmission', 'value'),
                            Input('switches-transmission', 'value'),
                            Input('flow-option', 'value'),
-                           Input('timestep-selector', 'value'),
+                           Input('timestep-selector-transmission', 'value'),
                            Input('input-lineloading-transmission', 'value')])(self.update_geo_plot)
         
         # Click Lines Geoplot
@@ -281,10 +468,6 @@ class Dashboard():
                           [Input('results-dropdown-transmission', 'value'),
                            Input('line-selector', 'value')])(self.update_graph_lines)
 
-        # Timestep display
-        self.app.callback(Output('timestep-display', 'children'),
-                          [Input('results-dropdown-transmission', 'value'),
-                           Input('timestep-selector', 'value')])(self.display_timestep)
         # Lineloading display
         self.app.callback(Output('lineloading-display-transmission', 'children'),
                           Input('input-lineloading-transmission', 'value'))(self.display_lineloading)
@@ -294,23 +477,16 @@ class Dashboard():
                           [Input('results-dropdown-transmission', 'value'),
                            Input('geo-figure-lines', 'clickData')])(self.display_node_data)
 
-        self.app.server.route('/shutdown', methods=['POST'])(shutdown)
-                
     def update_components_transmission(self, result_name):
         result = self.pomato_instance.data.results[result_name]
-        slider_max = len(result.model_horizon)
-        number_labels = 10
-        slider_steps = int(len(result.model_horizon)/number_labels)
-        marks = {x : result.model_horizon[x] for x in range(0, slider_max) if (x%slider_steps == 0)}
         options_lineflow = [{"label": x, "value": x} for x in result.data.lines.index]
-        
         disable_redispatch_toggle = not (result.result_attributes["is_redispatch_result"] and 
                                          isinstance(result.result_attributes["corresponding_market_result_name"], str))
         options_price_redispatch_toggle = [
             {"label": "Show Prices:", "value": 1},
             {"label": "Show Redispatch", "value": 2, "disabled": disable_redispatch_toggle}]
 
-        return slider_max, marks, 0, options_lineflow, options_price_redispatch_toggle
+        return options_lineflow, options_price_redispatch_toggle
 
     def update_components_generation(self, result_name):
         result = self.pomato_instance.data.results[result_name]      
@@ -400,7 +576,7 @@ class Dashboard():
         if not isinstance(lines, list):
             lines = [result.data.lines.index[0]]
         fig =  self.pomato_instance.visualization.create_lineflow_plot(result, lines, show_plot=False)
-        fig.update_layout(margin={"r":0,"t":25,"l":0,"b":0})
+        # fig.update_layout(margin={"r":0,"t":25,"l":0,"b":25})
         return fig
     
     def update_graph_generation(self, result_name, selection_data):
@@ -446,6 +622,8 @@ class Dashboard():
                                    show_plot=False)
         fig.update_layout(uirevision = True)
         return fig
+
+
 
 
 

@@ -351,7 +351,7 @@ def default_options():
             "redispatch_horizon": 24},
         "redispatch": {
             "include": False,
-            "zonal_redispatch": True,
+            "zonal_redispatch": False,
             "zones": [],
             "cost": 1},
         "curtailment": {

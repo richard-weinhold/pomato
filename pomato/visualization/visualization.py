@@ -18,8 +18,7 @@ import pomato.tools as tools
 from matplotlib import cm
 from plotly.offline import plot
 from plotly.subplots import make_subplots
-from pomato.visualization.geoplot_functions import line_coordinates, line_colors, add_prices_layer
-from pomato.visualization.dashboard import Dashboard
+from pomato.visualization.geoplot_functions import line_coordinates, line_colors, add_prices_layer, _create_geo_json
 
 def color_map(gen):
     """Fuel colors for generation/capacity plots."""
@@ -77,7 +76,7 @@ class Visualization():
         self.wdir = wdir
         self.data = data
 
-    def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, 
+    def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, show_nex=False,
                         timestep=None, threshold=0, line_color_option=0, show_plot=True, filepath=None):
         """Creates Geoplot of market result.
 
@@ -104,7 +103,6 @@ class Visualization():
         filepath : pathlib.Path, str, optional
             If filepath is supplied, saves figure as .html, by default None
         """    
-
         dclines = market_result.data.dclines.copy()
         lines = market_result.data.lines.copy()
         nodes = market_result.data.nodes.copy()
@@ -255,10 +253,13 @@ class Visualization():
                     ))
 
         if show_prices:
-            prices_layer, coordinates, hight_width = add_prices_layer(nodes, prices)
+            compress=True
+            colorscale = "RdBu"
+            contours = 8
+            prices_layer, coordinates, hight_width = add_prices_layer(nodes, prices, compress)
             price_fig = go.Figure(
                 data=go.Contour(z=prices_layer, showscale=False, 
-                                colorscale="Viridis", ncontours=10))
+                                colorscale=colorscale, ncontours=contours))
             price_fig.update_layout(
                 width=2e3, height=2e3*hight_width, 
                 xaxis = {'visible': False},
@@ -270,13 +271,13 @@ class Visualization():
                     "sourcetype": "image",
                     "source": img_pil,
                     "coordinates": coordinates,
-                    "opacity": 0.2,
+                    "opacity": 0.4,
                 }
             # Price Colorbar
             price_colorbar = go.Scatter(x=[None],y=[None],
                                         mode='markers',
                                         marker=dict(
-                                            colorscale="Viridis", 
+                                            colorscale=colorscale, 
                                             showscale=True,
                                             cmin=prices_layer.min().round(2),
                                             cmax=prices_layer.max().round(2),
@@ -317,6 +318,69 @@ class Visualization():
             plot(fig)
         else:
             return fig
+
+    def create_zonal_geoplot(self, market_result, timestep=None, show_plot=True, filepath=None):
+        
+        fig = self.create_geo_plot(market_result, timestep=timestep, show_plot=False)
+        fig.update_traces(marker_showscale=False)
+
+        commercial_exchange = market_result.EX.copy()
+        net_position = market_result.net_position()
+
+        geojson = _create_geo_json(self.data.zones, self.data.nodes)
+
+        if isinstance(timestep, int):
+            timestep = market_result.model_horizon[timestep]
+        
+        if isinstance(timestep, str):
+            commercial_exchange = commercial_exchange[commercial_exchange.t == timestep].groupby(["z", "zz"]).mean().reset_index()
+            net_position = net_position.loc[timestep]
+        else:
+            net_position = net_position.mean(axis=0)
+            commercial_exchange = commercial_exchange.groupby(["z", "zz"]).mean().reset_index()
+
+        custom_data = []
+        for zone in self.data.zones.index:
+            data = [zone, net_position.loc[zone]]
+            tmp_ex_to = commercial_exchange.loc[(commercial_exchange.z == zone)&(commercial_exchange.zz != zone)]
+            tmp_ex_from = commercial_exchange.loc[(commercial_exchange.zz == zone)&(commercial_exchange.z != zone)]
+            tmp = []
+            for i in tmp_ex_to.index:
+                tmp.append(tmp_ex_to.loc[i, "zz"] + ": " + str(tmp_ex_to.loc[i, "EX"].round()))
+            data.append("TO: " + " | ".join(tmp))
+            tmp = []
+            for i in tmp_ex_from.index:
+                tmp.append(tmp_ex_from.loc[i, "z"] + ": " + str(tmp_ex_from.loc[i, "EX"].round()))
+            data.append("FROM: " + " | ".join(tmp))
+            custom_data.append(data)
+
+        hovertemplate = ("<b>Zone: %{customdata[0]}</b>" +
+                        "<br>Net Position: %{customdata[1]:.2f}" + 
+                        "<br>Commercial Exchange: " + 
+                        "<br>%{customdata[2]}" +
+                        "<br>%{customdata[3]}" +
+                        "<extra></extra>")
+
+        fig.add_trace(go.Choroplethmapbox(
+                geojson=geojson, 
+                colorscale="deep",
+                locations=self.data.zones.index, # Spatial coordinates
+                z = net_position.values,
+                customdata=custom_data,
+                hovertemplate=hovertemplate,
+                marker=dict(
+                    line=dict(width=3),
+                    opacity=0.45),
+                colorbar=dict(thickness=5)
+                ))
+
+        if filepath:
+            fig.write_html(str(filepath))
+        if show_plot:
+            plot(fig)
+        else:
+            return fig
+
 
     def create_generation_plot(self, market_result, nodes=None, show_plot=True, filepath=None):
         """Create interactive generation plot.
@@ -487,7 +551,7 @@ class Visualization():
         # fig.update_xaxes(visible=False, row=2, col=1)
         # fig.update_yaxes(title="Power Flow Duration [MW]", row=3, col=1)
 
-        fig.update_layout(autosize=True)
+        fig.update_layout(autosize=True, template="none")
         if filepath:
             fig.write_html(str(filepath))
         if show_plot:
@@ -577,12 +641,66 @@ class Visualization():
         else:
             return subfig
 
+    def create_fb_domain_plot(self, fb_domain, show_plot=True, filepath=None):
 
+        fig = go.Figure()
+        scale = 2
+        n0_lines_x, n0_lines_y = [], []
+        n1_lines_x, n1_lines_y = [], []
+        hover_data_n0, hover_data_n1 = [], []
 
+        hover_points = len(fb_domain.domain_equations[0][1])
+        tmp = fb_domain.domain_data.reset_index(drop=True)
+        for i in tmp[tmp.co == "basecase"].index:
+            n0_lines_x.extend(fb_domain.domain_equations[i][0])
+            n0_lines_y.extend(fb_domain.domain_equations[i][1])
+            n0_lines_x.append(None)
+            n0_lines_y.append(None)
+            hover_data_n0.append(np.vstack([[[tmp.loc[i, "cb"], tmp.loc[i, "co"]]  for n in range(0, hover_points)], [None, None]]))
+        
+        hover_data_n1 = []
+        for i in tmp[tmp.co != "basecase"].index:
+            n1_lines_x.extend(fb_domain.domain_equations[i][0])
+            n1_lines_y.extend(fb_domain.domain_equations[i][1])
+            n1_lines_x.append(None)
+            n1_lines_y.append(None)
+            hover_data_n1.append(np.vstack([[[tmp.loc[i, "cb"], tmp.loc[i, "co"]]  for n in range(0, hover_points)], [None, None]]))
+        
+        hovertemplate = "<br>".join(["cb: %{customdata[0]}", "co: %{customdata[1]}"]) + "<extra></extra>"
+        fig.add_trace(
+            go.Scatter(x=n0_lines_x, y=n0_lines_y, name='N-0 Constraints',
+                    line = dict(width = 1.5, color="dimgrey"),
+                    customdata=np.vstack(hover_data_n0),
+                    hovertemplate=hovertemplate
+                    )
+            )
+        fig.add_trace(
+            go.Scatter(x=n1_lines_x, y=n1_lines_y, name='N-1 Constraints',
+                    line = dict(width = 1, color="lightgrey"),
+                    opacity=0.6,
+                    customdata=np.vstack(hover_data_n1),
+                    hovertemplate=hovertemplate
 
+                        )
+            )
+        fig.add_trace(
+                go.Scatter(x=fb_domain.feasible_region_vertices[:, 0], 
+                            y=fb_domain.feasible_region_vertices[:, 1],
+                            line = dict(width = 1, color="red"),
+                            opacity=1, name="FB Domain",
+                            mode='lines', hoverinfo="none"
+                        )
+                )
+        fig.update_layout(yaxis_range=[fb_domain.y_min*scale, fb_domain.y_max*scale],
+                          xaxis_range=[fb_domain.x_min*scale, fb_domain.x_max*scale],
+                          template='simple_white',
+                          hovermode="closest")
 
-
-
-
+        if filepath:
+            fig.write_html(str(filepath))
+        if show_plot:
+            plot(fig)
+        else:
+            return fig
 
 
