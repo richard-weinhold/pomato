@@ -155,7 +155,8 @@ class FBMCModule():
 
         return gsk.values
 
-    def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax"):
+    def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax", 
+                                 only_crossborder=False):
         """Returns Critical branches based on Zone-to-Zone ptdf.
         
         In the calculation of FB parameters it makes sense to use only lines
@@ -175,7 +176,8 @@ class FBMCModule():
             Zone-to-Zone PTDF threshold, defaults to 5%. 
         gsk_strategy : str, optional
             GSK strategy, defaults to *gmax*.
-        
+        only_crossborder : str, optional 
+            Only consider cross-border lines as critical branches, defaults to False. 
         Returns
         -------
         CBs : list
@@ -185,18 +187,21 @@ class FBMCModule():
         self.logger.info("List of CBs is generated from zone-to-zone PTDFs with:")
         self.logger.info("GSK Strategy: %s, Threshold: %d percent", gsk_strategy, threshold*100)
 
-        gsk = self.create_gsk(gsk_strategy)
-        zonal_ptdf = np.dot(self.grid.ptdf, gsk)
-        zonal_ptdf_df = pd.DataFrame(index=self.grid.lines.index,
-                                     columns=self.data.zones.index,
-                                     data=zonal_ptdf)
+        if not only_crossborder:
+            gsk = self.create_gsk(gsk_strategy)
+            zonal_ptdf = np.dot(self.grid.ptdf, gsk)
+            zonal_ptdf_df = pd.DataFrame(index=self.grid.lines.index,
+                                            columns=self.data.zones.index,
+                                            data=zonal_ptdf)
 
-        z2z_ptdf_df = pd.DataFrame(index=self.grid.lines.index)
-        for zone in self.flowbased_region:
-            for z_zone in self.flowbased_region:
-                z2z_ptdf_df["-".join([zone, z_zone])] = zonal_ptdf_df[zone] - zonal_ptdf_df[z_zone]
+            z2z_ptdf_df = pd.DataFrame(index=self.grid.lines.index)
+            for zone in self.flowbased_region:
+                for z_zone in self.flowbased_region:
+                    z2z_ptdf_df["-".join([zone, z_zone])] = zonal_ptdf_df[zone] - zonal_ptdf_df[z_zone]
 
-        critical_branches = list(z2z_ptdf_df.index[np.any(z2z_ptdf_df.abs() > threshold, axis=1)])
+            critical_branches = list(z2z_ptdf_df.index[np.any(z2z_ptdf_df.abs() > threshold, axis=1)])
+        else: 
+            critical_branches = []
 
         condition_cross_border = self.grid.nodes.zone[self.grid.lines.node_i].values != \
                                  self.grid.nodes.zone[self.grid.lines.node_j].values
@@ -208,7 +213,7 @@ class FBMCModule():
         
         all_cbs = list(set(critical_branches + cross_border_lines))
         self.logger.info("Number of Critical Branches: %d, Number of Cross Border lines: %d, Total Number of CBs: %d",
-                          len(critical_branches), len(cross_border_lines), len(critical_branches))
+                          len(critical_branches), len(cross_border_lines), len(all_cbs))
 
         return all_cbs
 
