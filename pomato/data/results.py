@@ -50,7 +50,7 @@ class Results():
         Folder with the results of the market model in .csv files.
     """
 
-    def __init__(self, data, grid, result_folder, auto_precalc=True):
+    def __init__(self, data, grid, result_folder, auto_precalc=False):
         self.logger = logging.getLogger('log.pomato.data.DataWorker.Results')
         self.grid = grid
         self.data = data
