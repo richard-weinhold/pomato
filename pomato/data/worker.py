@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import scipy.io as sio
 import xlrd
+import pomato.tools as tools
 
 def _mpc_data_pu_to_real(lines,  base_kv, base_mva):
     """Convert pu to actual units for the mpc case."""
@@ -116,7 +117,8 @@ class DataWorker(object):
         data = data.stack().reset_index()
         data.columns = columns
         data = data.sort_values("timestep")
-        return data.infer_objects()
+        data = data.infer_objects()
+        return data
 
     def read_xls(self, xls_filepath):
         """Read excel file at specified filepath.

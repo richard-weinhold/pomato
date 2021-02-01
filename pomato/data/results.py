@@ -99,6 +99,8 @@ class Results():
         precalc_thread = threading.Thread(target=self.create_result_data, name="result data")
         if auto_precalc:
             precalc_thread.start()
+        else:
+            self.create_result_data()
 
         # Set Redispatch = True if result is a redispatch result 
         if "redispatch" in self.result_attributes["name"]:
@@ -137,7 +139,8 @@ class Results():
         for variable_type in ["variables", "dual_variables", "infeasibility_variables"]:
             for var in self.result_attributes[variable_type]:
                 try:
-                    setattr(self, var, pd.read_csv(str(folder.joinpath(f"{var}.csv"))))
+                    setattr(self, var, tools.reduce_df_size(pd.read_csv(str(folder.joinpath(f"{var}.csv")))))
+                    # setattr(self, var, (pd.read_csv(str(folder.joinpath(f"{var}.csv")))))
                     self.result_attributes[variable_type][var] = True
                 except FileNotFoundError:
                     self.logger.warning("%s not in results folder %s", var, folder_name)
@@ -178,7 +181,7 @@ class Results():
 
         return types.SimpleNamespace(nodes=self.data.nodes,
                                      lines=self.data.lines,
-                                     line_coordinates=line_coordinates(self.data.lines, self.data.nodes),
+                                     line_coordinates=line_coordinates(self.data.lines.copy(), self.data.nodes.copy()),
                                      dclines=self.data.dclines,
                                      dcline_coordinates=line_coordinates(self.data.dclines, self.data.nodes),
                                      inj=pd.Series(index=self.data.nodes.index, data=0),
@@ -206,7 +209,7 @@ class Results():
             self.logger.debug("Returning cached result for result_data.")
             return deepcopy(self._cached_results.result_data)
         
-        self.logger.info("Precalculating and chaching common results..")
+        self.logger.info("Precalculating and caching common results..")
         data_struct = self.result_data_struct()
         data_struct.inj = self.INJ
         data_struct.dc_flow = self.F_DC

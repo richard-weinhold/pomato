@@ -337,6 +337,18 @@ def _delete_empty_subfolders(folder):
         if subfolder not in non_empty_subfolders:
             subfolder.rmdir()
 
+def reduce_df_size(df):
+    """Reduce size of DataFrame by assigning adequate data types."""
+    downcast_types = {}
+    for col, dtype in zip(df.dtypes.index, [i.name for i in df.dtypes.values]):
+        if dtype == "object":
+            df[col] = df[col].astype("category")
+        elif "int" in dtype:
+            df[col] = pd.to_numeric(df[col], downcast="integer")
+        else:
+            df[col] = pd.to_numeric(df[col], downcast="float")
+    return df
+
 def default_options():
     """Returns the default options of POMATO."""
     options = {
