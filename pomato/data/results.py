@@ -238,12 +238,12 @@ class Results():
 
         data_struct = self.create_result_data()
 
-        data_struct.inj = data_struct.inj.groupby("n").mean().reindex(self.grid.nodes.index).INJ
+        data_struct.inj = data_struct.inj.groupby("n", observed=True).mean().reindex(self.grid.nodes.index).INJ
         data_struct.n_0_flow = data_struct.n_0_flow.abs().mean(axis=1)
         data_struct.n_1_flow = data_struct.n_1_flow.abs().mean(axis=1)
         data_struct.dc_flow = data_struct.dc_flow.pivot(index="dc", columns="t", values="F_DC") \
                                 .abs().mean(axis=1).reindex(self.data.dclines.index).fillna(0)
-        data_struct.prices = data_struct.prices[["n", "marginal"]].groupby("n").mean()
+        data_struct.prices = data_struct.prices[["n", "marginal"]].groupby("n", observed=True).mean()
         self._cached_results.averaged_result_data = deepcopy(data_struct)
         return data_struct
 
@@ -362,8 +362,8 @@ class Results():
         """
         net_position = pd.DataFrame(index=self.EX.t.unique())
         for zone in self.data.zones.index:
-            net_position[zone] = self.EX[self.EX.z == zone].groupby("t").sum() - \
-                                 self.EX[self.EX.zz == zone].groupby("t").sum()
+            net_position[zone] = self.EX[self.EX.z == zone].groupby("t", observed=True).sum() - \
+                                 self.EX[self.EX.zz == zone].groupby("t", observed=True).sum()
         return net_position
     
     def curtailment(self):
@@ -447,7 +447,7 @@ class Results():
         flh = pd.merge(gen, ava, on=["t", "p"], how="left").fillna(1)
         flh["utilization"] = flh.G/(flh.g_max * flh.availability)
         flh["flh"] = flh.G/(gen.g_max)
-        return flh.groupby([ "p", "fuel", "technology"]).mean()[["flh", "utilization"]].reset_index()
+        return flh.groupby([ "p", "fuel", "technology"], observed=True).mean()[["flh", "utilization"]].reset_index()
 
     def storage_generation(self):
         """Return storage generation schedules.
@@ -482,13 +482,13 @@ class Results():
         demand.rename(columns={"node": "n", "timestep": "t"}, inplace=True)
         if not self.D_ph.empty:
             demand_ph = pd.merge(self.D_ph, map_pn[["p", "n"]], 
-                                 how="left", on="p").groupby(["n", "t"], as_index=False).sum()
+                                 how="left", on="p").groupby(["n", "t"], as_index=False, observed=True).sum()
             demand = pd.merge(demand, demand_ph[["D_ph", "n", "t"]], how="outer", on=["n", "t"])
         else:
             demand["D_ph"] = 0
         if not self.D_es.empty:
             demand_es = pd.merge(self.D_es, map_pn[["p", "n"]], 
-                                 how="left", on="p").groupby(["n", "t"], as_index=False).sum()
+                                 how="left", on="p").groupby(["n", "t"], as_index=False, observed=True).sum()
             demand = pd.merge(demand, demand_es[["D_es", "n", "t"]], how="outer", on=["n", "t"])
         else:
             demand["D_es"] = 0
@@ -613,8 +613,8 @@ class Results():
 
         n_1_flows = self.n_1_flow(sensitivity=sensitivity)
         n_1_flows = n_1_flows.drop("co", axis=1)
-        n_1_flow_max = n_1_flows.groupby("cb").max()
-        n_1_flow_min = n_1_flows.groupby("cb").min()
+        n_1_flow_max = n_1_flows.groupby("cb", observed=True).max()
+        n_1_flow_min = n_1_flows.groupby("cb", observed=True).min()
         n_1_flows = pd.DataFrame(np.where(n_1_flow_max > -n_1_flow_min, n_1_flow_max, n_1_flow_min),
                                  index=n_1_flow_min.index, columns=n_1_flow_min.columns)
 
@@ -708,8 +708,8 @@ class Results():
         agg_info = n_1_overload[["cb", "co"]].copy()
         agg_info["# of overloads"] = np.sum(n_1_overload[timesteps] > 1, axis=1).values
         agg_info["# of COs"] = 1
-        agg_info = agg_info.groupby("cb").sum()
-        agg_info["avg load"] = n_1_overload.groupby(by=["cb"]).mean().mean(axis=1).values
+        agg_info = agg_info.groupby("cb", observed=True).sum()
+        agg_info["avg load"] = n_1_overload.groupby(by=["cb"], observed=True).mean().mean(axis=1).values
 
         condition = n_1_overload.co == "basecase"
         bool_values = [line in n_1_overload.cb[condition].values for line in agg_info.index]
