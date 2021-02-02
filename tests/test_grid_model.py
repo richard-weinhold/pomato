@@ -52,7 +52,9 @@ class TestPomatoGridModel(unittest.TestCase):
         cls.grid = None
         cls.data = None
         cls.options = None
+        cls.wdir = None
         cls.temp_dir = None
+        
     def test_ntc(self):
 
         self.grid_model.options["type"] = "ntc"
@@ -132,26 +134,26 @@ class TestPomatoGridModel(unittest.TestCase):
         self.grid_model.options["grid"]["capacity_multiplier"] = 0.8
         self.grid_model.create_cbco_nodal_grid_parameters()
 
-    def test_clarkson(self):
+    # def test_clarkson(self):
 
-        test_configs = [("cbco_nodal", "clarkson_base"), 
-                        # ("cbco_nodal", "clarkson"), too slow
-                        ("nodal", "nodal_clarkson"), 
-                        ("zonal", "clarkson"), 
-                        ("cbco_zonal", "clarkson")]
+    #     test_configs = [("cbco_nodal", "clarkson_base"), 
+    #                     # ("cbco_nodal", "clarkson"), too slow
+    #                     ("nodal", "nodal_clarkson"), 
+    #                     ("zonal", "clarkson"), 
+    #                     ("cbco_zonal", "clarkson")]
 
-        for (optimization_option, cbco_option) in test_configs:
-            print(optimization_option)
+    #     for (optimization_option, cbco_option) in test_configs:
+    #         print(optimization_option)
 
-            self.grid_model.options["type"] = optimization_option
-            self.grid_model.options["grid"]["cbco_option"] = cbco_option
-            self.grid_model.create_grid_representation()
+    #         self.grid_model.options["type"] = optimization_option
+    #         self.grid_model.options["grid"]["cbco_option"] = cbco_option
+    #         self.grid_model.create_grid_representation()
             
-            file = tools.newest_file_folder(self.grid_model.julia_dir.joinpath("cbco_data"), keyword="cbco")
-            self.assertTrue(file.is_file())
-            self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/A_py.csv").is_file())
-            self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/b_py.csv").is_file())
-            self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/I_py.csv").is_file())
-            self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/x_bounds_py.csv").is_file())
+    #         file = tools.newest_file_folder(self.grid_model.julia_dir.joinpath("cbco_data"), keyword="cbco")
+    #         self.assertTrue(file.is_file())
+    #         self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/A_py.csv").is_file())
+    #         self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/b_py.csv").is_file())
+    #         self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/I_py.csv").is_file())
+    #         self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/x_bounds_py.csv").is_file())
               
-        self.grid_model.julia_instance.join()
+    #     self.grid_model.julia_instance.join()

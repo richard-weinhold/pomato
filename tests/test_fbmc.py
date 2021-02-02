@@ -26,6 +26,7 @@ class TestFBMCModule(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        cls.wdir = None
         cls.temp_dir = None
 
     def test_nrel_domain(self):

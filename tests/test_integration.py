@@ -15,15 +15,20 @@ from context import pomato, copytree
            
 # pylint: disable-msg=E1101
 class TestPomatoMarketModel(unittest.TestCase):
-    def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.wdir = Path(self.temp_dir.name)
-        copytree(Path.cwd().joinpath("examples"), self.wdir)
-        copytree(Path.cwd().joinpath("tests/test_data/cbco_lists"), self.wdir)
 
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.wdir = Path(cls.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), cls.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data/cbco_lists"), cls.wdir)
+    
+    def setUp(self):
+        pass
 
     @classmethod
     def tearDownClass(cls):
+        cls.wdir = None
         cls.temp_dir = None
     
     def test_run_nrel(self):
