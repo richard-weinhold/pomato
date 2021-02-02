@@ -43,7 +43,8 @@ class TestPomatoVisualization(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        cls.mato = None
+        cls.temp_dir = None
 
     def test_visualization_generation_plot(self):
         result = self.mato.data.results["dispatch_redispatch"]

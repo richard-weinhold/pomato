@@ -27,6 +27,13 @@ class TestPomatoGrid(unittest.TestCase):
     
     def setUp(self):
         pass
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.grid = None
+        cls.data = None
+        cls.temp_dir = None
+
     def test_init(self):
         self.assertAlmostEqual(np.shape(self.grid.ptdf), (186, 118))
         self.assertEqual(sum(self.grid.lines.contingency), 177)

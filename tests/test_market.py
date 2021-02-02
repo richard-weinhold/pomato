@@ -44,7 +44,10 @@ class TestPomatoMarketModel(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        cls.grid_model = None
+        cls.grid = None
+        cls.data = None
+        cls.temp_dir = None
 
     def test_init(self):
         self.grid_model.options["type"] = "ntc"

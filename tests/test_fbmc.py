@@ -26,7 +26,7 @@ class TestFBMCModule(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        cls.temp_dir = None
 
     def test_nrel_domain(self):
         mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/nrel118.json",

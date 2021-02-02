@@ -26,7 +26,7 @@ class TestPomato(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+         cls.temp_dir = None
     
     def test_run_ieee_init_invalid_option(self):
         mato = pomato.POMATO(wdir=self.wdir, options_file="INVALID_PATH",

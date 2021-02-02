@@ -24,7 +24,7 @@ class TestPomatoMarketModel(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        cls.temp_dir = None
     
     def test_run_nrel(self):
         # What takes how long

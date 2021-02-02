@@ -35,7 +35,8 @@ class TestPomatoData(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        pass
+        cls.data = None
+        cls.temp_dir = None
 
     def test_plant_data(self):
         self.assertTrue(self.data.plants.loc[self.data.plants.mc_el.isna(), :].empty)
