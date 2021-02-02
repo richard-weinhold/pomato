@@ -13,32 +13,29 @@ from context import pomato, copytree
 
 # pylint: disable-msg=E1101
 class TestPomatoData(unittest.TestCase):
-    
-    def setUp(self):
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.wdir = Path(cls.temp_dir.name)
 
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.wdir = Path(self.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), cls.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), cls.wdir)
 
-        copytree(Path.cwd().joinpath("examples"), self.wdir)
-        copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), self.wdir)
-
-        with open(self.wdir.joinpath("profiles/nrel118.json")) as opt_file:
+        with open(cls.wdir.joinpath("profiles/nrel118.json")) as opt_file:
                 loaded_options = json.load(opt_file)
-        self.options = pomato.tools.add_default_options(loaded_options) 
-        self.options["model_horizon"] = [0, 24]
+        cls.options = pomato.tools.add_default_options(loaded_options) 
+        cls.options["model_horizon"] = [0, 24]
 
-        self.data = pomato.data.DataManagement(self.options, self.wdir)
-        self.data.logger.setLevel(logging.ERROR)
-        self.data.load_data('data_input/nrel_118.zip')
+        cls.data = pomato.data.DataManagement(cls.options, cls.wdir)
+        cls.data.logger.setLevel(logging.ERROR)
+        cls.data.load_data('data_input/nrel_118.zip')
+
+    def setUp(self):
+        pass
 
     @classmethod
     def tearDownClass(cls):
         pass
-        # cleanup()
-        # cls.data = None
-        # shutil.rmtree(Path.cwd().joinpath("data_temp"), ignore_errors=True)
-        # shutil.rmtree(Path.cwd().joinpath("data_output"), ignore_errors=True)
-        # shutil.rmtree(Path.cwd().joinpath("logs"), ignore_errors=True)
 
     def test_plant_data(self):
         self.assertTrue(self.data.plants.loc[self.data.plants.mc_el.isna(), :].empty)

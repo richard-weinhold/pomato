@@ -426,9 +426,10 @@ class Results():
         if not (self._cached_results.generation.empty or force_recalc):
             self.logger.debug("Returning cached result for generation.")
             return self._cached_results.generation
-
+        
         gen = pd.merge(self.data.plants[["plant_type", "fuel", "node", "g_max"]],
                         self.G, left_index=True, right_on="p", how="right")
+        
         gen["zone"] = self.data.nodes.loc[gen.node, "zone"].values
         if "technology" in self.data.plants.columns:
             gen = pd.merge(gen, self.data.plants[["technology"]], 
@@ -436,15 +437,19 @@ class Results():
         else:
             gen["technology"] = gen.plant_type
 
+        gen = tools.reduce_df_size(gen)
         self._cached_results.generation = gen
         return gen
 
     def full_load_hours(self):
         """Returns plant data including full load hours."""        
+
         gen = self.generation()[["t", "p", "fuel", "technology", "G", "g_max"]].copy()
-        ava = self.data.availability.copy()[["timestep", "plant", "availability"]].copy()
+        ava = self.data.availability.copy()[["timestep", "plant", "availability"]]
         ava.columns = ["t", "p", "availability"]
-        flh = pd.merge(gen, ava, on=["t", "p"], how="left").fillna(1)
+        
+        flh = pd.merge(gen, ava, on=["t", "p"], how="left")
+        flh.loc[:, "availability"] = flh.loc[:, "availability"].fillna(1)
         flh["utilization"] = flh.G/(flh.g_max * flh.availability)
         flh["flh"] = flh.G/(gen.g_max)
         return flh.groupby([ "p", "fuel", "technology"], observed=True).mean()[["flh", "utilization"]].reset_index()
@@ -476,7 +481,7 @@ class Results():
             self.logger.debug("Returning cached result for demand.")
             return self._cached_results.demand
 
-        map_pn = self.data.plants.node.reset_index()
+        map_pn = self.data.plants.node.copy().reset_index()
         map_pn.columns = ['p', 'n']
         demand = self.data.demand_el[self.data.demand_el.timestep.isin(self.model_horizon)].copy()
         demand.rename(columns={"node": "n", "timestep": "t"}, inplace=True)
@@ -492,6 +497,7 @@ class Results():
             demand = pd.merge(demand, demand_es[["D_es", "n", "t"]], how="outer", on=["n", "t"])
         else:
             demand["D_es"] = 0
+        
         demand.fillna(value=0, inplace=True)
         demand["demand"] = demand.demand_el + demand.D_ph + demand.D_es
         demand = demand.sort_values(by='t', key=self._sort_timesteps)

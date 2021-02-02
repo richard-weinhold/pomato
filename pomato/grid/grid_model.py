@@ -251,7 +251,7 @@ class GridModel():
         cbco_index = self.clarkson_algorithm(A=A, b=b)
 
         cbco_zonal_network = self.return_cbco(cbco_info, cbco_index)
-        cbco_zonal_network *= grid_option["capacity_multiplier"]
+        cbco_zonal_network.loc[:, "ram"] *= grid_option["capacity_multiplier"]
         return cbco_zonal_network
 
     def _add_zone_to_grid_representation(self, grid):
@@ -562,7 +562,7 @@ class GridModel():
         gsk = pd.DataFrame(index=self.data.nodes.index)
         condition = (self.data.plants.plant_type.isin(self.options["plant_types"]["ts"]) 
                         & (~self.data.plants.plant_type.isin(self.options["plant_types"]["es"])))
-        gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]].groupby("node").sum()
+        gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]].groupby("node", observed=True).sum()
 
         for zone in self.data.zones.index:
             nodes_in_zone = self.data.nodes.index[self.data.nodes.zone == zone]

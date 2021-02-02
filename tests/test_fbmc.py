@@ -13,19 +13,20 @@ from context import pomato, copytree
            
 # pylint: disable-msg=E1101
 class TestFBMCModule(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.wdir = Path(cls.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), cls.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), cls.wdir)
+
     def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.wdir = Path(self.temp_dir.name)
-        copytree(Path.cwd().joinpath("examples"), self.wdir)
-        copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), self.wdir)
+        pass
 
     @classmethod
     def tearDownClass(cls):
         pass
-        # shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
-        # shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
-        # shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
-        # shutil.rmtree(Path.cwd().joinpath("examples").joinpath("domains"), ignore_errors=True)
 
     def test_nrel_domain(self):
         mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/nrel118.json",

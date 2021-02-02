@@ -381,6 +381,7 @@ class DataManagement():
                         self.model_validation_report["default_values"][data][attr] = default_value
                         # self.logger.warning("Attribute %s in %s contains NaNs, initialized as %s", attr, data, str(default_value))
                 setattr(self, data, tools.reduce_df_size(tmp))
+                # setattr(self, data, (tmp))
         
 
         if len(self.model_validation_report["empty"]) > 0:

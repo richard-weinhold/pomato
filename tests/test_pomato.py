@@ -14,10 +14,15 @@ from context import pomato, copytree
 # pylint: disable-msg=E1101
 class TestPomato(unittest.TestCase):
     """Testing instantiation with different input files and options"""
+    
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.wdir = Path(cls.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), cls.wdir)
+
     def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.wdir = Path(self.temp_dir.name)
-        copytree(Path.cwd().joinpath("examples"), self.wdir)
+        pass
 
     @classmethod
     def tearDownClass(cls):
@@ -44,13 +49,9 @@ class TestPomato(unittest.TestCase):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
         mato.load_data('data_input/pglib_opf_case118_ieee.mat')
     
-    def test_init_de_xlsx(self):
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
-        mato.load_data('data_input/dataset_de.xlsx')
-
     
     def test_init_de_zip(self):
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.INFO)
         mato.load_data('data_input/dataset_de.zip')
 
     def test_init_nrel_direct_filepath(self):

@@ -13,18 +13,20 @@ from context import pomato, copytree
 # pylint: disable-msg=E1101
 class TestPomatoGrid(unittest.TestCase):
     
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.wdir = Path(cls.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), cls.wdir)
+        cls.options = pomato.tools.default_options()
+        cls.data = pomato.data.DataManagement(cls.options, cls.wdir)
+        cls.data.logger.setLevel(logging.ERROR)
+        cls.data.load_data('data_input/pglib_opf_case118_ieee.m')
+        cls.grid  = pomato.grid.GridTopology()
+        cls.grid.calculate_parameters(cls.data.nodes, cls.data.lines)
+    
     def setUp(self):
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.wdir = Path(self.temp_dir.name)
-        copytree(Path.cwd().joinpath("examples"), self.wdir)
-
-        self.options = pomato.tools.default_options()
-        self.data = pomato.data.DataManagement(self.options, self.wdir)
-        self.data.logger.setLevel(logging.ERROR)
-        self.data.load_data('data_input/pglib_opf_case118_ieee.m')
-        self.grid  = pomato.grid.GridTopology()
-        self.grid.calculate_parameters(self.data.nodes, self.data.lines)
-
+        pass
     def test_init(self):
         self.assertAlmostEqual(np.shape(self.grid.ptdf), (186, 118))
         self.assertEqual(sum(self.grid.lines.contingency), 177)

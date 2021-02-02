@@ -15,38 +15,44 @@ from pomato import tools
 
 # pylint: disable-msg=E1101
 class TestPomatoGridModel(unittest.TestCase):
-    def setUp(self):
-        self.logger = logging.getLogger('Log.MarketModel')
-        self.logger.setLevel(logging.ERROR)
+    
+    @classmethod
+    def setUpClass(cls):
+        cls.logger = logging.getLogger('Log.MarketModel')
+        cls.logger.setLevel(logging.ERROR)
 
-        self.temp_dir = tempfile.TemporaryDirectory()
-        self.wdir = Path(self.temp_dir.name)
-        copytree(Path.cwd().joinpath("examples"), self.wdir)
-        copytree(Path.cwd().joinpath("tests/test_data/cbco_lists"), self.wdir)
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.wdir = Path(cls.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), cls.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data/cbco_lists"), cls.wdir)
 
-        pomato.tools.create_folder_structure(self.wdir)
-        with open(self.wdir.joinpath("profiles/nrel118.json")) as opt_file:
+        pomato.tools.create_folder_structure(cls.wdir)
+        with open(cls.wdir.joinpath("profiles/nrel118.json")) as opt_file:
                 loaded_options = json.load(opt_file)
-        self.options = pomato.tools.add_default_options(loaded_options) 
+        cls.options = pomato.tools.add_default_options(loaded_options) 
 
-        self.data = pomato.data.DataManagement(self.options, self.wdir)
-        self.data.logger.setLevel(logging.ERROR)
-        self.data.load_data(r'data_input/nrel_118.zip')
+        cls.data = pomato.data.DataManagement(cls.options, cls.wdir)
+        cls.data.logger.setLevel(logging.ERROR)
+        cls.data.load_data(r'data_input/nrel_118.zip')
         
         R2_to_R3 = ["bus118", "bus076", "bus077", "bus078", "bus079", 
                     "bus080", "bus081", "bus097", "bus098", "bus099"]
+        cls.data.nodes.loc[R2_to_R3, "zone"] = "R3"
+        cls.grid = pomato.grid.GridTopology()
+        cls.grid.calculate_parameters(cls.data.nodes, cls.data.lines)
+        cls.grid_model = pomato.grid.GridModel(cls.wdir, cls.grid, cls.data, cls.options)
+        cls.grid_model.logger.setLevel(logging.ERROR)
 
-        self.data.nodes.loc[R2_to_R3, "zone"] = "R3"
-
-        self.grid = pomato.grid.GridTopology()
-        self.grid.calculate_parameters(self.data.nodes, self.data.lines)
-        self.grid_model = pomato.grid.GridModel(self.wdir, self.grid, self.data, self.options)
-        self.grid_model.logger.setLevel(logging.ERROR)
+    def setUp(self):
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        pass
-
+        cls.grid_model.julia_instance.join()
+        cls.grid = None
+        cls.data = None
+        cls.options = None
+        cls.temp_dir = None
     def test_ntc(self):
 
         self.grid_model.options["type"] = "ntc"

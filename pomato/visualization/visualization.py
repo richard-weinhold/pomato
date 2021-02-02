@@ -39,7 +39,7 @@ def color_map(gen):
         "other": ["#87959E", "#CCDAE3", "#B6C9D0", "#235E58", "#013531"],
     }
 
-    color_df = gen[["fuel", "technology"]].groupby(["fuel", "technology"]).sum()
+    color_df = gen[["fuel", "technology"]].groupby(["fuel", "technology"], observed=True).sum()
     color_df["color"] = ""
     for fuel in basic_fuel_color_map:
         condition = color_df.index.get_level_values("fuel").str.lower().str.contains(fuel)
@@ -57,7 +57,7 @@ def color_map(gen):
     for fuel in color_df.fuel.unique():
         condition = color_df.fuel == fuel
         if sum(condition) > 1:
-            color_df.loc[condition, "name"] = color_df[condition].fuel + " " + color_df[condition].technology
+            color_df.loc[condition, "name"] = color_df[condition].fuel.astype(str) + " " + color_df[condition].technology.astype(str)
         else:
             color_df.loc[condition, "name"]  = color_df[condition].fuel
     color_df["name"] = color_df["name"].apply(tools.remove_duplicate_words_string)
@@ -111,11 +111,13 @@ class Visualization():
         if show_redispatch: 
             gen = market_result.redispatch()  
             if isinstance(timestep, str) and isinstance(gen, pd.DataFrame):
-                gen = gen.loc[gen.t == timestep, ["node", "delta", "delta_abs"]].groupby("node").sum()
-                gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True).fillna(0)
+                gen = gen.loc[gen.t == timestep, ["node", "delta", "delta_abs"]].groupby("node", observed=True).sum()
+                gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)
+                gen.loc[:, ["delta", "delta_abs"]].fillna(0, inplace=True)
             elif isinstance(gen, pd.DataFrame):
-                gen = gen.loc[:, ["node", "delta", "delta_abs"]].groupby("node").sum()
-                gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True).fillna(0)
+                gen = gen.loc[:, ["node", "delta", "delta_abs"]].groupby("node", observed=True).sum()
+                gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)
+                gen.loc[:, ["delta", "delta_abs"]].fillna(0, inplace=True)
             else:
                 show_redispatch = False
 
@@ -123,7 +125,7 @@ class Visualization():
             result_data = market_result.create_result_data()
             n_0_flows = result_data.n_0_flow[timestep]
             dcline_flow = result_data.dc_flow.loc[result_data.dc_flow.t == timestep].set_index("dc").F_DC.reindex(dclines.index)
-            prices = result_data.prices[result_data.prices.t == timestep].groupby("n").mean()
+            prices = result_data.prices[result_data.prices.t == timestep].groupby("n", observed=True).mean()
             n_1_flows = result_data.n_1_flow[timestep]
         else:
             result_data = market_result.create_averaged_result_data()
@@ -333,11 +335,11 @@ class Visualization():
             timestep = market_result.model_horizon[timestep]
         
         if isinstance(timestep, str):
-            commercial_exchange = commercial_exchange[commercial_exchange.t == timestep].groupby(["z", "zz"]).mean().reset_index()
+            commercial_exchange = commercial_exchange[commercial_exchange.t == timestep].groupby(["z", "zz"], observed=True).mean().reset_index()
             net_position = net_position.loc[timestep]
         else:
             net_position = net_position.mean(axis=0)
-            commercial_exchange = commercial_exchange.groupby(["z", "zz"]).mean().reset_index()
+            commercial_exchange = commercial_exchange.groupby(["z", "zz"], observed=True).mean().reset_index()
 
         custom_data = []
         for zone in self.data.zones.index:
@@ -416,7 +418,7 @@ class Visualization():
         if gen.empty:
             return go.Figure()
 
-        gen = gen[["fuel", "technology", "t", "G"]].groupby(["fuel", "technology", "t"]).sum().reset_index()
+        gen = gen[["fuel", "technology", "t", "G"]].groupby(["fuel", "technology", "t"], observed=True).sum().reset_index()
         gen_colors = color_map(gen)
         gen = pd.merge(gen, gen_colors, on=["fuel", "technology"])
         gen.loc[:, "G"] *= 1/1000
@@ -427,10 +429,10 @@ class Visualization():
         fig.layout.yaxis.title="Generation/Load [GW]"
         
         inf["infeasibility"] = inf.pos - inf.neg
-        inf = inf[["t", "infeasibility"]].groupby("t").sum()/1000
+        inf = inf[["t", "infeasibility"]].groupby("t", observed=True).sum()/1000
 
         d = pd.merge(demand, net_export, left_on=["t", "n"], right_on=["timestep", "node"])
-        d = d[["t", "demand_el", "D_ph", "D_es", "net_export"]].groupby("t").sum()/1000
+        d = d[["t", "demand_el", "D_ph", "D_es", "net_export"]].groupby("t", observed=True).sum()/1000
         d.loc[:, "demand_el"] -= (d.net_export)
         d = d.loc[market_result.model_horizon, :]
         
@@ -463,8 +465,8 @@ class Visualization():
         gen = market_result.generation()
         flh = market_result.full_load_hours()
             
-        gen = gen[["fuel", "technology", "G", "g_max"]].groupby(["fuel", "technology"]).sum().reset_index()
-        flh = flh.groupby(["fuel", "technology"]).mean().reset_index()
+        gen = gen[["fuel", "technology", "G", "g_max"]].groupby(["fuel", "technology"], observed=True).sum().reset_index()
+        flh = flh.groupby(["fuel", "technology"], observed=True).mean().reset_index()
         gen = pd.merge(gen, flh, on=["fuel", "technology"])
         gen.loc[:, "G"] *= 1/1000
         gen.loc[:, "flh"] *= 100
@@ -579,7 +581,7 @@ class Visualization():
         if not "technology" in plants.columns:
             plants["technology"] = plants.plant_type
 
-        plants = (plants[["technology", "fuel", "zone", "g_max"]].groupby(["zone", "technology", "fuel"]).sum()/1000).reset_index()
+        plants = (plants[["technology", "fuel", "zone", "g_max"]].groupby(["zone", "technology", "fuel"], observed=True).sum()/1000).reset_index()
         plant_colors = color_map(plants)
         plants = pd.merge(plants, plant_colors, on=["fuel", "technology"])
         fig = px.bar(plants, x="zone", y="g_max", color="name", 
@@ -621,7 +623,7 @@ class Visualization():
         if isinstance(storages, list):
             es_gen = es_gen[es_gen.p.isin(storages)]
 
-        es_gen = es_gen[["t", "G", "D_es", "L_es"]].groupby(["t"]).sum().reset_index()
+        es_gen = es_gen[["t", "G", "D_es", "L_es"]].groupby(["t"], observed=True).sum().reset_index()
 
         fig = px.line(pd.melt(es_gen, id_vars=["t"], value_vars=["G", "D_es"]), x="t", y="value", color='variable')
         fig2 = px.line(pd.melt(es_gen, id_vars=["t"], value_vars=["L_es"]), x="t", y="value", color='variable')

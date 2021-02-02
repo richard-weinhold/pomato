@@ -122,28 +122,29 @@ from pomato.market_model import MarketModel
 from pomato.visualization import Visualization, Dashboard
 from pomato.fbmc import FBMCModule
 
-def _logging_setup(wdir, logging_level=logging.INFO):
+def _logging_setup(wdir, logging_level=logging.INFO, only_console_log=True):
     # Logging setup
     logger = logging.getLogger('log.pomato')
     logger.setLevel(logging_level)
-    if len(logger.handlers) < 2:
+    if len(logger.handlers) < (2 - int(only_console_log)):
         # create file handler which logs even debug messages
         if not wdir.joinpath("logs").is_dir():
             wdir.joinpath("logs").mkdir()
 
-        file_handler = logging.FileHandler(wdir.joinpath("logs").joinpath('market_tool.log'))
-        file_handler.setLevel(logging.DEBUG)
-        file_handler_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                                                    '%d.%m.%Y %H:%M')
-        file_handler.setFormatter(file_handler_formatter)
+        if not only_console_log:
+            file_handler = logging.FileHandler(wdir.joinpath("logs").joinpath('market_tool.log'))
+            file_handler.setLevel(logging.DEBUG)
+            file_handler_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                                                        '%d.%m.%Y %H:%M')
+            file_handler.setFormatter(file_handler_formatter)
+            logger.addHandler(file_handler)
+
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
         console_handler_formatter = logging.Formatter('%(levelname)s - %(message)s')
         console_handler.setFormatter(console_handler_formatter)
-
-        # add the handlers to the logger
         logger.addHandler(console_handler)
-        logger.addHandler(file_handler)
+
     return logger
 
 class POMATO():

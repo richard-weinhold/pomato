@@ -160,7 +160,7 @@ class GridTopology():
 
         tmp = self.lines[["node_i", "node_j"]].copy()
         tmp.loc[:, "systems"] = 1
-        tmp = tmp.groupby(["node_i", "node_j"]).sum()
+        tmp = tmp.groupby(["node_i", "node_j"], observed=True).sum()
         tmp = tmp.reset_index()
         self.lines.loc[:, "systems"] = 1
         self.lines.loc[:, "no"] = 1

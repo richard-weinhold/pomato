@@ -150,7 +150,7 @@ def line_coordinates(lines, nodes):
     # so each line from a system has an relative index e.g. 1/3 or 4/5
     tmp = lines[["node_i", "node_j"]].copy()
     tmp["systems"] = 1
-    tmp = tmp.groupby(["node_i", "node_j"]).sum()
+    tmp = tmp.groupby(["node_i", "node_j"], observed=True).sum()
     tmp = tmp.reset_index()
     lines["systems"] = 1
     lines["no"] = 1
