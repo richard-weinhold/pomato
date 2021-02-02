@@ -339,9 +339,9 @@ def _delete_empty_subfolders(folder):
 
 def reduce_df_size(df):
     """Reduce size of DataFrame by assigning adequate data types."""
-    # for col, dtype in zip(df.dtypes.index, [i.name for i in df.dtypes.values]):
-    #     if dtype == "object":
-    #         df[col] = df[col].astype("category")
+    for col, dtype in zip(df.dtypes.index, [i.name for i in df.dtypes.values]):
+        if dtype == "object":
+            df[col] = df[col].astype("category")
         # elif "int" in dtype:
         #     df[col] = pd.to_numeric(df[col], downcast="integer")
         # else:
