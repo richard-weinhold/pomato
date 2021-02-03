@@ -562,7 +562,7 @@ class GridModel():
         gsk = pd.DataFrame(index=self.data.nodes.index)
         condition = (self.data.plants.plant_type.isin(self.options["plant_types"]["ts"]) 
                         & (~self.data.plants.plant_type.isin(self.options["plant_types"]["es"])))
-        gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]].groupby("node", observed=True).sum()
+        gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]].groupby("node").sum()
 
         for zone in self.data.zones.index:
             nodes_in_zone = self.data.nodes.index[self.data.nodes.zone == zone]

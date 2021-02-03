@@ -102,7 +102,7 @@ class FBMCModule():
         for zone in self.data.zones.index:
             gsk[zone] = 0
             nodes_in_zone = self.grid.nodes.index[self.grid.nodes.zone == zone]
-            tmp = gen[gen.n.isin(nodes_in_zone)].groupby("n", observed=True).sum().copy()
+            tmp = gen[gen.n.isin(nodes_in_zone)].groupby("n").sum().copy()
             tmp.loc[:, "G"] /= tmp.G.max()
             gsk.loc[tmp.index, zone] = tmp.G.values
         
@@ -137,7 +137,7 @@ class FBMCModule():
                     (~self.data.plants.plant_type.isin(plant_types["es"]))
         
         gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]] \
-                        .groupby("node", observed=True).sum()
+                        .groupby("node").sum()
 
         for zone in self.data.zones.index:
             nodes_in_zone = self.grid.nodes.index[self.grid.nodes.zone == zone]

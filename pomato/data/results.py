@@ -238,12 +238,12 @@ class Results():
 
         data_struct = self.create_result_data()
 
-        data_struct.inj = data_struct.inj.groupby("n", observed=True).mean().reindex(self.grid.nodes.index).INJ
+        data_struct.inj = data_struct.inj.groupby("n").mean().reindex(self.grid.nodes.index).INJ
         data_struct.n_0_flow = data_struct.n_0_flow.abs().mean(axis=1)
         data_struct.n_1_flow = data_struct.n_1_flow.abs().mean(axis=1)
         data_struct.dc_flow = data_struct.dc_flow.pivot(index="dc", columns="t", values="F_DC") \
                                 .abs().mean(axis=1).reindex(self.data.dclines.index).fillna(0)
-        data_struct.prices = data_struct.prices[["n", "marginal"]].groupby("n", observed=True).mean()
+        data_struct.prices = data_struct.prices[["n", "marginal"]].groupby("n").mean()
         self._cached_results.averaged_result_data = deepcopy(data_struct)
         return data_struct
 
@@ -362,8 +362,8 @@ class Results():
         """
         net_position = pd.DataFrame(index=self.EX.t.unique())
         for zone in self.data.zones.index:
-            net_position[zone] = self.EX[self.EX.z == zone].groupby("t", observed=True).sum() - \
-                                 self.EX[self.EX.zz == zone].groupby("t", observed=True).sum()
+            net_position[zone] = self.EX[self.EX.z == zone].groupby("t").sum() - \
+                                 self.EX[self.EX.zz == zone].groupby("t").sum()
         return net_position
     
     def curtailment(self):
@@ -619,8 +619,8 @@ class Results():
 
         n_1_flows = self.n_1_flow(sensitivity=sensitivity)
         n_1_flows = n_1_flows.drop("co", axis=1)
-        n_1_flow_max = n_1_flows.groupby("cb", observed=True).max()
-        n_1_flow_min = n_1_flows.groupby("cb", observed=True).min()
+        n_1_flow_max = n_1_flows.groupby("cb").max()
+        n_1_flow_min = n_1_flows.groupby("cb").min()
         n_1_flows = pd.DataFrame(np.where(n_1_flow_max > -n_1_flow_min, n_1_flow_max, n_1_flow_min),
                                  index=n_1_flow_min.index, columns=n_1_flow_min.columns)
 
@@ -714,8 +714,8 @@ class Results():
         agg_info = n_1_overload[["cb", "co"]].copy()
         agg_info["# of overloads"] = np.sum(n_1_overload[timesteps] > 1, axis=1).values
         agg_info["# of COs"] = 1
-        agg_info = agg_info.groupby("cb", observed=True).sum()
-        agg_info["avg load"] = n_1_overload.groupby(by=["cb"], observed=True).mean().mean(axis=1).values
+        agg_info = agg_info.groupby("cb").sum()
+        agg_info["avg load"] = n_1_overload.groupby(by=["cb"]).mean().mean(axis=1).values
 
         condition = n_1_overload.co == "basecase"
         bool_values = [line in n_1_overload.cb[condition].values for line in agg_info.index]
