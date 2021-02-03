@@ -1,6 +1,8 @@
 import subprocess, sys, os
 from pathlib import Path
     
+
+
 def instantiate_julia(gurobi=True, redundancyremoval_branch="master", marketmodel_branch="master"):
     cwd = str(Path(__file__).parent)
     args = ["julia", "julia_install_from_git.jl", redundancyremoval_branch, marketmodel_branch] 
@@ -12,6 +14,10 @@ def instantiate_julia(gurobi=True, redundancyremoval_branch="master", marketmode
         add_gurobi()
         
 def instantiate_julia_dev(redundancyremoval_path, marketmodel_path, gurobi=True):
+    """Instantiates julia env from local repositories. 
+    
+    pomato.tools.julia_management.instantiate_julia_dev()
+    """
     cwd = str(Path(__file__).parent)
     args = ["julia", "julia_install_dev.jl", redundancyremoval_path, marketmodel_path] 
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
