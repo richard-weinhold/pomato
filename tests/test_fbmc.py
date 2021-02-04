@@ -49,6 +49,9 @@ class TestFBMCModule(unittest.TestCase):
         mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
         mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="dynamic", reduce=False)
 
+        # Remove reference 
+        mato = None 
+        
         # self.assertRaises(AssertionError, np.testing.assert_almost_equal, 
         #                   fbmc_gridrep_G.loc[:, mato.data.zones.index].values, 
         #                   fbmc_gridrep_Gmax.loc[:, mato.data.zones.index].values)

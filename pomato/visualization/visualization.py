@@ -20,36 +20,37 @@ from plotly.offline import plot
 from plotly.subplots import make_subplots
 from pomato.visualization.geoplot_functions import line_coordinates, line_colors, add_prices_layer, _create_geo_json
 
+BASIC_FUEL_COLOR_MAP = {
+        "uran": ["#C44B50", "#7B011A", "#9C242E"],
+        "lignite": ["#BC8873", "#A67662", "#895B4B"],
+        "coal": ["#8C7F77", "#73645D", "#5E4F48"],
+        "geothermal": ["#FDCF94", "#5472D4", "#2E56B5"],
+        "hydro": ["#6881E5", "#5472D4", "#2E56B5"],
+        "water": ["#6881E5", "#5472D4", "#2E56B5"],
+        "gas": ["#FA5827", "#E44214", "#C62200"],
+        "biomass": ["#AEE570", "#96CD58", "#7DB343"],
+        "oil": ["#565752", "#282924"],
+        "waste": ["#000000", "#141510"],
+        "other": ["#87959E", "#CCDAE3", "#B6C9D0", "#235E58", "#013531"],
+        "wind": ["#6699AA", "#00303E", "#326775"],
+        "sun": ["#FFEB3C", "#F4E01D", "#EBD601"],
+    }
+
 def color_map(gen):
     """Fuel colors for generation/capacity plots."""
 
-    basic_fuel_color_map = {
-        "coal": ["#8C7F77", "#73645D", "#5E4F48"],
-        "lignite": ["#BC8873", "#A67662", "#895B4B"],
-        "gas": ["#FA5827", "#E44214", "#C62200"],
-        "uran": ["#C44B50", "#7B011A", "#9C242E"],
-        "oil": ["#565752", "#282924"],
-        "waste": ["#000000", "#141510"],
-        "wind": ["#6699AA", "#00303E", "#326775"],
-        "sun": ["#FFEB3C", "#F4E01D", "#EBD601"],
-        "hydro": ["#6881E5", "#5472D4", "#2E56B5"],
-        "water": ["#6881E5", "#5472D4", "#2E56B5"],
-        "geothermal": ["#FDCF94", "#5472D4", "#2E56B5"],
-        "biomass": ["#AEE570", "#96CD58", "#7DB343"],
-        "other": ["#87959E", "#CCDAE3", "#B6C9D0", "#235E58", "#013531"],
-    }
 
     color_df = gen[["fuel", "technology"]].groupby(["fuel", "technology"], observed=True).sum()
-    for fuel in basic_fuel_color_map:
+    for fuel in BASIC_FUEL_COLOR_MAP:
         condition = color_df.index.get_level_values("fuel").str.lower().str.contains(fuel)
         number_of_fuels = sum(condition)
-        color_df.loc[condition, "color"] = basic_fuel_color_map[fuel][:number_of_fuels]
+        color_df.loc[condition, "color"] = BASIC_FUEL_COLOR_MAP[fuel][:number_of_fuels]
     
     fill = "#EAF9FE"
-    number_to_fill = len(basic_fuel_color_map["other"]) - sum(color_df.color == "") 
+    number_to_fill = len(BASIC_FUEL_COLOR_MAP["other"]) - sum(color_df.color == "") 
     if number_to_fill > 0:
-        basic_fuel_color_map["other"].extend([fill for x in range(0, number_to_fill)])
-    color_df.loc[color_df.color == "", "color"] = basic_fuel_color_map[fuel][:sum(color_df.color == "")]
+        BASIC_FUEL_COLOR_MAP["other"].extend([fill for x in range(0, number_to_fill)])
+    color_df.loc[color_df.color == "", "color"] = BASIC_FUEL_COLOR_MAP[fuel][:sum(color_df.color == "")]
 
     color_df = color_df.reset_index()
     color_df["name"] = ""
@@ -76,7 +77,8 @@ class Visualization():
         self.data = data
 
     def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, show_nex=False,
-                        timestep=None, threshold=0, line_color_option=0, show_plot=True, filepath=None):
+                        timestep=None, threshold=0, highlight_lines=None, line_color_option=0, 
+                        show_plot=True, filepath=None):
         """Creates Geoplot of market result.
 
         The geoplot is a interactive plotly figure showing lineloading, redispatch and prices 
@@ -170,7 +172,8 @@ class Visualization():
         line_coords = np.array(result_data.line_coordinates)
         lines["colors"], lines["alpha"] = line_colors(lines, n_0_flows, n_1_flows, 
                                                       option=line_color_option,
-                                                      threshold=threshold)
+                                                      threshold=threshold,
+                                                      highlight_lines=highlight_lines)
 
         hovertemplate_lines = "<br>".join(["Line: %{customdata[0]}", 
                                            "Capcity: %{customdata[1]:.2f} MW",
@@ -262,10 +265,11 @@ class Visualization():
                 data=go.Contour(z=prices_layer, showscale=False, 
                                 colorscale=colorscale, ncontours=contours))
             price_fig.update_layout(
-                width=2e3, height=2e3*hight_width, 
+                width=1e3, height=1e3*hight_width, 
                 xaxis = {'visible': False},
                 yaxis = {'visible': False},
-                margin={"r":0,"t":0,"l":0,"b":0})
+                margin={"r":0,"t":0,"l":0,"b":0}
+                )
             
             img_pil = Image.open(io.BytesIO(price_fig.to_image()))
             price_layer =  {   
@@ -320,19 +324,15 @@ class Visualization():
         else:
             return fig
 
-    def create_zonal_geoplot(self, market_result, timestep=None, show_plot=True, filepath=None):
+    def create_zonal_geoplot(self, market_result, timestep=None, highlight_lines=None, show_plot=True, filepath=None):
         
-        fig = self.create_geo_plot(market_result, timestep=timestep, show_plot=False)
+        fig = self.create_geo_plot(market_result, timestep=timestep, highlight_lines=highlight_lines, show_plot=False)
         fig.update_traces(marker_showscale=False)
-
         commercial_exchange = market_result.EX.copy()
         net_position = market_result.net_position()
-
         geojson = _create_geo_json(self.data.zones, self.data.nodes)
-
         if isinstance(timestep, int):
             timestep = market_result.model_horizon[timestep]
-        
         if isinstance(timestep, str):
             commercial_exchange = commercial_exchange[commercial_exchange.t == timestep].groupby(["z", "zz"], observed=True).mean().reset_index()
             net_position = net_position.loc[timestep]
@@ -374,7 +374,8 @@ class Visualization():
                     opacity=0.45),
                 colorbar=dict(thickness=5)
                 ))
-
+        # re-sort layers to bring the zones to the bottom.
+        fig.data = tuple(fig.data[i] for i in ([-1] + [i for i in range(0, len(fig.data)-1)]))
         if filepath:
             fig.write_html(str(filepath))
         if show_plot:
@@ -402,12 +403,10 @@ class Visualization():
         filepath : pathlib.Path, str, optional
             If filepath is supplied, saves figure as .html, by default None
         """
-
         gen = market_result.generation()
         demand = market_result.demand()
         inf = market_result.infeasibility(drop_zero=False)
         net_export = market_result.data.net_export
-
         if isinstance(nodes, list):
             gen = gen[gen.node.isin(nodes)]
             demand = demand[demand.n.isin(nodes)]
@@ -417,18 +416,24 @@ class Visualization():
         if gen.empty:
             return go.Figure()
 
-        gen = gen[["fuel", "technology", "t", "G"]].groupby(["fuel", "technology", "t"], observed=True).sum().reset_index()
+        gen = gen[["fuel", "technology", "t", "G", "g_max"]].groupby(["fuel", "technology", "t"], observed=True).sum().reset_index()
         gen_colors = color_map(gen)
         gen = pd.merge(gen, gen_colors, on=["fuel", "technology"])
         gen.loc[:, "G"] *= 1/1000
+
+        gen["utilization"] = gen.G / gen.g_max
+        sort_fuel_name = gen[["name", "utilization"]].groupby("name").mean().sort_values(by="utilization", ascending=False)
+        gen = gen.sort_values(by="t", key=market_result._sort_timesteps)
         fig = px.area(gen, x="t", y="G", color="name", 
-                      color_discrete_map=gen_colors[["color", "name"]].set_index("name").color.to_dict())
+                      color_discrete_map=gen_colors[["color", "name"]].set_index("name").color.to_dict(),
+                      category_orders={"name": list(sort_fuel_name.index)})
 
         fig.layout.xaxis.title="Time"
         fig.layout.yaxis.title="Generation/Load [GW]"
-        
+
         inf["infeasibility"] = inf.pos - inf.neg
         inf = inf[["t", "infeasibility"]].groupby("t").sum()/1000
+        inf = inf.loc[market_result.model_horizon, :]
 
         d = pd.merge(demand, net_export, left_on=["t", "n"], right_on=["timestep", "node"])
         d = d[["t", "demand_el", "D_ph", "D_es", "net_export"]].groupby("t").sum()/1000
@@ -468,7 +473,7 @@ class Visualization():
         flh = flh.groupby(["fuel", "technology"], observed=True).mean().reset_index()
         gen = pd.merge(gen, flh, on=["fuel", "technology"])
         gen.loc[:, "G"] *= 1/1000
-        gen.loc[:, "flh"] *= 100
+        gen.loc[:, "flh"] *= 100 / len(market_result.model_horizon)
         gen.loc[:, "utilization"] *= 100
 
         gen_colors = color_map(gen)

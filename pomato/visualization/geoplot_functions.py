@@ -79,21 +79,21 @@ def add_prices_layer(nodes, prices, compress=True):
         prices.loc[prices.marginal < prices.marginal.quantile(quantile), "marginal"] = prices.marginal.quantile(quantile)
 
     nodes = pd.merge(nodes[["lat", "lon"]], prices, left_index=True, right_index=True)
-    
     lat, lon = list(nodes.lat.values), list(nodes.lon.values)
-
-    lat.extend([min(lat) - 4, max(lat) + 4])
-    lon.extend([min(lon) - 8, max(lon) + 8])
+    lat.extend([min(lat)*0.99, max(lat)*1.01])
+    lon.extend([min(lon)*0.95, max(lon)*1.05])
     # Calculate plot dimensions
     xx, yy = merc(np.array(lat), np.array(lon))
     ratio = (max(xx) - min(xx))/(max(yy) - min(yy))
-    size = (max(yy) - min(yy))/5e4
+    # size = (max(yy) - min(yy))/5e4
+    size = 250
     # prices Plot Coordinates (0,0) (plot_width, plot_hight)
     x = ((xx - min(xx))/max(xx - min(xx))*ratio*size).astype(int)
     y = ((yy - min(yy))/max(yy - min(yy))*size).astype(int)
     nodes["x"], nodes["y"] = x[:-2], y[:-2]
-    plot_width, plot_hight = x.max(), y.max()
-    prices_layer = _build_raster(nodes, plot_width, plot_hight, alpha=8)
+    plot_width, plot_hight = x.max() + 1, y.max() + 1
+    print(size, plot_width, plot_hight)
+    prices_layer = _build_raster(nodes, plot_width, plot_hight, alpha=4)
     
     lon_min, lon_max = min(lon), max(lon)
     lat_min, lat_max = min(lat), max(lat)
@@ -103,7 +103,7 @@ def add_prices_layer(nodes, prices, compress=True):
     return prices_layer, corners, plot_hight/plot_width
 
 
-def line_colors(lines, n_0_flows, n_1_flows, threshold=0,
+def line_colors(lines, n_0_flows, n_1_flows, threshold=0, highlight_lines=None, 
                 option=0, range_start=0, range_end=100):
     """Line colors in 10 shades of RedYellowGreen palette"""
     ## 0: N-0 Flows, 1: N-1 Flows 2: Line voltage levels
@@ -142,6 +142,9 @@ def line_colors(lines, n_0_flows, n_1_flows, threshold=0,
     elif option == 2:
         color = create_voltage_colors(lines)
         line_alpha = [0.6 for i in lines.index]
+
+    if isinstance(highlight_lines, list):
+        line_alpha = [1 if l in highlight_lines else 0.2 for l in lines.index]
 
     return color, line_alpha
 

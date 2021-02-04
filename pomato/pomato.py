@@ -122,16 +122,16 @@ from pomato.market_model import MarketModel
 from pomato.visualization import Visualization, Dashboard
 from pomato.fbmc import FBMCModule
 
-def _logging_setup(wdir, logging_level=logging.INFO, only_console_log=True):
+def _logging_setup(wdir, logging_level=logging.INFO, add_file_logging=True):
     # Logging setup
     logger = logging.getLogger('log.pomato')
     logger.setLevel(logging_level)
-    if len(logger.handlers) < (2 - int(only_console_log)):
+    if len(logger.handlers) < (1 + int(add_file_logging)):
         # create file handler which logs even debug messages
         if not wdir.joinpath("logs").is_dir():
             wdir.joinpath("logs").mkdir()
 
-        if not only_console_log:
+        if add_file_logging:
             file_handler = logging.FileHandler(wdir.joinpath("logs").joinpath('market_tool.log'))
             file_handler.setLevel(logging.DEBUG)
             file_handler_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -213,12 +213,12 @@ class POMATO():
         defined in tools.
     """
    
-    def __init__(self, wdir, options_file=None, logging_level=logging.INFO):
+    def __init__(self, wdir, options_file=None, logging_level=logging.INFO, add_file_logging=True):
 
         self.wdir = wdir
         self.package_dir = Path(pomato.__path__[0])
 
-        self.logger = _logging_setup(self.wdir, logging_level)
+        self.logger = _logging_setup(self.wdir, logging_level, add_file_logging)
         self.logger.info("Market Tool Initialized")
         tools.create_folder_structure(self.wdir, self.logger)
 
@@ -443,5 +443,9 @@ class POMATO():
 
     def __del__(self):
         """Join Julia instances on deletion."""
+        
+        for handler in self.logger.handlers:
+            handler.close()
+
         self._join_julia_instances()
         self.stop_dashboard()

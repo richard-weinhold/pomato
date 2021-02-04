@@ -438,6 +438,7 @@ class Results():
             gen["technology"] = gen.plant_type
 
         gen = tools.reduce_df_size(gen)
+        
         self._cached_results.generation = gen
         return gen
 
@@ -498,9 +499,10 @@ class Results():
         else:
             demand["D_es"] = 0
         
-        demand.fillna(value=0, inplace=True)
+        demand.loc[:, ["demand_el", "D_ph", "D_es"]].fillna(value=0, inplace=True)
         demand["demand"] = demand.demand_el + demand.D_ph + demand.D_es
         demand = demand.sort_values(by='t', key=self._sort_timesteps)
+        
         self._cached_results.demand = demand
         return demand
 

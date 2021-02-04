@@ -320,7 +320,8 @@ class Dashboard():
                                Output(f'timestep-selector-{page}', 'marks'),
                                Output(f'timestep-selector-{page}', 'value')],
                               [Input(f"results-dropdown-{page}", "value"),
-                               Input("viewport-container", "data")])(self.update_timestep_slider)
+                               Input("viewport-container", "data")],
+                               State(f'timestep-selector-{page}', 'value'))(self.update_timestep_slider)
 
             self.app.callback(Output(f'timestep-display-{page}', 'children'),
                              [Input(f'results-dropdown-{page}', 'value'),
@@ -348,18 +349,23 @@ class Dashboard():
                            State('domain-y-dropdown', 'value')])(self.update_domain_plot)
         
         self.app.callback(Output("fb-geo-figure", "figure"),
-                          Input("botton-fb-domains", "n_clicks"),
+                          [Input("botton-fb-domains", "n_clicks"),
+                           Input("fb-domain-figure", "clickData")],
                           [State('timestep-selector-fbmc-market', 'value'),
                            State('results-dropdown-fbmc-market', 'value')])(self.update_fb_geo_plot)
         
-    def update_fb_geo_plot(self, click, timestep, result_name):
+    def update_fb_geo_plot(self, botton, click_data, timestep, result_name):
         if not result_name:
             return {}
         else:
-            print(timestep, result_name)
+            if click_data:
+                if click_data:
+                    lines = click_data["points"][0]["customdata"]
+            else:
+                lines = None
             result = self.pomato_instance.data.results[result_name]
             vis = self.pomato_instance.visualization
-            fig = vis.create_zonal_geoplot(result, timestep=timestep, show_plot=False)
+            fig = vis.create_zonal_geoplot(result, timestep=timestep, highlight_lines=lines, show_plot=False)
             fig.update_layout(uirevision = True)
             fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
             return fig
@@ -392,16 +398,17 @@ class Dashboard():
             option_domain = [{"label": "-".join(x), "value": "-".join(x)} for x in itertools.combinations(self.pomato_instance.data.zones.index, 2)]
             return "Done", option_domain, option_domain
 
-    def update_timestep_slider(self, result_name, size):
-
+    def update_timestep_slider(self, result_name, size, value):
         if not result_name:
             raise PreventUpdate
+        if not value:
+            value = 0
         result = self.pomato_instance.data.results[result_name]
         slider_max = len(result.model_horizon)
         number_labels = int(size["width"] * (4/12) / 50)
         slider_steps = int(len(result.model_horizon)/number_labels)
         marks = {x : result.model_horizon[x] for x in range(0, slider_max) if (x%slider_steps == 0)}
-        return slider_max, marks, 0
+        return slider_max, marks, value
 
     def add_overview_callbacks(self):
         # Page 1: Summary 
@@ -559,6 +566,7 @@ class Dashboard():
                     lines.append(point["customdata"][0])
         return current_value + lines
     
+
     def update_installed_capacity_figure(self, result_name):
         result = self.pomato_instance.data.results[result_name]
         fig = self.pomato_instance.visualization.create_installed_capacity_plot(result, show_plot=False)
