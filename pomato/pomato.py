@@ -443,9 +443,7 @@ class POMATO():
 
     def __del__(self):
         """Join Julia instances on deletion."""
-        
-        for handler in self.logger.handlers:
-            handler.close()
-
         self._join_julia_instances()
         self.stop_dashboard()
+        for handler in self.logger.handlers:
+            handler.close()
