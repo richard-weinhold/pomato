@@ -26,32 +26,29 @@ class TestFBMCModule(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        cls.mato = None
         cls.wdir = None
         cls.temp_dir = None
 
-    def test_nrel_domain(self):
+    def test_domain(self):
         mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/nrel118.json",
-                             logging_level=logging.ERROR)
+                                 logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/nrel_118.zip')
         
         R2_to_R3 = ["bus118", "bus076", "bus077", "bus078", "bus079", 
                     "bus080", "bus081", "bus097", "bus098", "bus099"]
         mato.data.nodes.loc[R2_to_R3, "zone"] = "R3"
-
         folder = self.wdir.joinpath("scopf_market_results")
         mato.data.process_results(folder, mato.grid)
 
-        basecase = mato.data.results[folder.name]
+        basecase = mato.data.results["scopf_market_results"]
         mato.options["grid"]["minram"] = 0.1
         mato.options["grid"]["sensitivity"] = 0.05
         mato.fbmc.calculate_parameters()
-
         mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
         mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="dynamic", reduce=False)
+        mato.logger.handlers[0].close()
 
-        # Remove reference 
-        mato = None 
-        
         # self.assertRaises(AssertionError, np.testing.assert_almost_equal, 
         #                   fbmc_gridrep_G.loc[:, mato.data.zones.index].values, 
         #                   fbmc_gridrep_Gmax.loc[:, mato.data.zones.index].values)

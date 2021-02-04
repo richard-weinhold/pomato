@@ -22,19 +22,20 @@ class TestPomatoMarketModel(unittest.TestCase):
         cls.wdir = Path(cls.temp_dir.name)
         copytree(Path.cwd().joinpath("examples"), cls.wdir)
         copytree(Path.cwd().joinpath("tests/test_data/cbco_lists"), cls.wdir)
-    
+
     def setUp(self):
         pass
 
     @classmethod
     def tearDownClass(cls):
+        cls.mato = None
         cls.wdir = None
         cls.temp_dir = None
     
     def test_run_nrel(self):
         # What takes how long
         mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/nrel118.json",
-                             logging_level=logging.INFO)
+                                 logging_level=logging.INFO, file_logger=False)
         mato.load_data('data_input/nrel_118.zip')
         
         my_file = self.wdir.joinpath('cbco_nrel_118.csv')

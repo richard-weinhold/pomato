@@ -26,46 +26,46 @@ class TestPomato(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-         cls.temp_dir = None
+        cls.wdir = None
+        cls.temp_dir = None
     
     def test_run_ieee_init_invalid_option(self):
         mato = pomato.POMATO(wdir=self.wdir, options_file="INVALID_PATH",
-                             logging_level=logging.ERROR)
+                             logging_level=logging.ERROR, file_logger=False)
         self.assertTrue(mato.options == pomato.tools.default_options())
 
     def test_run_ieee_init_no_option(self):
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
         self.assertTrue(mato.options == pomato.tools.default_options())
 
     def test_run_ieee_init_invalid_data(self):
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
         self.assertRaises(FileNotFoundError, mato.load_data, "INVALID_PATH")
 
     def test_init_ieee_mfile(self):
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/pglib_opf_case118_ieee.m')
 
     def test_init_ieee_matfile(self):
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/pglib_opf_case118_ieee.mat')
     
-    
     def test_init_de_zip(self):
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.INFO)
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/dataset_de.zip')
 
     def test_init_nrel_direct_filepath(self):
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
         filepath = self.wdir.joinpath('data_input/nrel_118.zip')
         mato.load_data(filepath)
     def test_init_nrel_xlsx(self):
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/nrel_118.xlsx')
     
     def test_init_nrel_zip(self):
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/nrel_118.zip')
 
     def test_init_nrel_folder(self):
-        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR)
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/nrel_118/')

@@ -122,16 +122,16 @@ from pomato.market_model import MarketModel
 from pomato.visualization import Visualization, Dashboard
 from pomato.fbmc import FBMCModule
 
-def _logging_setup(wdir, logging_level=logging.INFO, add_file_logging=True):
+def _logging_setup(wdir, logging_level=logging.INFO, file_logger=False):
     # Logging setup
     logger = logging.getLogger('log.pomato')
     logger.setLevel(logging_level)
-    if len(logger.handlers) < (1 + int(add_file_logging)):
+    if len(logger.handlers) < (1 + int(file_logger)):
         # create file handler which logs even debug messages
         if not wdir.joinpath("logs").is_dir():
             wdir.joinpath("logs").mkdir()
-
-        if add_file_logging:
+            open(wdir.joinpath("logs/market_tool.log"), 'a').close()
+        if file_logger:
             file_handler = logging.FileHandler(wdir.joinpath("logs").joinpath('market_tool.log'))
             file_handler.setLevel(logging.DEBUG)
             file_handler_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -143,6 +143,7 @@ def _logging_setup(wdir, logging_level=logging.INFO, add_file_logging=True):
         console_handler.setLevel(logging.INFO)
         console_handler_formatter = logging.Formatter('%(levelname)s - %(message)s')
         console_handler.setFormatter(console_handler_formatter)
+        
         logger.addHandler(console_handler)
 
     return logger
@@ -213,21 +214,17 @@ class POMATO():
         defined in tools.
     """
    
-    def __init__(self, wdir, options_file=None, logging_level=logging.INFO, add_file_logging=True):
+    def __init__(self, wdir, options_file=None, logging_level=logging.INFO, file_logger=False):
 
         self.wdir = wdir
         self.package_dir = Path(pomato.__path__[0])
-
-        self.logger = _logging_setup(self.wdir, logging_level, add_file_logging)
-        self.logger.info("Market Tool Initialized")
+        self.logger = _logging_setup(self.wdir, logging_level, file_logger=False)
         tools.create_folder_structure(self.wdir, self.logger)
-
         # Core Attributes
         if not options_file:
             self.options = tools.default_options()        
         else: 
             self.initialize_options(options_file)
-        
         self.data = DataManagement(self.options, self.wdir)
         self.grid = GridTopology()       
         self.grid_model = GridModel(self.wdir, self.grid, self.data, self.options)
@@ -236,8 +233,9 @@ class POMATO():
 
         # Instances for Result Processing 
         self.visualization = Visualization(self.wdir, self.data)
-        self.dashboard = None
         self.fbmc = FBMCModule(self.wdir, self.grid, self.data, self.options)
+        self.dashboard = None
+        self.logger.info("POMATO initialized!")
 
     def initialize_options(self, options_file):
         """Initialize options file.
@@ -445,5 +443,3 @@ class POMATO():
         """Join Julia instances on deletion."""
         self._join_julia_instances()
         self.stop_dashboard()
-        for handler in self.logger.handlers:
-            handler.close()

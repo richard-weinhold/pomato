@@ -92,7 +92,6 @@ def add_prices_layer(nodes, prices, compress=True):
     y = ((yy - min(yy))/max(yy - min(yy))*size).astype(int)
     nodes["x"], nodes["y"] = x[:-2], y[:-2]
     plot_width, plot_hight = x.max() + 1, y.max() + 1
-    print(size, plot_width, plot_hight)
     prices_layer = _build_raster(nodes, plot_width, plot_hight, alpha=4)
     
     lon_min, lon_max = min(lon), max(lon)
@@ -149,6 +148,24 @@ def line_colors(lines, n_0_flows, n_1_flows, threshold=0, highlight_lines=None,
     return color, line_alpha
 
 def line_coordinates(lines, nodes):
+    """Create line coordinates for the geo plot.
+
+    Each line contains 5 coordinates. Start, middle and end point. And 2 coordinates to visualize
+    multilines where they branch out across a circle around start and end nodes.  
+
+    Parameters
+    ----------
+    lines : pd.DataFrame
+        Line data, with columns node_i, node_j indicating connections.
+    nodes : pd.DataFrame
+        Node data, with columns lat, lon for coordinates.
+
+    Returns
+    -------
+    line_x, line_y, lists
+        Lists for x,y coordinates each line a list of 5 coordinates, start, start radius, middle, 
+        end radius end.  
+    """    
     # Add Columns to lines with total systems and an index
     # so each line from a system has an relative index e.g. 1/3 or 4/5
     tmp = lines[["node_i", "node_j"]].copy()
@@ -163,7 +180,7 @@ def line_coordinates(lines, nodes):
         # np.array bc of bug when assigning a 2-elm list
         lines.loc[condition, "no"] = np.array([nr for nr in range(0, systems)])
 
-    lx, ly = [], []
+    line_x, line_y = [], []
     for l in lines.index:
         xi, yi = (nodes.lat[lines.node_i[l]], nodes.lon[lines.node_i[l]])
         xj, yj = (nodes.lat[lines.node_j[l]], nodes.lon[lines.node_j[l]])
@@ -191,13 +208,13 @@ def line_coordinates(lines, nodes):
         # lx contains start point, point on circle for multiple lines on start point,
         # a point 1/2 of the way for the hover menus to stick to
         # point on circle for multiple lines on end point, end point
-        lx.append([xi, xi + np.cos(alpha)*d,
+        line_x.append([xi, xi + np.cos(alpha)*d,
                    0.5*(xi + np.cos(alpha)*d + xj + np.cos(alpha2)*d),
                    xj + np.cos(alpha2)*d, xj])
-        ly.append([yi, yi + np.sin(alpha)*d,
+        line_y.append([yi, yi + np.sin(alpha)*d,
                    0.5*(yi + np.sin(alpha)*d + yj + np.sin(alpha2)*d),
                    yj + np.sin(alpha2)*d, yj])
-    return lx, ly
+    return line_x, line_y
 
 def create_voltage_colors(lines): 
     #{380: 'red', 400: 'red', 220: 'green', 232: 'green', 165: 'grey', 150: 'grey', 132: 'black'}

@@ -44,6 +44,7 @@ class TestPomatoVisualization(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.mato = None
+        cls.wdir = None
         cls.temp_dir = None
 
     def test_visualization_generation_plot(self):

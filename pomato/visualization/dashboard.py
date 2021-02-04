@@ -566,7 +566,6 @@ class Dashboard():
                     lines.append(point["customdata"][0])
         return current_value + lines
     
-
     def update_installed_capacity_figure(self, result_name):
         result = self.pomato_instance.data.results[result_name]
         fig = self.pomato_instance.visualization.create_installed_capacity_plot(result, show_plot=False)

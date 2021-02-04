@@ -24,17 +24,18 @@ class TestPomatoMarketModel(unittest.TestCase):
     def setUpClass(cls):
         cls.temp_dir = tempfile.TemporaryDirectory()
         cls.wdir = Path(cls.temp_dir.name)
+        print(Path.cwd())
+        print(cls.wdir)
+
         copytree(Path.cwd().joinpath("examples"), cls.wdir)
 
         pomato.tools.create_folder_structure(cls.wdir)
         cls.options = pomato.tools.default_options()
         cls.data = pomato.data.DataManagement(cls.options, cls.wdir)
-        cls.data.logger.setLevel(logging.ERROR)        
         cls.data.load_data('data_input/pglib_opf_case118_ieee.m')
         cls.grid = pomato.grid.GridTopology()
         cls.grid.calculate_parameters(cls.data.nodes, cls.data.lines)
         cls.grid_model = pomato.grid.GridModel(cls.wdir, cls.grid, cls.data, cls.options)
-        cls.grid_model.logger.setLevel(logging.ERROR)
     
         cls.market_model = pomato.market_model.MarketModel(cls.wdir, cls.options, cls.data, 
                                                             cls.grid_model.grid_representation)

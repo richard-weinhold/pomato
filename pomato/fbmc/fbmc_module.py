@@ -400,6 +400,7 @@ class FBMCModule():
         grid_model = GridModel(self.wdir, self.grid, self.data, self.data.options)
         if reduce:
             grid_model._start_julia_daemon()
+            
         grid_model.options["type"] = "cbco_zonal"
         grid_model.options["grid"]["cbco_option"] = "clarkson"
 

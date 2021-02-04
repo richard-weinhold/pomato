@@ -48,6 +48,7 @@ class TestPomatoGridModel(unittest.TestCase):
         if cls.grid_model.julia_instance:
             cls.grid_model.julia_instance.join()
             cls.grid_model.julia_instance = None
+            
         cls.grid_model = None
         cls.grid = None
         cls.data = None
