@@ -39,7 +39,6 @@ BASIC_FUEL_COLOR_MAP = {
 def color_map(gen):
     """Fuel colors for generation/capacity plots."""
 
-
     color_df = gen[["fuel", "technology"]].groupby(["fuel", "technology"], observed=True).sum()
     for fuel in BASIC_FUEL_COLOR_MAP:
         condition = color_df.index.get_level_values("fuel").str.lower().str.contains(fuel)
@@ -258,7 +257,7 @@ class Visualization():
 
         if show_prices:
             compress=True
-            colorscale = "RdBu"
+            colorscale = "RdBu_r"
             contours = 8
             prices_layer, coordinates, hight_width = add_prices_layer(nodes, prices, compress)
             price_fig = go.Figure(
@@ -648,6 +647,15 @@ class Visualization():
             return subfig
 
     def create_fb_domain_plot(self, fb_domain, show_plot=True, filepath=None):
+        """Create FlowBased Domain plot. 
+
+        This is a copy of :meth:`~pomato.visualization.FBDomain.create_fbmc_figure`
+        using plotly instead of matplotlib. This allows for proper integration in the 
+        Dashboard functionality including interaction with the geo plot. 
+
+        Input argument remains an instance of :class:`~pomato.visualization.FBDomain` which 
+        can be created by utilizing :meth:`~pomato.visualization.FBDomainPlots` module. 
+        """
 
         fig = go.Figure()
         scale = 2
@@ -662,17 +670,20 @@ class Visualization():
             n0_lines_y.extend(fb_domain.domain_equations[i][1])
             n0_lines_x.append(None)
             n0_lines_y.append(None)
-            hover_data_n0.append(np.vstack([[[tmp.loc[i, "cb"], tmp.loc[i, "co"]]  for n in range(0, hover_points)], [None, None]]))
+            data = [tmp.loc[i, "cb"], tmp.loc[i, "co"], tmp.loc[i, "ram"]]
+            hover_data_n0.append(np.vstack([[data for n in range(0, hover_points)], [None, None, None]]))
         
-        hover_data_n1 = []
         for i in tmp[tmp.co != "basecase"].index:
             n1_lines_x.extend(fb_domain.domain_equations[i][0])
             n1_lines_y.extend(fb_domain.domain_equations[i][1])
             n1_lines_x.append(None)
             n1_lines_y.append(None)
-            hover_data_n1.append(np.vstack([[[tmp.loc[i, "cb"], tmp.loc[i, "co"]]  for n in range(0, hover_points)], [None, None]]))
+            data = [tmp.loc[i, "cb"], tmp.loc[i, "co"], tmp.loc[i, "ram"]]
+            hover_data_n1.append(np.vstack([[data for n in range(0, hover_points)], [None, None, None]]))
         
-        hovertemplate = "<br>".join(["cb: %{customdata[0]}", "co: %{customdata[1]}"]) + "<extra></extra>"
+        hovertemplate = "<br>".join(["cb: %{customdata[0]}", 
+                                     "co: %{customdata[1]}", 
+                                     "ram: %{customdata[2]:.2f}"]) + "<extra></extra>"
         fig.add_trace(
             go.Scatter(x=n0_lines_x, y=n0_lines_y, name='N-0 Constraints',
                     line = dict(width = 1.5, color="dimgrey"),

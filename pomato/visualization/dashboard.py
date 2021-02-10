@@ -197,9 +197,15 @@ def page_fbmc():
                     value=20, min=0, max=100, step=5),
                 ], style={"padding": "15px"}),
             dbc.Col([
-                html.Div("Zone-to-Zone sensitivity [%]:"),
+                html.Div("CNE sensitivity [%]:"),
                 dbc.Input(
-                    id="input-sensitivity", type="number", 
+                    id="input-cne-sensitivity", type="number", 
+                    value=5, min=0, max=100, step=0.1),
+                ], style={"padding": "15px"}),
+            dbc.Col([
+                html.Div("Contingency sensitivity [%]:"),
+                dbc.Input(
+                    id="input-cnec-sensitivity", type="number", 
                     value=5, min=0, max=100, step=0.1),
                 ], style={"padding": "15px"}),
         ]),
@@ -240,7 +246,6 @@ class Dashboard():
         self.pomato_instance = pomato_instance
         for result in self.pomato_instance.data.results:
             self.pomato_instance.data.results[result].create_result_data()
-        self.pomato_instance.fbmc.calculate_parameters()
         self.app = None
         self.init_app()      
         self.dash_thread = threading.Thread(target=self.run, kwargs=kwargs)
@@ -332,7 +337,8 @@ class Dashboard():
                           [State("results-dropdown-fbmc", "value"),
                            State("gsk-dropdown", "value"),
                            State("input-minram", "value"),
-                           State("input-sensitivity", "value"),
+                           State("input-cne-sensitivity", "value"),
+                           State("input-cnec-sensitivity", "value"),
                            State('results-dropdown-fbmc-market', 'value'),
                            State('timestep-selector-fbmc-market', 'value'),
                            State('domain-x-dropdown', 'value'),
@@ -360,7 +366,8 @@ class Dashboard():
             fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
             return fig
 
-    def update_domain_plot(self, click, basecase, gsk, minram, sensitivity, result_name, timestep, domain_x, domain_y):
+    def update_domain_plot(self, click, basecase, gsk, minram, cne_sensitivity, cnec_sensitivity,
+                           result_name, timestep, domain_x, domain_y):
         if not basecase or (domain_x == domain_y): 
             return {}
         basecase = self.pomato_instance.data.results[basecase]
@@ -371,9 +378,10 @@ class Dashboard():
             return {}
 
         self.pomato_instance.options["grid"]["minram"] = minram/100
-        self.pomato_instance.options["grid"]["sensitivity"] = sensitivity/100
-        fb_parameters = self.pomato_instance.fbmc.create_flowbased_ptdf(gsk, timestep, basecase)
-        fb_parameters.set_index(fb_parameters.cb + "_" + fb_parameters.co, inplace=True)
+        fb_parameter_function = self.pomato_instance.fbmc.create_flowbased_parameters_timestep
+        fb_parameters = fb_parameter_function(basecase, timestep, gsk,
+                                              cne_sensitivity=cne_sensitivity/100, 
+                                              lodf_sensitivity=cnec_sensitivity/100)
         fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
         domain_x, domain_y = domain_x.split("-"), domain_y.split("-")
         domain_plot = fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep)

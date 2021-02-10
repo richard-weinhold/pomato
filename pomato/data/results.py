@@ -99,8 +99,6 @@ class Results():
         precalc_thread = threading.Thread(target=self.create_result_data, name="result data")
         if auto_precalc:
             precalc_thread.start()
-        else:
-            self.create_result_data()
 
         # Set Redispatch = True if result is a redispatch result 
         if "redispatch" in self.result_attributes["name"]:
@@ -218,7 +216,7 @@ class Results():
         data_struct.n_0_flow = self.n_0_flow()
         data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.1)
         data_struct.prices = self.price()
-        self._cached_results.result_data = deepcopy(data_struct)
+        self._cached_results.result_data = data_struct
         self.logger.info("Done calculating common results.")
 
         return data_struct
@@ -244,7 +242,7 @@ class Results():
         data_struct.dc_flow = data_struct.dc_flow.pivot(index="dc", columns="t", values="F_DC") \
                                 .abs().mean(axis=1).reindex(self.data.dclines.index).fillna(0)
         data_struct.prices = data_struct.prices[["n", "marginal"]].groupby("n").mean()
-        self._cached_results.averaged_result_data = deepcopy(data_struct)
+        self._cached_results.averaged_result_data = data_struct
         return data_struct
 
     def redispatch(self):
@@ -425,7 +423,7 @@ class Results():
         """
         if not (self._cached_results.generation.empty or force_recalc):
             self.logger.debug("Returning cached result for generation.")
-            return self._cached_results.generation
+            return self._cached_results.generation.copy()
         
         gen = pd.merge(self.data.plants[["plant_type", "fuel", "node", "g_max"]],
                         self.G, left_index=True, right_on="p", how="right")
@@ -480,7 +478,7 @@ class Results():
         
         if not (self._cached_results.demand.empty or force_recalc):
             self.logger.debug("Returning cached result for demand.")
-            return self._cached_results.demand
+            return self._cached_results.demand.copy()
 
         map_pn = self.data.plants.node.copy().reset_index()
         map_pn.columns = ['p', 'n']
@@ -526,7 +524,7 @@ class Results():
         """
         if not (self._cached_results.n_0_flows.empty or force_recalc):
             self.logger.debug("Returning cached result for n_0_flows.")
-            return self._cached_results.n_0_flows
+            return self._cached_results.n_0_flows.copy()
 
         inj = self.INJ.pivot(index="t", columns="n", values="INJ")
         inj = inj.loc[self.model_horizon, self.data.nodes.index]
@@ -563,7 +561,7 @@ class Results():
         """
         if not (self._cached_results.n_1_flows.empty or force_recalc):
             self.logger.debug("Returning cached result for n_1_flows.")
-            return self._cached_results.n_1_flows
+            return self._cached_results.n_1_flows.copy()
 
 
         ptdf = [self.grid.ptdf]
