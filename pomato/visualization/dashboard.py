@@ -158,13 +158,13 @@ def page_transmission():
                             width={"size": 5}, style={"padding": "15px"}),
                     dbc.Col(dcc.Graph(id='lines-figure'), 
                             width={"size": 5}, style={"padding": "15px"})
-                ], className="h-75"),
+                ], className="h-90"),
             dbc.Row(
                 [
                     dbc.Col(
                         html.Div([dcc.Markdown("""**Click Data**"""),
                                     dash_table.DataTable(id='node-table')]), width=4),
-                ], className="h-25"),
+                ], className="h-10"),
             ], 
         fluid=True)
     return layout
@@ -175,7 +175,7 @@ def page_fbmc():
             dbc.Col([
                 html.Br(),
                 html.Button('Update Results', id='results-botton-fbmc', n_clicks=0),
-            ], style={"padding": "15px"}),
+            ], width={"size": 1}, style={"padding": "15px"}),
             dbc.Col([
                 html.Div("Select Basecase:"),
                 dcc.Dropdown(id='results-dropdown-fbmc')
@@ -201,17 +201,6 @@ def page_fbmc():
                     id="input-sensitivity", type="number", 
                     value=5, min=0, max=100, step=0.1),
                 ], style={"padding": "15px"}),
-            dbc.Col([
-                html.Br(),
-                html.Button('Calculate FB Parameters', id='botton-fb-parameters', n_clicks=0)
-            ], style={"padding": "15px"}),
-            dbc.Col([
-                html.Br(),
-                dcc.Loading(
-                    id="fb-parameter-processing",
-                    children=[html.Div(id="fb-parameter-processing-output")],
-                    type="circle")
-                    ], style={"padding": "15px"}),
         ]),
         dbc.Row([
             dbc.Col([
@@ -250,6 +239,7 @@ class Dashboard():
         self.pomato_instance = pomato_instance
         for result in self.pomato_instance.data.results:
             self.pomato_instance.data.results[result].create_result_data()
+        self.pomato_instance.fbmc.calculate_parameters()
         self.app = None
         self.init_app()      
         self.dash_thread = threading.Thread(target=self.run, kwargs=kwargs)
@@ -332,18 +322,17 @@ class Dashboard():
         self.add_tranmission_callbacks()
         
         # FB Parameters
-        self.app.callback([Output('fb-parameter-processing-output', 'children'),
-                           Output('domain-x-dropdown', 'options'),
+        self.app.callback([Output('domain-x-dropdown', 'options'),
                            Output('domain-y-dropdown', 'options')],
-                           Input('botton-fb-parameters', 'n_clicks'),
+                           Input("results-dropdown-fbmc", "value"))(self.update_domain_dropdown)                         
+        
+        self.app.callback(Output("fb-domain-figure", "figure"),
+                          Input("botton-fb-domains", "n_clicks"),
                           [State("results-dropdown-fbmc", "value"),
                            State("gsk-dropdown", "value"),
                            State("input-minram", "value"),
-                           State("input-sensitivity", "value")])(self.update_fb_parameters)
-
-        self.app.callback(Output("fb-domain-figure", "figure"),
-                          Input("botton-fb-domains", "n_clicks"),
-                          [State('results-dropdown-fbmc-market', 'value'),
+                           State("input-sensitivity", "value"),
+                           State('results-dropdown-fbmc-market', 'value'),
                            State('timestep-selector-fbmc-market', 'value'),
                            State('domain-x-dropdown', 'value'),
                            State('domain-y-dropdown', 'value')])(self.update_domain_plot)
@@ -370,14 +359,23 @@ class Dashboard():
             fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
             return fig
 
-    def update_domain_plot(self, click, result_name, timestep, domain_x, domain_y):
-        if not result_name:
+    def update_domain_plot(self, click, basecase, gsk, minram, sensitivity, result_name, timestep, domain_x, domain_y):
+        if not basecase or (domain_x == domain_y): 
             return {}
+        basecase = self.pomato_instance.data.results[basecase]
         result = self.pomato_instance.data.results[result_name]
         if isinstance(timestep, int):
-            timestep = result.model_horizon[timestep]
+            timestep = basecase.model_horizon[timestep]
+        if not result_name:
+            return {}
+
+        self.pomato_instance.options["grid"]["minram"] = minram/100
+        self.pomato_instance.options["grid"]["sensitivity"] = sensitivity/100
+        fb_parameters = self.pomato_instance.fbmc.create_flowbased_ptdf(gsk, timestep, basecase)
+        fb_parameters.set_index(fb_parameters.cb + "_" + fb_parameters.co, inplace=True)
+        fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
         domain_x, domain_y = domain_x.split("-"), domain_y.split("-")
-        domain_plot = self._fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep)
+        domain_plot = fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep)
         fig = self.pomato_instance.visualization.create_fb_domain_plot(domain_plot, show_plot=False)
         commercial_exchange = result.EX[result.EX.t == timestep].copy()
         nex_x = commercial_exchange.loc[(commercial_exchange.z == domain_x[0])&(commercial_exchange.zz == domain_x[1]), "EX"].sum() - commercial_exchange.loc[(commercial_exchange.z == domain_x[1])&(commercial_exchange.zz == domain_x[0]), "EX"].sum()
@@ -386,17 +384,13 @@ class Dashboard():
         fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
         return fig 
 
-    def update_fb_parameters(self, n_click, basecase, gsk, minram, sensitivity):
+    def update_domain_dropdown(self, basecase):
         if not basecase:
             raise PreventUpdate
         else:
             basecase = self.pomato_instance.data.results[basecase]
-            self.pomato_instance.options["grid"]["minram"] = minram/100
-            self.pomato_instance.options["grid"]["sensitivity"] = sensitivity/100
-            fb_parameters = self.pomato_instance.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
-            self._fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
             option_domain = [{"label": "-".join(x), "value": "-".join(x)} for x in itertools.combinations(self.pomato_instance.data.zones.index, 2)]
-            return "Done", option_domain, option_domain
+            return option_domain, option_domain
 
     def update_timestep_slider(self, result_name, size, value):
         if not result_name:

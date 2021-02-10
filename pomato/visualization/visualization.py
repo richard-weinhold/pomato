@@ -473,7 +473,7 @@ class Visualization():
         flh = flh.groupby(["fuel", "technology"], observed=True).mean().reset_index()
         gen = pd.merge(gen, flh, on=["fuel", "technology"])
         gen.loc[:, "G"] *= 1/1000
-        gen.loc[:, "flh"] *= 100 / len(market_result.model_horizon)
+        gen.loc[:, "flh"] *= 100
         gen.loc[:, "utilization"] *= 100
 
         gen_colors = color_map(gen)

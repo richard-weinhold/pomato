@@ -122,6 +122,7 @@ class GridModel():
             self.process_flowbased_grid_representation(flowbased_paramters)
         elif self.options["type"] == "ntc":
             self.process_ntc()
+            self.grid_representation.grid = pd.DataFrame()
         elif self.options["type"] == "nodal":
             self.grid_representation.grid = self.create_nodal_grid_parameters()
         elif self.options["type"] == "zonal":
@@ -139,6 +140,8 @@ class GridModel():
         
         if self.options["redispatch"]["include"]:
             self.add_redispatch_grid()
+        else:
+            self.grid.redispatch_grid = pd.DataFrame()
     
     def process_flowbased_grid_representation(self, flowbased_paramters):
         """Process grid information for flow based grid representation.
