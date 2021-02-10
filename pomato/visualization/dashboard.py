@@ -175,7 +175,8 @@ def page_fbmc():
             dbc.Col([
                 html.Br(),
                 html.Button('Update Results', id='results-botton-fbmc', n_clicks=0),
-            ], width={"size": 1}, style={"padding": "15px"}),
+            ], width={"size": 2}, 
+               style={"padding": "15px"}),
             dbc.Col([
                 html.Div("Select Basecase:"),
                 dcc.Dropdown(id='results-dropdown-fbmc')
