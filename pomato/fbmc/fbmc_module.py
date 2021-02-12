@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import progress
 progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
+import types
 
 import pomato
 import pomato.tools as tools
@@ -136,8 +137,8 @@ class FBMCModule():
 
         return gsk.values
 
-    def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax", 
-                                 only_crossborder=True):
+    def return_critical_branches(self, threshold=5e-2, gsk_strategy="flat", 
+                                 only_crossborder=False):
         """Returns Critical branches based on Zone-to-Zone ptdf.
         
         In the calculation of FB parameters it makes sense to use only lines
@@ -257,12 +258,17 @@ class FBMCModule():
         fbmc_data["co"] = label_outages
 
         return nodal_fbmc_ptdf, fbmc_data
+   
+    def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=False,
+                                    cne_sensitivity=None, lodf_sensitivity=None, timesteps=None):
+        """Create Flow-Based Paramters.
 
-    def create_flowbased_ptdf(self, nodal_fbmc_ptdf, fb_parameters, gsk_strategy, timestep, basecase):
-        """Create Zonal PTDF, reference flows and RAM based on the basecase and GSK.
+        Creates the FB Paramters for the supplied basecase. Optional arguments are 
+        the GSK that is used during the process and whether the constraints are reduced
+        to a minimal set.  
 
-        For a specific timestep, the reference flow is calculated as the basecase flow 
-        minus the flow resulting from the DA market:
+        For a specific timestep or over the full model horizon, the reference flow is calculated 
+        as the basecase flow minus the flow resulting from the DA market:
         
         F_ref = F_basecase - F_DA
 
@@ -275,73 +281,6 @@ class FBMCModule():
 
         This either indicates an error in the calculation or the need for relaxation via the 
         minRAM option. 
-
-        Parameters
-        ----------
-        gsk_strategy : str
-            GSK strategy, which will be generation by :meth:`~create_gsk()`. 
-        timestep : str
-            Timestep for which the paramters are calculated for.
-        basecase : :class:`~pomato.data.Results`
-            Market resultsfrom which the FB paramters are deducted. 
-
-        Returns
-        -------
-        fbmc_domain_data, pd.DataFrame
-            Based on the precalculated attribute *fbmc_data*, the domain parameters are calculated 
-            for a specific timestep and GSK. This is returned, including the zonal ptdf and ram. 
-        """
-        # optional frm/fav margin todo
-        frm_fav = pd.DataFrame(index=fb_parameters.cb.unique())
-        frm_fav["value"] = self.grid.lines.capacity[frm_fav.index]*(1 - self.options["grid"]["capacity_multiplier"])
-
-        # F Ref Basecase: The actual flow in the basecase
-        # On all CBs under COs
-        injection = basecase.INJ.INJ[basecase.INJ.t == timestep].values
-        f_ref_base_case = np.dot(nodal_fbmc_ptdf, injection)
-
-        if gsk_strategy == "dynamic":
-            gsk = self.create_dynamic_gsk(basecase, timestep)
-        else:
-            gsk = self.create_gsk(gsk_strategy)
-
-        # F Day Ahead: The Flow on each CBCO, without injection from the market 
-        # coupling. The market is "removed" by removing the NEX via a zonal ptdf and GSK
-        net_position = basecase.net_position()
-        zonal_fbmc_ptdf = np.dot(nodal_fbmc_ptdf, gsk)
-        f_da = np.dot(zonal_fbmc_ptdf, net_position.loc[timestep].values)
-
-        # F_ref without the DA market = F Ref Basecase - F DA
-        f_ref_nonmarket = f_ref_base_case - f_da
-
-        # RAMs
-        ram = (self.grid.lines.capacity[fb_parameters.cb] 
-               - frm_fav.value[fb_parameters.cb] 
-               - f_ref_nonmarket)
-
-        minram = self.grid.lines.capacity[fb_parameters.cb] * self.options["grid"]["minram"] 
-        ram[ram < minram] = minram[ram < minram]
-
-        ram = ram.values.reshape(len(ram), 1)
-
-        if any(ram < 0):
-            self.logger.warning("Number of RAMs below: [0 - %d, 10 - %d, 100 - %d, 1000 - %d]", 
-                                sum(ram<0), sum(ram<10), sum(ram<100), sum(ram<1000))
-
-        fb_parameters[list(self.data.zones.index)] = zonal_fbmc_ptdf
-        fb_parameters["ram"] = ram
-        fb_parameters["timestep"] = timestep
-        fb_parameters["gsk_strategy"] = gsk_strategy
-        fb_parameters = fb_parameters[["cb", "co", "ram", "timestep", "gsk_strategy"] + list(list(self.data.zones.index))]
-        return fb_parameters      
-
-    def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=False,
-                                    cne_sensitivity=None, lodf_sensitivity=None):
-        """Create Flow-Based Paramters.
-
-        Creates the FB Paramters for the supplied basecase. Optional arguments are 
-        the GSK that is used during the process and whether the constraints are reduced
-        to a minimal set.  
         
         Parameters
         ----------
@@ -364,87 +303,60 @@ class FBMCModule():
             Flow Based Parameters which are a zonal ptdf for each and ram, depending
             on the reference flows derived from the basecase for each timestep. 
         """
-
+        if not timesteps:
+            timesteps = basecase.model_horizon
         if not cne_sensitivity:
             cne_sensitivity = self.options["grid"]["sensitivity"]
-        
         if not lodf_sensitivity:
             lodf_sensitivity = self.options["grid"]["sensitivity"]
-        critical_branches = self.return_critical_branches(self.options["grid"]["sensitivity"])
-
-        nodal_fbmc_ptdf, fbmc_data = self.create_base_fbmc_parameters(critical_branches, self.options["grid"]["sensitivity"])
-        domain_data = {}
-        if reduce and (not self.grid_model.julia_instance or not self.grid_model.julia_instance.is_alive()):
-            self.grid_model._start_julia_daemon()
-            self.grid_model.options["type"] = "cbco_zonal"
-            self.grid_model.options["grid"]["cbco_option"] = "clarkson"
-
-        self.logger.info("Generating FB parameters for each timestep...")
-        self.logger.info("Enforcing minRAM of %s%%", str(round(self.options["grid"]["minram"]*100)))
-
-        bar = Bar('Processing FB Parameters...', max=len(basecase.model_horizon), 
-                  check_tty=False, hide_cursor=True)
-        
-        for timestep in basecase.model_horizon:
-            domain_data[timestep] = self.create_flowbased_ptdf(nodal_fbmc_ptdf, fbmc_data, gsk_strategy, timestep, basecase)
-            bar.next()
-        bar.finish()
-
-        cbco_info =  pd.concat([domain_data[t] for t in domain_data.keys()], ignore_index=True)
-        if reduce:
-            cbco_index = self.grid_model.clarkson_algorithm(args={"fbmc_domain": True}, Ab_info=cbco_info)
-        else:
-            cbco_index = list(range(0, len(cbco_info)))
-
-        fb_parameters = self.grid_model.return_cbco(cbco_info, cbco_index)
-        fb_parameters.set_index(fb_parameters.cb + "_" + fb_parameters.co, inplace=True)
-
-        if reduce:
-            self.grid_model.julia_instance.join()
-            self.grid_model.julia_instance.julia_instance = None
-
-        return fb_parameters
-
-    def create_flowbased_parameters_timestep(self, basecase, timestep, 
-                                             gsk_strategy="gmax", 
-                                             cne_sensitivity=None,
-                                             lodf_sensitivity=None):
-        """Create Flow-Based Paramters.
-
-        Creates the FB Paramters for the supplied basecase for a single timestep. Optional arguments 
-        are  the GSK that is used during the process
-        
-        Parameters
-        ----------
-        basecase : :class:`~pomato.data.Results`
-            Market resultsfrom which the FB paramters are deducted. 
-        gsk_strategy : str, optional
-            GSK strategy, defaults to "gmax". 
-        timestep : str
-            Timestep for which the paramters are calculated for.
-        cne_sensitivity: float, optional
-            Threshold above which lines are considered critical network elements based on the 
-            zone-to-zone sensitivity. Defaults to the sensitivity specified in options["grid"].
-        lodf_sensitivity: float, optional
-            Threshold above which contingencies of CNE are considered critical. Defaults to the 
-            sensitivity specified in options["grid"].
-
-        Returns
-        -------
-        fb_parameters : pandas.DataFrame
-            Flow Based Parameters which are a zonal ptdf for each and ram, depending
-            on the reference flows derived from the basecase for the specified timestep. 
-        """
-        if not cne_sensitivity:
-            cne_sensitivity = self.options["grid"]["sensitivity"]
-        
-        if not lodf_sensitivity:
-            lodf_sensitivity = self.options["grid"]["sensitivity"]
-
+            
         critical_branches = self.return_critical_branches(cne_sensitivity)
         nodal_fbmc_ptdf, fbmc_data = self.create_base_fbmc_parameters(critical_branches, lodf_sensitivity)
-        self.logger.info("Generating FB parameters for timestep %s", timestep)
-        self.logger.info("Enforcing minRAM of %s%%", str(round(self.options["grid"]["minram"]*100)))
-        fb_parameters = self.create_flowbased_ptdf(nodal_fbmc_ptdf, fbmc_data, gsk_strategy, timestep, basecase)
+
+        inj = basecase.INJ[basecase.INJ.t.isin(timesteps)].pivot(index="t", columns="n", values="INJ")
+        inj = inj.loc[timesteps, basecase.data.nodes.index]
+        f_ref_base_case = np.dot(nodal_fbmc_ptdf, inj.T)
+
+        frm_fav = self.grid.lines.capacity[fbmc_data.cb].values*(1 - self.options["grid"]["capacity_multiplier"])
+
+        nex = basecase.net_position().loc[timesteps, :]
+
+        if gsk_strategy == "dynamic":
+            zonal_fbmc_ptdf = {timestep : np.dot(nodal_fbmc_ptdf, self.create_dynamic_gsk(basecase, timestep)) for timestep in timesteps}
+            f_da = np.vstack([np.dot(zonal_fbmc_ptdf[timestep], nex.loc[timestep, :]) for timestep in timesteps]).T
+        else:
+            zonal_fbmc_ptdf_tmp = np.dot(nodal_fbmc_ptdf, self.create_gsk(gsk_strategy))
+            zonal_fbmc_ptdf = {timestep: zonal_fbmc_ptdf_tmp for timestep in timesteps}
+            f_da = np.dot(zonal_fbmc_ptdf_tmp, nex.values.T)
+
+        f_ref_nonmarket = f_ref_base_case - f_da
+        ram = (self.grid.lines.capacity[fbmc_data.cb].values - frm_fav  - f_ref_nonmarket.T).T
+        minram = (self.grid.lines.capacity[fbmc_data.cb] * self.options["grid"]["minram"]).values
+
+        for j in range(0, ram.shape[0]):
+            ram[j, ram[j, :] < minram[j]] = minram[j]
+
+        domain_data = {}
+        for t, timestep in enumerate(timesteps):
+            fb_parameters = fbmc_data.copy()
+            fb_parameters[list(self.data.zones.index)] = zonal_fbmc_ptdf[timestep]
+            fb_parameters["ram"] = ram[:, t]
+            fb_parameters["timestep"] = timestep
+            fb_parameters["gsk_strategy"] = gsk_strategy
+            fb_parameters = fb_parameters[["cb", "co", "ram", "timestep", "gsk_strategy"] + list(list(self.data.zones.index))]
+            domain_data[timestep] = fb_parameters
+
+        fb_parameters =  pd.concat([domain_data[timestep] for timestep in timesteps], ignore_index=True)
         fb_parameters.set_index(fb_parameters.cb + "_" + fb_parameters.co, inplace=True)
+
         return fb_parameters
+
+    # def _reduce(self):
+
+    #     self.grid_model._start_julia_daemon()
+    #     self.grid_model.options["type"] = "cbco_zonal"
+    #     self.grid_model.options["grid"]["cbco_option"] = "clarkson"
+    #     bar = Bar('Processing FB Parameters...', max=len(basecase.model_horizon), 
+    #               check_tty=False, hide_cursor=True)
+    #     bar.next()
+    #     bar.finish()

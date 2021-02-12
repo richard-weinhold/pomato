@@ -378,8 +378,8 @@ class Dashboard():
             return {}
 
         self.pomato_instance.options["grid"]["minram"] = minram/100
-        fb_parameter_function = self.pomato_instance.fbmc.create_flowbased_parameters_timestep
-        fb_parameters = fb_parameter_function(basecase, timestep, gsk,
+        fb_parameter_function = self.pomato_instance.fbmc.create_flowbased_parameters
+        fb_parameters = fb_parameter_function(basecase, gsk, timesteps=[timestep],
                                               cne_sensitivity=cne_sensitivity/100, 
                                               lodf_sensitivity=cnec_sensitivity/100)
         fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
