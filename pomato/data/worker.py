@@ -133,18 +133,20 @@ class DataWorker(object):
             engine = "xldr"
         else:
             engine = "openpyxl"
-        
         xls = pd.ExcelFile(xls_filepath, engine=engine)
         self.data.data_structure = xls.parse("data_structure", engine=engine)
         self.data.data_attributes.update({d: False for d in self.data.data_structure.data.unique()})
         for data in self.data.data_attributes:
             try:
-                raw_data = xls.parse(data, engine=engine, index_col=0).infer_objects()
+                raw_data = xls.parse(data, engine=engine, index_col=0)
                 self._set_data_attribute(data, raw_data)
             except xlrd.XLRDError as error_msg:
                 self.data.missing_data.append(data)
                 self.logger.debug(error_msg)
             except KeyError as error_msg:
+                self.data.missing_data.append(data)
+                self.logger.debug(error_msg)
+            except ValueError as error_msg:
                 self.data.missing_data.append(data)
                 self.logger.debug(error_msg)
 
