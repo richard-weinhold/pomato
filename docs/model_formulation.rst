@@ -92,8 +92,59 @@ Based on the chosen configuration, tranport is constrained either as commercial 
 in between market areas, or based on the nodal injections in a more technically accurate representation
 on the transmission system. 
 
-The power flow constraints follow the DCLF implementation using power transfer distribution factors
-(PTDF) to map nodal injections to line flows. 
+Physical flows are modeled using some modification of the linearized (DC) power flow equations 
+so that nodal net injections can be mapped to power flows via a power transfer distribution factor 
+(PTDF) matrix or voltage angles. Both formulations come with certain advantages and disadvantages. 
+
+The formulations include the line parameters susceptance :math:`x`, PTDF matrices, line capacities :math:`f^{max}`, 
+incidence matrix :math:`A` which are calculated beforehand and available to the julia model core. 
+
+Depending in the chosen configuration different variables, sets or constraints are activated. 
+
+Angle Formulation
+"""""""""""""""""
+
+Power flow can be implemenetad via the nodal voltage angles :math:`\Theta_{n,t}`. The benifit is, compared 
+the PTDF formulation a significantly lower memory usage. 
+
+.. math:: 
+
+  F_{l,t} &= \frac{1}{x_l} \sum_{n \in \mathcal{T}} A_{n, l} \cdot \Theta_{n,t}  \quad &\forall l \in \mathcal{L}, t \in \mathcal{T} \\
+  \mathit{INJ}_{n,t} &= \sum_{l \in \mathcal{L}} A_{n, l} \cdot F_{l,t} &\forall l \in \mathcal{L}, t \in \mathcal{T}\\
+  - f^{max}_{l,t} &\leq F_{l,t} \leq f^{max}_{l,t} &\forall l \in \mathcal{L}, t \in \mathcal{T}\\
+  \Theta_{\mathit{slack},t} &= 0 &t \in \mathcal{T}\\
+
+The disadvante is that a :math:`\Theta` has to be set for each node in a connected network,
+regardless of how many lines are to be considered with thermal capacities. Considering only a subset
+of lines in the dispatch does therefore not pose significant advantages. This disadvantage becomes
+more impactful when including contingencies, which are accommodated as contingency scenarios
+:math:`\mathcal{C}` (which include potentially multiple outages) for :math:`\Theta` and the flow
+:math:`F`, effectively enforcing constraints on multiple flow scenarios for the same net-injections. 
+The incidence matrix :math:`A^c` includes the topology changes caused by the contingency scenario and 
+the flow on outed lines is forced to zero.
+
+.. math:: 
+
+  F_{l,c,t} &= \frac{1}{x_l} \sum_{n \in \mathcal{T}} A^c_{n, l} \cdot \Theta_{c, n,t}  &\forall c \in \mathcal{C}, l \in \mathcal{L}, t \in \mathcal{T}\\
+  \mathit{INJ}_{n,t} &= \sum_{l \in \mathcal{L}} A_{n, l} \cdot F_{l,c,t} &\forall c \in \mathcal{C}, l \in \mathcal{L} t \in \mathcal{T}\\
+  \Theta_{c, \mathit{slack},t} &= 0 &\forall c \in \mathcal{C},t \in \mathcal{T}\\
+
+  - f^{max}_{l,t} &\leq F_{c,l,t} \leq f^{max}_{l,t} &\forall c \in \mathcal{C}, l \in \mathcal{L}, t \in \mathcal{T}\\
+  F_{c,o,t} &= 0 &\forall c \in \mathcal{C}, o \in c, t \in \mathcal{T}\\
+
+This formulation would be efficient if we would like to concider all lines for each contingency. 
+This is however never the case and the utilization of the RedundandyRemoval has shown that less then 
+1% of all contingencies are needed to ensure SCOPF.
+
+In addition, zonal PTDF represent a line specific zonal aggregation of networks, which cannot be 
+directly implemented in an angle formulation. 
+
+
+PTDF Formulation
+""""""""""""""""
+The PTDF formulation of linear power flow uses power transfer distribution factors
+(PTDF) to map nodal injections to line flows. These are calculated beforehand using the network 
+topology, line parameters and contingencies. 
 
 .. math:: 
 
@@ -107,6 +158,9 @@ PTDF can accommodate any power flow configuration POMATO offers. This can be N-0
 OPF), N-1 (SCOPF) in a reduced representation or full, including combined contingencies (n-k) or 
 specified contingency groups. Assinging the line flows to two positive variables reduces the model 
 complexity, as the dense and possibly extremely large PTDF matrix is only used once per timestep. 
+
+The PTDF allows for flexible selection of which lines and outages to consider in the economic 
+dispatch and propotionally increases complexity with the number of considered contingency cases. 
 
 An analogue formulation applies for a zonal PTDF, except that the line flows result from the NEX
 (exports minus imports). Note that the PTDF is denoted with index t, indicating a potentially 
@@ -126,8 +180,14 @@ FBMC as a generation shift key (GSK).
   \quad &\forall z \in \mathcal{Z}, t \in \mathcal{T}\\
 
 
+POMATO will choose the angle and PTDF formulation depending on the chosen configuration. Generally, 
+when most lines are part of the optimization, like in nodal pricing, the angle formulation is much 
+faster. When only a small subset of lines is relevant or contingency cases are used, the PTDF formulation 
+is better. Zonal application will always use the PTDF formulation. 
+
 Beside nodal/zonal transmission network representations, tranport constraints can be includes as 
-net trans capacities (NTC), that directly constraint the commercial exchange. 
+net trans capacities (NTC), that directly constraint the commercial exchange. These constraints 
+can be configured to only apply to commercial exchange from and to a subset of zones. 
 
 .. math:: 
   \mathit{EX}_{z,zz,t} &\leq \mathit{ntc}_{z,zz} \quad &\forall z \in \mathcal{Z}, t \in \mathcal{T}\\

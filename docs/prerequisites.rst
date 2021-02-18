@@ -17,6 +17,8 @@ but made sure the definitions are easily accessible to potentially adopt pomato 
   input_model_data.rst
   options.rst
   model_formulation
+  line_parameters
+
 
 
 Model Structure
