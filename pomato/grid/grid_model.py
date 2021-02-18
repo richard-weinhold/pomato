@@ -344,7 +344,7 @@ class GridModel():
         cbco_nodal_network.ram *= self.options["grid"]["capacity_multiplier"]
         return cbco_nodal_network
 
-    def create_cbco_data(self, sensitivity=5e-2, preprocess=True, gsk=None):
+    def create_cbco_data(self, sensitivity=5e-2, preprocess=False, gsk=None):
         """Create all relevant N-1 PTDFs in the form of Ax<b (PTDF x < ram).
 
         This uses the method :meth:`~pomato.grid.create_filtered_n_1_ptdf` to
@@ -376,22 +376,25 @@ class GridModel():
             row corresponds to.
 
         """
-        A, b, info = self.grid.create_filtered_n_1_ptdf(sensitivity=sensitivity)
+        n_1_ptdf = self.grid.create_filtered_n_1_ptdf(sensitivity=sensitivity)
         # Processing: Rounding, remove duplicates and 0...0 rows
         if preprocess:
             self.logger.info("Preprocessing Ab...")
-            _, idx = np.unique(info[list(self.grid.nodes.index) + ["ram"]].round(decimals=6).values,
+            _, idx = np.unique(n_1_ptdf[list(self.grid.nodes.index) + ["ram"]].round(decimals=6).values,
                                axis=0, return_index=True)
-            A = A[np.sort(idx)]
-            b = b[np.sort(idx)]
-            info = info.loc[np.sort(idx), :]
 
+            n_1_ptdf = n_1_ptdf.loc[np.sort(idx), :]
+
+
+        A = n_1_ptdf.loc[:, self.grid.nodes.index].values
+        b = n_1_ptdf["ram"].values
+        
         if isinstance(gsk, np.ndarray):  # replace nodal ptdf by zonal ptdf
             A = np.dot(A, gsk)
-            info = pd.concat((info.loc[:, ["cb", "co", "ram"]],
+            n_1_ptdf = pd.concat((n_1_ptdf.loc[:, ["cb", "co", "ram"]],
                               pd.DataFrame(columns=self.data.zones.index,
                                            data=A)), axis=1)
-        return A, b, info
+        return A, b, n_1_ptdf
 
     def write_cbco_info(self, folder, suffix, **kwargs):
         """Write cbco information to disk to run the redundancy removal algorithm.

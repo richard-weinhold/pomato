@@ -398,6 +398,7 @@ def default_options():
             "preprocess": True,
             "gsk": "gmax",
             "minram": 0.2,
+            "flowbased_region": [],
             },
         "data": {
             "result_copy": False,

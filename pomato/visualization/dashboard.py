@@ -398,7 +398,8 @@ class Dashboard():
             raise PreventUpdate
         else:
             basecase = self.pomato_instance.data.results[basecase]
-            option_domain = [{"label": "-".join(x), "value": "-".join(x)} for x in itertools.combinations(self.pomato_instance.data.zones.index, 2)]
+            fb_region = self.pomato_instance.options["grid"]["flowbased_region"]
+            option_domain = [{"label": "-".join(x), "value": "-".join(x)} for x in itertools.combinations(fb_region, 2)]
             return option_domain, option_domain
 
     def update_timestep_slider(self, result_name, size, value):
@@ -571,7 +572,7 @@ class Dashboard():
     
     def update_installed_capacity_figure(self, result_name):
         result = self.pomato_instance.data.results[result_name]
-        fig = self.pomato_instance.visualization.create_installed_capacity_plot(result, show_plot=False)
+        fig = self.pomato_instance.visualization.create_installed_capacity_plot(result.data, show_plot=False)
         fig.update_layout(margin={"r":0,"t":25,"l":0,"b":0})
         return fig
     

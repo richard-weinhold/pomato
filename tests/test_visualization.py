@@ -73,11 +73,8 @@ class TestPomatoVisualization(unittest.TestCase):
         basecase = self.mato.data.results["scopf_market_results"]
         self.mato.options["grid"]["minram"] = 0.1
         self.mato.options["grid"]["sensitivity"] = 0.05
-        self.mato.fbmc.calculate_parameters()
-
         fb_parameters = self.mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
         fbmc_domain = pomato.visualization.FBDomainPlots(self.mato.data, fb_parameters)
-
         fbmc_domain.generate_flowbased_domain(("R1", "R2"), ["R1", "R3"], "t0001", "nrel")
         fbmc_domain.save_all_domain_plots(self.mato.wdir.joinpath("data_output"), include_ntc=True)
         fbmc_domain.save_all_domain_info(self.mato.wdir.joinpath("data_output"))

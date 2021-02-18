@@ -12,7 +12,6 @@ from copy import deepcopy
 
 import pomato.tools as tools
 from pomato.visualization.geoplot_functions import line_coordinates
-
 # # pylint: disable-msg=E1101
 
 class Results():
@@ -434,10 +433,8 @@ class Results():
                            right_index=True, left_on="p")
         else:
             gen["technology"] = gen.plant_type
-
         gen = tools.reduce_df_size(gen)
-        
-        self._cached_results.generation = gen
+        self._cached_results.generation = gen.copy()
         return gen
 
     def full_load_hours(self):
@@ -501,7 +498,7 @@ class Results():
         demand["demand"] = demand.demand_el + demand.D_ph + demand.D_es
         demand = demand.sort_values(by='t', key=self._sort_timesteps)
         
-        self._cached_results.demand = demand
+        self._cached_results.demand = demand.copy()
         return demand
 
     # Grid Analytics - Load Flows
@@ -531,7 +528,7 @@ class Results():
         flow = np.dot(self.grid.ptdf, inj.T)
         n_0_flows = pd.DataFrame(index=self.data.lines.index, columns=self.model_horizon, data=flow)
 
-        self._cached_results.n_0_flows = n_0_flows
+        self._cached_results.n_0_flows = n_0_flows.copy()
         return n_0_flows
 
     def n_1_flow(self, sensitivity=5e-2, force_recalc=False):
@@ -562,44 +559,21 @@ class Results():
         if not (self._cached_results.n_1_flows.empty or force_recalc):
             self.logger.debug("Returning cached result for n_1_flows.")
             return self._cached_results.n_1_flows.copy()
-
-
-        ptdf = [self.grid.ptdf]
-        label_lines = list(self.grid.lines.index)
-        label_outages = ["basecase" for i in range(0, len(self.grid.lines.index))]
-
-        for line in self.grid.lines.index[self.grid.lines.contingency]:
-            outages = list(self.grid.lodf_filter(line, sensitivity))
-            label_lines.extend([line for i in range(0, len(outages))])
-            label_outages.extend(outages)
-
-        # estimate size of array = nr_elements * bytes per element
-        # (float64 + sep = 8 + 1) / (1024**2) MB
-        estimate_size = len(label_lines)*len(self.grid.nodes.index)*(8 + 1)/(1024*1024)
-        if estimate_size > 10000:
-            self.logger.error("Estimated size of N-1 PTDF = %d", estimate_size)
-            raise Exception('Matrix N-1 PTDF MAtrix too large! Use a higher sensitivity!')
-
-        for line in self.grid.lines.index[self.grid.lines.contingency]:
-            outages = list(self.grid.lodf_filter(line, sensitivity))
-            tmp_ptdf = np.vstack([self.grid.create_n_1_ptdf_cbco(line, out) for out in outages])
-            ptdf.append(tmp_ptdf)
-
-        ptdf = np.concatenate(ptdf).reshape(len(label_lines),
-                                            len(list(self.grid.nodes.index)))
-
+        
+        data = self.grid.create_filtered_n_1_ptdf(sensitivity=sensitivity)
+        ptdf = data.loc[:, self.data.nodes.index]
         inj = self.INJ.pivot(index="t", columns="n", values="INJ")
         inj = inj.loc[self.model_horizon, self.data.nodes.index]
         flow = np.dot(ptdf, inj.T)
         n_1_flows = pd.DataFrame(columns=self.model_horizon, data=flow)
-        n_1_flows["cb"] = label_lines
-        n_1_flows["co"] = label_outages
+        n_1_flows["cb"] = data.cb
+        n_1_flows["co"] = data.co
 
         self.logger.info("Done Calculating N-1 Flows")
-        self._cached_results.n_1_flows = n_1_flows
+        self._cached_results.n_1_flows = n_1_flows.copy()
 
         return n_1_flows.loc[:, ["cb", "co"] + self.model_horizon]
-    
+
     def absolute_max_n_1_flow(self, sensitivity=0.05):
         """Calculate the absolute max of N-1 Flows.
 
@@ -649,7 +623,6 @@ class Results():
             Line loadings for the overloaded lines and considered timesteps.
         """
         flows = self.n_0_flow()
-
         timesteps = self.model_horizon
         rel_load_array = np.vstack([(abs(flows[t]))/self.data.lines.capacity for t in timesteps]).T
         rel_load = pd.DataFrame(index=flows.index, columns=flows.columns,

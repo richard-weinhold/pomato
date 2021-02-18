@@ -109,9 +109,10 @@ class TestPomatoGridModel(unittest.TestCase):
 
         for contingency in test_contingencies:
             cb, co = c_ptdf.loc[c_ptdf.index[contingency], ["cb", "co"]]
-            tmp_ptdf =  c_ptdf.loc[c_ptdf.index[contingency], 
-            self.data.nodes.index].values.reshape((1, len(self.data.nodes)))
-            np.testing.assert_equal(self.grid.create_n_1_ptdf_cbco(cb, co), tmp_ptdf)
+            tmp_ptdf =  c_ptdf.loc[c_ptdf.index[contingency],  self.data.nodes.index].values
+            tmp_ptdf = tmp_ptdf.astype(float).reshape((1, len(self.data.nodes)))
+            tmp_ptdf_test = self.grid.create_n_1_ptdf_cbco(cb, co)
+            np.testing.assert_allclose(tmp_ptdf_test, tmp_ptdf, atol=1e-6)
 
     def test_cbco_nodal_no_precalc(self):
 

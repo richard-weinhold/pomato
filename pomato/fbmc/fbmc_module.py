@@ -138,7 +138,7 @@ class FBMCModule():
         return gsk.values
 
     def return_critical_branches(self, threshold=5e-2, gsk_strategy="flat", 
-                                 only_crossborder=False):
+                                 only_crossborder=False, flowbased_region=None):
         """Returns Critical branches based on Zone-to-Zone ptdf.
         
         In the calculation of FB parameters it makes sense to use only lines
@@ -160,6 +160,8 @@ class FBMCModule():
             GSK strategy, defaults to *gmax*.
         only_crossborder : str, optional 
             Only consider cross-border lines as critical branches, defaults to False. 
+        flowbased_region : list-like, optional,
+            Specify a subset of zones that compose the flow based region. Default to all zones. 
         Returns
         -------
         CBs : list
@@ -169,16 +171,19 @@ class FBMCModule():
         self.logger.info("List of CBs is generated from zone-to-zone PTDFs with:")
         self.logger.info("GSK Strategy: %s, Threshold: %d percent", gsk_strategy, threshold*100)
 
+        if not flowbased_region:
+            flowbased_region = list(self.data.zones.index)
+        
         if not only_crossborder:
             gsk = self.create_gsk(gsk_strategy)
             zonal_ptdf = np.dot(self.grid.ptdf, gsk)
             zonal_ptdf_df = pd.DataFrame(index=self.grid.lines.index,
-                                            columns=self.data.zones.index,
-                                            data=zonal_ptdf)
+                                         columns=self.data.zones.index,
+                                         data=zonal_ptdf)
 
             z2z_ptdf_df = pd.DataFrame(index=self.grid.lines.index)
-            for zone in self.data.zones.index:
-                for z_zone in self.data.zones.index:
+            for zone in flowbased_region:
+                for z_zone in flowbased_region:
                     z2z_ptdf_df["-".join([zone, z_zone])] = zonal_ptdf_df[zone] - zonal_ptdf_df[z_zone]
 
             critical_branches = list(z2z_ptdf_df.index[np.any(z2z_ptdf_df.abs() > threshold, axis=1)])
@@ -188,9 +193,8 @@ class FBMCModule():
         condition_cross_border = self.grid.nodes.zone[self.grid.lines.node_i].values != \
                                  self.grid.nodes.zone[self.grid.lines.node_j].values
 
-        condition_fb_region = self.grid.nodes.zone[self.grid.lines.node_i].isin(self.data.zones.index).values & \
-                         self.grid.nodes.zone[self.grid.lines.node_j].isin(self.data.zones.index).values
-
+        condition_fb_region = self.grid.nodes.zone[self.grid.lines.node_i].isin(flowbased_region).values & \
+            self.grid.nodes.zone[self.grid.lines.node_j].isin(flowbased_region).values
         cross_border_lines = list(self.grid.lines.index[condition_cross_border&condition_fb_region])
         
         all_cbs = list(set(critical_branches + cross_border_lines))
@@ -228,9 +232,7 @@ class FBMCModule():
         fbmc_data : pandas.DataFrame
             The ptdf, together with all information, like CBCO, capacity, nodes.
         """
-
         self.grid.lines["cb"] = False
-
         self.grid.lines.loc[self.grid.lines.index.isin(critical_branches), "cb"] = True
         select_lines = self.grid.lines.index[(self.grid.lines["cb"])&(self.grid.lines.contingency)]
         select_outages = {}
@@ -259,7 +261,7 @@ class FBMCModule():
 
         return nodal_fbmc_ptdf, fbmc_data
    
-    def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=False,
+    def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=False, flowbased_region=None, 
                                     cne_sensitivity=None, lodf_sensitivity=None, timesteps=None):
         """Create Flow-Based Paramters.
 
@@ -309,8 +311,16 @@ class FBMCModule():
             cne_sensitivity = self.options["grid"]["sensitivity"]
         if not lodf_sensitivity:
             lodf_sensitivity = self.options["grid"]["sensitivity"]
-            
-        critical_branches = self.return_critical_branches(cne_sensitivity)
+        
+        if flowbased_region:
+            self.options["grid"]["flowbased_region"] = flowbased_region
+        elif self.options["grid"]["flowbased_region"]:
+            flowbased_region = self.options["grid"]["flowbased_region"]
+        else:
+            flowbased_region = list(self.data.zones.index)
+            self.options["grid"]["flowbased_region"] = flowbased_region
+    
+        critical_branches = self.return_critical_branches(cne_sensitivity, flowbased_region=flowbased_region)
         nodal_fbmc_ptdf, fbmc_data = self.create_base_fbmc_parameters(critical_branches, lodf_sensitivity)
 
         inj = basecase.INJ[basecase.INJ.t.isin(timesteps)].pivot(index="t", columns="n", values="INJ")
@@ -345,18 +355,7 @@ class FBMCModule():
             fb_parameters["gsk_strategy"] = gsk_strategy
             fb_parameters = fb_parameters[["cb", "co", "ram", "timestep", "gsk_strategy"] + list(list(self.data.zones.index))]
             domain_data[timestep] = fb_parameters
-
         fb_parameters =  pd.concat([domain_data[timestep] for timestep in timesteps], ignore_index=True)
         fb_parameters.set_index(fb_parameters.cb + "_" + fb_parameters.co, inplace=True)
 
         return fb_parameters
-
-    # def _reduce(self):
-
-    #     self.grid_model._start_julia_daemon()
-    #     self.grid_model.options["type"] = "cbco_zonal"
-    #     self.grid_model.options["grid"]["cbco_option"] = "clarkson"
-    #     bar = Bar('Processing FB Parameters...', max=len(basecase.model_horizon), 
-    #               check_tty=False, hide_cursor=True)
-    #     bar.next()
-    #     bar.finish()

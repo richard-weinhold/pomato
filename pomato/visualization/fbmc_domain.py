@@ -316,6 +316,7 @@ class FBDomainPlots():
             Each plot consists of two x and y coordinates.
 
         """
+        # indices = plot_indices
 
         A = np.take(np.array(A), indices, axis=0)
         b = np.take(np.array(b), indices, axis=0)
@@ -332,23 +333,31 @@ class FBDomainPlots():
         plot_indices = []
         print("Range: ", x_max, x_min, y_max, y_min)
         for index in range(0, len(Ab)):
-            x_coordinates = []
-            y_coordinates = []
-            if (Ab[index][0] != 0) and abs(Ab[index][1]/Ab[index][0]) > 1:
-                x_range_max = (Ab[index][2] - y_max*Ab[index][1])/Ab[index][0]
-                x_range_min = (Ab[index][2] - y_min*Ab[index][1])/Ab[index][0]
-                x_coordinates = [y for y in np.linspace(max(x_min, min(x_range_max, x_range_min)), min(x_max, max(x_range_max, x_range_min)), 10)]
-                y_coordinates = [(Ab[index][2] - x*Ab[index][0]) / Ab[index][1] for x in x_coordinates]
-            else:
-                y_range_max = (Ab[index][2] - x_max*Ab[index][0])/Ab[index][1] 
-                y_range_min = (Ab[index][2] - x_min*Ab[index][0])/Ab[index][1] 
-                y_coordinates = [y for y in np.linspace(max(y_min, min(y_range_max, y_range_min)), min(y_max, max(y_range_max, y_range_min)), 10)]
-                x_coordinates = [(Ab[index][2] - y*Ab[index][1]) / Ab[index][0] for y in y_coordinates]
+            if any([a != 0 for a in Ab[index][:-1]]):
+                x_coordinates = []
+                y_coordinates = []
+                if Ab[index][0] == 0:
+                    x_coordinates = [x for x in np.linspace(x_min, x_max, 10)]
+                    y_coordinates = [Ab[index][2]/ Ab[index][1] for x in x_coordinates]
+                elif Ab[index][1] == 0:
+                    y_coordinates = [y for y in np.linspace(y_min, y_max, 10)]
+                    x_coordinates = [Ab[index][2]/ Ab[index][0] for x in x_coordinates]
+                elif abs(Ab[index][1]/Ab[index][0]) > 1:
+                    x_range_max = (Ab[index][2] - y_max*Ab[index][1])/Ab[index][0]
+                    x_range_min = (Ab[index][2] - y_min*Ab[index][1])/Ab[index][0]
+                    x_coordinates = [x for x in np.linspace(max(x_min, min(x_range_max, x_range_min)), min(x_max, max(x_range_max, x_range_min)), 10)]
+                    y_coordinates = [(Ab[index][2] - x*Ab[index][0]) / Ab[index][1] for x in x_coordinates]
+                else:
+                    y_range_max = (Ab[index][2] - x_max*Ab[index][0])/Ab[index][1] 
+                    y_range_min = (Ab[index][2] - x_min*Ab[index][0])/Ab[index][1] 
+                    y_coordinates = [y for y in np.linspace(max(y_min, min(y_range_max, y_range_min)), min(y_max, max(y_range_max, y_range_min)), 10)]
+                    x_coordinates = [(Ab[index][2] - y*Ab[index][1]) / Ab[index][0] for y in y_coordinates]
 
-            if (all([(x <= x_max) and (x >= x_min) for x in x_coordinates]) and \
-                all([(y <= y_max) and (y >= y_min) for y in y_coordinates])):
-                plot_equations.append([x_coordinates, y_coordinates])
-                plot_indices.append(index)
+                if (all([(x <= x_max) and (x >= x_min) for x in x_coordinates]) and \
+                    all([(y <= y_max) and (y >= y_min) for y in y_coordinates])):
+                    plot_equations.append([x_coordinates, y_coordinates])
+                    plot_indices.append(index)
+                
         return plot_equations, plot_indices
 
     def create_feasible_region_vertices(self, A, b, feasible_region_indices):
@@ -508,7 +517,7 @@ class FBDomainPlots():
         domain_info.loc[domain_info.index.isin(feasible_region_indices), "in_domain"] = True
 
         # Limit the number of constraints plottet to a threshold
-        threshold = int(1e3)
+        threshold = int(1e4)
         if len(A) > threshold:
             self.logger.debug("Plot limited to %d constraints plotted", threshold)
             random_choice = np.random.choice(domain_info.index, size=threshold, replace=False)
@@ -520,7 +529,7 @@ class FBDomainPlots():
         feasible_region_vertices, _ = self.create_feasible_region_vertices(A, b, feasible_region_indices)
         x_max, y_max = feasible_region_vertices.max(axis=0)*2
         x_min, y_min = feasible_region_vertices.min(axis=0)*2
-        plot_equations, plot_indices = self.create_domain_plot(A, b, plot_indices,  ((x_max, x_min), (y_max, y_min)))
+        plot_equations, plot_indices = self.create_domain_plot(A, b, plot_indices, ((x_max, x_min), (y_max, y_min)))
         domain_info = domain_info.loc[plot_indices, :]
         
         self.logger.debug("Number of CBCOs defining the domain %d", len(feasible_region_vertices[:, 0]) - 1)

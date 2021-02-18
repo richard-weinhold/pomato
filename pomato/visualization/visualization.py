@@ -345,11 +345,11 @@ class Visualization():
             tmp_ex_to = commercial_exchange.loc[(commercial_exchange.z == zone)&(commercial_exchange.zz != zone)]
             tmp_ex_from = commercial_exchange.loc[(commercial_exchange.zz == zone)&(commercial_exchange.z != zone)]
             tmp = []
-            for i in tmp_ex_to.index:
+            for i in tmp_ex_to[tmp_ex_to.EX > 0].index:
                 tmp.append(tmp_ex_to.loc[i, "zz"] + ": " + str(tmp_ex_to.loc[i, "EX"].round()))
             data.append("TO: " + " | ".join(tmp))
             tmp = []
-            for i in tmp_ex_from.index:
+            for i in tmp_ex_from[tmp_ex_from.EX > 0].index:
                 tmp.append(tmp_ex_from.loc[i, "z"] + ": " + str(tmp_ex_from.loc[i, "EX"].round()))
             data.append("FROM: " + " | ".join(tmp))
             custom_data.append(data)
@@ -564,7 +564,7 @@ class Visualization():
         else:
             return fig
 
-    def create_installed_capacity_plot(self, market_result, show_plot=True, filepath=None):
+    def create_installed_capacity_plot(self, data, show_plot=True, filepath=None):
         """Create plot visualizing installed capacity per market area.
 
         The installed capacity plot visualizes the installed capacity as stacked bar charts. The 
@@ -572,15 +572,21 @@ class Visualization():
         
         Parameters
         ----------
-        market_result : :class:`~pomato.data.DataManagement`
-            Market result which is plotted. 
+        data : :class:`~pomato.data.DataManagement` or :class:`~pomato.data.Results`
+            Data to plot. 
         show_plot : bool, optional
             Shows plot after generation. If false, returns plotly figure instead. By default True.
         filepath : pathlib.Path, str, optional
             If filepath is supplied, saves figure as .html, by default None
         """
-        plants = market_result.data.plants
-        plants["zone"] = market_result.data.nodes.loc[plants.node, "zone"].values
+        if isinstance(data, pomato.data.Results):
+            data = data.data
+        
+        if not isinstance(data, pomato.data.DataManagement):
+            raise TypeError("Please supply a Result oder DataManagement instance.")
+        
+        plants = data.plants
+        plants["zone"] = data.nodes.loc[plants.node, "zone"].values
         if not "technology" in plants.columns:
             plants["technology"] = plants.plant_type
 
@@ -656,7 +662,7 @@ class Visualization():
         Input argument remains an instance of :class:`~pomato.visualization.FBDomain` which 
         can be created by utilizing :meth:`~pomato.visualization.FBDomainPlots` module. 
         """
-
+        # fb_domain = domain_plot
         fig = go.Figure()
         scale = 2
         n0_lines_x, n0_lines_y = [], []

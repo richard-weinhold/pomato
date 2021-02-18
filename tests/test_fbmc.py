@@ -44,7 +44,6 @@ class TestFBMCModule(unittest.TestCase):
         basecase = mato.data.results["scopf_market_results"]
         mato.options["grid"]["minram"] = 0.1
         mato.options["grid"]["sensitivity"] = 0.05
-        mato.fbmc.calculate_parameters()
         mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
         mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="dynamic", reduce=False)
         mato.logger.handlers[0].close()
