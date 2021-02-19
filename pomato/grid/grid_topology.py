@@ -1,11 +1,12 @@
 """Grid Model of POMATO"""
-import sys
 import logging
+import sys
+from concurrent.futures import ThreadPoolExecutor
+
 import numpy as np
 import pandas as pd
 import scipy
-# from multiprocessing import Pool
-from pathos.multiprocessing import ProcessingPool as Pool
+
 
 class GridTopology():
     """GridTopology of POMATO
