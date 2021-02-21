@@ -82,7 +82,6 @@ class TestPomatoGridModel(unittest.TestCase):
                           grid_representation_flat.grid.values, grid_representation_gmax.grid.values)
 
         test_columns = ["cb", "co", "ram"] + list(self.grid_model.data.zones.index)
-        print(grid_representation_flat.grid.columns)
         self.assertTrue(all(grid_representation_flat.grid.columns == test_columns))
         self.assertTrue(all(grid_representation_gmax.grid.columns == test_columns))
 
@@ -124,7 +123,7 @@ class TestPomatoGridModel(unittest.TestCase):
         self.grid_model.create_grid_representation()
         pd.testing.assert_frame_equal(c_ptdf_fallback, self.grid_model.grid_representation.grid)
 
-    def test_cbco_nodal_index_precalc(self):
+    def test_cbco_nodal_precalc_index(self):
         
         my_file = self.wdir.joinpath('cbco_nrel_118.csv')
         to_file = self.wdir.joinpath('data_temp/julia_files/cbco_data/cbco_nrel_118.csv')
@@ -134,6 +133,33 @@ class TestPomatoGridModel(unittest.TestCase):
         self.grid_model.options["grid"]["precalc_filename"] = "cbco_nrel_118"
         self.grid_model.options["grid"]["capacity_multiplier"] = 0.8
         self.grid_model.create_cbco_nodal_grid_parameters()
+
+    def test_cbco_nodal_precalc_table(self):
+        
+        my_file = self.wdir.joinpath('cbco_nrel_118.csv')
+        to_file = self.wdir.joinpath('data_temp/julia_files/cbco_data/nrel_cbco_table.csv')
+        shutil.copyfile(str(my_file), str(to_file))
+
+        self.grid_model.options["type"] = "cbco_nodal"
+        self.grid_model.options["grid"]["precalc_filename"] = "cbco_nrel_118"
+        self.grid_model.create_cbco_nodal_grid_parameters()
+    
+    def test_cbco_nodal_save(self):
+        self.grid_model.options["type"] = "cbco_nodal"
+        self.grid_model.options["grid"]["cbco_option"] = "save"
+        self.grid_model.options["grid"]["precalc_filename"] = None
+        self.grid_model.create_cbco_nodal_grid_parameters()
+
+        self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/A_py_save.csv").is_file())
+        self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/b_py_save.csv").is_file())
+        self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/I_py_save.csv").is_file())
+        self.assertTrue(self.grid_model.julia_dir.joinpath("cbco_data/x_bounds_py_save.csv").is_file())
+    
+    def test_cbco_nodal_invalid_option(self):
+        self.grid_model.options["type"] = "cbco_nodal"
+        self.grid_model.options["grid"]["cbco_option"] = "invalid_option"
+        self.grid_model.options["grid"]["precalc_filename"] = None
+        self.assertRaises(AttributeError, self.grid_model.create_cbco_nodal_grid_parameters)
 
     def test_clarkson(self):
 

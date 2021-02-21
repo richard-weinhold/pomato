@@ -4,6 +4,7 @@ import shutil
 import unittest
 import json
 from pathlib import Path
+import time 
 
 import numpy as np
 import pandas as pd
@@ -48,6 +49,7 @@ class TestPomatoData(unittest.TestCase):
             self.assertTrue(self.data.nodes.loc[self.data.nodes[data].isna(), :].empty)
         for data in ["node_i", "node_j", "x_pu", "capacity", "contingency"]:
             self.assertTrue(self.data.lines.loc[self.data.lines[data].isna(), :].empty)
+    
     def test_data_preprocess(self):
         self.data.process_inflows()
 
@@ -88,49 +90,6 @@ class TestPomatoData(unittest.TestCase):
                 - result.data.demand_el.loc[condition, "demand_el"].sum()  
                 + result.INFEAS_EL_N_POS.INFEAS_EL_N_POS.sum() 
                 - result.INFEAS_EL_N_NEG.INFEAS_EL_N_NEG.sum())
-
-    def test_results_processing(self):
-        grid  = pomato.grid.GridTopology()
-        grid.calculate_parameters(self.data.nodes, self.data.lines)
-        folder = self.wdir.joinpath("dispatch_market_results")
-        result = pomato.data.Results(self.data, grid, folder)
-
-        system_balance = self.system_balance(result)
-        self.assertAlmostEqual(system_balance, 0)
-
-    def test_misc_result_methods(self):
-        grid  = pomato.grid.GridTopology()
-        grid.calculate_parameters(self.data.nodes, self.data.lines)
-        folder = self.wdir.joinpath("scopf_market_results")
-        result = pomato.data.Results(self.data, grid, folder)
-        result.output_folder = self.wdir.joinpath("data_output")
-        
-        result.curtailment()
-        result.net_position()
-        result.commercial_exchange("R1", "R2")
-        result.infeasibility()
-        res_share = result.res_share(["wind", "solar", "ror_ts"])
-        result.demand()
-        result.generation()
-        result.storage_generation()
-        result.price()
-
-        self.assertTrue(0 < res_share < 1)
-        self.assertRaises(TypeError, result.res_share)
-
-    def test_redispatch_result(self):
-        grid  = pomato.grid.GridTopology()
-        grid.calculate_parameters(self.data.nodes, self.data.lines)
-        market_folder = self.wdir.joinpath("dispatch_market_results")
-        redispatch_folder = self.wdir.joinpath("dispatch_redispatch")
-
-        self.data.process_results(market_folder, grid)
-        self.data.process_results(redispatch_folder, grid)
-        self.data.results["dispatch_redispatch"].result_attributes["corresponding_market_result_name"] = "dispatch_market_results"
-        gen = self.data.results["dispatch_redispatch"].redispatch()
-
-        self.assertTrue(gen.delta_abs.sum() > 0)
-        self.assertAlmostEqual(gen.delta.sum(), 0)
 
     def test_results_uniform_pricing(self):
         # obj 990129.5893227865
@@ -192,6 +151,77 @@ class TestPomatoData(unittest.TestCase):
         self.assertAlmostEqual(result.result_attributes["objective"]["Objective Value"], 
                                3899019.71757418)
 
+
+
+
+class TestPomatoDataResults(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        temp_dir = tempfile.TemporaryDirectory()
+        wdir = Path(temp_dir.name)
+
+        copytree(Path.cwd().joinpath("examples"), wdir)
+        copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), wdir)
+
+        mato = pomato.POMATO(wdir=wdir, options_file="profiles/nrel118.json",
+                                 logging_level=logging.ERROR, file_logger=False)
+        mato.load_data('data_input/nrel_118.zip')
+        R2_to_R3 = ["bus118", "bus076", "bus077", "bus078", "bus079", 
+                    "bus080", "bus081", "bus097", "bus098", "bus099"]
+        mato.data.nodes.loc[R2_to_R3, "zone"] = "R3"
+        mato.initialize_market_results(
+            [wdir.joinpath("ntc_redispatch"),
+             wdir.joinpath("ntc_market_results")])
+        cls.market_result, cls.redispatch_result = mato.data.return_results()
+
+    def setUp(self):
+        pass
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.market_result = None
+        cls.redispatch_result = None
+
+    def test_n_0_flow_cache(self):
+        t0 = time.time()
+        n_0 = self.market_result.n_0_flow()
+        t1 = time.time()
+        n_0_cached = self.market_result.n_0_flow()
+        t2 = time.time()
+
+        pd.testing.assert_frame_equal(n_0, n_0_cached)
+        self.assertTrue( (t1-t0) > (t2 - t1))
+
+    def test_n_1_flow_cache(self):
+        t0 = time.time()
+        n_1 = self.market_result.n_1_flow()
+        t1 = time.time()
+        n_1_cached = self.market_result.n_1_flow()
+        t2 = time.time()
+
+        pd.testing.assert_frame_equal(n_1, n_1_cached)
+        self.assertTrue( (t1-t0) > (t2 - t1))
+
+    def test_redispatch(self):
+        # Not the corret market result set -> fails
+        self.redispatch_result.result_attributes["corresponding_market_result_name"] = None
+        gen = self.redispatch_result.redispatch()
+        self.assertFalse(isinstance(gen, pd.DataFrame))
+
+        self.redispatch_result.result_attributes["corresponding_market_result_name"] = "ntc_market_results"
+        gen = self.redispatch_result.redispatch()
+        self.assertTrue(isinstance(gen, pd.DataFrame))
+        self.assertTrue(gen.delta_abs.sum() > 0)
+        self.assertAlmostEqual(gen.delta.sum(), 0)
+
+    def test_result_methods(self):
+
+        self.market_result.net_position()
+        self.market_result.infeasibility()
+        self.market_result.demand()
+        self.market_result.generation()
+        self.market_result.storage_generation()
+        self.market_result.price()
 
 if __name__ == '__main__':
     unittest.main()

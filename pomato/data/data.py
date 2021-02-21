@@ -434,16 +434,3 @@ class DataManagement():
             if es_plant not in tmp.columns:
                 tmp[es_plant] = 0
         self.inflows = pd.melt(tmp.reset_index(), id_vars=["timestep"], value_name="inflow").dropna()
-
-    def unique_mc(self):
-        """Make marginal costs unique.
-
-        This is done by adding a small increment multiplied by the number if plants with the
-        same mc. This makes the solver find a unique solution (at least in regards to generation
-        schedule) and is sopposed to have positive effect on solvetime.
-        """
-        for marginal_cost in self.plants.mc_el:
-            condition_mc = self.plants.mc_el == marginal_cost
-            self.plants.loc[condition_mc, "mc"] = \
-            self.plants.mc_el[condition_mc] + \
-            [int(x)*1E-4 for x in range(0, len(self.plants.mc_el[condition_mc]))]

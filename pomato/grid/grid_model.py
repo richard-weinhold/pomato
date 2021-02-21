@@ -257,22 +257,6 @@ class GridModel():
         cbco_zonal_network.loc[:, "ram"] *= grid_option["capacity_multiplier"]
         return cbco_zonal_network
 
-    def _add_zone_to_grid_representation(self, grid):
-        """Add information in which country a line is located.
-        
-        By adding two columns in dataframe: zone_i, zone_j. This information is needed for zonal redispatch 
-        to identify which lines should be redispatched. 
-        """
-
-        if "cb" in grid.columns:
-            grid["zone_i"] = self.grid.nodes.loc[self.grid.lines.loc[grid.cb, "node_i"], "zone"].values
-            grid["zone_j"] = self.grid.nodes.loc[self.grid.lines.loc[grid.cb, "node_j"], "zone"].values
-        else:
-            grid["zone_i"] = self.grid.nodes.loc[self.grid.lines.loc[grid.index, "node_i"], "zone"].values
-            grid["zone_j"] = self.grid.nodes.loc[self.grid.lines.loc[grid.index, "node_j"], "zone"].values
-            
-        return grid
-
     def create_cbco_nodal_grid_parameters(self):
         """Process grid information for nodal N-1 representation.
 
@@ -322,23 +306,19 @@ class GridModel():
             # 3 valid args supported for cbco_option:
             # clarkson, clarkson_base, full (default)
             if self.options["grid"]["cbco_option"] == "full":
-                cbco_index = list(range(0, len(b)))
-
+                cbco_index = list(range(len(b)))
             elif self.options["grid"]["cbco_option"] == "clarkson_base":
-                nodal_injection_limits = self.create_nodal_injection_limits()
-                cbco_index = self.clarkson_algorithm(A=A, b=b, x_bounds=nodal_injection_limits)
-
+                cbco_index = self.clarkson_algorithm(
+                    A=A, b=b, x_bounds=self.create_nodal_injection_limits())
             elif self.options["grid"]["cbco_option"] == "clarkson":
                 cbco_index = self.clarkson_algorithm(A=A, b=b)
-
             elif self.options["grid"]["cbco_option"] == "save":
-                nodal_injection_limits = self.create_nodal_injection_limits()
-                cbco_index = list(range(0, len(b)))
-
+                cbco_index = list(range(len(b)))
                 self.write_cbco_info(self.julia_dir.joinpath("cbco_data"), "py_save", 
-                                     A=A, b=b, Ab_info=cbco_info, x_bounds=nodal_injection_limits)
+                                     A=A, b=b, Ab_info=cbco_info, 
+                                     x_bounds=self.create_nodal_injection_limits())
             else:
-                self.logger.warning("No valid cbco_option set!")
+                raise AttributeError("No valid cbco_option set!")
 
         cbco_nodal_network = self.return_cbco(cbco_info, cbco_index)
         cbco_nodal_network.ram *= self.options["grid"]["capacity_multiplier"]

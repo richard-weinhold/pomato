@@ -24,9 +24,6 @@ class TestPomatoMarketModel(unittest.TestCase):
     def setUpClass(cls):
         cls.temp_dir = tempfile.TemporaryDirectory()
         cls.wdir = Path(cls.temp_dir.name)
-        print(Path.cwd())
-        print(cls.wdir)
-
         copytree(Path.cwd().joinpath("examples"), cls.wdir)
 
         pomato.tools.create_folder_structure(cls.wdir)
@@ -63,8 +60,6 @@ class TestPomatoMarketModel(unittest.TestCase):
         for data in ["availability", "dclines", "demand_el", "demand_h", "grid", "heatareas", 
                      "inflows", "net_export", "net_position", "nodes", "ntc", "plant_types", 
                      "plants", "redispatch_grid", "slack_zones", "zones"]:
-            print(data)
-            print(self.market_model.data_dir)
             self.assertTrue(self.market_model.data_dir.joinpath(f'{data}.csv').is_file())
         self.assertTrue(self.market_model.data_dir.joinpath('options.json').is_file())
 

@@ -399,6 +399,8 @@ class Dashboard():
         else:
             basecase = self.pomato_instance.data.results[basecase]
             fb_region = self.pomato_instance.options["grid"]["flowbased_region"]
+            if not fb_region:
+                fb_region = list(self.pomato_instance.data.zones.index)
             option_domain = [{"label": "-".join(x), "value": "-".join(x)} for x in itertools.combinations(fb_region, 2)]
             return option_domain, option_domain
 
@@ -466,7 +468,7 @@ class Dashboard():
                            Input('switches-transmission', 'value'),
                            Input('flow-option', 'value'),
                            Input('timestep-selector-transmission', 'value'),
-                           Input('input-lineloading-transmission', 'value')])(self.update_geo_plot)
+                           Input('input-lineloading-transmission', 'value')])(self.update_transmission_geo_plot)
         
         # Click Lines Geoplot
         self.app.callback(Output('line-selector', 'value'),
@@ -603,7 +605,7 @@ class Dashboard():
         fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
         return fig
     
-    def update_geo_plot(self, result_name, show_price_redispatch, line_color_option, 
+    def update_transmission_geo_plot(self, result_name, show_price_redispatch, line_color_option, 
                         timestep, threshold):
         show_prices = True if 1 in show_price_redispatch else False
         show_redispatch = True  if 2 in show_price_redispatch else False

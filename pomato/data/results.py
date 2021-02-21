@@ -49,7 +49,7 @@ class Results():
         Folder with the results of the market model in .csv files.
     """
 
-    def __init__(self, data, grid, result_folder, auto_precalc=False):
+    def __init__(self, data, grid, result_folder):
         self.logger = logging.getLogger('log.pomato.data.DataWorker.Results')
         self.grid = grid
         self.data = data
@@ -91,14 +91,7 @@ class Results():
             setattr(self, var, pd.DataFrame())
 
         # Add opt Set-Up to the results attributes
-
         self.load_results_from_folder(result_folder)
-
-        # precalculate common results
-        precalc_thread = threading.Thread(target=self.create_result_data, name="result data")
-        if auto_precalc:
-            precalc_thread.start()
-
         # Set Redispatch = True if result is a redispatch result 
         if "redispatch" in self.result_attributes["name"]:
             self.result_attributes["title"] += "_redispatch"
@@ -176,18 +169,20 @@ class Results():
             Returns empty data struct, with predefined data structure. 
         """        
 
-        return types.SimpleNamespace(nodes=self.data.nodes,
-                                     lines=self.data.lines,
-                                     line_coordinates=line_coordinates(self.data.lines.copy(), self.data.nodes.copy()),
-                                     dclines=self.data.dclines,
-                                     dcline_coordinates=line_coordinates(self.data.dclines, self.data.nodes),
-                                     inj=pd.Series(index=self.data.nodes.index, data=0),
-                                     dc_flow= pd.Series(index=self.data.dclines.index, data=0),
-                                     gen=pd.DataFrame(),
-                                     demand=pd.DataFrame(),
-                                     prices=pd.DataFrame(),
-                                     n_0_flow=pd.Series(index=self.data.lines.index, data=0),
-                                     n_1_flow=pd.Series(index=self.data.lines.index, data=0))
+        return types.SimpleNamespace(
+            nodes=self.data.nodes,
+            lines=self.data.lines,
+            line_coordinates=line_coordinates(self.data.lines.copy(), self.data.nodes.copy()),
+            dclines=self.data.dclines,
+            dcline_coordinates=line_coordinates(self.data.dclines, self.data.nodes),
+            inj=pd.Series(index=self.data.nodes.index, data=0),
+            dc_flow= pd.Series(index=self.data.dclines.index, data=0),
+            gen=pd.DataFrame(),
+            demand=pd.DataFrame(),
+            prices=pd.DataFrame(),
+            n_0_flow=pd.Series(index=self.data.lines.index, data=0),
+            n_1_flow=pd.Series(index=self.data.lines.index, data=0)
+            )
     
     def create_result_data(self, force_recalc=False):
         """Creates result data struct from result instance.
@@ -218,7 +213,7 @@ class Results():
         self._cached_results.result_data = data_struct
         self.logger.info("Done calculating common results.")
 
-        return data_struct
+        return deepcopy(data_struct)
 
     def create_averaged_result_data(self, force_recalc=False):
         """Creates averaged result data struct.
@@ -319,36 +314,6 @@ class Results():
         price["marginal"] = -(price.EB_zonal + price.EB_nodal)
         return price[["t", "n", "z", "marginal"]]
 
-    def commercial_exchange(self, from_zone, to_zone):
-        """Return commercial exchange for a pair of market areas.
-
-        Parameters
-        ----------
-        from_zone : str
-           Exporting market area.
-        to_zone : str
-           Importing market area.
-
-        Returns
-        -------
-        exchange : DataFrame
-            Commercial exchange between two market areas. 
-        """
-
-        from_to = self.EX[(self.EX.z == from_zone)&(self.EX.zz == to_zone)]
-        to_from = self.EX[(self.EX.z == to_zone)&(self.EX.zz == from_zone)]
-
-        from_to = from_to.loc[:, ["t", "z", "zz", "EX"]].set_index("t")
-        to_from = to_from.loc[:, ["t", "z", "zz", "EX"]].set_index("t")
-
-        exchange = pd.merge(from_to, to_from, left_index=True, right_index=True)
-
-        exchange = exchange.loc[:, ["EX_x", "EX_y"]]
-        exchange.columns = ["-".join([from_zone, to_zone]), "-".join([to_zone, from_zone])]
-        exchange.loc[:, "-".join([to_zone, from_zone])] *= -1
-
-        return exchange
-
     def net_position(self):
         """Calculate net position for each zone and timestep.
 
@@ -363,58 +328,6 @@ class Results():
                                  self.EX[self.EX.zz == zone].groupby("t").sum()
         return net_position
     
-    def curtailment(self):
-        """[Deprecated] Check for curtailment of plants of type ts (i.e. with availabilities).
-
-        Deprecated: changed curtailment to explicit variable.
-        Curtailment is checked by comparing actual with potential generation.
-
-        Returns
-        -------
-        gen : DataFrame
-            DataFrame with actual and potential generation for each plant and
-            timestep.
-        """
-        
-        ts_option = self.data.options["plant_types"]["ts"]
-        res_plants = self.data.plants[self.data.plants.plant_type.isin(ts_option)].copy()
-
-        gen = self.G.copy()
-        ava = self.data.availability[["timestep", "plant", "availability"]].copy()
-        ava.columns = ["t", "p", "ava"]
-
-        gen = gen[gen.p.isin(res_plants.index)]
-        gen = pd.merge(gen, res_plants[["g_max"]], how="left", left_on="p", right_index=True)
-        gen = pd.merge(gen, ava, how="left", on=["p", "t"])
-        gen.ava.fillna(1, inplace=True)
-
-        gen["ava_gen"] = gen.g_max*gen.ava
-        gen["curt"] = gen.ava_gen - gen.G
-        curtailment = gen["curt"].round(3).sum()
-        self.logger.info("%s MWh curtailed in market model results!", curtailment)
-        return gen
-
-    def res_share(self, res_plant_type):
-        """Calculate the share of renewables.
-
-        Parameters
-        ----------
-        res_plant_type : list of plant_types
-            plant_types (ref. plants.plant_types) that represent renewables.
-
-        Returns
-        -------
-        res_share : float
-            Share of reneable generation in the resulting dispatch.
-        """
-        res_plants = self.data.plants[self.data.plants.plant_type.isin(res_plant_type)]
-        gen = self.G
-        gen_res = gen[gen.p.isin(res_plants.index)]
-        res_share = gen_res.G.sum()/gen.G.sum()
-        self.logger.info("Renewable share is %d %% in resulting dispatch!",
-                         round(res_share*100, 2))
-        return res_share
-
     def generation(self, force_recalc=False):
         """Generation data.
         
@@ -434,8 +347,8 @@ class Results():
         else:
             gen["technology"] = gen.plant_type
         gen = tools.reduce_df_size(gen)
-        self._cached_results.generation = gen.copy()
-        return gen
+        self._cached_results.generation = gen
+        return gen.copy()
 
     def full_load_hours(self):
         """Returns plant data including full load hours."""        
@@ -498,8 +411,8 @@ class Results():
         demand["demand"] = demand.demand_el + demand.D_ph + demand.D_es
         demand = demand.sort_values(by='t', key=self._sort_timesteps)
         
-        self._cached_results.demand = demand.copy()
-        return demand
+        self._cached_results.demand = demand
+        return demand.copy()
 
     # Grid Analytics - Load Flows
     def n_0_flow(self, force_recalc=False):
@@ -570,9 +483,9 @@ class Results():
         n_1_flows["co"] = data.co
 
         self.logger.info("Done Calculating N-1 Flows")
+        n_1_flows = n_1_flows.loc[:, ["cb", "co"] + self.model_horizon]
         self._cached_results.n_1_flows = n_1_flows.copy()
-
-        return n_1_flows.loc[:, ["cb", "co"] + self.model_horizon]
+        return n_1_flows
 
     def absolute_max_n_1_flow(self, sensitivity=0.05):
         """Calculate the absolute max of N-1 Flows.

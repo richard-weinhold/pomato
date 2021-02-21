@@ -402,7 +402,6 @@ def default_options():
             },
         "data": {
             "result_copy": False,
-            "unique_mc": False,
         }
     }
     return options

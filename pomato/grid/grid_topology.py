@@ -412,7 +412,6 @@ class GridTopology():
             return lodf
         except:
             # self.logger.exception("error in create_lodf_matrix ", sys.exc_info()[0])
-            print(lines, outages)
             raise ZeroDivisionError('LODFError: Check Slacks, radial Lines/Nodes')
             
 
@@ -456,35 +455,8 @@ class GridTopology():
         else:
             return self.lines.index[condition]
 
-    def create_n_1_ptdf_line(self, line):
-        """Create N-1 ptdf for one specific line and all other lines as outages.
-
-        Parameters
-        ----------
-        line : lines.index, int
-            line index (DataFrame index or integer).
-
-        Returns
-        -------
-        ptdf : np.ndarray
-            Returns ptdf matrix (LxN) where for a N-dim vector of nodal
-            injections INJ, the dot-product :math:`PTDF \\cdot INJ` results
-            in the flows on the specified line for each other line as outages. 
-            Includes the N-0 case. 
-        """
-
-        if not isinstance(line, int):
-            line = self.lines.index.get_loc(line)
-
-
-        n_1_ptdf_line = np.vstack([self.ptdf[line, :]] +
-                                  [self.ptdf[line, :] +
-                                    np.dot(self.create_lodf([line], [outage]), self.ptdf[outage, :])
-                                        for outage in range(0, len(self.lines))])
-        return n_1_ptdf_line
-
     def create_n_1_ptdf_outage(self, outages):
-        """Create N-1 ptdf for all lines under a specific outage.
+        """Create N-1 ptdf for all lines under a specific outages.
 
         Parameters
         ----------
@@ -503,13 +475,13 @@ class GridTopology():
         if not all([isinstance(outage, int) for outage in outages]):
             outages = [self.lines.index.get_loc(outage) for outage in outages]
 
-        combines_outages = []
+        combined_outages = []
         for outage in outages:
             tmp = self.contingency_groups[self.lines.index[outage]]
-            combines_outages.extend([self.lines.index.get_loc(line) for line in tmp])
+            combined_outages.extend([self.lines.index.get_loc(line) for line in tmp])
 
-        lodf = self.create_lodf([line for line in range(0, len(self.lines))], combines_outages)
-        n_1_ptdf = self.ptdf + np.dot(lodf, self.ptdf[combines_outages, :].reshape(len(combines_outages), len(self.nodes)))
+        lodf = self.create_lodf([line for line in range(0, len(self.lines))], combined_outages)
+        n_1_ptdf = self.ptdf + np.dot(lodf, self.ptdf[combined_outages, :].reshape(len(combined_outages), len(self.nodes)))
         return n_1_ptdf
 
     def create_n_1_ptdf_cbco(self, lines, outage):
@@ -609,12 +581,3 @@ class GridTopology():
         except:
             self.logger.exception('error:create_n_1_ptdf')
 
-    def slack_zones_index(self):
-        """Return the integer indices for each node per slack_zones."""
-        slack_zones = self.slack_zones()
-        slack_zones_idx = []
-        for slack in slack_zones:
-            slack_zones_idx.append([self.nodes.index.get_loc(node)
-                                    for node in slack_zones[slack]])
-        slack_zones_idx.append([x for x in range(0, len(self.nodes))])
-        return slack_zones_idx
