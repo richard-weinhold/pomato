@@ -221,7 +221,8 @@ class TestPomatoDataResults(unittest.TestCase):
         self.market_result.demand()
         self.market_result.generation()
         self.market_result.storage_generation()
-        self.market_result.price()
+        self.market_result.price()     
 
+        
 if __name__ == '__main__':
     unittest.main()

@@ -76,3 +76,18 @@ class TestPomato(unittest.TestCase):
     def test_init_nrel_folder(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/nrel_118/')
+
+    def test_save_model_data_to_folder(self):
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False,
+                             options_file="profiles/ieee118.json")
+        mato.load_data('data_input/pglib_opf_case118_ieee.m')
+        folder = self.wdir.joinpath("tmp_dir")
+        Path.mkdir(folder)
+        mato.create_grid_representation()
+        mato.update_market_model_data(folder=folder)
+
+    def test_rename_results(self):
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)    
+        mato.data.results = {"result_a": None, "result_b": None}
+        mato.rename_market_result("result", "newname")
+        self.assertTrue(all([r in mato.data.results for r in ["newname_a", "newname_b"]]))

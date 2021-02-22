@@ -181,6 +181,22 @@ class TestPomatoDashboard(unittest.TestCase):
             }]
         }
 
+
+    def test_update_timestep_slider(self):
+        result_name = "ntc_market_results"
+        size = {"width": 400}
+        slider_max, marks, value = self.dashboard.update_timestep_slider(result_name, size, None)
+
+        self.assertTrue(value == 0)
+        self.assertTrue(isinstance(marks, dict))
+        self.assertTrue(isinstance(slider_max, int))
+
+    def test_update_result_selection(self):
+        
+        options, value = self.dashboard.update_result_selection(None)
+        self.assertTrue(isinstance(value, str))
+        self.assertTrue(all([isinstance(o["value"], str) for o in options]))        
+
     ### Overview
     def test_display_result_summary(self):
         result_name = "ntc_market_results"

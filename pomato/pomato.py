@@ -256,8 +256,6 @@ class POMATO():
             self.logger.warning("No or invalid options file provided, using default options")
             self.options = tools.default_options()
             self.logger.debug("Optimization Options:" + json.dumps(self.options, indent=2) + "\n")
-        except BaseException as unknown_exception:
-            self.logger.exception("Error: %s", unknown_exception)
 
     def load_data(self, filename):
         """Load data into :class:`~pomato.data.DataManagement` module.
@@ -358,11 +356,6 @@ class POMATO():
             self.initialize_market_results(self.market_model.result_folders)
         else:
             self.logger.warning("Market Model not successfully run!")
-
-    def _clear_data(self):
-        """Reset DataManagement Class."""
-        self.logger.info("Resetting Data Object")
-        self.data = DataManagement(self.options, self.wdir)
 
     def create_flowbased_parameters(self, basecase, **kwargs):
         """Create flow based parameters based on a chosen basecase.
