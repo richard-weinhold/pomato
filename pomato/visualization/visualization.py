@@ -1,5 +1,4 @@
 """Visualization Module of POMATO"""
-# pylint: disable-msg=E1101
 
 import logging
 import types
@@ -38,7 +37,6 @@ BASIC_FUEL_COLOR_MAP = {
 
 def color_map(gen):
     """Fuel colors for generation/capacity plots."""
-
     color_df = gen[["fuel", "technology"]].groupby(["fuel", "technology"], observed=True).sum()
     for fuel in BASIC_FUEL_COLOR_MAP:
         condition = color_df.index.get_level_values("fuel").str.lower().str.contains(fuel)
@@ -46,10 +44,11 @@ def color_map(gen):
         color_df.loc[condition, "color"] = BASIC_FUEL_COLOR_MAP[fuel][:number_of_fuels]
     
     fill = "#EAF9FE"
-    number_to_fill = len(BASIC_FUEL_COLOR_MAP["other"]) - sum(color_df.color == "") 
-    if number_to_fill > 0:
-        BASIC_FUEL_COLOR_MAP["other"].extend([fill for x in range(0, number_to_fill)])
-    color_df.loc[color_df.color == "", "color"] = BASIC_FUEL_COLOR_MAP[fuel][:sum(color_df.color == "")]
+    other_fuel_colors = BASIC_FUEL_COLOR_MAP["other"]
+    number_to_fill =  sum(color_df.color.isna()) - len(BASIC_FUEL_COLOR_MAP["other"])
+    if number_to_fill > 0: # if more colors are needed than existing on other add filler
+        other_fuel_colors.extend([fill for x in range(0, number_to_fill)])
+    color_df.loc[color_df.color.isna(), "color"] = other_fuel_colors[:sum(color_df.color.isna())]
 
     color_df = color_df.reset_index()
     color_df["name"] = ""
@@ -76,8 +75,8 @@ class Visualization():
         self.data = data
 
     def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, show_nex=False,
-                        timestep=None, threshold=0, highlight_lines=None, line_color_option=0, 
-                        show_plot=True, filepath=None):
+                        show_curtailment=True, timestep=None, threshold=0, highlight_nodes=None, 
+                        highlight_lines=None,  line_color_option=0, show_plot=True, filepath=None):
         """Creates Geoplot of market result.
 
         The geoplot is a interactive plotly figure showing lineloading, redispatch and prices 
@@ -108,18 +107,30 @@ class Visualization():
         nodes = market_result.data.nodes.copy()
         if isinstance(timestep, int):
             timestep = market_result.model_horizon[timestep]
+        
         if show_redispatch: 
             gen = market_result.redispatch()  
             if isinstance(timestep, str) and isinstance(gen, pd.DataFrame):
                 gen = gen.loc[gen.t == timestep, ["node", "delta", "delta_abs"]].groupby("node").sum()
                 gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)
-                gen.loc[:, ["delta", "delta_abs"]].fillna(0, inplace=True)
+                nodes = pd.merge(nodes, gen[["delta", "delta_abs"]].fillna(0), left_index=True, right_index=True)
             elif isinstance(gen, pd.DataFrame):
                 gen = gen.loc[:, ["node", "delta", "delta_abs"]].groupby("node").sum()
                 gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)
-                gen.loc[:, ["delta", "delta_abs"]].fillna(0, inplace=True)
+                nodes = pd.merge(nodes, gen[["delta", "delta_abs"]].fillna(0), left_index=True, right_index=True)
             else:
                 show_redispatch = False
+        
+        if show_curtailment: 
+            curtailment = market_result.curtailment()
+            if isinstance(timestep, str):
+                curtailment = curtailment.loc[curtailment.t == timestep, ["node", "CURT"]].groupby("node").sum()
+                curtailment = pd.merge(nodes["zone"], curtailment, how="left", left_index=True, right_index=True)
+                nodes = pd.merge(nodes, curtailment["CURT"].fillna(0), left_index=True, right_index=True)
+            else:
+                curtailment = curtailment[["node", "CURT"]].groupby("node").sum()
+                curtailment = pd.merge(nodes["zone"], curtailment, how="left", left_index=True, right_index=True)
+                nodes = pd.merge(nodes, curtailment["CURT"].fillna(0), left_index=True, right_index=True)
 
         if isinstance(timestep, str):
             result_data = market_result.create_result_data()
@@ -135,6 +146,7 @@ class Visualization():
             n_1_flows = result_data.n_1_flow
 
         fig = go.Figure()
+        # DC Lines
         dcline_coords = np.array(result_data.dcline_coordinates)
         lons, lats = [], []
         customdata = None
@@ -212,48 +224,93 @@ class Visualization():
                     )
                 )
             
-        if show_redispatch:
-            gen.loc[gen.delta_abs == 0, "delta_abs"] = 1e-3
-            sizeref = max(2*max(gen['delta_abs'])/12**2, 1)
-            for condition, color in zip([gen.delta < 0, gen.delta == 0, gen.delta > 0], ["red", "#3283FE", "green"]):
+        # Highlight Nodes
+        affected_nodes = []
+        if highlight_nodes:
+            condition = nodes.index.isin(highlight_nodes)
+            affected_nodes = highlight_nodes
+            fig.add_trace(go.Scattermapbox(
+                lon = nodes.loc[condition, 'lon'],
+                lat = nodes.loc[condition, 'lat'],
+                mode = 'markers',
+                marker = go.scattermapbox.Marker(
+                    color = "#EF7FFF", # Pink 
+                    opacity=1,
+                    size=30),
+                customdata=nodes.loc[condition, ["zone"]].reset_index(),
+                hovertemplate=
+                "<br>".join([
+                    "Node: %{customdata[0]}",
+                    "Zone: %{customdata[1]}",
+                ]) + "<extra></extra>"
+            ))
+
+        if show_redispatch and any(nodes.delta_abs > 0):
+            affected_nodes = nodes.index[nodes.delta_abs > 0]
+            sizeref = max(2*max(nodes['delta_abs'])/12**2, 1)
+            for condition, color in zip([nodes["delta"] < 0, nodes["delta"] > 0], ["red", "green"]):
                 markers = go.scattermapbox.Marker(
-                    size = gen.loc[condition, 'delta_abs'],
+                    size = nodes.loc[condition, 'delta_abs'],
                     sizeref = sizeref,
                     sizemin = 3,
                     color = color,
+                    opacity=0.8,
                     # line = {"color": 'rgb(40,40,40)'},
                     # line_width=0.5,
                     autocolorscale=True
                     )
-                customdata = gen.loc[condition, ["zone", "delta_abs"]].reset_index()
+                customdata = nodes.loc[condition, ["zone", "delta_abs"]].reset_index()
                 fig.add_trace(go.Scattermapbox(
-                            lon = nodes.loc[condition, 'lon'],
-                            lat = nodes.loc[condition, 'lat'],
-                            marker = markers,
-                            customdata=customdata,
-                            hovertemplate=
-                            "<br>".join([
-                                "Node: %{customdata[0]}",
-                                "Zone: %{customdata[1]}",
-                                "Redispatch: %{customdata[2]:.2f} MW",
-                            ]) + "<extra></extra>"
-                        ))
-        else:
+                    lon = nodes.loc[condition, 'lon'],
+                    lat = nodes.loc[condition, 'lat'],
+                    marker = markers,
+                    customdata=customdata,
+                    hovertemplate=
+                    "<br>".join([
+                        "Node: %{customdata[0]}",
+                        "Zone: %{customdata[1]}",
+                        "Redispatch: %{customdata[2]:.2f} MW",
+                    ]) + "<extra></extra>"
+                ))
+        elif show_curtailment and any(nodes.CURT > 0):
+            condition = (nodes.CURT > 0)
+            affected_nodes = nodes.index[condition]
+            sizeref = max(2*max(nodes.loc[condition, 'CURT'])/12**2, 1)
             fig.add_trace(go.Scattermapbox(
-                        lon = nodes.lon,
-                        lat = nodes.lat,
-                        mode = 'markers',
-                        marker = go.scattermapbox.Marker(
-                            color = "#3283FE",
-                            opacity=0.4
-                            ), 
-                        customdata=nodes[["zone"]].reset_index(),
-                        hovertemplate=
-                        "<br>".join([
-                            "Node: %{customdata[0]}",
-                            "Zone: %{customdata[1]}",
-                        ]) + "<extra></extra>"
-                    ))
+                lon = nodes.loc[condition, 'lon'],
+                lat = nodes.loc[condition, 'lat'],
+                mode = 'markers',
+                marker = go.scattermapbox.Marker(
+                    color = "#8A31BD", # Purple
+                    opacity=0.8,
+                    sizeref = sizeref,
+                    sizemin = 3,
+                    size=nodes.loc[condition, "CURT"]),
+                customdata=nodes.loc[condition, ["zone", "CURT"]].reset_index(),
+                hovertemplate=
+                "<br>".join([
+                    "Node: %{customdata[0]}",
+                    "Zone: %{customdata[1]}",
+                    "Curtailment: %{customdata[2]:.2f} MW",
+                ]) + "<extra></extra>"
+            ))
+        
+        # Plot the remaining nodes
+        fig.add_trace(go.Scattermapbox(
+            lon = nodes[~nodes.index.isin(affected_nodes)].lon,
+            lat = nodes[~nodes.index.isin(affected_nodes)].lat,
+            mode = 'markers',
+            marker = go.scattermapbox.Marker(
+                color = "#3283FE", # Blue
+                opacity=0.8
+                ), 
+            customdata=nodes[~nodes.index.isin(affected_nodes)][["zone"]].reset_index(),
+            hovertemplate=
+            "<br>".join([
+                "Node: %{customdata[0]}",
+                "Zone: %{customdata[1]}",
+            ]) + "<extra></extra>"
+        ))
 
         if show_prices:
             compress=True
@@ -311,7 +368,7 @@ class Visualization():
             margin={"r":0,"t":0,"l":0,"b":0},
             mapbox= {"style": "carto-positron",
                     "layers": [price_layer],
-                    "zoom": 4,
+                    "zoom": 3,
                     "center": center},
             xaxis = {'visible': False},
             yaxis = {'visible': False})
@@ -325,8 +382,10 @@ class Visualization():
 
     def create_zonal_geoplot(self, market_result, timestep=None, highlight_lines=None, show_plot=True, filepath=None):
         
-        fig = self.create_geo_plot(market_result, timestep=timestep, highlight_lines=highlight_lines, show_plot=False)
+        fig = self.create_geo_plot(market_result, timestep=timestep, 
+                                   highlight_lines=highlight_lines, show_plot=False)
         fig.update_traces(marker_showscale=False)
+
         commercial_exchange = market_result.EX.copy()
         net_position = market_result.net_position()
         geojson = _create_geo_json(self.data.zones, self.data.nodes)
@@ -373,6 +432,7 @@ class Visualization():
                     opacity=0.45),
                 colorbar=dict(thickness=5)
                 ))
+
         # re-sort layers to bring the zones to the bottom.
         fig.data = tuple(fig.data[i] for i in ([-1] + [i for i in range(0, len(fig.data)-1)]))
         if filepath:
@@ -381,7 +441,6 @@ class Visualization():
             plot(fig)
         else:
             return fig
-
 
     def create_generation_plot(self, market_result, nodes=None, show_plot=True, filepath=None):
         """Create interactive generation plot.
@@ -433,8 +492,8 @@ class Visualization():
         inf["infeasibility"] = inf.pos - inf.neg
         inf = inf[["t", "infeasibility"]].groupby("t").sum()/1000
         inf = inf.loc[market_result.model_horizon, :]
-
-        d = pd.merge(demand, net_export, left_on=["t", "n"], right_on=["timestep", "node"])
+        d = pd.merge(demand, net_export, left_on=["t", "n"], right_on=["timestep", "node"], how="left")
+        d.loc[:, ["net_export"]].fillna(value=0, inplace=True)
         d = d[["t", "demand_el", "D_ph", "D_es", "net_export"]].groupby("t").sum()/1000
         d.loc[:, "demand_el"] -= (d.net_export)
         d = d.loc[market_result.model_horizon, :]
@@ -449,21 +508,44 @@ class Visualization():
         else:
             return fig
 
-    def create_generation_overview(self, market_result, show_plot=True, filepath=None):
+    def create_available_intermittent_capacity_plot(self, data, show_plot=True, filepath=None):
+        ava = self.data.availability.copy()
+        plants = self.data.plants.copy()
+        if not "technology" in plants.columns:
+            plants["technology"] = plants.plant_type
+        ava= pd.merge(ava, plants[["g_max", "fuel", "technology"]], left_on="plant", right_index=True, how="left")
+        ava["Available Capacity [GW]"] = ava.availability * ava.g_max / 1000
+        cols = ["timestep", "fuel", "technology", "Available Capacity [GW]"]
+        ava = ava[cols].groupby(cols[:-1], observed=True).sum().reset_index()
+        capacity_colors = color_map(ava)
+        ava = pd.merge(ava, capacity_colors, on=["fuel", "technology"])
+
+        # Sort by variance
+        sort_names = ava.groupby("name", observed=True).var().sort_values(by="Available Capacity [GW]", ascending=True).index
+        fig = px.area(ava, x="timestep", y="Available Capacity [GW]", color="name", 
+                    color_discrete_map=capacity_colors[["color", "name"]].set_index("name").color.to_dict(),
+                    category_orders={"name": list(sort_names)})
+
+        if filepath:
+            fig.write_html(str(filepath))
+        if show_plot:
+            plot(fig)
+        else:
+            return fig
+    
+    def create_generation_pie(self, market_result, show_plot=True, filepath=None):
         """Create pie chart, showing generation by type/fuel in relation to the total generation.
 
-        The overview shows generation by fuel/type/technology as a pie chart, illustrating the share
-        of each type. The figure is generated using the 
-        plotly package and can be returned or saved depending on the input arguments.
-        
+        The resulting figure generation by fuel/type/technology as a pie chart, illustrating the
+        share of each type. The figure is generated using the plotly package and can be returned or
+        saved depending on the input arguments.
+
         Parameters
         ----------
-        market_result : :class:`~pomato.data.DataManagement`
-            Market result which is plotted. 
-        show_plot : bool, optional
-            Shows plot after generation. If false, returns plotly figure instead. By default True.
-        filepath : pathlib.Path, str, optional
-            If filepath is supplied, saves figure as .html, by default None
+        market_result : :class:`~pomato.data.DataManagement` Market result which is plotted.
+            show_plot : bool, optional Shows plot after generation. If false, returns plotly figure
+            instead. By default True. filepath : pathlib.Path, str, optional If filepath is
+            supplied, saves figure as .html, by default None
         """
         gen = market_result.generation()
         flh = market_result.full_load_hours()
@@ -714,8 +796,8 @@ class Visualization():
                             mode='lines', hoverinfo="none"
                         )
                 )
-        fig.update_layout(yaxis_range=[fb_domain.y_min*scale, fb_domain.y_max*scale],
-                          xaxis_range=[fb_domain.x_min*scale, fb_domain.x_max*scale],
+        fig.update_layout(xaxis_range=[fb_domain.x_min, fb_domain.x_max],
+                          yaxis_range=[fb_domain.y_min, fb_domain.y_max],
                           template='simple_white',
                           hovermode="closest")
 
@@ -726,4 +808,161 @@ class Visualization():
         else:
             return fig
 
+    def create_cost_overview(self, market_results, show_plot=True, filepath=None):
+        """Create objective value overview of multiple model results. 
 
+        Parameters
+        ----------
+        market_results : list of :class:`~pomato.data.DataManagement`
+            Market results which is plotted. 
+        show_plot : bool, optional
+            Shows plot after generation. If false, returns plotly figure instead. By default True.
+        filepath : pathlib.Path, str, optional
+            If filepath is supplied, saves figure as .html, by default None
+        """
+
+        if not all([isinstance(r, pomato.data.Results) for r in  market_results]):
+            raise TypeError("Submit list of market results")
+    
+        cost_data = pd.DataFrame()
+        columns = ["COST_H", "COST_EX", "COST_G", "COST_CURT", "COST_REDISPATCH", "COST_INFEASIBILITY_EL"]
+        colors = ["#D6616B", "#969696", "#A1D99B", "#9E9AC8", "#E7969C", "#08519C"]
+        for result in market_results:
+            objective_values = result.result_attributes["objective"]
+            name = result.result_attributes["title"] # .replace("_redispatch", "").replace("/FBMC", "").replace("_20", "")
+            data = [(name, c, objective_values[c]/1e6) for c in columns]
+            tmp = pd.DataFrame(data=data, columns=["result", "costs", "value"])
+            tmp["color"] = colors
+            tmp["percentage_value"] = tmp.value / tmp.value.sum()*100
+            if cost_data.empty:
+                cost_data = tmp
+            else:
+                cost_data = pd.concat([cost_data, tmp])
+
+        hovertemplate = '<b>%{customdata[0]}</b> \
+                        <br>Costs = %{customdata[1]:.2f} \
+                        <br>%{customdata[2]:.0f}% of total Costs\
+                        <extra></extra>'
+        data = []                 
+        for cost in cost_data.costs.unique():
+            data.append(go.Bar(
+                name=cost, 
+                x=cost_data.loc[cost_data.costs == cost, "result"],
+                y=cost_data.loc[cost_data.costs == cost, "value"],
+                marker_color=cost_data.loc[cost_data.costs == cost, "color"],
+                marker_line_color='black',
+                hovertemplate=hovertemplate,
+                customdata=cost_data.loc[cost_data.costs == cost, ["costs", "value", "percentage_value"]],
+                width=0.9,
+                )
+            )
+        layout = go.Layout(
+            template="simple_white",
+            barmode='stack',
+            yaxis=dict(title='Costs [mio $]'),
+            )
+        fig = go.Figure(data=data, layout=layout)
+        if filepath:
+            fig.write_html(str(filepath))
+        if show_plot:
+            plot(fig)
+        else:
+            return fig
+
+    def create_generation_overview(self, market_results, show_plot=True, filepath=None):
+        """Create generation overview of multiple model results. 
+
+        Parameters
+        ----------
+        market_results : list of :class:`~pomato.data.DataManagement`
+            Market results which is plotted. 
+        show_plot : bool, optional
+            Shows plot after generation. If false, returns plotly figure instead. By default True.
+        filepath : pathlib.Path, str, optional
+            If filepath is supplied, saves figure as .html, by default None
+        """
+        if not all([isinstance(r, pomato.data.Results) for r in  market_results]):
+            raise TypeError("Submit list of market results")
+
+        gen = pd.DataFrame()
+        cols = ["fuel", "technology", "result", "G", "Redispatch"]
+        for result in market_results: 
+            if (result.result_attributes["is_redispatch_result"] and 
+                result.result_attributes["corresponding_market_result_name"]):
+                tmp = result.redispatch()
+                tmp = tmp.rename(columns={"G_redispatch": "G", "delta": "Redispatch"})
+            else:
+                tmp = result.generation()
+                tmp["Redispatch"] = 0
+            tmp["result"] = result.result_attributes["title"]
+            tmp = tmp[cols]
+            if gen.empty:
+                gen = tmp
+            else:
+                gen = pd.concat([gen, tmp], ignore_index=True)
+            
+        names = color_map(gen)
+        gen.loc[:, ["G", "Redispatch"]] /= 1000
+        gen = gen[cols].groupby(["fuel", "technology", "result"]).sum().reset_index()
+
+        gen = pd.merge(gen, names, on=["fuel", "technology"])
+        gen["percentage_gen"] = 0
+        gen["total_redispatch"] = 0
+        gen["precentage_redispatch"] = 0
+        for r in gen.result.unique():
+            gen.loc[gen.result == r, "percentage_gen"] = gen.loc[gen.result == r, "G"]/gen.loc[gen.result == r, "G"].sum()*100
+            gen.loc[gen.result == r, "total_redispatch"] = gen.loc[gen.result == r, "Redispatch"].abs().sum()
+            gen.loc[gen.result == r, "precentage_redispatch"] = gen.loc[gen.result == r, "Redispatch"].abs()/gen.loc[gen.result == r, "Redispatch"].abs().sum()*100
+
+        hovertemplate_gen = '<b>%{customdata[0]}</b> \
+                            <br>Generation = %{customdata[1]:.2f} GWh \
+                            <br>%{customdata[2]:.0f}% of total generation \
+                            <extra></extra>'
+        hovertemplate_red = '<b>%{customdata[0]}</b> \
+                            <br>Redispatch = %{customdata[1]:.2f} GWh \
+                            <br>Total redispatch = %{customdata[2]:.2f} GWh \
+                            <br>%{customdata[3]:.0f}% of total redispatch \
+                            <extra></extra>'
+        data = []                 
+        for name in gen.name.unique():
+            data.append(go.Bar(
+                name=name, 
+                legendgroup=name,
+                x=[gen.loc[gen.name == name, "result"], ['Generation']*len(market_results)],
+                y=gen.loc[gen.name == name, "G"],
+                marker_color=gen.loc[gen.name == name, "color"],
+                marker_line_color='black',
+                hovertemplate=hovertemplate_gen,
+                customdata=gen.loc[gen.name == name, ["name", "G", "percentage_gen"]],
+                width=0.8,
+                yaxis='y1'))
+        
+            data.append(go.Bar(
+                name=name, 
+                legendgroup=name,
+                showlegend=False,
+                x=[gen.loc[gen.name == name, "result"], ['Redispatch']*len(market_results)],
+                y=gen.loc[gen.name == name, "Redispatch"],
+                marker_color=gen.loc[gen.name == name, "color"],
+                hovertemplate=hovertemplate_red,
+                customdata=gen.loc[gen.name == name, ["name", "Redispatch", "total_redispatch", "precentage_redispatch"]],
+                width=0.8,
+                opacity=0.7,
+                yaxis='y2')
+                )
+        layout = go.Layout(
+            template="simple_white",
+            legend=dict(x=1.1),
+            barmode='relative',
+            yaxis=dict(title='Generation [GWh]'),
+            yaxis2=dict(title='Redispatch [GWh]', 
+                        overlaying='y',
+                        side='right'),
+            )
+        fig = go.Figure(data=data, layout=layout)
+        if filepath:
+            fig.write_html(str(filepath))
+        if show_plot:
+            plot(fig)
+        else:
+            return fig

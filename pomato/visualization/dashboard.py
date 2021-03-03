@@ -40,27 +40,23 @@ def shutdown():
     shutdown_server()
     return 'Server shutting down...'
 
-def basic_layout(naming_suffix):
+def basic_layout(naming_suffix, multi=False):
     return dbc.Row(
         [
             dbc.Col(html.Button('Update Results', id=f'results-botton-{naming_suffix}', n_clicks=0), style={"padding": "15px"}),
-            dbc.Col(dcc.Dropdown(id=f'results-dropdown-{naming_suffix}'), style={"padding": "15px"})
+            dbc.Col(dcc.Dropdown(id=f'results-dropdown-{naming_suffix}', multi=multi), style={"padding": "15px"})
         ])
 
 def page_overview():
     layout = dbc.Container(
         [
-            basic_layout("overview"),
+            basic_layout("overview", multi=True),
             dbc.Row([
-                dbc.Col([
-                    dcc.Markdown("""**Result summary**"""),
-                    html.Pre(id='results-summary', style=styles['pre'])], width=6),
-                dbc.Col([
-                    dcc.Graph(id='installed-capacity-figure'),
-                    dcc.Graph(id='generation-pie-chart')
-                    ], width=6)
-                ])
-            ])                   
+                dbc.Col([dcc.Graph(id='installed-capacity-figure', style={"height": "100%"})], width=3),
+                dbc.Col([dcc.Graph(id='generation-overview-figure', style={"height": "100%"})], width=6),
+                dbc.Col([dcc.Graph(id='cost-overview-figure', style={"height": "100%"})], width=3),
+                ], className="h-75")
+            ], style={"height": "100vh"}, fluid=True)                   
     return layout
 
 def page_generation():
@@ -70,9 +66,9 @@ def page_generation():
             basic_layout("generation"),
             dbc.Row(
                 [   dbc.Col(html.P("Click or select nodes to see plants and generation.", className="control_label"),
-                            width={"size": 4, "offset": 0}, style={"padding": "15px"}),
-                    dbc.Col(html.P(" ", className="control_label"),
-                            width={"size": 4, "offset": 2}, style={"padding": "15px"}),
+                            width={"size": 2, "offset": 0}, style={"padding": "15px"}),
+                    dbc.Col(dcc.Dropdown(id="generation-node-dropdown", multi=True),
+                            width={"size": 2, "offset": 0}, style={"padding": "15px"}),
                     ]),
             dbc.Row(
                 [
@@ -91,7 +87,8 @@ def page_generation():
                                         dbc.Checklist(
                                             options=[
                                                 {"label": "Show Prices:", "value": 1},
-                                                {"label": "Show Redispatch", "value": 2, "disabled": True}],
+                                                {"label": "Show Redispatch", "value": 2, "disabled": True},
+                                                {"label": "Show Curtailment", "value": 3}],
                                             value=[],
                                             id="switches-generation",
                                             switch=True,
@@ -100,16 +97,16 @@ def page_generation():
                                 )
                             ), width={"size": 2}, style={"padding": "15px"}
                         ),
-                    dbc.Col(dcc.Graph(id='geo-figure-generation'), width={"size": 5}),
-                    dbc.Col(dcc.Graph(id='generation-figure'), width={"size": 5})
-                ]),
+                    dbc.Col(dcc.Graph(id='geo-figure-generation', style={"height": "100%"}), width={"size": 5}),
+                    dbc.Col(dcc.Graph(id='generation-figure', style={"height": "100%"}), width={"size": 5})
+                ],  className="h-50"),
             dbc.Row(
                 [
                     dbc.Col(
                         html.Div([html.P("Click nodes to see plants"),
                         dash_table.DataTable(id='plant-table')]), width=4),
                 ]),
-            ], fluid=True)
+            ], style={"height": "100vh"}, fluid=True)
                                     
     return layout
 
@@ -148,99 +145,102 @@ def page_transmission():
                                         dbc.Checklist(
                                             options=[
                                                 {"label": "Show Prices:", "value": 1},
-                                                {"label": "Show Redispatch", "value": 2, "disabled": True}],
+                                                {"label": "Show Redispatch", "value": 2, "disabled": True},
+                                                {"label": "Show Curtailment:", "value": 1}],
                                             value=[],
                                             id="switches-transmission",
                                             switch=True,
                                             style={"margin-top": "10px"}),
                                     ]))), width={"size": 2}, style={"padding": "15px"}),
-                    dbc.Col(dcc.Graph(id='geo-figure-lines'), 
+                    dbc.Col(dcc.Graph(id='geo-figure-lines', style={"height": "100%"}), 
                             width={"size": 5}, style={"padding": "15px"}),
-                    dbc.Col(dcc.Graph(id='lines-figure'), 
+                    dbc.Col(dcc.Graph(id='lines-figure', style={"height": "100%"}), 
                             width={"size": 5}, style={"padding": "15px"})
-                ], className="h-90"),
+                ], className="h-50"),
             dbc.Row(
                 [
                     dbc.Col(
                         html.Div([dcc.Markdown("""**Click Data**"""),
                                     dash_table.DataTable(id='node-table')]), width=4),
-                ], className="h-10"),
-            ], 
-        fluid=True)
+                ]),
+        ], style={"height": "100vh"}, fluid=True)
     return layout
 
 def page_fbmc():
-    layout = dbc.Container([
-        dbc.Row([
-            dbc.Col([
-                html.Br(),
-                html.Button('Update Results', id='results-botton-fbmc', n_clicks=0),
-            ], width={"size": 2}, 
-               style={"padding": "15px"}),
-            dbc.Col([
-                html.Div("Select Basecase:"),
-                dcc.Dropdown(id='results-dropdown-fbmc')
-            ], style={"padding": "15px"}),
-            dbc.Col([
-                html.Div("Select GSK"),
-                dcc.Dropdown(id='gsk-dropdown',
-                options=[
-                    {'label': 'gmax', 'value': "gmax"},
-                    {'label': 'dynamic', 'value': "dynamic"},
-                    {'label': 'flat', 'value': "flat"}],
-                    value="gmax"),
-            ], style={"padding": "15px"}),
-            dbc.Col([
-                html.Div("Select minRAM [%]:"),
-                dbc.Input(
-                    id="input-minram", type="number", 
-                    value=20, min=0, max=100, step=5),
+    layout = dbc.Container(
+        [
+            dbc.Row([
+                dbc.Col([
+                    html.Br(),
+                    html.Button('Update Results', id='results-botton-fbmc', n_clicks=0),
+                    ], width={"size": 2}, style={"padding": "15px"}),
+                dbc.Col([
+                    html.Div("Select Basecase:"),
+                    dcc.Dropdown(id='results-dropdown-fbmc')
+                    ], style={"padding": "15px"}),
+                dbc.Col([
+                    html.Div("Select GSK"),
+                    dcc.Dropdown(id='gsk-dropdown',
+                    options=[
+                        {'label': 'gmax', 'value': "gmax"},
+                        {'label': 'dynamic', 'value': "dynamic"},
+                        {'label': 'flat', 'value': "flat"}],
+                        value="gmax"),
+                    ], style={"padding": "15px"}),
+                dbc.Col([
+                    html.Div("Select minRAM [%]:"),
+                    dbc.Input(
+                        id="input-minram", type="number", 
+                        value=40, min=0, max=100, step=5),
+                    ], style={"padding": "15px"}),
+                dbc.Col([
+                    html.Div("CNE sensitivity [%]:"),
+                    dbc.Input(
+                        id="input-cne-sensitivity", type="number", 
+                        value=5, min=0, max=100, step=0.1),
+                    ], style={"padding": "15px"}),
+                dbc.Col([
+                    html.Div("Contingency sensitivity [%]:"),
+                    dbc.Input(
+                        id="input-cnec-sensitivity", type="number", 
+                        value=25, min=0, max=100, step=0.1),
+                    ], style={"padding": "15px"}),
+                ], className="h-10"),
+            dbc.Row([
+                dbc.Col([
+                    html.Div(id='timestep-display-fbmc-market'),
+                    dcc.Slider(id='timestep-selector-fbmc-market', min=0, step=1, persistence=True),
+                ],  width={"size": 4}, style={"padding": "15px"}),
+                dbc.Col([
+                    html.Div("Select Domain X:"),
+                    dcc.Dropdown(id='domain-x-dropdown')
                 ], style={"padding": "15px"}),
-            dbc.Col([
-                html.Div("CNE sensitivity [%]:"),
-                dbc.Input(
-                    id="input-cne-sensitivity", type="number", 
-                    value=5, min=0, max=100, step=0.1),
+                dbc.Col([
+                    html.Div("Select Domain Y"),
+                    dcc.Dropdown(id='domain-y-dropdown'),
                 ], style={"padding": "15px"}),
-            dbc.Col([
-                html.Div("Contingency sensitivity [%]:"),
-                dbc.Input(
-                    id="input-cnec-sensitivity", type="number", 
-                    value=5, min=0, max=100, step=0.1),
+                dbc.Col([
+                    html.Br(),
+                    html.Button('Calculate FB Domain', id='botton-fb-domains', n_clicks=0)
                 ], style={"padding": "15px"}),
-        ]),
-        dbc.Row([
-            dbc.Col([
-                html.Div(id='timestep-display-fbmc-market'),
-                dcc.Slider(id='timestep-selector-fbmc-market', min=0, step=1, persistence=True),
-            ],  width={"size": 4}, style={"padding": "15px"}),
-            dbc.Col([
-                html.Div("Select Domain X:"),
-                dcc.Dropdown(id='domain-x-dropdown')
-            ], style={"padding": "15px"}),
-            dbc.Col([
-                html.Div("Select Domain Y"),
-                dcc.Dropdown(id='domain-y-dropdown'),
-            ], style={"padding": "15px"}),
-            dbc.Col([
-                html.Br(),
-                html.Button('Calculate FB Domain', id='botton-fb-domains', n_clicks=0)
-            ], style={"padding": "15px"}),
-            ]),
-        dbc.Row([
-            dbc.Col([
-                html.Div("Select Market Result:"),
-                dcc.Dropdown(id='results-dropdown-fbmc-market'),
-            ], style={"padding": "15px"}),
-        ]),
-        dbc.Row([
-            dbc.Col(dcc.Graph(id='fb-geo-figure'), width={"size": 6, "offset": 0}, style={"padding": "15px"}),
-            dbc.Col(dcc.Graph(id='fb-domain-figure'), width={"size": 6, "offset": 0}, style={"padding": "15px"}),
-            ])
-        ], fluid=True)
+                ], className="h-10"),
+            dbc.Row([
+                dbc.Col([
+                    html.Div("Select Market Result:"),
+                    dcc.Dropdown(id='results-dropdown-fbmc-market'),
+                    ], style={"padding": "15px"}),
+                ], className="h-10"),
+            dbc.Row([
+                dbc.Col(dcc.Graph(id='fb-geo-figure', style={"height": "100%"}), 
+                        width={"size": 6}, style={"padding": "15px"}),
+                dbc.Col(dcc.Graph(id='fb-domain-figure', style={"height": "100%"}), 
+                        width={"size": 6}, style={"padding": "15px"}),
+                ], className="h-50")
+        ], style={"height": "100vh"}, fluid=True)
     return layout
 
 class Dashboard():
+    """Dashboard of Pomato"""
     def __init__(self, pomato_instance, **kwargs):
 
         self.pomato_instance = pomato_instance
@@ -326,7 +326,9 @@ class Dashboard():
         self.add_overview_callbacks()
         self.add_generation_callbacks()
         self.add_tranmission_callbacks()
+        self.add_flowbased_callbacks()
         
+    def add_flowbased_callbacks(self):
         # FB Parameters
         self.app.callback([Output('domain-x-dropdown', 'options'),
                            Output('domain-y-dropdown', 'options')],
@@ -350,6 +352,83 @@ class Dashboard():
                           [State('timestep-selector-fbmc-market', 'value'),
                            State('results-dropdown-fbmc-market', 'value')])(self.update_fb_geo_plot)
         
+    def add_overview_callbacks(self):
+        # Page 1: Summary 
+        # Print Result Attributes 
+        self.app.callback(Output('installed-capacity-figure', 'figure'),
+                          Input('results-dropdown-overview', 'value'))(self.update_installed_capacity_figure)
+
+        # Overview Generation
+        self.app.callback(Output('generation-overview-figure', 'figure'),
+                          Input('results-dropdown-overview', 'value'))(self.update_generation_overview)
+        
+        # Overview Cost
+        self.app.callback(Output('cost-overview-figure', 'figure'),
+                          Input('results-dropdown-overview', 'value'))(self.update_cost_overview)
+
+    def add_generation_callbacks(self):
+        # Page 2: Generation
+        # Update All components that have options based on the result
+        self.app.callback(Output('switches-generation', 'options'),
+                          Output("generation-node-dropdown", 'options'),
+                          Input('results-dropdown-generation', 'value'))(self.update_components_generation)
+
+        # Generation 
+        self.app.callback(Output('generation-figure', 'figure'),
+                         [Input('results-dropdown-generation', 'value'),
+                          Input('geo-figure-generation', 'selectedData')])(self.update_graph_generation)
+        
+        # Geoplot
+        self.app.callback(Output('geo-figure-generation', 'figure'),
+                          [Input('results-dropdown-generation', 'value'),
+                           Input('switches-generation', 'value'),
+                           Input('input-lineloading-generation', 'value'),
+                           Input('generation-node-dropdown', 'value')])(self.update_generation_geo_plot)
+        # Lineloading display
+        self.app.callback(Output('lineloading-display-generation', 'children'),
+                          Input('input-lineloading-generation', 'value'))(self.display_lineloading)
+        # Click Plant Table
+        self.app.callback([Output('plant-table', 'columns'),
+                           Output('plant-table', 'data')],
+                          [Input('results-dropdown-generation', 'value'),
+                           Input('geo-figure-generation', 'clickData')])(self.display_plant_data)
+
+    def add_tranmission_callbacks(self):
+        ### Page 3: Lines 
+        # Update All components that have options based on the result
+        self.app.callback([Output('line-selector', 'options'),
+                           Output('switches-transmission', 'options')],
+                           Input('results-dropdown-transmission', 'value'))(self.update_components_transmission)
+
+        # Geoplot 
+        self.app.callback(Output('geo-figure-lines', 'figure'),
+                          [Input('results-dropdown-transmission', 'value'),
+                           Input('switches-transmission', 'value'),
+                           Input('flow-option', 'value'),
+                           Input('timestep-selector-transmission', 'value'),
+                           Input('input-lineloading-transmission', 'value'),
+                           Input('line-selector', 'value')])(self.update_transmission_geo_plot)
+        
+        # Click Lines Geoplot
+        self.app.callback(Output('line-selector', 'value'),
+                          [Input('results-dropdown-transmission', 'value'),
+                           Input('geo-figure-lines', 'clickData')],
+                           State('line-selector', 'value'))(self.click_lines)
+        
+        # Lineflow plot
+        self.app.callback(Output('lines-figure', 'figure'),
+                          [Input('results-dropdown-transmission', 'value'),
+                           Input('line-selector', 'value')])(self.update_graph_lines)
+
+        # Lineloading display
+        self.app.callback(Output('lineloading-display-transmission', 'children'),
+                          Input('input-lineloading-transmission', 'value'))(self.display_lineloading)
+        # Display Node data    
+        self.app.callback([Output('node-table', 'columns'),
+                           Output('node-table', 'data')],
+                          [Input('results-dropdown-transmission', 'value'),
+                           Input('geo-figure-lines', 'clickData')])(self.display_node_data)
+
     def update_fb_geo_plot(self, botton, click_data, timestep, result_name):
         if not result_name:
             return {}
@@ -368,27 +447,31 @@ class Dashboard():
 
     def update_domain_plot(self, click, basecase, gsk, minram, cne_sensitivity, cnec_sensitivity,
                            result_name, timestep, domain_x, domain_y):
-        if not basecase or (domain_x == domain_y): 
+        if not basecase or (domain_x == domain_y) or not result_name: 
             return {}
+
+        
         basecase = self.pomato_instance.data.results[basecase]
         result = self.pomato_instance.data.results[result_name]
         if isinstance(timestep, int):
             timestep = basecase.model_horizon[timestep]
-        if not result_name:
-            return {}
-
         self.pomato_instance.options["grid"]["minram"] = minram/100
         fb_parameter_function = self.pomato_instance.fbmc.create_flowbased_parameters
+
         fb_parameters = fb_parameter_function(basecase, gsk, timesteps=[timestep],
                                               cne_sensitivity=cne_sensitivity/100, 
                                               lodf_sensitivity=cnec_sensitivity/100)
         fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
         domain_x, domain_y = domain_x.split("-"), domain_y.split("-")
-        domain_plot = fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep)
+        domain_plot = fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep, 
+                                                          commercial_exchange=result.EX)
         fig = self.pomato_instance.visualization.create_fb_domain_plot(domain_plot, show_plot=False)
+        
         commercial_exchange = result.EX[result.EX.t == timestep].copy()
-        nex_x = commercial_exchange.loc[(commercial_exchange.z == domain_x[0])&(commercial_exchange.zz == domain_x[1]), "EX"].sum() - commercial_exchange.loc[(commercial_exchange.z == domain_x[1])&(commercial_exchange.zz == domain_x[0]), "EX"].sum()
-        nex_y = commercial_exchange.loc[(commercial_exchange.z == domain_y[0])&(commercial_exchange.zz == domain_y[1]), "EX"].sum() - commercial_exchange.loc[(commercial_exchange.z == domain_y[1])&(commercial_exchange.zz == domain_y[0]), "EX"].sum()
+        commercial_exchange.set_index(["z", "zz"], inplace=True)
+
+        nex_x = commercial_exchange.loc[tuple(domain_x), "EX"] - commercial_exchange.loc[tuple(domain_x[::-1]), "EX"]
+        nex_y = commercial_exchange.loc[tuple(domain_y), "EX"] - commercial_exchange.loc[tuple(domain_y[::-1]), "EX"]
         fig.add_trace(go.Scatter(x=[nex_x], y=[nex_y], mode="markers", name="Market Outcome"))
         fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
         return fig 
@@ -416,98 +499,28 @@ class Dashboard():
         marks = {x : result.model_horizon[x] for x in range(0, slider_max) if (x%slider_steps == 0)}
         return slider_max, marks, value
 
-    def add_overview_callbacks(self):
-        # Page 1: Summary 
-        # Print Result Attributes 
-        self.app.callback(Output('results-summary', 'children'),
-                          Input('results-dropdown-overview', 'value'))(self.display_result_summary)
-
-        # Generation Pie Chart 
-        self.app.callback(Output('installed-capacity-figure', 'figure'),
-                          Input('results-dropdown-overview', 'value'))(self.update_installed_capacity_figure)
-        
-        # Generation Pie Chart 
-        self.app.callback(Output('generation-pie-chart', 'figure'),
-                          Input('results-dropdown-overview', 'value'))(self.update_generation_pie_chart)
-
-    def add_generation_callbacks(self):
-        # Page 2: Generation
-        # Update All components that have options based on the result
-        self.app.callback(Output('switches-generation', 'options'),
-                           Input('results-dropdown-generation', 'value'))(self.update_components_generation)
-
-        # Generation 
-        self.app.callback(Output('generation-figure', 'figure'),
-                         [Input('results-dropdown-generation', 'value'),
-                          Input('geo-figure-generation', 'selectedData')])(self.update_graph_generation)
-        
-        # Geoplot
-        self.app.callback(Output('geo-figure-generation', 'figure'),
-                          [Input('results-dropdown-generation', 'value'),
-                           Input('switches-generation', 'value'),
-                           Input('input-lineloading-generation', 'value')])(self.update_generation_geo_plot)
-        # Lineloading display
-        self.app.callback(Output('lineloading-display-generation', 'children'),
-                          Input('input-lineloading-generation', 'value'))(self.display_lineloading)
-        # Click Plant Table
-        self.app.callback([Output('plant-table', 'columns'),
-                           Output('plant-table', 'data')],
-                          [Input('results-dropdown-generation', 'value'),
-                           Input('geo-figure-generation', 'clickData')])(self.display_plant_data)
-
-    def add_tranmission_callbacks(self):
-        ### Page 3: Lines 
-        # Update All components that have options based on the result
-        self.app.callback([Output('line-selector', 'options'),
-                           Output('switches-transmission', 'options')],
-                           Input('results-dropdown-transmission', 'value'))(self.update_components_transmission)
-
-        # Geoplot 
-        self.app.callback(Output('geo-figure-lines', 'figure'),
-                          [Input('results-dropdown-transmission', 'value'),
-                           Input('switches-transmission', 'value'),
-                           Input('flow-option', 'value'),
-                           Input('timestep-selector-transmission', 'value'),
-                           Input('input-lineloading-transmission', 'value')])(self.update_transmission_geo_plot)
-        
-        # Click Lines Geoplot
-        self.app.callback(Output('line-selector', 'value'),
-                          [Input('results-dropdown-transmission', 'value'),
-                           Input('geo-figure-lines', 'clickData')],
-                           State('line-selector', 'value'))(self.click_lines)
-        
-        # Lineflow plot
-        self.app.callback(Output('lines-figure', 'figure'),
-                          [Input('results-dropdown-transmission', 'value'),
-                           Input('line-selector', 'value')])(self.update_graph_lines)
-
-        # Lineloading display
-        self.app.callback(Output('lineloading-display-transmission', 'children'),
-                          Input('input-lineloading-transmission', 'value'))(self.display_lineloading)
-        # Display Node data    
-        self.app.callback([Output('node-table', 'columns'),
-                           Output('node-table', 'data')],
-                          [Input('results-dropdown-transmission', 'value'),
-                           Input('geo-figure-lines', 'clickData')])(self.display_node_data)
-
     def update_components_transmission(self, result_name):
         result = self.pomato_instance.data.results[result_name]
         options_lineflow = [{"label": x, "value": x} for x in result.data.lines.index]
-        disable_redispatch_toggle = not (result.result_attributes["is_redispatch_result"] and 
+        enable_redispatch = not (result.result_attributes["is_redispatch_result"] and 
                                          isinstance(result.result_attributes["corresponding_market_result_name"], str))
-        options_price_redispatch_toggle = [
+        switches = [
             {"label": "Show Prices:", "value": 1},
-            {"label": "Show Redispatch", "value": 2, "disabled": disable_redispatch_toggle}]
-
-        return options_lineflow, options_price_redispatch_toggle
+            {"label": "Show Redispatch", "value": 2, "disabled": enable_redispatch},
+            {"label": "Show Curtailment:", "value": 3}]
+        return options_lineflow, switches
 
     def update_components_generation(self, result_name):
         result = self.pomato_instance.data.results[result_name]      
-        disable_redispatch_toggle = not (result.result_attributes["is_redispatch_result"] and 
+        enable_redispatch = not (result.result_attributes["is_redispatch_result"] and 
                                          isinstance(result.result_attributes["corresponding_market_result_name"], str))
 
-        return [{"label": "Show Prices:", "value": 1},
-                {"label": "Show Redispatch", "value": 2, "disabled": disable_redispatch_toggle}]
+        switches = [
+            {"label": "Show Prices:", "value": 1},
+            {"label": "Show Redispatch", "value": 2, "disabled": enable_redispatch},
+            {"label": "Show Curtailment:", "value": 3}]
+        nodes_options = [{"label": node, "value": node} for node in result.data.nodes.index]
+        return switches, nodes_options
         
     def display_plant_data(self, result_name, click_data):
         result = self.pomato_instance.data.results[result_name]
@@ -535,15 +548,6 @@ class Dashboard():
         return ([{"name": i, "id": i} for i in node_data.columns], 
                 node_data.to_dict("records"))
                 
-    def display_result_summary(self, result_name):
-        result = self.pomato_instance.data.results[result_name]
-        result_info = dict(result.result_attributes)
-        del result_info["model_horizon"]
-        del result_info["variables"]
-        del result_info["dual_variables"]
-        del result_info["infeasibility_variables"]
-        return json.dumps(result_info, indent=2)
-        
     def display_timestep(self, result_name, timestep):
         result = self.pomato_instance.data.results[result_name]
         return "Select timestep with slider - currently selected: " + result.model_horizon[timestep]
@@ -572,16 +576,35 @@ class Dashboard():
                     lines.append(point["customdata"][0])
         return current_value + lines
     
-    def update_installed_capacity_figure(self, result_name):
-        result = self.pomato_instance.data.results[result_name]
+    def update_installed_capacity_figure(self, result_names):
+        if not result_names:
+            raise PreventUpdate
+
+        if not isinstance(result_names, list):
+            result_names = [result_names]
+        result = self.pomato_instance.data.results[result_names[0]]
         fig = self.pomato_instance.visualization.create_installed_capacity_plot(result.data, show_plot=False)
-        fig.update_layout(margin={"r":0,"t":25,"l":0,"b":0})
+        fig.update_layout(margin={"r":10,"t":10,"l":10,"b":10})
         return fig
     
-    def update_generation_pie_chart(self, result_name):
-        result = self.pomato_instance.data.results[result_name]
-        fig = self.pomato_instance.visualization.create_generation_overview(result, show_plot=False)
-        fig.update_layout(margin={"r":0,"t":25,"l":0,"b":0})
+    def update_generation_overview(self, result_names):
+        if not result_names:
+            raise PreventUpdate
+        if not isinstance(result_names, list):
+            result_names = [result_names]
+        results = [self.pomato_instance.data.results[r] for r in result_names]
+        fig = self.pomato_instance.visualization.create_generation_overview(results, show_plot=False)
+        fig.update_layout(margin={"r":10,"t":110,"l":10,"b":10})
+        return fig
+
+    def update_cost_overview(self, result_names):
+        if not result_names:
+            raise PreventUpdate
+        if not isinstance(result_names, list):
+            result_names = [result_names]
+        results = [self.pomato_instance.data.results[r] for r in result_names]
+        fig = self.pomato_instance.visualization.create_cost_overview(results, show_plot=False)
+        fig.update_layout(margin={"r":10,"t":10,"l":10,"b":10})
         return fig
 
     def update_graph_lines(self, result_name, lines):
@@ -599,38 +622,48 @@ class Dashboard():
             for point in selection_data["points"]:
                 if point["customdata"][0] in result.data.nodes.index:
                     nodes.append(point["customdata"][0])
+            nodes = list(set(nodes))
         else: 
             nodes = None
         fig = self.pomato_instance.visualization.create_generation_plot(result, nodes=nodes, show_plot=False)
         fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
         return fig
     
-    def update_transmission_geo_plot(self, result_name, show_price_redispatch, line_color_option, 
-                        timestep, threshold):
-        show_prices = True if 1 in show_price_redispatch else False
-        show_redispatch = True  if 2 in show_price_redispatch else False
+    def update_transmission_geo_plot(self, result_name, switches, 
+                                     line_color_option, timestep, threshold, lines):
+        show_prices = True if 1 in switches else False
+        show_redispatch = True  if 2 in switches else False
+        show_curtailment = True  if 3 in switches else False
         result = self.pomato_instance.data.results[result_name]
         vis = self.pomato_instance.visualization
+        if len(lines) == 0:
+            lines = list(result.data.lines.index)
+
         fig =  vis.create_geo_plot(result, 
                                    show_redispatch=show_redispatch, 
                                    show_prices=show_prices,
+                                   show_curtailment=show_curtailment,
                                    line_color_option=line_color_option,
+                                   highlight_lines=lines, 
                                    timestep=timestep, 
                                    threshold=threshold,
                                    show_plot=False)
         fig.update_layout(uirevision = True)
         return fig
 
-    def update_generation_geo_plot(self, result_name, show_price_redispatch, threshold):
-        show_prices = True if 1 in show_price_redispatch else False
-        show_redispatch = True  if 2 in show_price_redispatch else False
+    def update_generation_geo_plot(self, result_name, switches, threshold, nodes):
+        show_prices = True if 1 in switches else False
+        show_redispatch = True  if 2 in switches else False
+        show_curtailment = True  if 3 in switches else False
         result = self.pomato_instance.data.results[result_name]
         vis = self.pomato_instance.visualization
         fig =  vis.create_geo_plot(result, 
                                    show_redispatch=show_redispatch, 
                                    show_prices=show_prices,
+                                   show_curtailment=show_curtailment,
                                    line_color_option=0,
                                    timestep=None, 
+                                   highlight_nodes=nodes,
                                    threshold=threshold,
                                    show_plot=False)
         fig.update_layout(uirevision = True)

@@ -35,114 +35,22 @@ class FBDomain():
         Array of the domain's feasible region vertices.
     domain_data : pandas.DataFrame
         The raw data from which the plot is derived.
-    ntc : pd.DataFrame
-        NTC, which can be optionally included in the domain plot. 
     """ 
-    def __init__(self, domain_information, domain_equations, feasible_region_vertices, domain_data, ntc):   
+    def __init__(self, domain_information, domain_equations, feasible_region_vertices, domain_data):   
         self.gsk_strategy = domain_information["gsk_strategy"]
         self.timestep = domain_information["timestep"]
         self.domain_x = domain_information["domain_x"]
         self.domain_y = domain_information["domain_y"]
-        
         if domain_information["filename_suffix"]:
             self.title = self.timestep + "_" + self.gsk_strategy \
                          + "_" + domain_information["filename_suffix"]
         else:
             self.title = self.timestep + "_" + self.gsk_strategy
-
         self.domain_equations = domain_equations
         self.feasible_region_vertices = feasible_region_vertices
-        self.ntc = ntc.set_index(["zone_i", "zone_j"])
-
-        self.x_max, self.y_max = np.amax(feasible_region_vertices, axis=0)
-        self.x_min, self.y_min = np.amin(feasible_region_vertices, axis=0)
-
+        self.x_max, self.x_min = domain_information["plot_limits"][0]
+        self.y_max, self.y_min = domain_information["plot_limits"][1]
         self.domain_data = domain_data
-        # set-up: don't show the graphs when created
-        plt.ioff()
-
-    def create_fbmc_figure(self, include_ntc):
-        """Plot the domain and return the figure.
-
-        Parameters
-        ----------
-        include_ntc : bool
-            Include NTC into FBMC domain.
-        """        
-        # Setup
-        fig, axis = plt.figure(), plt.subplot()
-        scale = 2
-
-        title = 'FBMC Domain between: ' + "-".join(self.domain_x) \
-                + ' and ' + "-".join(self.domain_y) \
-                + '\nNumber of CBCOs: ' + str(len(self.feasible_region_vertices[:, 0]) - 1) \
-                + "\nGSK Strategy: " + self.gsk_strategy \
-                + " - Timestep: " + self.timestep
-        
-        n0_lines = []
-        n1_lines = []  
-        tmp = self.domain_data.reset_index(drop=True)
-        for i in tmp[tmp.co == "basecase"].index:
-            n0_lines.append([(self.domain_equations[i][0][0], self.domain_equations[i][1][0]),
-                             (self.domain_equations[i][0][1], self.domain_equations[i][1][1])])
-        for i in tmp[tmp.co != "basecase"].index:
-            n1_lines.append([(self.domain_equations[i][0][0], self.domain_equations[i][1][0]),
-                             (self.domain_equations[i][0][1], self.domain_equations[i][1][1])])
-            
-        n1_segments = LineCollection(n1_lines, linewidths=1, alpha=0.6, colors="lightgrey", linestyle='-')
-        n0_segments = LineCollection(n0_lines, linewidths=1.5, alpha=1, colors="dimgrey", linestyle='-')
-        axis.add_collection(n1_segments)
-        axis.add_collection(n0_segments)
-        
-        axis.plot(self.feasible_region_vertices[:, 0], self.feasible_region_vertices[:, 1],
-                  'r--', linewidth=1.5, zorder=3)
-
-        legend = [Line2D([0], [0], color="r", lw=2, ls='--'),
-                  Line2D([0], [0], color="dimgrey", lw=2),
-                  Line2D([0], [0], color="lightgrey", lw=2)]
-        legend_text = ['Flow Based Domain', 'N-0 Constraints', 'N-1 Constraints']
-
-        if include_ntc and not self.ntc.empty:
-            # Include NTC as box in the domain plot
-            ntc_x_pos = self.ntc.loc[(self.domain_x[0], self.domain_x[1]), "ntc"]
-            ntc_x_neg = self.ntc.loc[(self.domain_x[1], self.domain_x[0]), "ntc"]
-            ntc_y_pos = self.ntc.loc[(self.domain_y[0], self.domain_y[1]), "ntc"]
-            ntc_y_neg = self.ntc.loc[(self.domain_y[1], self.domain_y[0]), "ntc"]
-            ntc_plot = [[[ntc_x_pos, ntc_x_pos], [ntc_y_pos, -ntc_y_neg]],
-                        [[-ntc_x_neg, -ntc_x_neg], [ntc_y_pos, -ntc_y_neg]],
-                        [[ntc_x_pos, -ntc_x_neg], [ntc_y_pos, ntc_y_pos]],
-                        [[ntc_x_pos, -ntc_x_neg], [-ntc_y_neg, -ntc_y_neg]]]
-            for elem in ntc_plot:
-                axis.plot(elem[0], elem[1], c='blue', ls='--')
-            
-            # expand x min/max, y min/max to accommodate the NTC box
-            self.x_min, self.x_max = min(self.x_min, -ntc_x_neg), max(self.x_max, ntc_x_pos)
-            self.y_min, self.y_max = min(self.y_min, -ntc_y_neg), max(self.y_max, ntc_y_pos)
-            legend.append(Line2D([0], [0], color="b", lw=2, ls='--'))
-            legend_text.append("NTC Domain")
-        
-        axis.set_xlim(self.x_min*scale, self.x_max*scale)
-        axis.set_ylim(self.y_min*scale, self.y_max*scale)
-        axis.set_title(title)
-        axis.legend(legend, legend_text, bbox_to_anchor=(0,-0.1,1,0), loc="upper left",
-                                         mode="expand", borderaxespad=0, ncol=3)
-        
-        plt.tight_layout(rect=[0,0,1,1])
-        return fig
-
-    def save_fbmc_domain(self, folder, include_ntc=False):
-        """Save fb domain plot to the specified folder. 
-        
-        Parameters
-        ----------
-        folder : pathlib.Path
-            Destination directory.  
-        include_ntc : bool, optional
-            Include the NTC box in the domain plot, by default False
-        """
-        fig = self.create_fbmc_figure(include_ntc=include_ntc) 
-        fig.savefig(str(folder.joinpath(f"FBMC_{self.title}.png")))
-        fig.clf()
 
 class FBDomainPlots():
     """Create FB domain plots based on flowbased paramters.
@@ -173,78 +81,9 @@ class FBDomainPlots():
         self.logger = logging.getLogger('log.pomato.visualization.FBDomainPlots')
         self.logger.info("Initializing FBDomainPlots....")
         self.data = data
-        self.fbmc_plots = {}
+        self.fbmc_plots = {} # keep plots 
         self.flowbased_parameters = flowbased_parameters
         
-        # set-up: don't show the graphs when created
-        plt.ioff()
-        plt.close("all")
-        self.logger.info("FBMCModule  Initialized!")
-
-    def save_all_domain_plots(self, folder, include_ntc=False):
-        """Saving all the FBMC Plots.
-
-        Parameters
-        ----------
-        folder : pathlib.Path
-            Destination folder.
-        include_ntc : bool, optional
-            Include the NTC box in the domain plot, by default False
-        """        
-        self.set_xy_limits_forall_plots()
-        plt.close("all")
-        self.logger.info("Saving %s FB domains to folder %s", str(len(self.fbmc_plots)), folder)
-
-        bar = Bar('Processing', max=len(self.fbmc_plots), 
-                  check_tty=False, hide_cursor=True)
-        for plot in self.fbmc_plots:
-            self.fbmc_plots[plot].save_fbmc_domain(folder, include_ntc)
-            plt.close("all")
-            bar.next()
-        # bar.finish()
-
-        self.logger.info("Plotting Domains as .gif")    
-        plot_types = set(["_".join(plot.split("_")[1:]) for plot in self.fbmc_plots])
-        timesteps = sorted(set([plot.split("_")[0] for plot in self.fbmc_plots]))
-        gif_name = "_".join([plot.split("_")[-1] for plot in plot_types])
-    
-        gif_path = str(folder.joinpath(f"{gif_name}.gif"))
-        with imageio.get_writer(gif_path, mode='I', duration=0.2) as writer:
-            for t in timesteps:
-                filenames = [f"FBMC_{t}_{plot}.png" for plot in plot_types]
-                imgs = [imageio.imread(str(folder.joinpath(filename))) for filename in filenames]
-                writer.append_data(np.hstack([img for img in imgs]))
-
-    def save_all_domain_info(self, folder, name_suffix=""):
-        """Save the all domain info. 
-        
-        The domain info contains the raw plot data. This method concatenates
-        all data of all generatied plots and saves it to the designated folder. 
-
-        Parameters
-        ----------
-        folder : pathlib.Path
-            Destination folder.
-        name_suffix : str, optional
-            Optionally include a name suffix.
-        """
-        domain_info = pd.concat([self.fbmc_plots[plot].domain_data for plot in self.fbmc_plots])
-        # oder the columns
-        columns = ["timestep", "gsk_strategy", "cb", "co"]
-        columns.extend(list(self.data.nodes.zone.unique()))
-        columns.extend(["ram", "in_domain"])
-        domain_info = domain_info[columns]
-
-        mask_dict = {'cb': domain_info[domain_info.in_domain].cb.unique(),
-                     'co': domain_info[domain_info.in_domain].co.unique()}
-        mask = domain_info[['cb', 'co']].isin(mask_dict).all(axis=1)
-
-        self.logger.info("Saving domain info as csv")
-
-        filename = folder.joinpath("domain_info" + name_suffix + ".csv")
-        domain_info[domain_info.in_domain].to_csv(filename)
-        domain_info[mask].to_csv(folder.joinpath("domain_info_full" + name_suffix + ".csv"))
-        return domain_info
 
     def set_xy_limits_forall_plots(self):
         """For each fbmc plot object, set x and y limits"""
@@ -275,7 +114,7 @@ class FBDomainPlots():
         A = np.array(A, dtype=np.float)
         b = np.array(b, dtype=np.float).reshape(len(b), 1)
         D = A/b
-        k = spatial.ConvexHull(D, qhull_options="QJ") #pylint: disable=no-member
+        k = spatial.ConvexHull(D) #pylint: disable=no-member
         return k.vertices
 
     def zonal_ptdf_projection(self, domain_x, domain_y, A):
@@ -328,7 +167,9 @@ class FBDomainPlots():
         else: 
             x_max, y_max = max(b)*2, max(b)*2
             x_min, y_min = -max(b)*2, -max(b)*2
-
+        
+        steps = 10
+        eps = 1.001
         plot_equations = []
         plot_indices = []
         for index in range(0, len(Ab)):
@@ -336,27 +177,29 @@ class FBDomainPlots():
                 x_coordinates = []
                 y_coordinates = []
                 if Ab[index][0] == 0:
-                    x_coordinates = [x for x in np.linspace(x_min, x_max, 10)]
+                    x_coordinates = [x for x in np.linspace(x_min, x_max, steps)]
                     y_coordinates = [Ab[index][2]/ Ab[index][1] for x in x_coordinates]
                 elif Ab[index][1] == 0:
-                    y_coordinates = [y for y in np.linspace(y_min, y_max, 10)]
+                    y_coordinates = [y for y in np.linspace(y_min, y_max, steps)]
                     x_coordinates = [Ab[index][2]/ Ab[index][0] for x in x_coordinates]
+                
                 elif abs(Ab[index][1]/Ab[index][0]) > 1:
                     x_range_max = (Ab[index][2] - y_max*Ab[index][1])/Ab[index][0]
                     x_range_min = (Ab[index][2] - y_min*Ab[index][1])/Ab[index][0]
-                    x_coordinates = [x for x in np.linspace(max(x_min, min(x_range_max, x_range_min)), min(x_max, max(x_range_max, x_range_min)), 10)]
+                    x_coordinates = [x for x in np.linspace(max(x_min, min(x_range_max, x_range_min)), min(x_max, max(x_range_max, x_range_min)), steps)]
                     y_coordinates = [(Ab[index][2] - x*Ab[index][0]) / Ab[index][1] for x in x_coordinates]
                 else:
                     y_range_max = (Ab[index][2] - x_max*Ab[index][0])/Ab[index][1] 
                     y_range_min = (Ab[index][2] - x_min*Ab[index][0])/Ab[index][1] 
-                    y_coordinates = [y for y in np.linspace(max(y_min, min(y_range_max, y_range_min)), min(y_max, max(y_range_max, y_range_min)), 10)]
+                    y_coordinates = [y for y in np.linspace(max(y_min, min(y_range_max, y_range_min)), min(y_max, max(y_range_max, y_range_min)), steps)]
                     x_coordinates = [(Ab[index][2] - y*Ab[index][1]) / Ab[index][0] for y in y_coordinates]
 
-                if (all([(x <= x_max) and (x >= x_min) for x in x_coordinates]) and \
-                    all([(y <= y_max) and (y >= y_min) for y in y_coordinates])):
+                if (all([(x <= x_max*eps) and (x >= x_min*eps) for x in x_coordinates]) and \
+                    all([(y <= y_max*eps) and (y >= y_min*eps) for y in y_coordinates])):
                     plot_equations.append([x_coordinates, y_coordinates])
                     plot_indices.append(index)
-                
+
+                    
         return plot_equations, plot_indices
 
     def create_feasible_region_vertices(self, A, b, feasible_region_indices):
@@ -474,7 +317,8 @@ class FBDomainPlots():
             bar.next()
         # bar.finish()
 
-    def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None):
+    def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None, 
+                                  commercial_exchange=None):
         """Create FB Domain for specified zones and timesteps. 
         
         Parameters
@@ -492,8 +336,21 @@ class FBDomainPlots():
             identify when domains for more scenarios are created, by default None.
         """
         
-        domain_info = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep]
+        domain_info = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep].copy()
         domain_info = domain_info[~(domain_info[self.data.zones.index] == 0).all(axis=1)].reset_index()
+
+        if isinstance(commercial_exchange, pd.DataFrame):
+            self.logger.info("Correcting Domain for non-depicted commercial exchange")
+            exchange = commercial_exchange[commercial_exchange.t == timestep].copy()
+            # Find Exchange that is not part of the domain plot
+            domain_ex = [tuple(domain_x), tuple(domain_x[::-1]), tuple(domain_y), tuple(domain_y[::-1])]
+            non_domain_ex = exchange[~exchange[["z", "zz"]].apply(tuple, axis=1).isin(domain_ex)&exchange.EX > 0]
+            # correct ram accordingly (i.e. ) moving the domain into the correct y axis.
+            ram_correction = np.dot(domain_info[non_domain_ex.z].values - domain_info[non_domain_ex.zz].values, non_domain_ex["EX"].values)
+            domain_info.loc[:, "ram"] = domain_info.loc[:, "ram"] - ram_correction
+            if not domain_info[domain_info.ram < 0].empty:
+                self.logger.warning("Correction caused negative rams!")
+                domain_info = domain_info[domain_info.ram>0].reset_index()
 
         A = domain_info.loc[:, list(self.data.zones.index)].values
         b = domain_info.loc[:, "ram"].values
@@ -501,8 +358,8 @@ class FBDomainPlots():
         # Checks 
         if not len(domain_x) == len(domain_y) == 2:
             raise AttributeError("Attributes domain_x, domain_y must have 2 elements")
-        if not all(b >= 0):
-            raise ValueError("Not all RAM >= 0, check FB paramters.")
+        # if not all(b >= 0):
+        #     raise ValueError("Not all RAM >= 0, check FB paramters.")
         if not isinstance(self.flowbased_parameters, pd.DataFrame):
             raise AttributeError("No precalculated flow based parameters available, run create_flowbased_parameters with basecase and GSK")
         if not len(self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].gsk_strategy.unique()) == 1:
@@ -514,9 +371,9 @@ class FBDomainPlots():
         feasible_region_indices = self.domain_feasible_region(A, b)
         domain_info["in_domain"] = False
         domain_info.loc[domain_info.index.isin(feasible_region_indices), "in_domain"] = True
-
+        
         # Limit the number of constraints plottet to a threshold
-        threshold = int(1e3)
+        threshold = int(1e6)
         if len(A) > threshold:
             self.logger.debug("Plot limited to %d constraints plotted", threshold)
             random_choice = np.random.choice(domain_info.index, size=threshold, replace=False)
@@ -528,17 +385,19 @@ class FBDomainPlots():
         feasible_region_vertices, _ = self.create_feasible_region_vertices(A, b, feasible_region_indices)
         x_max, y_max = feasible_region_vertices.max(axis=0)*2
         x_min, y_min = feasible_region_vertices.min(axis=0)*2
-        plot_equations, plot_indices = self.create_domain_plot(A, b, plot_indices, ((x_max, x_min), (y_max, y_min)))
+        x_margin, y_margin = 0.2*abs(x_max - x_min), 0.2*abs(y_max - y_min)
+        plot_limits = ((x_max + x_margin, x_min - x_margin), (y_max + y_margin, y_min - y_margin))
+        plot_equations, plot_indices = self.create_domain_plot(A, b, plot_indices, plot_limits)
         domain_info = domain_info.loc[plot_indices, :]
-        
+
         self.logger.debug("Number of CBCOs defining the domain %d", len(feasible_region_vertices[:, 0]) - 1)
 
         plot_information = {"gsk_strategy": gsk_strategy, "timestep": timestep,
                             "domain_x": domain_x, "domain_y": domain_y,
-                            "filename_suffix": filename_suffix}
+                            "filename_suffix": filename_suffix, 
+                            "plot_limits": plot_limits}
         
-        fbmc_plot = FBDomain(plot_information, plot_equations, feasible_region_vertices,
-                               domain_info.copy(), self.data.ntc)
+        fbmc_plot = FBDomain(plot_information, plot_equations, feasible_region_vertices, domain_info.copy())
 
         self.fbmc_plots[fbmc_plot.title] = fbmc_plot
         return fbmc_plot
