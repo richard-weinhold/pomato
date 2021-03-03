@@ -137,7 +137,7 @@ class FBMCModule():
 
         return gsk.values
 
-    def return_critical_branches(self, threshold=5e-2, gsk_strategy="flat", 
+    def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax", 
                                  only_crossborder=False, flowbased_region=None):
         """Returns Critical branches based on Zone-to-Zone ptdf.
         
@@ -168,8 +168,6 @@ class FBMCModule():
             List of all critical branches, including all cross border lines. 
         
         """
-        self.logger.info("List of CBs is generated from zone-to-zone PTDFs with:")
-        self.logger.info("GSK Strategy: %s, Threshold: %d percent", gsk_strategy, threshold*100)
 
         if not flowbased_region:
             flowbased_region = list(self.data.zones.index)
@@ -319,8 +317,10 @@ class FBMCModule():
         else:
             flowbased_region = list(self.data.zones.index)
             self.options["grid"]["flowbased_region"] = flowbased_region
-    
+
+        self.logger.info("CBs are selected from zone-to-zone PTDFs with %d%% threshold", cne_sensitivity*100)
         critical_branches = self.return_critical_branches(cne_sensitivity, flowbased_region=flowbased_region)
+        self.logger.info("COs are selected from nodal PTDFs with %d%% threshold", lodf_sensitivity*100)
         nodal_fbmc_ptdf, fbmc_data = self.create_base_fbmc_parameters(critical_branches, lodf_sensitivity)
 
         inj = basecase.INJ[basecase.INJ.t.isin(timesteps)].pivot(index="t", columns="n", values="INJ")
@@ -331,6 +331,7 @@ class FBMCModule():
 
         nex = basecase.net_position().loc[timesteps, :]
 
+        self.logger.info("Calculating zonal ptdf using %s gsk strategy.", gsk_strategy)
         if gsk_strategy == "dynamic":
             zonal_fbmc_ptdf = {timestep : np.dot(nodal_fbmc_ptdf, self.create_dynamic_gsk(basecase, timestep)) for timestep in timesteps}
             f_da = np.vstack([np.dot(zonal_fbmc_ptdf[timestep], nex.loc[timestep, :]) for timestep in timesteps]).T
@@ -341,8 +342,9 @@ class FBMCModule():
 
         f_ref_nonmarket = f_ref_base_case - f_da
         ram = (self.grid.lines.capacity[fbmc_data.cb].values - frm_fav  - f_ref_nonmarket.T).T
-        minram = (self.grid.lines.capacity[fbmc_data.cb] * self.options["grid"]["minram"]).values
 
+        self.logger.info("Applying minRAM of %d%%.", self.options["grid"]["minram"]*100)
+        minram = (self.grid.lines.capacity[fbmc_data.cb] * self.options["grid"]["minram"]).values
         for j in range(0, ram.shape[0]):
             ram[j, ram[j, :] < minram[j]] = minram[j]
 
@@ -357,5 +359,4 @@ class FBMCModule():
             domain_data[timestep] = fb_parameters
         fb_parameters =  pd.concat([domain_data[timestep] for timestep in timesteps], ignore_index=True)
         fb_parameters.set_index(fb_parameters.cb + "_" + fb_parameters.co, inplace=True)
-
         return fb_parameters

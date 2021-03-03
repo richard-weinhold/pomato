@@ -1,5 +1,3 @@
-"""Results of POMATO."""
-
 import json
 import logging
 
@@ -12,7 +10,6 @@ from copy import deepcopy
 
 import pomato.tools as tools
 from pomato.visualization.geoplot_functions import line_coordinates
-# # pylint: disable-msg=E1101
 
 class Results():
     """Results of POMATO makes market results available to the user.
@@ -79,6 +76,7 @@ class Results():
         self._cached_results = types.SimpleNamespace(n_0_flows=pd.DataFrame(), 
                                                      n_1_flows=pd.DataFrame(),
                                                      generation=pd.DataFrame(),
+                                                     curtailment=pd.DataFrame(),
                                                      demand=pd.DataFrame(),
                                                      result_data=None,
                                                      averaged_result_data=None)
@@ -94,14 +92,22 @@ class Results():
         self.load_results_from_folder(result_folder)
         # Set Redispatch = True if result is a redispatch result 
         if "redispatch" in self.result_attributes["name"]:
-            self.result_attributes["title"] += "_redispatch"
+            if not "redispatch" in self.result_attributes["title"]:
+                self.result_attributes["title"] += "_redispatch"
             self.result_attributes["is_redispatch_result"] = True
-            # Look for different names 
-            market_result_names = ["_".join(self.result_attributes["name"].split("_")[:n]) + "_market_results" for n in range(0,4)]
+            # Find corresponding market result
+            potential_name_1 = self.result_attributes["name"].split("redispatch")[0] + "market_results"
+            potential_name_2 = self.result_attributes["name"].split("_redispatch")[0]
+            market_result_names = [potential_name_1, potential_name_2]
             result_exists = [(name in self.data.results) for name in market_result_names]
-            if sum(result_exists) > 0:
+            if sum(result_exists) == 1:
                 result = [market_result_names[i] for i, exists in enumerate(result_exists) if exists][0]
                 self.result_attributes["corresponding_market_result_name"] = result
+            elif sum(result_exists) > 1:
+                result = [market_result_names[i] for i, exists in enumerate(result_exists) if exists][0]
+                self.result_attributes["corresponding_market_result_name"] = result
+                self.logger.warning("Multiple market results to %s found, using %s", 
+                                    self.result_attributes["name"], result)
             else:
                 self.logger.warning("Corresponding market result to %s not or with new name instantiated", self.result_attributes["name"])
                 self.logger.warning("Manually set market result name in result attributes.")
@@ -177,7 +183,7 @@ class Results():
             dcline_coordinates=line_coordinates(self.data.dclines, self.data.nodes),
             inj=pd.Series(index=self.data.nodes.index, data=0),
             dc_flow= pd.Series(index=self.data.dclines.index, data=0),
-            gen=pd.DataFrame(),
+            generation=pd.DataFrame(),
             demand=pd.DataFrame(),
             prices=pd.DataFrame(),
             n_0_flow=pd.Series(index=self.data.lines.index, data=0),
@@ -205,7 +211,7 @@ class Results():
         data_struct = self.result_data_struct()
         data_struct.inj = self.INJ
         data_struct.dc_flow = self.F_DC
-        data_struct.gen = self.generation()
+        data_struct.generation = self.generation()
         data_struct.demand = self.demand()
         data_struct.n_0_flow = self.n_0_flow()
         data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.1)
@@ -329,9 +335,19 @@ class Results():
         return net_position
     
     def generation(self, force_recalc=False):
-        """Generation data.
+        """Return generation variable merged to input data.
         
-        Returns DataFrame with columns [node, plant_type, g_max, zone, t, p, G]
+        Parameters
+        ----------
+        force_recalc : bool, optional
+            Generation is cached automatically. To enforce recalc, e.g. when explicitly changing data
+            set this force_recalc to True. Defaults to False. 
+
+        Returns
+        -------
+        generation : DataFrame
+            Returns DataFrame with columns [node, plant_type, g_max, zone, t, p, G]
+
         """
         if not (self._cached_results.generation.empty or force_recalc):
             self.logger.debug("Returning cached result for generation.")
@@ -347,8 +363,33 @@ class Results():
         else:
             gen["technology"] = gen.plant_type
         gen = tools.reduce_df_size(gen)
-        self._cached_results.generation = gen
-        return gen.copy()
+        self._cached_results.generation = gen.copy()
+        return gen
+
+    def curtailment(self, force_recalc=False):
+        """Return Curtailment merge to input data.
+        
+        Parameters
+        ----------
+        force_recalc : bool, optional
+            Generation is cached automatically. To enforce recalc, e.g. when explicitly changing data
+            set this force_recalc to True. Defaults to False. 
+        
+        Returns
+        -------
+        Curtailment : DataFrame
+            Returns DataFrame with columns [node, plant_type, g_max, zone, t, p, CURT]
+        """
+        if not (self._cached_results.curtailment.empty or force_recalc):
+            self.logger.debug("Returning cached result for curtailment.")
+            return self._cached_results.curtailment.copy()
+
+        curtailment = pd.merge(self.data.plants[["plant_type", "node", "g_max"]],
+                               self.CURT, left_index=True, right_on="p", how="right")
+        curtailment["zone"] = self.data.nodes.loc[curtailment.node, "zone"].values
+        curtailment = tools.reduce_df_size(curtailment)
+        self._cached_results.curtailment = curtailment.copy()
+        return curtailment.copy()
 
     def full_load_hours(self):
         """Returns plant data including full load hours."""        
@@ -411,7 +452,7 @@ class Results():
         demand["demand"] = demand.demand_el + demand.D_ph + demand.D_es
         demand = demand.sort_values(by='t', key=self._sort_timesteps)
         
-        self._cached_results.demand = demand
+        self._cached_results.demand = demand.copy()
         return demand.copy()
 
     # Grid Analytics - Load Flows
@@ -442,7 +483,7 @@ class Results():
         n_0_flows = pd.DataFrame(index=self.data.lines.index, columns=self.model_horizon, data=flow)
 
         self._cached_results.n_0_flows = n_0_flows.copy()
-        return n_0_flows
+        return n_0_flows.copy()
 
     def n_1_flow(self, sensitivity=5e-2, force_recalc=False):
         """N-1 power flows on lines (cb) under outages (co).
@@ -485,7 +526,7 @@ class Results():
         self.logger.info("Done Calculating N-1 Flows")
         n_1_flows = n_1_flows.loc[:, ["cb", "co"] + self.model_horizon]
         self._cached_results.n_1_flows = n_1_flows.copy()
-        return n_1_flows
+        return n_1_flows.copy()
 
     def absolute_max_n_1_flow(self, sensitivity=0.05):
         """Calculate the absolute max of N-1 Flows.

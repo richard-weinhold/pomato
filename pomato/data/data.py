@@ -1,5 +1,3 @@
-# pylint: disable-msg=E1101
-
 import json
 import logging
 import shutil
@@ -182,28 +180,6 @@ class DataManagement():
         shutil.make_archive(filepath, 'zip', filepath)
         shutil.rmtree(filepath, ignore_errors=True)
         self.logger.info("saved!")
-    
-    def save_results(self, folder, name=None):
-        """Copy the loaded results into a folder.
-
-        Parameters
-        ----------
-         folder: pathlib.Path
-            Folder where all results are copied to.
-        """
-        if len(self.results) == 0:
-            self.logger.warning("No results to save")
-        else:
-            for key in self.results:
-                if name:
-                    if any(char.isdigit() for char in key):
-                        result_folder = name + key[9:]
-                    else:
-                        result_folder = name + "_" + key
-                else:
-                    result_folder = key
-                folder.joinpath(result_folder).mkdir()
-                tools.copytree(self.results[key].result_attributes["source_folder"], folder.joinpath(result_folder))
 
     def load_data(self, filepath):
         """Load Data from dataset at filepath.
