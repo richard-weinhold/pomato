@@ -274,8 +274,11 @@ always possible.
 .. [3] **Brown, T., J. Horsch, and D. Schlachtberger** (2018). PyPSA: Python for PowerSystem Analysis. 
     Journal of Open Research Software. doi: 10.5334/jors.188. eprint:1707.09913
 
-.. [4] **Thurner, L. et al.** (2018). pandapower - an Open Source Python Tool for Con-venient  Modeling,  Analysis and  Optimization of  Electric  Power  Systems”
+.. [4] **Thurner, L. et al.** (2018). pandapower - an Open Source Python Tool for Convenient  Modeling,  Analysis and  Optimization of  Electric  Power  Systems
     IEEE Transactions on Power Systems. doi: 10.1109/TPWRS.2018.2829021
     
-.. [5] **Meinecke, Steffen et al.** (2020). SimBench—A Benchmark Dataset of Electric Power Systems to Compare Innovative Solutions based on Power FlowAnalysis”. 
+.. [5] **Meinecke, Steffen et al.** (2020). SimBench—A Benchmark Dataset of Electric Power Systems to Compare Innovative Solutions based on Power Flow Analysis. 
     Energies. doi: 10.3390/en13123290
+
+.. [6] **Müller, Ulf Philipp et al.** (2018) The eGo grid model: An open source approach towards a model of German high and extra-high voltage power grid. 
+    Journal of Physics. doi: 10.1088/1742-6596/977/1/012003
