@@ -17,7 +17,6 @@ class JuliaMockup():
     def run(self, args):
         pass
     
-# pylint: disable-msg=E1101
 class TestPomatoMarketModel(unittest.TestCase):
 
     @classmethod

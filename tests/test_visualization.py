@@ -13,7 +13,6 @@ import numpy as np
 import pandas as pd
 from context import pomato, copytree
 
-# pylint: disable-msg=E1101
 class TestPomatoVisualization(unittest.TestCase):
     
     @classmethod
@@ -30,6 +29,7 @@ class TestPomatoVisualization(unittest.TestCase):
         R2_to_R3 = ["bus118", "bus076", "bus077", "bus078", "bus079", 
                     "bus080", "bus081", "bus097", "bus098", "bus099"]
         cls.mato.data.nodes.loc[R2_to_R3, "zone"] = "R3"
+        
         # For GeoPlot option 3
         cls.mato.data.lines["cb"] = False
         cls.mato.data.lines.loc["line001", "cb"] = True  
@@ -64,11 +64,17 @@ class TestPomatoVisualization(unittest.TestCase):
         self.assertRaises(TypeError, self.mato.visualization.create_installed_capacity_plot, pd.DataFrame)
 
     def test_visualization_create_generation_overview(self):
-        result = self.mato.data.results["dispatch_redispatch"]
+        results = [self.mato.data.results["dispatch_redispatch"], self.mato.data.results["dispatch_market_results"]]
         filepath = self.mato.wdir.joinpath("data_output/generation_overview.html")
-        self.mato.visualization.create_generation_overview(result, show_plot=False, filepath=filepath)
+        self.mato.visualization.create_generation_overview(results, show_plot=False, filepath=filepath)
+    
+    def test_visualization_create_cost_overview(self):
+        results = [self.mato.data.results["dispatch_redispatch"], self.mato.data.results["dispatch_market_results"]]
+        filepath = self.mato.wdir.joinpath("data_output/generation_overview.html")
+        self.mato.visualization.create_cost_overview(results, show_plot=False, filepath=filepath)
 
     def test_fbmc_domain_plot(self):
+        market_result = self.mato.data.results["dispatch_market_results"]
         folder = self.mato.wdir.joinpath("scopf_market_results")
         self.mato.initialize_market_results([folder])
         basecase = self.mato.data.results["scopf_market_results"]
@@ -76,10 +82,8 @@ class TestPomatoVisualization(unittest.TestCase):
         self.mato.options["grid"]["sensitivity"] = 0.05
         fb_parameters = self.mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
         fbmc_domain = pomato.visualization.FBDomainPlots(self.mato.data, fb_parameters)
-        domain_plot = fbmc_domain.generate_flowbased_domain(("R1", "R2"), ["R1", "R3"], "t0001", "nrel")
-        # Matplotlib (quasi legacy)
-        fbmc_domain.save_all_domain_plots(self.mato.wdir.joinpath("data_output"), include_ntc=True)
-        fbmc_domain.save_all_domain_info(self.mato.wdir.joinpath("data_output"))
+        domain_plot = fbmc_domain.generate_flowbased_domain(("R1", "R2"), ["R1", "R3"], "t0001", 
+                                                            commercial_exchange=market_result.EX)
         #Plotly implementation
         self.mato.visualization.create_fb_domain_plot(domain_plot, show_plot=False)
 
@@ -181,7 +185,6 @@ class TestPomatoDashboard(unittest.TestCase):
             }]
         }
 
-
     def test_update_timestep_slider(self):
         result_name = "ntc_market_results"
         size = {"width": 400}
@@ -198,27 +201,28 @@ class TestPomatoDashboard(unittest.TestCase):
         self.assertTrue(all([isinstance(o["value"], str) for o in options]))        
 
     ### Overview
-    def test_display_result_summary(self):
-        result_name = "ntc_market_results"
-        overview = self.dashboard.display_result_summary(result_name)
-        self.assertTrue(isinstance(overview, str))
-
     def test_update_installed_capacity_figure(self):
         result_name = "ntc_market_results"
         fig = self.dashboard.update_installed_capacity_figure(result_name)
         self.assertTrue(isinstance(fig, plotly.graph_objs.Figure))
-    
-    def test_update_generation_pie_chart(self):
-        result_name = "ntc_market_results"
-        fig = self.dashboard.update_generation_pie_chart(result_name)
+        
+    def test_update_generation_overview(self):
+        result_names = ["ntc_market_results", "ntc_redispatch"]
+        fig = self.dashboard.update_generation_overview(result_names)
         self.assertTrue(isinstance(fig, plotly.graph_objs.Figure))
     
+    def test_update_cost_overview(self):
+        result_names = ["ntc_market_results", "ntc_redispatch"]
+        fig = self.dashboard.update_cost_overview(result_names)
+        self.assertTrue(isinstance(fig, plotly.graph_objs.Figure))
+          
     ### Generation Methods
     def test_update_generation_page_components(self):
         result_name = "ntc_market_results"
-        return_values = self.dashboard.update_components_generation(result_name)
-        self.assertTrue(isinstance(return_values, list))
-        self.assertTrue(all([isinstance(v, dict) for v in return_values]))
+        toggle_options, nodes_dropdown_options = self.dashboard.update_components_generation(result_name)
+        self.assertTrue(all([isinstance(v, dict) for v in toggle_options]))
+        self.assertTrue(all([isinstance(v, dict) for v in nodes_dropdown_options]))
+
 
     def test_update_graph_generation(self):
         result_name = "ntc_market_results"
@@ -228,7 +232,7 @@ class TestPomatoDashboard(unittest.TestCase):
 
     def test_update_generation_geo_plot(self):
         result_name = "ntc_market_results"
-        fig = self.dashboard.update_generation_geo_plot(result_name, [], 50)
+        fig = self.dashboard.update_generation_geo_plot(result_name, [], 50, [])
         self.assertTrue(isinstance(fig, plotly.graph_objs.Figure))
 
     def test_display_lineloading(self):
@@ -251,7 +255,7 @@ class TestPomatoDashboard(unittest.TestCase):
 
     def test_update_transmission_geo_plot(self):
         result_name = "ntc_market_results"
-        fig = self.dashboard.update_transmission_geo_plot(result_name, [], 0, 0, 50)
+        fig = self.dashboard.update_transmission_geo_plot(result_name, [], 0, 0, 50, [])
         self.assertTrue(isinstance(fig, plotly.graph_objs.Figure))
 
     def test_click_lines(self):

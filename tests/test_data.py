@@ -12,7 +12,6 @@ import tempfile
 
 from context import pomato, copytree
 
-# pylint: disable-msg=E1101
 class TestPomatoData(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -68,19 +67,6 @@ class TestPomatoData(unittest.TestCase):
         self.data.save_data(folder.joinpath("nrel_data"))
         self.assertTrue(folder.joinpath("nrel_data").with_suffix(".xlsx").is_file())
         self.assertTrue(folder.joinpath("nrel_data").with_suffix(".zip").is_file())
-
-    def test_save_results(self):
-        grid  = pomato.grid.GridTopology()
-        grid.calculate_parameters(self.data.nodes, self.data.lines)
-        folder = self.wdir.joinpath("dispatch_market_results")
-        self.data.process_results(folder, grid)
-
-        save_folder = self.wdir.joinpath("data_output")
-        if not save_folder.is_dir():
-            save_folder.mkdir()
-
-        self.data.save_results(save_folder, "dummy_name")
-        self.assertTrue(save_folder.joinpath("dummy_name_" + "dispatch_market_results").is_dir())
 
     def system_balance(self, result):
         model_horizon = result.result_attributes["model_horizon"]
@@ -151,10 +137,7 @@ class TestPomatoData(unittest.TestCase):
         self.assertAlmostEqual(result.result_attributes["objective"]["Objective Value"], 
                                3899019.71757418)
 
-
-
-
-class TestPomatoDataResults(unittest.TestCase):
+class TestPomatoResults(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         temp_dir = tempfile.TemporaryDirectory()

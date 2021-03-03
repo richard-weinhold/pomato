@@ -12,7 +12,6 @@ import tempfile
 
 from context import pomato, copytree
 
-# pylint: disable-msg=E1101
 class TestPomatoGridModel(unittest.TestCase):
     
     @classmethod

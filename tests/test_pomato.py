@@ -11,7 +11,6 @@ import pandas as pd
 
 from context import pomato, copytree	
            
-# pylint: disable-msg=E1101
 class TestPomato(unittest.TestCase):
     """Testing instantiation with different input files and options"""
     

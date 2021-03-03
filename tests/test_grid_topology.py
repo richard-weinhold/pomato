@@ -10,7 +10,6 @@ import pandas as pd
 import tempfile
 from context import pomato, copytree
 
-# pylint: disable-msg=E1101
 class TestPomatoGrid(unittest.TestCase):
     
     @classmethod
