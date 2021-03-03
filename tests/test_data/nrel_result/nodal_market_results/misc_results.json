@@ -1,5 +1,5 @@
 {
-  "COST_INEAS_EL": 0.0,
+  "COST_INFEASIBILITY_EL": 0.0,
   "Solve Status": "OPTIMAL",
   "Objective Value": 2.805962178313506e6,
   "COST_H": 0,
@@ -7,5 +7,5 @@
   "COST_G": 2.7994048187948256e6,
   "COST_CURT": 0.0,
   "COST_REDISPATCH": 0.0,
-  "COST_INEAS_H": 0
+  "COST_INFEASIBILITY_H": 0
 }
