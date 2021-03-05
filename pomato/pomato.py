@@ -334,27 +334,7 @@ class POMATO():
         
         for result in self.data.results:
             self.data.results[result.replace(oldname, newname)] = self.data.results.pop(result)
-
-    def save_market_results(self, market_result, folder):
-        """Copy a Result instance to designated folder.
-
-        Parameters
-        ----------
-        market_result : string, :class:`~pomato.data.DataManagement`
-            Result instance or name of a market result currently instantiated.
-        folder: pathlib.Path, optional
-            Folder where all results is saved to.
-        """
-        if not folder.is_dir():
-            folder.mkdir()
-        if isinstance(market_result, str):
-            try:
-                market_result = self.data.results[market_result]
-            except KeyError:
-                raise KeyError("Result not found.")
-        tools.copytree(market_result.result_attributes["source_folder"], folder)
-
-        
+       
     def run_market_model(self, update_data=True, update_grid_representation=False):
         """Run the market model based on the current state of data and options. 
         

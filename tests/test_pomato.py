@@ -19,6 +19,8 @@ class TestPomato(unittest.TestCase):
         cls.temp_dir = tempfile.TemporaryDirectory()
         cls.wdir = Path(cls.temp_dir.name)
         copytree(Path.cwd().joinpath("examples"), cls.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), cls.wdir)
+
         shutil.copyfile(Path.cwd().joinpath("tests/test_data/unsupported_inputformat.xyz"), 
                         cls.wdir.joinpath("data_input/unsupported_inputformat.xyz"))
 
@@ -90,3 +92,7 @@ class TestPomato(unittest.TestCase):
         mato.data.results = {"result_a": None, "result_b": None}
         mato.rename_market_result("result", "newname")
         self.assertTrue(all([r in mato.data.results for r in ["newname_a", "newname_b"]]))
+
+
+    def test_save_market_results(self):
+

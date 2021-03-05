@@ -373,7 +373,7 @@ class FBDomainPlots():
         domain_info.loc[domain_info.index.isin(feasible_region_indices), "in_domain"] = True
         
         # Limit the number of constraints plottet to a threshold
-        threshold = int(1e6)
+        threshold = int(1e3)
         if len(A) > threshold:
             self.logger.debug("Plot limited to %d constraints plotted", threshold)
             random_choice = np.random.choice(domain_info.index, size=threshold, replace=False)

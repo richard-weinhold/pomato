@@ -47,7 +47,7 @@ class Results():
     """
 
     def __init__(self, data, grid, result_folder):
-        self.logger = logging.getLogger('log.pomato.data.DataWorker.Results')
+        self.logger = logging.getLogger('log.pomato.data.Results')
         self.grid = grid
         self.data = data
         self.output_folder = self.data.wdir.joinpath("data_output").joinpath(result_folder.name)
@@ -165,6 +165,13 @@ class Results():
         # Model Horizon as attribute
         self.result_attributes["model_horizon"] = list(self.INJ['t'].drop_duplicates().sort_values())
         self.model_horizon = self.result_attributes["model_horizon"]
+
+    def save(self, folder):
+        """Save Result to folder"""
+        if not folder.is_dir():
+            folder.mkdir()
+        tools.copytree(self.result_attributes["source_folder"], folder)
+
 
     def result_data_struct(self):
         """Data struct, as a standart template for result processing.

@@ -48,27 +48,39 @@ class TestPomatoVisualization(unittest.TestCase):
         cls.wdir = None
         cls.temp_dir = None
 
+    # Generation: Dispatch, Storages
     def test_visualization_generation_plot(self):
         result = self.mato.data.results["dispatch_redispatch"]
         filepath = self.mato.wdir.joinpath("data_output/generation_plot.html")
         nodes = list(self.mato.data.nodes.index)
         self.mato.visualization.create_generation_plot(result, nodes=nodes[:10], 
                                                        show_plot=False, filepath=filepath)
+    def test_visualization_generation_pie(self):
+        result = self.mato.data.results["dispatch_redispatch"]
+        filepath = self.mato.wdir.joinpath("data_output/generation_plot.html")
+        self.mato.visualization.create_generation_plot(result, show_plot=False, filepath=filepath)
+    
+    def test_visualization_generation_overview(self):
+        results = [self.mato.data.results["dispatch_redispatch"], self.mato.data.results["dispatch_market_results"]]
+        filepath = self.mato.wdir.joinpath("data_output/generation_overview.html")
+        self.mato.visualization.create_generation_overview(results, show_plot=False, filepath=filepath)
 
-    def test_visualization_create_installed_capacity_plot(self):
+    # Capacity and availability
+    def test_visualization_available_intermittent_capacity_plot(self):
+        data = self.mato.data
+        filepath = self.mato.wdir.joinpath("data_output/available_capacity_plot.html")
+        self.mato.visualization.create_available_intermittent_capacity_plot(data, show_plot=False, filepath=filepath)
+
+    def test_visualization_installed_capacity_plot(self):
         result = self.mato.data.results["dispatch_redispatch"]
         filepath = self.mato.wdir.joinpath("data_output/capacity_plot.html")
         self.mato.visualization.create_installed_capacity_plot(result, show_plot=False, filepath=filepath)
 
-    def test_visualization_create_installed_capacity_plot_exception(self):
+    def test_visualization_installed_capacity_plot_exception(self):
         self.assertRaises(TypeError, self.mato.visualization.create_installed_capacity_plot, pd.DataFrame)
 
-    def test_visualization_create_generation_overview(self):
-        results = [self.mato.data.results["dispatch_redispatch"], self.mato.data.results["dispatch_market_results"]]
-        filepath = self.mato.wdir.joinpath("data_output/generation_overview.html")
-        self.mato.visualization.create_generation_overview(results, show_plot=False, filepath=filepath)
-    
-    def test_visualization_create_cost_overview(self):
+    # Misc
+    def test_visualization_cost_overview(self):
         results = [self.mato.data.results["dispatch_redispatch"], self.mato.data.results["dispatch_market_results"]]
         filepath = self.mato.wdir.joinpath("data_output/generation_overview.html")
         self.mato.visualization.create_cost_overview(results, show_plot=False, filepath=filepath)
@@ -87,18 +99,23 @@ class TestPomatoVisualization(unittest.TestCase):
         #Plotly implementation
         self.mato.visualization.create_fb_domain_plot(domain_plot, show_plot=False)
 
-    def test_geoplot(self):
-        result = self.mato.data.results["dispatch_redispatch"]
-        filepath = self.mato.wdir.joinpath("data_output/geoplot.html")
-        self.mato.visualization.create_geo_plot(result, show_prices=True, show_redispatch=True, 
-                                                show_plot=False, filepath=filepath)
-
+    # Transmission
     def test_lineflow_plot(self):
         result = self.mato.data.results["dispatch_redispatch"]
         filepath = self.mato.wdir.joinpath("data_output/lineplot.html")
         lines = list(self.mato.data.lines.index)[:2]
         self.mato.visualization.create_lineflow_plot(result, lines=lines, show_plot=False, filepath=filepath)
     
+    # Geo Plot testing
+    def test_geoplot(self):
+        result = self.mato.data.results["dispatch_redispatch"]
+        filepath = self.mato.wdir.joinpath("data_output/geoplot.html")
+        highlight_nodes = list(self.mato.data.nodes.index[:2])
+        self.mato.visualization.create_geo_plot(result, show_prices=True, 
+                                                show_redispatch=True, 
+                                                highlight_nodes=highlight_nodes,
+                                                show_plot=False, filepath=filepath)
+
     def test_geoplot_various_options(self):
         result = self.mato.data.results["dispatch_redispatch"]
         self.mato.visualization.create_geo_plot(result, line_color_option=1, show_plot=False)
@@ -109,6 +126,7 @@ class TestPomatoVisualization(unittest.TestCase):
         filepath = self.mato.wdir.joinpath("data_output/geoplot_timestep.html")                                     
         self.mato.visualization.create_geo_plot(result, show_prices=True, show_redispatch=True, 
                                                 show_plot=False, timestep=0, filepath=filepath)
+    
     def test_zonal_geoplot(self):
         result = self.mato.data.results["dispatch_redispatch"]
         filepath = self.mato.wdir.joinpath("data_output/geoplot_zonal.html")
@@ -119,9 +137,7 @@ class TestPomatoVisualization(unittest.TestCase):
         filepath = self.mato.wdir.joinpath("data_output/geoplot_zonal_timestep.html")                                     
         self.mato.visualization.create_zonal_geoplot(result, show_plot=False, timestep=0, filepath=filepath)
 
-
 class TestPomatoDashboard(unittest.TestCase):
-
     @classmethod
     def setUpClass(cls):
         temp_dir = tempfile.TemporaryDirectory()

@@ -226,7 +226,7 @@ class Visualization():
             
         # Highlight Nodes
         affected_nodes = []
-        if highlight_nodes:
+        if isinstance(highlight_nodes, list):
             condition = nodes.index.isin(highlight_nodes)
             affected_nodes = highlight_nodes
             fig.add_trace(go.Scattermapbox(
@@ -492,14 +492,21 @@ class Visualization():
         inf["infeasibility"] = inf.pos - inf.neg
         inf = inf[["t", "infeasibility"]].groupby("t").sum()/1000
         inf = inf.loc[market_result.model_horizon, :]
-        d = pd.merge(demand, net_export, left_on=["t", "n"], right_on=["timestep", "node"], how="left")
-        d.loc[:, ["net_export"]].fillna(value=0, inplace=True)
-        d = d[["t", "demand_el", "D_ph", "D_es", "net_export"]].groupby("t").sum()/1000
-        d.loc[:, "demand_el"] -= (d.net_export)
-        d = d.loc[market_result.model_horizon, :]
         
-        fig.add_trace(go.Scatter(x=d.index, y=d.demand_el - inf.infeasibility, line=dict(color="#000000"), name="demand")) 
-        fig.add_trace(go.Scatter(x=d.index, y=d.demand_el - inf.infeasibility + d.D_es + d.D_ph, fill='tonexty', mode= 'none', fillcolor="#BFBDE5", name="storage charging"))
+        demand = pd.merge(demand, net_export, left_on=["t", "n"], 
+                          right_on=["timestep", "node"], how="left")
+        demand["net_export"].fillna(0, inplace=True)
+
+        demand = demand[["t", "demand_el", "D_ph", "D_es", "net_export"]].groupby("t").sum()/1000
+        demand.loc[:, "demand_el"] -= (demand.net_export)
+        demand = demand.loc[market_result.model_horizon, :]
+        
+        fig.add_trace(
+            go.Scatter(x=demand.index, y=demand.demand_el - inf.infeasibility, 
+                       line=dict(color="#000000"), name="demand")) 
+        fig.add_trace(
+            go.Scatter(x=demand.index, y=demand.demand_el - inf.infeasibility + demand.D_es + demand.D_ph, 
+                       fill='tonexty', mode= 'none', fillcolor="#BFBDE5", name="storage charging"))
             
         if filepath:
             fig.write_html(str(filepath))

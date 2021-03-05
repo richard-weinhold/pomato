@@ -140,8 +140,8 @@ class TestPomatoData(unittest.TestCase):
 class TestPomatoResults(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        temp_dir = tempfile.TemporaryDirectory()
-        wdir = Path(temp_dir.name)
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        wdir = Path(cls.temp_dir.name)
 
         copytree(Path.cwd().joinpath("examples"), wdir)
         copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), wdir)
@@ -162,6 +162,7 @@ class TestPomatoResults(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        cls.temp_dir = None
         cls.market_result = None
         cls.redispatch_result = None
 
@@ -205,7 +206,12 @@ class TestPomatoResults(unittest.TestCase):
         self.market_result.generation()
         self.market_result.storage_generation()
         self.market_result.price()     
+        self.market_result.curtailment()
 
+    def test_save(self):
+        to_folder = Path(self.temp_dir.name).joinpath("test")
+        self.market_result.save(to_folder)
+        self.assertTrue(to_folder.is_dir())
         
 if __name__ == '__main__':
     unittest.main()
