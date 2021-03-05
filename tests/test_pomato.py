@@ -93,6 +93,3 @@ class TestPomato(unittest.TestCase):
         mato.rename_market_result("result", "newname")
         self.assertTrue(all([r in mato.data.results for r in ["newname_a", "newname_b"]]))
 
-
-    def test_save_market_results(self):
-
