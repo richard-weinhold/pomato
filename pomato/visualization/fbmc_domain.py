@@ -4,19 +4,57 @@ import logging
 from pathlib import Path
 
 import imageio
-import matplotlib.pyplot as plt
-from matplotlib.lines import Line2D
-from matplotlib.collections import LineCollection
 import numpy as np
 import pandas as pd
-from scipy import spatial
 import progress
+from pypoman import compute_polytope_vertices
+from scipy import spatial
+from scipy.spatial.qhull import QhullError
+
+
 progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
+import pomato.tools as tools
+from pomato.fbmc import FBMCModule
+from pomato.grid import GridModel
 from progress.bar import Bar
 
-import pomato.tools as tools
-from pomato.grid import GridModel
-from pomato.fbmc import FBMCModule
+def domain_volume(self, A, b):
+    """Calculating the volume of the FB-domain.
+
+    Input arguments A and b define the domain feasible region as Ax<=b, the dimensionality of A
+    defines whether the volume includes the whole domain or just the plottet projection. 
+    """
+    try:
+        # The vertex enumeration compute_polytope_vertices does sometimes
+        # fail without clear indication. To solve, the vertices are found 
+        # for known domain halpfspaces. 
+        tmp = spatial.ConvexHull(A/b.reshape(len(A), 1)).vertices
+        points = compute_polytope_vertices(A[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
+        # points = compute_polytope_vertices(A[tmp, :], b[tmp])
+        hull = spatial.ConvexHull(points)
+        return hull.volume/1e6
+    except QhullError:
+        self.logger.error("Error in FB domain volume calculation")
+        return 0
+
+def domain_feasible_region_indices(A, b):
+    """Determining the feasible region of the FB domain, utilizing a convexhull algorithm.
+
+    Based on the 2D input argument A and vector b, the convex hull is used to find the indices
+    of the linear inequations that define the inner feasible region of the domain. This
+    implementation generall follows the matlab implementation on, without recovering the
+    vertices explicitly (See
+    https://www.mathworks.com/matlabcentral/fileexchange/30892-analyze-n-dimensional-polyhedra-in-terms-of-vertices-or-in-equalities).
+
+    Returns
+    -------
+        indices : array of indices of A,b that define the domain's feasible region. 
+    """
+    A = np.array(A, dtype=np.float)
+    b = np.array(b, dtype=np.float).reshape(len(b), 1)
+    D = A/b
+    k = spatial.ConvexHull(D) #pylint: disable=no-member
+    return k.vertices
 
 class FBDomain():
     """Individual FB Domain plot. 
@@ -36,7 +74,9 @@ class FBDomain():
     domain_data : pandas.DataFrame
         The raw data from which the plot is derived.
     """ 
-    def __init__(self, domain_information, domain_equations, feasible_region_vertices, domain_data):   
+    def __init__(self, domain_information, domain_equations, feasible_region_vertices, 
+                domain_data, volume):
+
         self.gsk_strategy = domain_information["gsk_strategy"]
         self.timestep = domain_information["timestep"]
         self.domain_x = domain_information["domain_x"]
@@ -46,12 +86,14 @@ class FBDomain():
                          + "_" + domain_information["filename_suffix"]
         else:
             self.title = self.timestep + "_" + self.gsk_strategy
+
         self.domain_equations = domain_equations
         self.feasible_region_vertices = feasible_region_vertices
         self.x_max, self.x_min = domain_information["plot_limits"][0]
         self.y_max, self.y_min = domain_information["plot_limits"][1]
         self.domain_data = domain_data
-
+        self.volume = volume
+    
 class FBDomainPlots():
     """Create FB domain plots based on flowbased paramters.
     
@@ -84,7 +126,6 @@ class FBDomainPlots():
         self.fbmc_plots = {} # keep plots 
         self.flowbased_parameters = flowbased_parameters
         
-
     def set_xy_limits_forall_plots(self):
         """For each fbmc plot object, set x and y limits"""
         self.logger.info("Resetting x and y limits for all domain plots")
@@ -98,24 +139,6 @@ class FBDomainPlots():
             self.fbmc_plots[plots].x_max = x_max
             self.fbmc_plots[plots].y_min = y_min
             self.fbmc_plots[plots].y_max = y_max
-
-    def domain_feasible_region(self, A, b):
-        """Determining the feasible region of the FB domain, utilizing a convexhull algorithm.
-        
-        Based on the 2D input argument A and vector v, the convex hull is used to find the linear
-        inequations that define the inner feasible region of the domain. 
-        
-        Returns
-        -------
-        indices : array
-            Indices of A,b that define the domain's feasible region. 
-
-        """
-        A = np.array(A, dtype=np.float)
-        b = np.array(b, dtype=np.float).reshape(len(b), 1)
-        D = A/b
-        k = spatial.ConvexHull(D) #pylint: disable=no-member
-        return k.vertices
 
     def zonal_ptdf_projection(self, domain_x, domain_y, A):
         """The zonal PTDF has to be projected into 2D to be visualized as a domain plot. 
@@ -202,75 +225,28 @@ class FBDomainPlots():
                     
         return plot_equations, plot_indices
 
-    def create_feasible_region_vertices(self, A, b, feasible_region_indices):
+    def create_feasible_region_vertices(self, A, b):
         """Calculate vertices of the FB domain feasible region.
 
-        To plot the feasible region of the domain, this method calculates all intersections 
-        of the linear inequalities A x <= b that make up the domain, filters the vertices that 
-        are part of the domain (and not intersection more outward) and sorts them clockwise, 
-        so that matplotlib can create a continuosly connected domain plot (and not a star shape). 
-        This method is pretty high up on the list to be rewritten :/ 
+        To plot the feasible region of the domain, this method find all vertices linear inequalities
+        A x <= b that make up the domain and sorts them clockwise.
 
         Parameters
         ----------
-        A : np.array
-            Projected zonal PTDF with width 2. 
-        b : np.array
+        A : np.array,
+            2-dimensional projection of zonal PTDF.
+        b : np.array 
             Vector of RAMs.
-        feasible_region_indices : list
-            List of indices of linear inequations that compose the FB domain 
-            feasible region.
 
         Returns
         -------
-        vertices : array of width 2 and length of however many constraints make 
-            up the domain/feasible region.
-        all_intersections : [list x-coordinates, list y-coordinates] 
-            Coordinates of all intersections of CBCOs that make up the domain.
+        vertices : array 
+            Vertices in a CBCO x 2 array.
+
         """        
-        # ptdf_x * X + ptdf_y * Y = B
-        # Or in Matrix Form A*x = b where X = [X;Y]
-        ptdf = np.take(A, feasible_region_indices, axis=0)
-        ram = np.take(b, feasible_region_indices, axis=0)
-
-        ### Find all intersections between CO
-        intersection_x = []
-        intersection_y = []
-        for idx in range(0, len(ptdf)):
-            for idy in range(0, len(ptdf)):
-                ### x*ptdf_A0 +  y*ptdf_A1 = C_A ----- x*ptdf_B0 + y*ptdf_B1 = C_B
-                ### ptdf[idx,0] ptdf[idx,1] = ram[idx] <-> ptdf[idy,0] ptdf[idy,1] = ram[idy]
-                if idx != idy:
-                    # A0 close to 0
-                    if np.square(ptdf[idx, 0]) < 1E-9 and np.square(ptdf[idy, 0]) > 1E-9:
-                        intersection_x.append((ram[idy]*ptdf[idx, 1] - ram[idx]*ptdf[idy, 1])\
-                                 /(ptdf[idx, 1]*ptdf[idy, 0]))
-                        intersection_y.append(ram[idx]/ptdf[idx, 1])
-                        ## A1 close to 0
-                    elif np.square(ptdf[idx, 1]) < 1E-9 and np.square(ptdf[idy, 1]) > 1E-9:
-                        intersection_x.append(ram[idx]/ptdf[idx, 0])
-                        intersection_y.append((ram[idy]*ptdf[idx, 0] - ram[idx]*ptdf[idy, 0]) \
-                                 /(ptdf[idx, 0]*ptdf[idy, 1]))
-
-                    elif (ptdf[idx, 1]*ptdf[idy, 0] - ptdf[idy, 1]*ptdf[idx, 0]) != 0 \
-                    and (ptdf[idx, 0]*ptdf[idy, 1] - ptdf[idy, 0]*ptdf[idx, 1]):
-                        intersection_x.append((ram[idx]*ptdf[idy, 1] - ram[idy]*ptdf[idx, 1]) \
-                                / (ptdf[idx, 0]*ptdf[idy, 1] - ptdf[idy, 0]*ptdf[idx, 1]))
-                        intersection_y.append((ram[idx]*ptdf[idy, 0] - ram[idy]*ptdf[idx, 0]) \
-                                / (ptdf[idx, 1]*ptdf[idy, 0] - ptdf[idy, 1]*ptdf[idx, 0]))
-
-        vertices_x = []
-        vertices_y = []
-        ### Filter intersection points for those which define the FB Domain
-        for idx in range(0, len(intersection_x)):
-            temp = 0
-            for idy in range(0, len(ptdf)):
-                if ptdf[idy, 0]*intersection_x[idx] +\
-                    ptdf[idy, 1]*intersection_y[idx] <= ram[idy]*1.0001:
-                    temp += 1
-                if temp >= len(ptdf):
-                    vertices_x.append(intersection_x[idx])
-                    vertices_y.append(intersection_y[idx])
+        vertices = np.asarray(compute_polytope_vertices(A, b))
+        vertices_x = vertices[:, 0]
+        vertices_y = vertices[:, 1]
 
         ### Sort them Counter Clockwise to plot them
         vertices_sorted = []
@@ -293,14 +269,8 @@ class FBDomainPlots():
         
         ## Add first element to draw complete circle
         vertices_sorted.append(vertices_sorted[0])
-        vertices_sorted = np.array(vertices_sorted)
-        vertices_sorted = np.round(vertices_sorted, decimals=3)
-        unique_rows_idx = [x for x in range(0, len(vertices_sorted)-1) \
-                           if not np.array_equal(vertices_sorted[x, 0:2], vertices_sorted[x+1, 0:2])]
-        unique_rows_idx.append(len(vertices_sorted)-1)
-        vertices_sorted = np.take(vertices_sorted, unique_rows_idx, axis=0)
-    
-        return vertices_sorted[:, [0,1]], [intersection_x, intersection_y]
+        vertices_sorted = np.array(vertices_sorted)   
+        return vertices_sorted[:, [0,1]]
 
 
     def generate_flowbased_domains(self, domain_x, domain_y, filename_suffix=None):
@@ -345,13 +315,15 @@ class FBDomainPlots():
             # Find Exchange that is not part of the domain plot
             domain_ex = [tuple(domain_x), tuple(domain_x[::-1]), tuple(domain_y), tuple(domain_y[::-1])]
             non_domain_ex = exchange[~exchange[["z", "zz"]].apply(tuple, axis=1).isin(domain_ex)&exchange.EX > 0]
-            # correct ram accordingly (i.e. ) moving the domain into the correct y axis.
+            # correct ram accordingly (i.e. moving the domain into the correct z axis position)
             ram_correction = np.dot(domain_info[non_domain_ex.z].values - domain_info[non_domain_ex.zz].values, non_domain_ex["EX"].values)
             domain_info.loc[:, "ram"] = domain_info.loc[:, "ram"] - ram_correction
             if not domain_info[domain_info.ram < 0].empty:
                 self.logger.warning("Correction caused negative rams!")
-                domain_info = domain_info[domain_info.ram>0].reset_index()
+                domain_info.loc[domain_info.ram < 0, "ram"] = 0.1 
+                # domain_info[domain_info.ram>0.1].reset_index()
 
+        # Zonal PTDF with dimensionality number of zones x CBCOs and RAM
         A = domain_info.loc[:, list(self.data.zones.index)].values
         b = domain_info.loc[:, "ram"].values
 
@@ -367,8 +339,10 @@ class FBDomainPlots():
         else:
             gsk_strategy = self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].gsk_strategy.unique()[0]
 
-        A = self.zonal_ptdf_projection(domain_x, domain_y, A)
-        feasible_region_indices = self.domain_feasible_region(A, b)
+        # Project A to the x,y domain axis's
+        A_hat = self.zonal_ptdf_projection(domain_x, domain_y, A)
+        feasible_region_indices = domain_feasible_region_indices(A_hat, b)
+        
         domain_info["in_domain"] = False
         domain_info.loc[domain_info.index.isin(feasible_region_indices), "in_domain"] = True
         
@@ -382,12 +356,16 @@ class FBDomainPlots():
         else:
             plot_indices = domain_info.index
 
-        feasible_region_vertices, _ = self.create_feasible_region_vertices(A, b, feasible_region_indices)
+        feasible_region_vertices = self.create_feasible_region_vertices(A_hat, b)
+        feasible_region_volume = domain_volume(self, A, b)
+        # Specify plot dimension relative to the size plus an absolute margin.
         x_max, y_max = feasible_region_vertices.max(axis=0)*2
         x_min, y_min = feasible_region_vertices.min(axis=0)*2
         x_margin, y_margin = 0.2*abs(x_max - x_min), 0.2*abs(y_max - y_min)
         plot_limits = ((x_max + x_margin, x_min - x_margin), (y_max + y_margin, y_min - y_margin))
-        plot_equations, plot_indices = self.create_domain_plot(A, b, plot_indices, plot_limits)
+
+        # Bring the 2D FB Domain into a format plottable. 
+        plot_equations, plot_indices = self.create_domain_plot(A_hat, b, plot_indices, plot_limits)
         domain_info = domain_info.loc[plot_indices, :]
 
         self.logger.debug("Number of CBCOs defining the domain %d", len(feasible_region_vertices[:, 0]) - 1)
@@ -397,7 +375,11 @@ class FBDomainPlots():
                             "filename_suffix": filename_suffix, 
                             "plot_limits": plot_limits}
         
-        fbmc_plot = FBDomain(plot_information, plot_equations, feasible_region_vertices, domain_info.copy())
+        # FBDomain Class to store all relevant data. 
+        fbmc_plot = FBDomain(plot_information, plot_equations, feasible_region_vertices, 
+                             domain_info.copy(), feasible_region_volume)
 
         self.fbmc_plots[fbmc_plot.title] = fbmc_plot
         return fbmc_plot
+
+

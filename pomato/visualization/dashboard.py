@@ -7,6 +7,7 @@ import dash
 import dash_bootstrap_components as dbc
 import dash_core_components as dcc
 import dash_html_components as html
+import dash_daq as daq
 import dash_table
 import numpy as np
 import pandas as pd
@@ -188,10 +189,16 @@ def page_fbmc():
                         value="gmax"),
                     ], style={"padding": "15px"}),
                 dbc.Col([
-                    html.Div("Select minRAM [%]:"),
+                    html.Div("minRAM [%]:"),
                     dbc.Input(
                         id="input-minram", type="number", 
-                        value=40, min=0, max=100, step=5),
+                        value=40, min=0, max=100, step=1),
+                    ], style={"padding": "15px"}),
+                dbc.Col([
+                    html.Div("FRM/FAV [%]:"),
+                    dbc.Input(
+                        id="input-frm", type="number", 
+                        value=0, min=0, max=100, step=1),
                     ], style={"padding": "15px"}),
                 dbc.Col([
                     html.Div("CNE sensitivity [%]:"),
@@ -203,7 +210,7 @@ def page_fbmc():
                     html.Div("Contingency sensitivity [%]:"),
                     dbc.Input(
                         id="input-cnec-sensitivity", type="number", 
-                        value=25, min=0, max=100, step=0.1),
+                        value=20, min=0, max=100, step=0.1),
                     ], style={"padding": "15px"}),
                 ], className="h-10"),
             dbc.Row([
@@ -228,7 +235,11 @@ def page_fbmc():
                 dbc.Col([
                     html.Div("Select Market Result:"),
                     dcc.Dropdown(id='results-dropdown-fbmc-market'),
-                    ], style={"padding": "15px"}),
+                    ], style={"padding": "15px"}, width={"size": 3}),
+                dbc.Col([
+                    html.Div("Correct FB Domain for NEX in Market Result:"),
+                    daq.BooleanSwitch(id='switch-fb-domain-nex-correction', on=True),
+                    ], style={"padding": "15px"}, width={"size": 3})
                 ], className="h-10"),
             dbc.Row([
                 dbc.Col(dcc.Graph(id='fb-geo-figure', style={"height": "100%"}), 
@@ -339,12 +350,14 @@ class Dashboard():
                           [State("results-dropdown-fbmc", "value"),
                            State("gsk-dropdown", "value"),
                            State("input-minram", "value"),
+                           State("input-frm", "value"),
                            State("input-cne-sensitivity", "value"),
                            State("input-cnec-sensitivity", "value"),
                            State('results-dropdown-fbmc-market', 'value'),
                            State('timestep-selector-fbmc-market', 'value'),
                            State('domain-x-dropdown', 'value'),
-                           State('domain-y-dropdown', 'value')])(self.update_domain_plot)
+                           State('domain-y-dropdown', 'value'),
+                           State("switch-fb-domain-nex-correction", "on")])(self.update_domain_plot)
         
         self.app.callback(Output("fb-geo-figure", "figure"),
                           [Input("botton-fb-domains", "n_clicks"),
@@ -445,28 +458,30 @@ class Dashboard():
             fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
             return fig
 
-    def update_domain_plot(self, click, basecase, gsk, minram, cne_sensitivity, cnec_sensitivity,
-                           result_name, timestep, domain_x, domain_y):
+    def update_domain_plot(self, click, basecase, gsk, minram, frm, cne_sensitivity, cnec_sensitivity,
+                           result_name, timestep, domain_x, domain_y, correct_for_nex):
         if not basecase or (domain_x == domain_y) or not result_name: 
             return {}
-
-        
         basecase = self.pomato_instance.data.results[basecase]
         result = self.pomato_instance.data.results[result_name]
         if isinstance(timestep, int):
             timestep = basecase.model_horizon[timestep]
         self.pomato_instance.options["grid"]["minram"] = minram/100
+        self.pomato_instance.options["grid"]["capacity_multiplier"] = 1 - frm/100
         fb_parameter_function = self.pomato_instance.fbmc.create_flowbased_parameters
-
         fb_parameters = fb_parameter_function(basecase, gsk, timesteps=[timestep],
                                               cne_sensitivity=cne_sensitivity/100, 
                                               lodf_sensitivity=cnec_sensitivity/100)
         fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
         domain_x, domain_y = domain_x.split("-"), domain_y.split("-")
-        domain_plot = fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep, 
-                                                          commercial_exchange=result.EX)
+        if correct_for_nex:
+            domain_plot = fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep, 
+                                                              commercial_exchange=result.EX)
+        else: 
+            domain_plot = fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep)
+       
         fig = self.pomato_instance.visualization.create_fb_domain_plot(domain_plot, show_plot=False)
-        
+    
         commercial_exchange = result.EX[result.EX.t == timestep].copy()
         commercial_exchange.set_index(["z", "zz"], inplace=True)
 
@@ -474,7 +489,7 @@ class Dashboard():
         nex_y = commercial_exchange.loc[tuple(domain_y), "EX"] - commercial_exchange.loc[tuple(domain_y[::-1]), "EX"]
         fig.add_trace(go.Scatter(x=[nex_x], y=[nex_y], mode="markers", name="Market Outcome"))
         fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
-        return fig 
+        return fig
 
     def update_domain_dropdown(self, basecase):
         if not basecase:
@@ -668,8 +683,4 @@ class Dashboard():
                                    show_plot=False)
         fig.update_layout(uirevision = True)
         return fig
-
-
-
-
 

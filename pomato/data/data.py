@@ -64,7 +64,6 @@ class Timeseries():
         else:
             return self._availability_rt
 
-
 class DataManagement():
     """The DataManagement class provides processed data to all other modules in POMATO
 
@@ -289,7 +288,6 @@ class DataManagement():
         else:
             self.logger.warning("Data validation completed with no issues.")
 
-
     def process_input(self):
         """Input Processing to bring input data is the desired pomato format.
 
@@ -325,7 +323,7 @@ class DataManagement():
         processed data to the predefined model structure and adds default values or empty tables
         to allow different data sets run in POMATO.
 
-        For example: the IEEE118 case study does not containt heat demand or generation, also are
+        For example: the IEEE118 case study does not contain heat demand or generation, also are
         there no timeseries to cover adjacent regions via net export parameters. So the input data
         can cover a subjet of possible data set but the model data has to be consistent.
         """

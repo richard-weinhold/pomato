@@ -1,7 +1,6 @@
 import json
 import logging
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import types
@@ -52,17 +51,17 @@ class Results():
         self.data = data
         self.output_folder = self.data.wdir.joinpath("data_output").joinpath(result_folder.name)
 
-        variables = {variable: False for variable in ["G", "H",
-                                                      "D_es", "L_es",
-                                                      "D_hs", "L_hs",
-                                                      "INJ", "EX",
-                                                      "D_ph", "F_DC", "CURT", "Alpha"]}
+        variables = {variable: False for variable in ["G", "H", "D_es", "L_es", "D_hs", "L_hs",
+                                                      "INJ", "EX", "D_ph", "F_DC", "CURT", "Alpha",
+                                                      "COST_G", "COST_H", "COST_EX", "COST_CURT", 
+                                                      "COST_REDISPATCH", "COST_INFEASIBILITY_EL",
+                                                      "COST_INFEASIBILITY_H"]}
 
         dual_variables = {variable: False for variable in ["EB_nodal", "EB_zonal", "EB_heat"]}
 
         infeasibility_variables = {variable: False
-                                   for variable in ["INFEAS_H_POS", "INFEAS_H_NEG",
-                                                    "INFEAS_EL_N_POS", "INFEAS_EL_N_NEG"]}
+                                   for variable in ["INFEASIBILITY_H_POS", "INFEASIBILITY_H_NEG",
+                                                    "INFEASIBILITY_EL_POS", "INFEASIBILITY_EL_NEG"]}
 
         self.result_attributes = {"variables": variables,
                                   "dual_variables": dual_variables,
@@ -111,8 +110,6 @@ class Results():
             else:
                 self.logger.warning("Corresponding market result to %s not or with new name instantiated", self.result_attributes["name"])
                 self.logger.warning("Manually set market result name in result attributes.")
-        # set-up: don't show the graphs when created
-        plt.ioff()
 
     def load_results_from_folder(self, folder):
         """Load results from folder.
@@ -160,7 +157,7 @@ class Results():
 
         self.result_attributes["source_folder"] = str(folder)
         self.result_attributes["name"] = folder.name
-        if not "title" in self.result_attributes:
+        if not "title" in self.result_attributes or self.result_attributes["title"] == "default":
             self.result_attributes["title"] = self.result_attributes["name"]
         # Model Horizon as attribute
         self.result_attributes["model_horizon"] = list(self.INJ['t'].drop_duplicates().sort_values())
@@ -289,9 +286,9 @@ class Results():
         DataFrame
             DataFrame of nodal infeasibilities with columns [t, n, pos, neg].
         """        
-        infeasibility = pd.merge(self.data.nodes, self.INFEAS_EL_N_POS, left_index=True, right_on="n")
-        infeasibility = pd.merge(infeasibility, self.INFEAS_EL_N_NEG, on=["t", "n"])
-        infeasibility = infeasibility.rename(columns={"INFEAS_EL_N_POS": "pos", "INFEAS_EL_N_NEG": "neg"})
+        infeasibility = pd.merge(self.data.nodes, self.INFEASIBILITY_EL_POS, left_index=True, right_on="n")
+        infeasibility = pd.merge(infeasibility, self.INFEASIBILITY_EL_NEG, on=["t", "n"])
+        infeasibility = infeasibility.rename(columns={"INFEASIBILITY_EL_POS": "pos", "INFEASIBILITY_EL_NEG": "neg"})
         
         if drop_zero:
             return infeasibility[(infeasibility.pos > 0) | (infeasibility.neg > 0)]
@@ -317,13 +314,10 @@ class Results():
         eb_nodal = pd.merge(eb_nodal, self.data.nodes.zone.to_frame(),
                             how="left", left_on="n", right_index=True)
         eb_nodal.loc[abs(eb_nodal.EB_nodal) < 1E-3, "EB_nodal"] = 0
-
         eb_zonal = self.EB_zonal.copy()
         eb_zonal.loc[abs(eb_zonal.EB_zonal) < 1E-3, "EB_zonal"] = 0
-
         price = pd.merge(eb_nodal, eb_zonal, how="left",
                          left_on=["t", "zone"], right_on=["t", "z"])
-
         price["marginal"] = -(price.EB_zonal + price.EB_nodal)
         return price[["t", "n", "z", "marginal"]]
 
@@ -347,8 +341,8 @@ class Results():
         Parameters
         ----------
         force_recalc : bool, optional
-            Generation is cached automatically. To enforce recalc, e.g. when explicitly changing data
-            set this force_recalc to True. Defaults to False. 
+            Generation is cached automatically. To enforce recalc, e.g. when explicitly changing
+            data set this force_recalc to True. Defaults to False. 
 
         Returns
         -------
@@ -379,8 +373,8 @@ class Results():
         Parameters
         ----------
         force_recalc : bool, optional
-            Generation is cached automatically. To enforce recalc, e.g. when explicitly changing data
-            set this force_recalc to True. Defaults to False. 
+            Generation is cached automatically. To enforce recalc, e.g. when explicitly changing
+            data set this force_recalc to True. Defaults to False. 
         
         Returns
         -------

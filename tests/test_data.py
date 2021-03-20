@@ -74,8 +74,8 @@ class TestPomatoData(unittest.TestCase):
 
         return (result.G.G.sum() 
                 - result.data.demand_el.loc[condition, "demand_el"].sum()  
-                + result.INFEAS_EL_N_POS.INFEAS_EL_N_POS.sum() 
-                - result.INFEAS_EL_N_NEG.INFEAS_EL_N_NEG.sum())
+                + result.INFEASIBILITY_EL_POS.INFEASIBILITY_EL_POS.sum() 
+                - result.INFEASIBILITY_EL_NEG.INFEASIBILITY_EL_NEG.sum())
 
     def test_results_uniform_pricing(self):
         # obj 990129.5893227865
@@ -121,7 +121,7 @@ class TestPomatoData(unittest.TestCase):
     def test_results_scopf(self):
         # obj 3899019.71757418
         # n-0 : 0 OL; n-1 : 29 OL
-        grid  = pomato.grid.GridTopology()
+        grid = pomato.grid.GridTopology()
         grid.calculate_parameters(self.data.nodes, self.data.lines)
         folder = self.wdir.joinpath("scopf_market_results")
         result = pomato.data.Results(self.data, grid, folder)

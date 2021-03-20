@@ -328,12 +328,11 @@ class FBMCModule():
         f_ref_base_case = np.dot(nodal_fbmc_ptdf, inj.T)
 
         frm_fav = self.grid.lines.capacity[fbmc_data.cb].values*(1 - self.options["grid"]["capacity_multiplier"])
-
         nex = basecase.net_position().loc[timesteps, :]
 
         self.logger.info("Calculating zonal ptdf using %s gsk strategy.", gsk_strategy)
         if gsk_strategy == "dynamic":
-            zonal_fbmc_ptdf = {timestep : np.dot(nodal_fbmc_ptdf, self.create_dynamic_gsk(basecase, timestep)) for timestep in timesteps}
+            zonal_fbmc_ptdf = {timestep: np.dot(nodal_fbmc_ptdf, self.create_dynamic_gsk(basecase, timestep)) for timestep in timesteps}
             f_da = np.vstack([np.dot(zonal_fbmc_ptdf[timestep], nex.loc[timestep, :]) for timestep in timesteps]).T
         else:
             zonal_fbmc_ptdf_tmp = np.dot(nodal_fbmc_ptdf, self.create_gsk(gsk_strategy))
@@ -341,10 +340,9 @@ class FBMCModule():
             f_da = np.dot(zonal_fbmc_ptdf_tmp, nex.values.T)
 
         f_ref_nonmarket = f_ref_base_case - f_da
-        ram = (self.grid.lines.capacity[fbmc_data.cb].values - frm_fav  - f_ref_nonmarket.T).T
-
-        self.logger.info("Applying minRAM of %d%%.", self.options["grid"]["minram"]*100)
-        minram = (self.grid.lines.capacity[fbmc_data.cb] * self.options["grid"]["minram"]).values
+        ram = (self.grid.lines.capacity[fbmc_data.cb].values - frm_fav - f_ref_nonmarket.T).T
+        minram = (self.grid.lines.capacity[fbmc_data.cb] * self.options["grid"]["minram"]).values.reshape(len(f_ref_base_case), 1)
+        self.logger.info("Applying minRAM of %d%% on %d CBCOs", self.options["grid"]["minram"]*100, (ram < minram).any(axis=1).sum())
         for j in range(0, ram.shape[0]):
             ram[j, ram[j, :] < minram[j]] = minram[j]
 

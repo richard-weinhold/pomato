@@ -19,7 +19,7 @@ def instantiate_julia_dev(redundancyremoval_path, marketmodel_path, gurobi=True)
     pomato.tools.julia_management.instantiate_julia_dev()
     """
     cwd = str(Path(__file__).parent)
-    args = ["julia", "julia_install_dev.jl", redundancyremoval_path, marketmodel_path] 
+    args = ["julia", "julia_install_dev.jl", str(redundancyremoval_path), str(marketmodel_path)] 
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                           stderr=subprocess.STDOUT, cwd=cwd) as program:
         for line in program.stdout:

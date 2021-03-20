@@ -209,7 +209,6 @@ class GridTopology():
 
         return contingency_groups
 
-
     def slack_zones(self):
         """Return nodes that are balanced through each slack.
 
@@ -414,7 +413,6 @@ class GridTopology():
             # self.logger.exception("error in create_lodf_matrix ", sys.exc_info()[0])
             raise ZeroDivisionError('LODFError: Check Slacks, radial Lines/Nodes')
             
-
     def lodf_filter(self, line, sensitivity=5e-2, as_index=False):
         """Return outages that impact the specified line with more that the specified sensitivity.
 
@@ -580,4 +578,3 @@ class GridTopology():
             return data
         except:
             self.logger.exception('error:create_n_1_ptdf')
-

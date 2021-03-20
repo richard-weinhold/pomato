@@ -348,6 +348,14 @@ def reduce_df_size(df):
         #     df[col] = pd.to_numeric(df[col], downcast="float")
     return df
 
+def fillna_numeric_columns(df, value):
+    """Fill NaN with value in numeric columns."""
+    df = df.copy()
+    for col in df:
+        if df[col].dtype in ("int", "float"):
+            df[col] = df[col].fillna(value)
+    return df
+
 def default_options():
     """Returns the default options of POMATO."""
     options = {

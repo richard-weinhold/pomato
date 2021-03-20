@@ -74,8 +74,8 @@ class Visualization():
         self.wdir = wdir
         self.data = data
 
-    def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, show_nex=False,
-                        show_curtailment=True, timestep=None, threshold=0, highlight_nodes=None, 
+    def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, show_infeasibility=False,
+                        show_curtailment=False, timestep=None, threshold=0, highlight_nodes=None, 
                         highlight_lines=None,  line_color_option=0, show_plot=True, filepath=None):
         """Creates Geoplot of market result.
 
@@ -101,7 +101,7 @@ class Visualization():
             Shows plot after generation. If false, returns plotly figure instead. By default True.
         filepath : pathlib.Path, str, optional
             If filepath is supplied, saves figure as .html, by default None
-        """    
+        """  
         dclines = market_result.data.dclines.copy()
         lines = market_result.data.lines.copy()
         nodes = market_result.data.nodes.copy()
@@ -131,6 +131,17 @@ class Visualization():
                 curtailment = curtailment[["node", "CURT"]].groupby("node").sum()
                 curtailment = pd.merge(nodes["zone"], curtailment, how="left", left_index=True, right_index=True)
                 nodes = pd.merge(nodes, curtailment["CURT"].fillna(0), left_index=True, right_index=True)
+        
+        if show_infeasibility: 
+            infeasibility = market_result.infeasibility()
+            if isinstance(timestep, str):
+                infeasibility = infeasibility.loc[infeasibility.t == timestep, ["n", "pos", "neg"]].groupby("n").sum()
+                infeasibility = pd.merge(nodes["zone"], infeasibility, how="left", left_index=True, right_index=True)
+                nodes = pd.merge(nodes, infeasibility[["pos", "neg"]].fillna(0), left_index=True, right_index=True)
+            else:
+                infeasibility = infeasibility[["n", "pos", "neg"]].groupby("n").sum()
+                infeasibility = pd.merge(nodes["zone"], infeasibility, how="left", left_index=True, right_index=True)
+                nodes = pd.merge(nodes, infeasibility[["pos", "neg"]].fillna(0), left_index=True, right_index=True)
 
         if isinstance(timestep, str):
             result_data = market_result.create_result_data()
@@ -294,6 +305,30 @@ class Visualization():
                     "Curtailment: %{customdata[2]:.2f} MW",
                 ]) + "<extra></extra>"
             ))
+
+        elif show_infeasibility and any(nodes[["pos", "neg"]] > 0):
+            affected_nodes = nodes.index[(nodes[["pos", "neg"]] > 0).any(axis=1)]
+            sizeref = max(4*nodes[["pos", "neg"]].max().max()/12**2, 1)
+            for col, color in zip(["pos", "neg"], ["#4575B4", "#F46D43"]):
+                condition = nodes[col] > 0
+                fig.add_trace(go.Scattermapbox(
+                    lon = nodes.loc[condition, 'lon'],
+                    lat = nodes.loc[condition, 'lat'],
+                    mode = 'markers',
+                    marker = go.scattermapbox.Marker(
+                        color = color,
+                        opacity=0.8,
+                        sizeref = sizeref,
+                        sizemin = 3,
+                        size=nodes.loc[condition, col]),
+                    customdata=nodes.loc[condition, ["zone", "pos", "neg"]].reset_index(),
+                    hovertemplate=
+                    "<br>".join([
+                        "Node: %{customdata[0]}",
+                        "Zone: %{customdata[1]}",
+                        "Infeasibilities: + %{customdata[2]:.2f}, - %{customdata[3]:.2f} MW",
+                    ]) + "<extra></extra>"
+                ))
         
         # Plot the remaining nodes
         fig.add_trace(go.Scattermapbox(
@@ -684,6 +719,7 @@ class Visualization():
         plants = pd.merge(plants, plant_colors, on=["fuel", "technology"])
         fig = px.bar(plants, x="zone", y="g_max", color="name", 
                      color_discrete_map=plant_colors[["color", "name"]].set_index("name").color.to_dict())
+        fig.update_xaxes(categoryorder='array', categoryarray=data.zones.index)
         fig.layout.yaxis.title = "Installed Capacity [GW]"
         fig.layout.xaxis.title = "Zone/Country"
         if filepath:
@@ -799,7 +835,7 @@ class Visualization():
                 go.Scatter(x=fb_domain.feasible_region_vertices[:, 0], 
                             y=fb_domain.feasible_region_vertices[:, 1],
                             line = dict(width = 1, color="red"),
-                            opacity=1, name="FB Domain",
+                            opacity=1, name=f"FB Domain<br>Volume: {int(fb_domain.volume)}",
                             mode='lines', hoverinfo="none"
                         )
                 )
@@ -967,6 +1003,8 @@ class Visualization():
                         side='right'),
             )
         fig = go.Figure(data=data, layout=layout)
+        result_tiles = [r.result_attributes["title"] for r in market_results]
+        fig.update_xaxes(categoryorder='array', categoryarray=result_tiles)
         if filepath:
             fig.write_html(str(filepath))
         if show_plot:
