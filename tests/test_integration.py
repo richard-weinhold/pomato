@@ -64,7 +64,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         basecase = mato.data.results[result_name]
         mato.options["grid"]["minram"] = 0.2
         mato.options["grid"]["sensitivity"] = 0.1
-        fb_parameters = mato.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
+        fb_parameters = mato.create_flowbased_parameters(basecase, gsk_strategy="gmax")
 
         # %% FBMC market clearing
         mato.options["redispatch"]["include"] = True
