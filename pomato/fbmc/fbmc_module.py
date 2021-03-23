@@ -8,6 +8,7 @@ import pandas as pd
 import progress
 progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
 import types
+import itertools
 
 import pomato
 import pomato.tools as tools
@@ -260,7 +261,8 @@ class FBMCModule():
         return nodal_fbmc_ptdf, fbmc_data
    
     def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=False, flowbased_region=None, 
-                                    cne_sensitivity=None, lodf_sensitivity=None, timesteps=None):
+                                    cne_sensitivity=None, lodf_sensitivity=None, timesteps=None, 
+                                    include_ntc_domain=True):
         """Create Flow-Based Paramters.
 
         Creates the FB Paramters for the supplied basecase. Optional arguments are 
@@ -354,7 +356,40 @@ class FBMCModule():
             fb_parameters["timestep"] = timestep
             fb_parameters["gsk_strategy"] = gsk_strategy
             fb_parameters = fb_parameters[["cb", "co", "ram", "timestep", "gsk_strategy"] + list(list(self.data.zones.index))]
+
             domain_data[timestep] = fb_parameters
         fb_parameters =  pd.concat([domain_data[timestep] for timestep in timesteps], ignore_index=True)
         fb_parameters.set_index(fb_parameters.cb + "_" + fb_parameters.co, inplace=True)
+        
+        if include_ntc_domain:
+            fb_parameters = self.enforce_ntc_domain(fb_parameters)
+
         return fb_parameters
+
+
+    def enforce_ntc_domain(self, fb_parameters):
+        """Remove enforce domain to include NTC values"""
+
+        if self.data.ntc.empty:
+            self.logger.error("NTCs not in data.")
+            return fb_parameters
+
+        A = fb_parameters.loc[:, self.data.zones.index].values
+        b = fb_parameters.loc[:, "ram"].values.reshape(len(A), 1)
+
+        zones = list(self.data.zones.index)
+        ntc = self.data.ntc.copy()
+        ntc.set_index(["zone_i", "zone_j"], inplace=True)
+        points = []
+        for exchange in itertools.combinations(ntc.index, len(zones)):
+            tmp = np.zeros((len(zones), 1))
+            for (f,t) in exchange:
+                tmp[zones.index(f)] += ntc.loc[(f,t), "ntc"]
+                tmp[zones.index(t)] -= ntc.loc[(f,t), "ntc"]
+            points.append(tmp)
+    
+        condition = []
+        for p in points:
+            condition.append(np.dot(A, p).reshape(len(A), 1) <= b)
+
+        return fb_parameters.loc[np.hstack(condition).all(axis=1), :]

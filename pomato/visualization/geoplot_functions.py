@@ -142,7 +142,7 @@ def line_colors(lines, n_0_flows, n_1_flows, threshold=0, highlight_lines=None,
         color = create_voltage_colors(lines)
         line_alpha = [0.6 for i in lines.index]
 
-    if isinstance(highlight_lines, list):
+    if isinstance(highlight_lines, list) and len(highlight_lines) > 0:
         line_alpha = [1 if l in highlight_lines else 0.2 for l in lines.index]
 
     return color, line_alpha

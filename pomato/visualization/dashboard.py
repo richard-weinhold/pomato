@@ -239,7 +239,15 @@ def page_fbmc():
                 dbc.Col([
                     html.Div("Correct FB Domain for NEX in Market Result:"),
                     daq.BooleanSwitch(id='switch-fb-domain-nex-correction', on=True),
-                    ], style={"padding": "15px"}, width={"size": 3})
+                    ], style={"padding": "15px"}, width={"size": 3}),
+                dbc.Col([
+                    html.Div("Enforce FB Domain to include NTCs with value:"),
+                    daq.BooleanSwitch(id='switch-fb-domain-ntc', on=False),
+                    ], style={"padding": "15px"}, width={"size": 3}),
+                dbc.Col([
+                    html.Br(),
+                    dbc.Input(id="input-fb-domain-ntc", type="number", value=500), 
+                    ], style={"padding": "15px"}, width={"size": 1}),                                        
                 ], className="h-10"),
             dbc.Row([
                 dbc.Col(dcc.Graph(id='fb-geo-figure', style={"height": "100%"}), 
@@ -357,7 +365,10 @@ class Dashboard():
                            State('timestep-selector-fbmc-market', 'value'),
                            State('domain-x-dropdown', 'value'),
                            State('domain-y-dropdown', 'value'),
-                           State("switch-fb-domain-nex-correction", "on")])(self.update_domain_plot)
+                           State("switch-fb-domain-nex-correction", "on"),
+                           State("switch-fb-domain-ntc", "on"),
+                           State("input-fb-domain-ntc", "value"),
+                           ])(self.update_domain_plot)
         
         self.app.callback(Output("fb-geo-figure", "figure"),
                           [Input("botton-fb-domains", "n_clicks"),
@@ -459,11 +470,12 @@ class Dashboard():
             return fig
 
     def update_domain_plot(self, click, basecase, gsk, minram, frm, cne_sensitivity, cnec_sensitivity,
-                           result_name, timestep, domain_x, domain_y, correct_for_nex):
+                           result_name, timestep, domain_x, domain_y, correct_for_nex, include_ntc, ntc_value):
         if not basecase or (domain_x == domain_y) or not result_name: 
             return {}
         basecase = self.pomato_instance.data.results[basecase]
         result = self.pomato_instance.data.results[result_name]
+        self.pomato_instance.data.ntc = self.pomato_instance.grid_model.create_ntc(ntc_value)
         if isinstance(timestep, int):
             timestep = basecase.model_horizon[timestep]
         self.pomato_instance.options["grid"]["minram"] = minram/100
@@ -471,7 +483,8 @@ class Dashboard():
         fb_parameter_function = self.pomato_instance.fbmc.create_flowbased_parameters
         fb_parameters = fb_parameter_function(basecase, gsk, timesteps=[timestep],
                                               cne_sensitivity=cne_sensitivity/100, 
-                                              lodf_sensitivity=cnec_sensitivity/100)
+                                              lodf_sensitivity=cnec_sensitivity/100,
+                                              include_ntc_domain=include_ntc)
         fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
         domain_x, domain_y = domain_x.split("-"), domain_y.split("-")
         if correct_for_nex:
@@ -484,10 +497,19 @@ class Dashboard():
     
         commercial_exchange = result.EX[result.EX.t == timestep].copy()
         commercial_exchange.set_index(["z", "zz"], inplace=True)
-
         nex_x = commercial_exchange.loc[tuple(domain_x), "EX"] - commercial_exchange.loc[tuple(domain_x[::-1]), "EX"]
         nex_y = commercial_exchange.loc[tuple(domain_y), "EX"] - commercial_exchange.loc[tuple(domain_y[::-1]), "EX"]
         fig.add_trace(go.Scatter(x=[nex_x], y=[nex_y], mode="markers", name="Market Outcome"))
+
+        if include_ntc:
+            ntc_domain = [(ntc_value, ntc_value), (-ntc_value, ntc_value), 
+                          (-ntc_value, -ntc_value), (ntc_value, -ntc_value), 
+                          (ntc_value, ntc_value)]
+            fig.add_trace(go.Scatter(x=np.asarray(ntc_domain)[:, 0], 
+                                    y=np.asarray(ntc_domain)[:, 1],
+                                    line=dict(color='blue', width=1, dash='dash'),
+                                    name="NTC-Domain"))
+
         fig.update_layout(margin={"r":0,"t":0,"l":0,"b":0})
         return fig
 
@@ -652,8 +674,7 @@ class Dashboard():
         result = self.pomato_instance.data.results[result_name]
         vis = self.pomato_instance.visualization
         if len(lines) == 0:
-            lines = list(result.data.lines.index)
-
+            lines = None
         fig =  vis.create_geo_plot(result, 
                                    show_redispatch=show_redispatch, 
                                    show_prices=show_prices,

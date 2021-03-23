@@ -190,7 +190,6 @@ class Visualization():
                 hovertemplate=hovertemplate_dclines
             )
         )
-
         line_coords = np.array(result_data.line_coordinates)
         lines["colors"], lines["alpha"] = line_colors(lines, n_0_flows, n_1_flows, 
                                                       option=line_color_option,
