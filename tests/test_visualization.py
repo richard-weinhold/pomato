@@ -303,7 +303,10 @@ class TestPomatoDashboard(unittest.TestCase):
     def test_update_domain_plot(self):
         result_name = "nodal_market_results"
         fig = self.dashboard.update_domain_plot(True, result_name, "gmax", 40, 0, 10, 25, 
-                                                result_name, 0, "R1-R2", "R2-R3", True)
+                                                result_name, 0, "R1-R2", "R2-R3", True, False, 0)
+        self.assertTrue(isinstance(fig, plotly.graph_objs.Figure))
+        fig = self.dashboard.update_domain_plot(True, result_name, "gmax", 40, 0, 10, 25, 
+                                                result_name, 0, "R1-R2", "R2-R3", True, True, 500)
         self.assertTrue(isinstance(fig, plotly.graph_objs.Figure))
 
     def test_update_fb_geo_plot(self):
