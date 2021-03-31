@@ -687,7 +687,7 @@ class Visualization():
         else:
             return fig
 
-    def create_installed_capacity_plot(self, data, show_plot=True, filepath=None):
+    def create_installed_capacity_plot(self, data=None, show_plot=True, filepath=None):
         """Create plot visualizing installed capacity per market area.
 
         The installed capacity plot visualizes the installed capacity as stacked bar charts. The 
@@ -695,13 +695,15 @@ class Visualization():
         
         Parameters
         ----------
-        data : :class:`~pomato.data.DataManagement` or :class:`~pomato.data.Results`
-            Data to plot. 
+        data : :class:`~pomato.data.DataManagement` or :class:`~pomato.data.Results`, optional
+            Data to plot, defaults to class attribute data. 
         show_plot : bool, optional
             Shows plot after generation. If false, returns plotly figure instead. By default True.
         filepath : pathlib.Path, str, optional
             If filepath is supplied, saves figure as .html, by default None
         """
+        if not data:
+            data = self.data
         if isinstance(data, pomato.data.Results):
             data = data.data
         
@@ -814,13 +816,15 @@ class Visualization():
         hovertemplate = "<br>".join(["cb: %{customdata[0]}", 
                                      "co: %{customdata[1]}", 
                                      "ram: %{customdata[2]:.2f}"]) + "<extra></extra>"
-        fig.add_trace(
-            go.Scatter(x=n0_lines_x, y=n0_lines_y, name='N-0 Constraints',
-                    line = dict(width = 1.5, color="dimgrey"),
-                    customdata=np.vstack(hover_data_n0),
-                    hovertemplate=hovertemplate
-                    )
-            )
+        if len(hover_data_n0) > 0:
+            fig.add_trace(
+                go.Scatter(x=n0_lines_x, y=n0_lines_y, name='N-0 Constraints',
+                        line = dict(width = 1.5, color="dimgrey"),
+                        customdata=np.vstack(hover_data_n0),
+                        hovertemplate=hovertemplate
+                        )
+                )
+            
         fig.add_trace(
             go.Scatter(x=n1_lines_x, y=n1_lines_y, name='N-1 Constraints',
                     line = dict(width = 1, color="lightgrey"),
@@ -875,7 +879,8 @@ class Visualization():
             data = [(name, c, objective_values[c]/1e6) for c in columns]
             tmp = pd.DataFrame(data=data, columns=["result", "costs", "value"])
             tmp["color"] = colors
-            tmp["percentage_value"] = tmp.value / tmp.value.sum()*100
+            tmp["total_costs"] = tmp.value.sum()
+            tmp["percentage_of_total_costs"] = tmp.value / tmp.value.sum()*100
             if cost_data.empty:
                 cost_data = tmp
             else:
@@ -883,7 +888,8 @@ class Visualization():
 
         hovertemplate = '<b>%{customdata[0]}</b> \
                         <br>Costs = %{customdata[1]:.2f} \
-                        <br>%{customdata[2]:.0f}% of total Costs\
+                        <br>Total costs = %{customdata[2]:.2f} \
+                        <br>%{customdata[3]:.0f}% of total costs\
                         <extra></extra>'
         data = []                 
         for cost in cost_data.costs.unique():
@@ -894,7 +900,7 @@ class Visualization():
                 marker_color=cost_data.loc[cost_data.costs == cost, "color"],
                 marker_line_color='black',
                 hovertemplate=hovertemplate,
-                customdata=cost_data.loc[cost_data.costs == cost, ["costs", "value", "percentage_value"]],
+                customdata=cost_data.loc[cost_data.costs == cost, ["costs", "value", "total_costs", "percentage_of_total_costs"]],
                 width=0.9,
                 )
             )
@@ -916,7 +922,7 @@ class Visualization():
 
         Parameters
         ----------
-        market_results : list of :class:`~pomato.data.DataManagement`
+        market_results : list of :class:`~pomato.data.Results`
             Market results which is plotted. 
         show_plot : bool, optional
             Shows plot after generation. If false, returns plotly figure instead. By default True.
@@ -927,25 +933,26 @@ class Visualization():
             raise TypeError("Submit list of market results")
 
         gen = pd.DataFrame()
-        cols = ["fuel", "technology", "result", "G", "Redispatch"]
         for result in market_results: 
             if (result.result_attributes["is_redispatch_result"] and 
                 result.result_attributes["corresponding_market_result_name"]):
                 tmp = result.redispatch()
-                tmp = tmp.rename(columns={"G_redispatch": "G", "delta": "Redispatch"})
+                tmp = tmp.rename(columns={"G_redispatch": "G"})
             else:
                 tmp = result.generation()
-                tmp["Redispatch"] = 0
+                tmp["delta"] = 0
+                tmp["delta_abs"] = 0
             tmp["result"] = result.result_attributes["title"]
-            tmp = tmp[cols]
             if gen.empty:
                 gen = tmp
             else:
                 gen = pd.concat([gen, tmp], ignore_index=True)
             
         names = color_map(gen)
-        gen.loc[:, ["G", "Redispatch"]] /= 1000
-        gen = gen[cols].groupby(["fuel", "technology", "result"]).sum().reset_index()
+        gen.loc[:, ["G", "delta", "delta_abs"]] /= 1000
+        gen["positive_redispatch"] = gen.loc[gen.delta > 0, "delta"]
+        gen["negative_redispatch"] = gen.loc[gen.delta < 0, "delta"]
+        gen = gen.groupby(["fuel", "technology", "result"]).sum().reset_index()
 
         gen = pd.merge(gen, names, on=["fuel", "technology"])
         gen["percentage_gen"] = 0
@@ -953,8 +960,8 @@ class Visualization():
         gen["precentage_redispatch"] = 0
         for r in gen.result.unique():
             gen.loc[gen.result == r, "percentage_gen"] = gen.loc[gen.result == r, "G"]/gen.loc[gen.result == r, "G"].sum()*100
-            gen.loc[gen.result == r, "total_redispatch"] = gen.loc[gen.result == r, "Redispatch"].abs().sum()
-            gen.loc[gen.result == r, "precentage_redispatch"] = gen.loc[gen.result == r, "Redispatch"].abs()/gen.loc[gen.result == r, "Redispatch"].abs().sum()*100
+            gen.loc[gen.result == r, "total_redispatch"] = gen.loc[gen.result == r, "delta_abs"].sum()
+            gen.loc[gen.result == r, "precentage_redispatch"] = gen.loc[gen.result == r, "delta_abs"]/gen.loc[gen.result == r, "delta_abs"].sum()*100
 
         hovertemplate_gen = '<b>%{customdata[0]}</b> \
                             <br>Generation = %{customdata[1]:.2f} GWh \
@@ -978,20 +985,21 @@ class Visualization():
                 customdata=gen.loc[gen.name == name, ["name", "G", "percentage_gen"]],
                 width=0.8,
                 yaxis='y1'))
-        
-            data.append(go.Bar(
-                name=name, 
-                legendgroup=name,
-                showlegend=False,
-                x=[gen.loc[gen.name == name, "result"], ['Redispatch']*len(market_results)],
-                y=gen.loc[gen.name == name, "Redispatch"],
-                marker_color=gen.loc[gen.name == name, "color"],
-                hovertemplate=hovertemplate_red,
-                customdata=gen.loc[gen.name == name, ["name", "Redispatch", "total_redispatch", "precentage_redispatch"]],
-                width=0.8,
-                opacity=0.7,
-                yaxis='y2')
-                )
+            for redispatch in ["positive_redispatch", "negative_redispatch"]:
+                data.append(go.Bar(
+                    name=name, 
+                    legendgroup=name,
+                    showlegend=False,
+                    x=[gen.loc[gen.name == name, "result"], ['Redispatch']*len(market_results)],
+                    y=gen.loc[gen.name == name, redispatch],
+                    marker_color=gen.loc[gen.name == name, "color"],
+                    hovertemplate=hovertemplate_red,
+                    customdata=gen.loc[gen.name == name, ["name", redispatch, "total_redispatch", "precentage_redispatch"]],
+                    width=0.8,
+                    opacity=0.7,
+                    yaxis='y2')
+                    )
+
         layout = go.Layout(
             template="simple_white",
             legend=dict(x=1.1),
@@ -1004,6 +1012,69 @@ class Visualization():
         fig = go.Figure(data=data, layout=layout)
         result_tiles = [r.result_attributes["title"] for r in market_results]
         fig.update_xaxes(categoryorder='array', categoryarray=result_tiles)
+
+        if filepath:
+            fig.write_html(str(filepath))
+        if show_plot:
+            plot(fig)
+        else:
+            return fig
+
+    def create_merit_order(self, data=None, show_plot=True, filepath=None):
+        """Create merit order of the input data. 
+
+        Parameters
+        ----------
+        data : :class:`~pomato.data.DataManagement` or :class:`~pomato.data.Results`, optional
+            Data to plot, defaults to class attribute data. 
+        show_plot : bool, optional
+            Shows plot after generation. If false, returns plotly figure instead. By default True.
+        filepath : pathlib.Path, str, optional
+            If filepath is supplied, saves figure as .html, by default None
+        """
+        if not data:
+            plants = self.data.plants.copy()
+        elif isinstance(data, pomato.data.DataManagement):
+            plants = data.plants.copy()
+        elif isinstance(data, pomato.data.Results):
+            plants = data.data.plants.copy()
+        else:
+            raise TypeError("Data input argument not correct type. ")
+        if not "technology" in plants.columns:
+            plants["technology"] = plants.plant_type
+        color = color_map(plants)
+        plants = pd.merge(plants, color, on=["technology", "fuel"])
+        plants = plants[["color", "name", "g_max", "mc_el"]].groupby(["color", "name", "mc_el"], observed=True).sum().reset_index()
+        plants = plants.sort_values("mc_el").reset_index()
+        plants["x"] = plants['g_max'].cumsum() - plants['g_max']*0.5
+        hovertemplate = (
+            '<b>%{customdata[0]}</b> \
+            <br>Cost = %{customdata[1]:.2f} $ per MWh \
+            <br>Installed Capacity = %{customdata[2]:.2f} MW \
+            <extra></extra>')
+
+        data = []
+        for name in color.name:
+            data.append(go.Bar(
+                name=name,
+                x=plants.loc[plants.name == name, "x"],
+                y=plants.loc[plants.name == name, "mc_el"],
+                width=plants.loc[plants.name == name, "g_max"],
+                marker_color=plants.loc[plants.name == name, "color"],
+                legendgroup=name,
+                hovertemplate=hovertemplate,
+                customdata=plants.loc[plants.name == name, ["name", "mc_el", "g_max"]]
+            ))
+            
+        layout = go.Layout(
+            template="simple_white",
+            bargap=0,
+            legend=dict(x=1.1),
+            yaxis=dict(title='Costs [$ per MWh]'),
+            xaxis=dict(title='Installed Capacity [MW]'),
+
+        )
+        fig = go.Figure(data=data, layout=layout)
         if filepath:
             fig.write_html(str(filepath))
         if show_plot:

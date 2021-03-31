@@ -161,6 +161,7 @@ class GridModel():
         self.options["type"] = "cbco_zonal"
         self.grid_representation.option = "cbco_zonal"
         self.grid_representation.grid = flowbased_paramters
+        self.grid_representation.contingency_groups = self.grid.contingency_groups
 
     def create_nodal_grid_parameters(self):
         """Process grid information for nodal N-0 representation.

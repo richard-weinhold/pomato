@@ -2,11 +2,10 @@
 import logging
 import sys
 from concurrent.futures import ThreadPoolExecutor
-
+import traceback
 import numpy as np
 import pandas as pd
 import scipy
-
 
 class GridTopology():
     """GridTopology of POMATO
@@ -388,31 +387,36 @@ class GridTopology():
             Indicates error in configuration of slack(s) or contingencies.
         """
         try:
-            A = self.incidence_matrix            
-            # LODF LxO matrix
-            lodf = np.zeros((len(lines), len(outages)))
-            
-            # Invalid contingencies, i.e. lines that connot be outaged remain 0 in lodf
-            outages = [outage for outage in outages if self.lines.iloc[outage].contingency]
-        
-            # LODF for outaged line is set to -1
-            outages_in_lines = [line in outages for line in lines]
-            lines_in_outages = [outage in lines for outage in outages]
-            lodf[outages_in_lines, lines_in_outages] = -1
-            
-            if len(outages) > 0:        
-                # For all lines that are not outaged as part of the contingency the LODF is calculated
-                valid_lines = [line not in outages for line in lines]
-                lines = [line for line in lines if not line in outages]
-         
-                lodf[valid_lines, :] = np.dot(self.ptdf[lines, :] @ A[outages, :].reshape(len(outages), len(self.nodes)).T,
-                                              np.linalg.inv(np.eye(len(outages)) - (self.ptdf[outages, :] 
-                                                            @ A[outages,:].reshape(len(outages), len(self.nodes)).T)))
+            lodf = self._static_create_lodf(self.incidence_matrix, self.ptdf, len(self.nodes), self.lines, lines, outages)     
             return lodf
-        except:
-            # self.logger.exception("error in create_lodf_matrix ", sys.exc_info()[0])
+        except ZeroDivisionError:
             raise ZeroDivisionError('LODFError: Check Slacks, radial Lines/Nodes')
-            
+        except Exception as e:
+            print(traceback.format_exc())
+    
+    @staticmethod
+    def _static_create_lodf(A, ptdf, N, lines_data, lines, outages):
+        
+        # LODF LxO matrix
+        lodf = np.zeros((len(lines), len(outages)))
+        # Invalid contingencies, i.e. lines that connot be outaged remain 0 in lodf
+        outages = [outage for outage in outages if lines_data.iloc[outage].contingency]
+        # LODF for outaged line is set to -1
+        outages_in_lines = [line in outages for line in lines]
+        lines_in_outages = [outage in lines for outage in outages]
+        lodf[outages_in_lines, lines_in_outages] = -1
+        
+        if len(outages) > 0:        
+            # For all lines that are not outaged as part of the contingency the LODF is calculated
+            valid_lines = [line not in outages for line in lines]
+            lines = [line for line in lines if not line in outages]
+        
+            lodf[valid_lines, :] = np.dot(ptdf[lines, :] @ A[outages, :].reshape(len(outages), N).T,
+                                            np.linalg.inv(np.eye(len(outages)) - (ptdf[outages, :] 
+                                                        @ A[outages,:].reshape(len(outages), N).T)))
+        return lodf
+
+
     def lodf_filter(self, line, sensitivity=5e-2, as_index=False):
         """Return outages that impact the specified line with more that the specified sensitivity.
 

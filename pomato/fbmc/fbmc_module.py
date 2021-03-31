@@ -50,8 +50,6 @@ class FBMCModule():
         self.grid = grid
         self.data = data
 
-        # Attributes that are calculated once, as they only depend on the topology and are 
-        # independent from the basecase. 
         self.grid_model = GridModel(self.wdir, self.grid, self.data, self.data.options)
 
     def create_dynamic_gsk(self, basecase, timestep):
@@ -325,6 +323,12 @@ class FBMCModule():
         self.logger.info("COs are selected from nodal PTDFs with %d%% threshold", lodf_sensitivity*100)
         nodal_fbmc_ptdf, fbmc_data = self.create_base_fbmc_parameters(critical_branches, lodf_sensitivity)
 
+        if reduce:
+            cbco = self.grid_model.create_cbco_nodal_grid_parameters()
+            condition = fbmc_data[["cb", "co"]].apply(tuple, axis=1).isin(cbco[["cb", "co"]].apply(tuple, axis=1).values).values
+            nodal_fbmc_ptdf, fbmc_data = nodal_fbmc_ptdf[condition, :], fbmc_data.loc[condition, :]
+
+
         inj = basecase.INJ[basecase.INJ.t.isin(timesteps)].pivot(index="t", columns="n", values="INJ")
         inj = inj.loc[timesteps, basecase.data.nodes.index]
         f_ref_base_case = np.dot(nodal_fbmc_ptdf, inj.T)
@@ -359,11 +363,16 @@ class FBMCModule():
 
             domain_data[timestep] = fb_parameters
         fb_parameters =  pd.concat([domain_data[timestep] for timestep in timesteps], ignore_index=True)
-        fb_parameters.set_index(fb_parameters.cb + "_" + fb_parameters.co, inplace=True)
         
         if include_ntc_domain:
             fb_parameters = self.enforce_ntc_domain(fb_parameters)
 
+        if reduce:
+            cbco_index = self.grid_model.clarkson_algorithm(args={"fbmc_domain": True}, 
+                                                            Ab_info=fb_parameters)   
+            fb_parameters = fb_parameters.loc[cbco_index, :]
+            
+        fb_parameters.set_index(fb_parameters.cb + "_" + fb_parameters.co, inplace=True)
         return fb_parameters
 
 
@@ -373,7 +382,7 @@ class FBMCModule():
         if self.data.ntc.empty:
             self.logger.error("NTCs not in data.")
             return fb_parameters
-
+        self.logger.info("Enforcing FB-parameters to include NTC domain.")
         A = fb_parameters.loc[:, self.data.zones.index].values
         b = fb_parameters.loc[:, "ram"].values.reshape(len(A), 1)
 

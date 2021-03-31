@@ -55,7 +55,7 @@ function run_redundancy_removal_fbmc_domain(multi_threaded::Bool)
 
     if multi_threaded & (Threads.nthreads() >= 2)
         @info("Run FBMC Domain Reduction on $(Threads.nthreads()) threads")
-        RedundancyRemoval.run_redundancy_removal_fbmc_domain(cbco_dir, optimizer.Optimizer, parallel=true)
+        RedundancyRemoval.run_redundancy_removal_fbmc_domain(cbco_dir, optimizer.Optimizer, parallel=false)
     else
         @info("Run case single threaded")
         RedundancyRemoval.run_redundancy_removal_fbmc_domain(cbco_dir, optimizer.Optimizer, parallel=false)
