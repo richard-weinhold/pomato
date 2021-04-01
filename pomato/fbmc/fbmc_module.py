@@ -323,10 +323,11 @@ class FBMCModule():
         self.logger.info("COs are selected from nodal PTDFs with %d%% threshold", lodf_sensitivity*100)
         nodal_fbmc_ptdf, fbmc_data = self.create_base_fbmc_parameters(critical_branches, lodf_sensitivity)
 
-        if reduce:
+        if reduce or self.options["grid"]["precalc_filename"]:
             cbco = self.grid_model.create_cbco_nodal_grid_parameters()
             condition = fbmc_data[["cb", "co"]].apply(tuple, axis=1).isin(cbco[["cb", "co"]].apply(tuple, axis=1).values).values
-            nodal_fbmc_ptdf, fbmc_data = nodal_fbmc_ptdf[condition, :], fbmc_data.loc[condition, :]
+            nodal_fbmc_ptdf, fbmc_data = nodal_fbmc_ptdf[condition | (fbmc_data.co == "basecase") , :], \
+                                                         fbmc_data.loc[condition | (fbmc_data.co == "basecase") , :]
 
 
         inj = basecase.INJ[basecase.INJ.t.isin(timesteps)].pivot(index="t", columns="n", values="INJ")

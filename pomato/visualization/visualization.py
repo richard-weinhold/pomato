@@ -999,7 +999,6 @@ class Visualization():
                     opacity=0.7,
                     yaxis='y2')
                     )
-
         layout = go.Layout(
             template="simple_white",
             legend=dict(x=1.1),

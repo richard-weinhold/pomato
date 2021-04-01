@@ -422,6 +422,9 @@ class POMATO():
         if self.grid_model.julia_instance:
             self.grid_model.julia_instance.join()
             self.grid_model.julia_instance = None
+        if self.fbmc.grid_model.julia_instance:
+            self.fbmc.grid_model.julia_instance.join()
+            self.fbmc.grid_model.julia_instance = None
 
     def _join_julia_instances(self):
         self._join_julia_instance_market_model()
