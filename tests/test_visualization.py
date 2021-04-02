@@ -83,7 +83,7 @@ class TestPomatoVisualization(unittest.TestCase):
     def test_visualization_merit_order_plot(self):
         result = self.mato.data.results["dispatch_redispatch"]
         filepath = self.mato.wdir.joinpath("data_output/capacity_plot.html")
-        self.mato.visualization.create_merit_order_plot(result, show_plot=False, filepath=filepath)
+        self.mato.visualization.create_merit_order(result, show_plot=False, filepath=filepath)
 
     def test_visualization_installed_capacity_plot_exception(self):
         self.assertRaises(TypeError, self.mato.visualization.create_installed_capacity_plot, pd.DataFrame)
