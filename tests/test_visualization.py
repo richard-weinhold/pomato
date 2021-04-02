@@ -21,11 +21,13 @@ class TestPomatoVisualization(unittest.TestCase):
         cls.wdir = Path(cls.temp_dir.name)
         copytree(Path.cwd().joinpath("examples"), cls.wdir)
         copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), cls.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data/cbco_lists"), cls.wdir)
 
         cls.mato = pomato.POMATO(wdir=cls.wdir, options_file="profiles/nrel118.json",
                                   logging_level=logging.ERROR)
         cls.mato.load_data('data_input/nrel_118.zip')
-        
+        cls.mato.options["grid"]["precalc_filename"] = "cbco_nrel_118"
+
         R2_to_R3 = ["bus118", "bus076", "bus077", "bus078", "bus079", 
                     "bus080", "bus081", "bus097", "bus098", "bus099"]
         cls.mato.data.nodes.loc[R2_to_R3, "zone"] = "R3"
@@ -36,6 +38,8 @@ class TestPomatoVisualization(unittest.TestCase):
         
         market_folder = cls.mato.wdir.joinpath("dispatch_market_results")
         redispatch_folder = cls.mato.wdir.joinpath("dispatch_redispatch")
+        scopf_folder = cls.mato.wdir.joinpath("scopf_market_results")
+
         cls.mato.initialize_market_results([market_folder, redispatch_folder])
         cls.mato.data.results["dispatch_redispatch"].result_attributes["corresponding_market_result_name"] = "dispatch_market_results"
 
@@ -58,7 +62,7 @@ class TestPomatoVisualization(unittest.TestCase):
     def test_visualization_generation_pie(self):
         result = self.mato.data.results["dispatch_redispatch"]
         filepath = self.mato.wdir.joinpath("data_output/generation_plot.html")
-        self.mato.visualization.create_generation_plot(result, show_plot=False, filepath=filepath)
+        self.mato.visualization.create_generation_pie(result, show_plot=False, filepath=filepath)
     
     def test_visualization_generation_overview(self):
         results = [self.mato.data.results["dispatch_redispatch"], self.mato.data.results["dispatch_market_results"]]
@@ -76,6 +80,11 @@ class TestPomatoVisualization(unittest.TestCase):
         filepath = self.mato.wdir.joinpath("data_output/capacity_plot.html")
         self.mato.visualization.create_installed_capacity_plot(result, show_plot=False, filepath=filepath)
 
+    def test_visualization_merit_order_plot(self):
+        result = self.mato.data.results["dispatch_redispatch"]
+        filepath = self.mato.wdir.joinpath("data_output/capacity_plot.html")
+        self.mato.visualization.create_merit_order_plot(result, show_plot=False, filepath=filepath)
+
     def test_visualization_installed_capacity_plot_exception(self):
         self.assertRaises(TypeError, self.mato.visualization.create_installed_capacity_plot, pd.DataFrame)
 
@@ -92,10 +101,15 @@ class TestPomatoVisualization(unittest.TestCase):
         basecase = self.mato.data.results["scopf_market_results"]
         self.mato.options["grid"]["minram"] = 0.1
         self.mato.options["grid"]["sensitivity"] = 0.05
+
         fb_parameters = self.mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
         fbmc_domain = pomato.visualization.FBDomainPlots(self.mato.data, fb_parameters)
-        domain_plot = fbmc_domain.generate_flowbased_domain(("R1", "R2"), ["R1", "R3"], "t0001", 
-                                                            commercial_exchange=market_result.EX)
+
+        fbmc_domain.generate_flowbased_domains(("R1", "R2"), ["R1", "R3"], timesteps=["t0001"],
+                                               commercial_exchange=market_result.EX)
+
+        fbmc_domain.set_xy_limits_forall_plots()
+        domain_plot = list(fbmc_domain.fbmc_plots.values())[0]
         #Plotly implementation
         self.mato.visualization.create_fb_domain_plot(domain_plot, show_plot=False)
 
@@ -120,6 +134,10 @@ class TestPomatoVisualization(unittest.TestCase):
         result = self.mato.data.results["dispatch_redispatch"]
         self.mato.visualization.create_geo_plot(result, line_color_option=1, show_plot=False)
         self.mato.visualization.create_geo_plot(result, line_color_option=2, show_plot=False)
+        self.mato.visualization.create_geo_plot(result, line_color_option=2, show_plot=False)
+
+        self.mato.visualization.create_geo_plot(result, show_curtailment=True, show_plot=False)
+        self.mato.visualization.create_geo_plot(result, show_infeasibility =True, show_plot=False)
 
     def test_geoplot_timestep(self):    
         result = self.mato.data.results["dispatch_redispatch"]

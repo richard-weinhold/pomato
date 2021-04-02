@@ -273,17 +273,21 @@ class FBDomainPlots():
         return vertices_sorted[:, [0,1]]
 
 
-    def generate_flowbased_domains(self, domain_x, domain_y, filename_suffix=None):
+    def generate_flowbased_domains(self, domain_x, domain_y, 
+                                   filename_suffix=None, commercial_exchange=None, timesteps=None):
         """Create FB domains for all timesteps of the supplied FB parameters.
         
         This method is based on :meth:`~generate_flowbased_domain`, which create the domain 
         plot for a specific timestep using the same arguments.       
         """
-        timesteps = self.flowbased_parameters.timestep.unique()
+        if not (isinstance(timesteps, list) and len(timesteps) > 0): 
+            timesteps = self.flowbased_parameters.timestep.unique()
         bar = Bar('Processing', max=len(timesteps), 
                   check_tty=False, hide_cursor=True)
         for timestep in timesteps:
-            self.generate_flowbased_domain(domain_x, domain_y, timestep, filename_suffix)
+            self.generate_flowbased_domain(domain_x, domain_y, timestep, 
+                                           filename_suffix=filename_suffix, 
+                                           commercial_exchange=commercial_exchange)
             bar.next()
         # bar.finish()
 
