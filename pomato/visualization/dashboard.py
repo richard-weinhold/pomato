@@ -484,7 +484,7 @@ class Dashboard():
         fb_parameters = fb_parameter_function(basecase, gsk, timesteps=[timestep],
                                               cne_sensitivity=cne_sensitivity/100, 
                                               lodf_sensitivity=cnec_sensitivity/100,
-                                              include_ntc_domain=include_ntc)
+                                              enforce_ntc_domain=include_ntc)
         fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
         domain_x, domain_y = domain_x.split("-"), domain_y.split("-")
         if correct_for_nex:

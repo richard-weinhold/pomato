@@ -85,7 +85,7 @@ of contingencies. The ResultProcessing method :code:`overloaded_lines_n_1()` ret
 line/contingency pairs. 
 
 To also include contingencies, known as security constrained optimal power flow (SCOPF), the 
-optimization type has to be changed to "cbco_nodal". The "cbco_option" defines the reduction algorithm
+optimization type has to be changed to "cbco_nodal". The "redundancy_removal_option" defines the reduction algorithm
 where the option "full" will perform no reduction and options "clarkson" and "clarkson_base" will 
 reduce the power flow constraints to a minimal set. 
 
@@ -98,7 +98,7 @@ increase complexity prohibitively.
 .. code-block:: python
 
    mato.options["type"] = "cbco_nodal"
-   mato.options["grid"]["cbco_option"] = "clarkson_base"
+   mato.options["grid"]["redundancy_removal_option"] = "clarkson_base"
 
    mato.create_grid_representation()
 

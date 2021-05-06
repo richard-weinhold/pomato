@@ -793,7 +793,8 @@ class Visualization():
         scale = 2
         n0_lines_x, n0_lines_y = [], []
         n1_lines_x, n1_lines_y = [], []
-        hover_data_n0, hover_data_n1 = [], []
+        frm_x, frm_y = [], []
+        hover_data_n0, hover_data_n1, hover_data_frm = [], [], []
 
         hover_points = len(fb_domain.domain_equations[0][1])
         tmp = fb_domain.domain_data.reset_index(drop=True)
@@ -805,7 +806,15 @@ class Visualization():
             data = [tmp.loc[i, "cb"], tmp.loc[i, "co"], tmp.loc[i, "ram"]]
             hover_data_n0.append(np.vstack([[data for n in range(0, hover_points)], [None, None, None]]))
         
-        for i in tmp[tmp.co != "basecase"].index:
+        for i in tmp[(tmp.co == "FRM")&(tmp.in_domain)].index:
+            frm_x.extend(fb_domain.domain_equations[i][0])
+            frm_y.extend(fb_domain.domain_equations[i][1])
+            frm_x.append(None)
+            frm_y.append(None)
+            data = [tmp.loc[i, "cb"], tmp.loc[i, "co"], tmp.loc[i, "ram"]]
+            hover_data_frm.append(np.vstack([[data for n in range(0, hover_points)], [None, None, None]]))
+        
+        for i in tmp[(tmp.co != "basecase")&(tmp.co != "FRM")].index:
             n1_lines_x.extend(fb_domain.domain_equations[i][0])
             n1_lines_y.extend(fb_domain.domain_equations[i][1])
             n1_lines_x.append(None)
@@ -821,6 +830,15 @@ class Visualization():
                 go.Scatter(x=n0_lines_x, y=n0_lines_y, name='N-0 Constraints',
                         line = dict(width = 1.5, color="dimgrey"),
                         customdata=np.vstack(hover_data_n0),
+                        hovertemplate=hovertemplate
+                        )
+                )
+
+        if len(hover_data_frm) > 0:
+            fig.add_trace(
+                go.Scatter(x=frm_x, y=frm_y, name='FRM',
+                        line = dict(dash='dash', width = 1.5, color="royalblue"),
+                        customdata=np.vstack(hover_data_frm),
                         hovertemplate=hovertemplate
                         )
                 )
@@ -1019,7 +1037,7 @@ class Visualization():
         else:
             return fig
 
-    def create_merit_order(self, data=None, show_plot=True, filepath=None):
+    def create_merit_order(self, data=None, timestep=None, show_plot=True, filepath=None):
         """Create merit order of the input data. 
 
         Parameters
@@ -1039,8 +1057,17 @@ class Visualization():
             plants = data.data.plants.copy()
         else:
             raise TypeError("Data input argument not correct type. ")
+
         if not "technology" in plants.columns:
             plants["technology"] = plants.plant_type
+        if "name" in plants.columns:
+            plants = plants.drop("name", axis=1)
+
+        if timestep:
+            ava = self.data.availability[self.data.availability.timestep == timestep].copy()
+            ava = ava.drop("timestep", axis=1).set_index("plant")
+            plants.loc[ava.index, "g_max"] *= ava.availability
+
         color = color_map(plants)
         plants = pd.merge(plants, color, on=["technology", "fuel"])
         plants = plants[["color", "name", "g_max", "mc_el"]].groupby(["color", "name", "mc_el"], observed=True).sum().reset_index()

@@ -179,7 +179,7 @@ class GridModel():
         nodal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
         nodal_network = nodal_network[["cb", "co", "ram"] + list(self.grid.nodes.index)]
 
-        if grid_option["cbco_option"] == "nodal_clarkson":
+        if grid_option["redundancy_removal_option"] == "nodal_clarkson":
             nodal_injection_limits = self.create_nodal_injection_limits()
 
             cbco_index = self.clarkson_algorithm(A=nodal_network.loc[:, self.grid.nodes.index].values, 
@@ -223,7 +223,7 @@ class GridModel():
         zonal_network["ram"] = self.grid.lines.capacity.values*self.options["grid"]["capacity_multiplier"]
         zonal_network = zonal_network[["cb", "co", "ram"] + list(self.data.zones.index)]
 
-        if grid_option["cbco_option"] == "clarkson":
+        if grid_option["redundancy_removal_option"] == "clarkson":
             cbco_index = self.clarkson_algorithm(A=zonal_network.loc[:, self.data.zones.index].values, 
                                                  b=zonal_network.loc[:, "ram"].values)
             zonal_network = self.return_cbco(zonal_network, cbco_index)
@@ -304,22 +304,22 @@ class GridModel():
                 cbco_index = cbco_index = list(range(0, len(b)))
 
         else:
-            # 3 valid args supported for cbco_option:
+            # 3 valid args supported for redundancy_removal_option:
             # clarkson, clarkson_base, full (default)
-            if self.options["grid"]["cbco_option"] == "full":
+            if self.options["grid"]["redundancy_removal_option"] == "full":
                 cbco_index = list(range(len(b)))
-            elif self.options["grid"]["cbco_option"] == "clarkson_base":
+            elif self.options["grid"]["redundancy_removal_option"] == "clarkson_base":
                 cbco_index = self.clarkson_algorithm(
                     A=A, b=b, x_bounds=self.create_nodal_injection_limits())
-            elif self.options["grid"]["cbco_option"] == "clarkson":
+            elif self.options["grid"]["redundancy_removal_option"] == "clarkson":
                 cbco_index = self.clarkson_algorithm(A=A, b=b)
-            elif self.options["grid"]["cbco_option"] == "save":
+            elif self.options["grid"]["redundancy_removal_option"] == "save":
                 cbco_index = list(range(len(b)))
                 self.write_cbco_info(self.julia_dir.joinpath("cbco_data"), "py_save", 
                                      A=A, b=b, Ab_info=cbco_info, 
                                      x_bounds=self.create_nodal_injection_limits())
             else:
-                raise AttributeError("No valid cbco_option set!")
+                raise AttributeError("No valid redundancy_removal_option set!")
 
         cbco_nodal_network = self.return_cbco(cbco_info, cbco_index)
         cbco_nodal_network.ram *= self.options["grid"]["capacity_multiplier"]

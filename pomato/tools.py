@@ -399,15 +399,22 @@ def default_options():
             "ph": [],
             },
         "grid": {
-            "cbco_option": "full",
+            "redundancy_removal_option": "full",
             "precalc_filename": "",
             "sensitivity": 5e-2,
             "capacity_multiplier": 1,
             "preprocess": True,
-            "gsk": "gmax",
-            "minram": 0.2,
-            "flowbased_region": [],
             },
+        "fbmc": {
+            "gsk": "gmax",
+            "minram": 0,
+            "flowbased_region": [],
+            "cne_sensitivity": 5e-2,
+            "lodf_sensitivity": 5e-2,
+            "frm": 0,
+            "reduce": False,         
+            "enforce_ntc_domain": False,  
+        },
         "data": {
             "result_copy": False,
         }

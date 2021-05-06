@@ -94,7 +94,7 @@ class TestPomatoGridModel(unittest.TestCase):
 
     def test_cbco_nodal(self):
         self.grid_model.options["type"] = "cbco_nodal"
-        self.grid_model.options["grid"]["cbco_option"] = "full"
+        self.grid_model.options["grid"]["redundancy_removal_option"] = "full"
 
         self.grid_model.create_grid_representation()
         gr = self.grid_model.grid_representation
@@ -118,7 +118,7 @@ class TestPomatoGridModel(unittest.TestCase):
         grid = self.grid_model.create_cbco_nodal_grid_parameters()
         c_ptdf_fallback = copy.copy(grid)
         self.grid_model.options["grid"]["precalc_filename"] = ""
-        self.grid_model.options["grid"]["cbco_option"] = "full"
+        self.grid_model.options["grid"]["redundancy_removal_option"] = "full"
         self.grid_model.create_grid_representation()
         pd.testing.assert_frame_equal(c_ptdf_fallback, self.grid_model.grid_representation.grid)
 
@@ -145,7 +145,7 @@ class TestPomatoGridModel(unittest.TestCase):
     
     def test_cbco_nodal_save(self):
         self.grid_model.options["type"] = "cbco_nodal"
-        self.grid_model.options["grid"]["cbco_option"] = "save"
+        self.grid_model.options["grid"]["redundancy_removal_option"] = "save"
         self.grid_model.options["grid"]["precalc_filename"] = None
         self.grid_model.create_cbco_nodal_grid_parameters()
 
@@ -156,7 +156,7 @@ class TestPomatoGridModel(unittest.TestCase):
     
     def test_cbco_nodal_invalid_option(self):
         self.grid_model.options["type"] = "cbco_nodal"
-        self.grid_model.options["grid"]["cbco_option"] = "invalid_option"
+        self.grid_model.options["grid"]["redundancy_removal_option"] = "invalid_option"
         self.grid_model.options["grid"]["precalc_filename"] = None
         self.assertRaises(AttributeError, self.grid_model.create_cbco_nodal_grid_parameters)
 
@@ -168,10 +168,10 @@ class TestPomatoGridModel(unittest.TestCase):
                         ("zonal", "clarkson"), 
                         ("cbco_zonal", "clarkson")]
 
-        for (optimization_option, cbco_option) in test_configs:
+        for (optimization_option, redundancy_removal_option) in test_configs:
 
             self.grid_model.options["type"] = optimization_option
-            self.grid_model.options["grid"]["cbco_option"] = cbco_option
+            self.grid_model.options["grid"]["redundancy_removal_option"] = redundancy_removal_option
             self.grid_model.create_grid_representation()
             
             file = pomato.tools.newest_file_folder(self.grid_model.julia_dir.joinpath("cbco_data"), keyword="cbco")

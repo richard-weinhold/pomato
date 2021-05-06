@@ -476,7 +476,7 @@ class DataWorker(object):
         # add coordinates from CSV with X and Y columns for the grid coordinates
         if Path(str(casefile).split(".")[0] + "_coordinates.csv").is_file():
             xy = pd.read_csv(str(casefile).split(".")[0] + "_coordinates.csv", sep=",", index_col=0)
-            self.data.nodes[["lat", "lon"]] = xy
+            self.data.nodes[["lat", "lon"]] = xy.values
         else:
             self.data.nodes.loc[:, "lat"] = 0
             self.data.nodes.loc[:, "lon"] = 0

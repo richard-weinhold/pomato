@@ -9,7 +9,7 @@
         }
     },
     "grid": {
-        "cbco_option": "clarkson_base",
+        "redundancy_removal_option": "clarkson_base",
         "precalc_filename": "",
         "sensitivity": 5e-2,
         "preprocess": true

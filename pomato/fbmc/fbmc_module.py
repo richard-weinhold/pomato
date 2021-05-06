@@ -258,9 +258,7 @@ class FBMCModule():
 
         return nodal_fbmc_ptdf, fbmc_data
    
-    def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=False, flowbased_region=None, 
-                                    cne_sensitivity=None, lodf_sensitivity=None, timesteps=None, 
-                                    include_ntc_domain=True):
+    def create_flowbased_parameters(self, basecase, timesteps=None, enforce_ntc_domain=True):
         """Create Flow-Based Paramters.
 
         Creates the FB Paramters for the supplied basecase. Optional arguments are 
@@ -286,16 +284,6 @@ class FBMCModule():
         ----------
         basecase : :class:`~pomato.data.Results`
             Market resultsfrom which the FB paramters are deducted. 
-        gsk_strategy : str, optional
-            GSK strategy, defaults to "gmax". 
-        reduce : bool, optional
-            Runs the RedundancyRemoval for each timestep 
-        cne_sensitivity: float, optional
-            Threshold above which lines are considered critical network elements based on the 
-            zone-to-zone sensitivity. Defaults to the sensitivity specified in options["grid"].
-        lodf_sensitivity: float, optional
-            Threshold above which contingencies of CNE are considered critical. Defaults to the 
-            sensitivity specified in options["grid"].
 
         Returns
         -------
@@ -303,32 +291,31 @@ class FBMCModule():
             Flow Based Parameters which are a zonal ptdf for each and ram, depending
             on the reference flows derived from the basecase for each timestep. 
         """
+
+        # Check arguments and options 
+        
         if not timesteps:
             timesteps = basecase.model_horizon
-        if not cne_sensitivity:
-            cne_sensitivity = self.options["grid"]["sensitivity"]
-        if not lodf_sensitivity:
-            lodf_sensitivity = self.options["grid"]["sensitivity"]
-        
-        if flowbased_region:
-            self.options["grid"]["flowbased_region"] = flowbased_region
-        elif self.options["grid"]["flowbased_region"]:
-            flowbased_region = self.options["grid"]["flowbased_region"]
-        else:
+        cne_sensitivity = self.options["fbmc"]["cne_sensitivity"]
+        lodf_sensitivity = self.options["fbmc"]["lodf_sensitivity"]
+        gsk_strategy = self.options["fbmc"]["gsk"]
+
+        if not self.options["fbmc"]["flowbased_region"]:
             flowbased_region = list(self.data.zones.index)
             self.options["grid"]["flowbased_region"] = flowbased_region
+        else:
+            flowbased_region = self.options["fbmc"]["flowbased_region"]
 
         self.logger.info("CBs are selected from zone-to-zone PTDFs with %d%% threshold", cne_sensitivity*100)
         critical_branches = self.return_critical_branches(cne_sensitivity, flowbased_region=flowbased_region)
         self.logger.info("COs are selected from nodal PTDFs with %d%% threshold", lodf_sensitivity*100)
         nodal_fbmc_ptdf, fbmc_data = self.create_base_fbmc_parameters(critical_branches, lodf_sensitivity)
 
-        if reduce or self.options["grid"]["precalc_filename"]:
+        if self.options["fbmc"]["reduce"] or self.options["grid"]["precalc_filename"]:
             cbco = self.grid_model.create_cbco_nodal_grid_parameters()
             condition = fbmc_data[["cb", "co"]].apply(tuple, axis=1).isin(cbco[["cb", "co"]].apply(tuple, axis=1).values).values
             nodal_fbmc_ptdf, fbmc_data = nodal_fbmc_ptdf[condition | (fbmc_data.co == "basecase") , :], \
                                                          fbmc_data.loc[condition | (fbmc_data.co == "basecase") , :]
-
 
         inj = basecase.INJ[basecase.INJ.t.isin(timesteps)].pivot(index="t", columns="n", values="INJ")
         inj = inj.loc[timesteps, basecase.data.nodes.index]
@@ -348,8 +335,8 @@ class FBMCModule():
 
         f_ref_nonmarket = f_ref_base_case - f_da
         ram = (self.grid.lines.capacity[fbmc_data.cb].values - frm_fav - f_ref_nonmarket.T).T
-        minram = (self.grid.lines.capacity[fbmc_data.cb] * self.options["grid"]["minram"]).values.reshape(len(f_ref_base_case), 1)
-        self.logger.info("Applying minRAM of %d%% on %d CBCOs", self.options["grid"]["minram"]*100, (ram < minram).any(axis=1).sum())
+        minram = (self.grid.lines.capacity[fbmc_data.cb] * self.options["fbmc"]["minram"]).values.reshape(len(f_ref_base_case), 1)
+        self.logger.info("Applying minRAM of %d%% on %d CBCOs", self.options["fbmc"]["minram"]*100, (ram < minram).any(axis=1).sum())
         for j in range(0, ram.shape[0]):
             ram[j, ram[j, :] < minram[j]] = minram[j]
 
@@ -365,10 +352,10 @@ class FBMCModule():
             domain_data[timestep] = fb_parameters
         fb_parameters =  pd.concat([domain_data[timestep] for timestep in timesteps], ignore_index=True)
         
-        if include_ntc_domain:
+        if enforce_ntc_domain:
             fb_parameters = self.enforce_ntc_domain(fb_parameters)
 
-        if reduce:
+        if self.options["fbmc"]["reduce"]:
             cbco_index = self.grid_model.clarkson_algorithm(args={"fbmc_domain": True}, 
                                                             Ab_info=fb_parameters)   
             fb_parameters = fb_parameters.loc[cbco_index, :]

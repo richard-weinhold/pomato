@@ -16,7 +16,7 @@ Model Structure
 The model is structured in three interconnected parts:
     - Data Management: Data input, processing and result analysis.
     - Market Model: Calculation of the economic dispatch based on the
-      dataset and chosen grid representation. asd asd
+      dataset and chosen grid representation.
     - Grid Model: Providing grid representation for economic dispatch
       calculation in chosen granularity (N-0, N-1, FBMC, NTC, copperplate)
       and analysis for ex-post analysis of the market result.
