@@ -3,15 +3,17 @@ import logging
 import os
 import random
 import shutil
+import tempfile
 import time
 import unittest
-import tempfile
 from pathlib import Path
-import plotly 
 
 import numpy as np
 import pandas as pd
-from context import pomato, copytree
+import plotly
+import pomato
+from pomato.tools import copytree
+
 
 class TestPomatoVisualization(unittest.TestCase):
     

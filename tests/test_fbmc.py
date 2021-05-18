@@ -1,16 +1,17 @@
 import logging
+import os
 import random
 import shutil
-import os
+import tempfile
 import unittest
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import tempfile
+import pomato
+from pomato.tools import copytree
 
-from context import pomato, copytree	
-           
+
 # pylint: disable-msg=E1101
 class TestFBMCModule(unittest.TestCase):
 
