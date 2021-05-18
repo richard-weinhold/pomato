@@ -478,13 +478,14 @@ class Dashboard():
         self.pomato_instance.data.ntc = self.pomato_instance.grid_model.create_ntc(ntc_value)
         if isinstance(timestep, int):
             timestep = basecase.model_horizon[timestep]
-        self.pomato_instance.options["grid"]["minram"] = minram/100
         self.pomato_instance.options["grid"]["capacity_multiplier"] = 1 - frm/100
+        self.pomato_instance.options["fbmc"]["minram"] = minram/100
+        self.pomato_instance.options["fbmc"]["cne_sensitivity"] = cne_sensitivity/100
+        self.pomato_instance.options["fbmc"]["lodf_sensitivity"] = cnec_sensitivity/100
+        self.pomato_instance.options["fbmc"]["enforce_ntc_domain"] = include_ntc
+        self.pomato_instance.options["fbmc"]["gsk"] = gsk
         fb_parameter_function = self.pomato_instance.fbmc.create_flowbased_parameters
-        fb_parameters = fb_parameter_function(basecase, gsk, timesteps=[timestep],
-                                              cne_sensitivity=cne_sensitivity/100, 
-                                              lodf_sensitivity=cnec_sensitivity/100,
-                                              enforce_ntc_domain=include_ntc)
+        fb_parameters = fb_parameter_function(basecase)
         fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
         domain_x, domain_y = domain_x.split("-"), domain_y.split("-")
         if correct_for_nex:
@@ -518,7 +519,7 @@ class Dashboard():
             raise PreventUpdate
         else:
             basecase = self.pomato_instance.data.results[basecase]
-            fb_region = self.pomato_instance.options["grid"]["flowbased_region"]
+            fb_region = self.pomato_instance.options["fbmc"]["flowbased_region"]
             if not fb_region:
                 fb_region = list(self.pomato_instance.data.zones.index)
             option_domain = [{"label": "-".join(x), "value": "-".join(x)} for x in itertools.combinations(fb_region, 2)]

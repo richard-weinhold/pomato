@@ -42,10 +42,12 @@ class TestFBMCModule(unittest.TestCase):
         mato.data.process_results(folder, mato.grid)
 
         basecase = mato.data.results["scopf_market_results"]
-        mato.options["grid"]["minram"] = 0.1
-        mato.options["grid"]["sensitivity"] = 0.05
-        mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
-        mato.fbmc.create_flowbased_parameters(basecase, gsk_strategy="dynamic", reduce=False)
+        mato.options["fbmc"]["minram"] = 0.1
+        mato.options["fbmc"]["gsk"] = "gmax"
+        mato.fbmc.create_flowbased_parameters(basecase)
+        mato.options["fbmc"]["gsk"] = "dynamic"
+
+        mato.fbmc.create_flowbased_parameters(basecase)
         mato.logger.handlers[0].close()
 
         # self.assertRaises(AssertionError, np.testing.assert_almost_equal, 
