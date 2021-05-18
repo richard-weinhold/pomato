@@ -9,7 +9,7 @@ wdir = Path("/examples/") # Change to local copy of examples folder
 mato = pomato.POMATO(wdir=wdir, options_file="profiles/ieee118.json")
 mato.load_data('data_input/pglib_opf_case118_ieee.m')
 
-# %% Access the data from the main pomato isntance in the data object.
+# %% Access the data from the main pomato instance in the data object.
 nodes = mato.data.nodes
 lines = mato.grid.lines
 demand = mato.data.demand_el
