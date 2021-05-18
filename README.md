@@ -48,16 +48,31 @@ The recommended way to install POMATO:
         .\pomato\Scripts\activate
         pip install git+https://github.com/richard-weinhold/pomato.git
 
+This will not only clone the master branch of this repository into the local python environment, but also pull the master branch of the MarketModel and RedundancyRemoval Julia packages which are required to run POMATO.
 
 After this is completed pomato can be imported in python:
 
     from pomato import POMATO
 
-Pomato functions from a *working directory*, ideally the project folder includes the virtual environment, and creates additional folders for results, temporary data and logs. The way we use pomato is illustrated by the *examples* folder, cloning its contents as a *working directory* allows to run the included examples.
+POMATO functions from a *working directory*, ideally the project folder includes the virtual environment, and creates additional folders for results, temporary data and logs. The way we use POMATO is illustrated by the *examples* folder, cloning its contents as a *working directory* allows to run the included examples.
 
 Pomato works with open solvers, if Gurobi is available on the PATH within the venv/project it will be used. See [Gurobi.jl](https://github.com/JuliaOpt/Gurobi.jl) for notes on the installation. Additionally, the 
 Chance-Constrained model formulation requires MOSEK solver which can be installed from within Pomato, 
 but requires a licence to use [Mosek.jl](https://github.com/JuliaOpt/Mosek.jl). 
+
+
+You can also install the latest version available on the construction branch via 
+
+        pip install git+https://github.com/richard-weinhold/pomato.git@construction
+
+This will not only install the construction branch of POMATO but also of the MarketModel, to remain compadible. 
+
+The integration of Julia and Python can be tricky to manage when updating or changing versions. Besides deleting and reinstalling POMATO provides some means to manage the julia environment via a functions available in *pomato.tools.julia_management*. 
+
+  * *pomato.tools.julia_management.instantiate_julia()* will re-install the julia packages MarketModel and RedundancyRemoval from their git repositories. 
+  * *pomato.tools.julia_management.instantiate_julia_dev(redundancyremoval_path, marketmodel_path)* will instantiate the julia environment from local repositories. This is useful when actively changing the code.
+  * *pomato.tools.julia_management.add_gurobi()* adds the gurobi solver to the julia environment. 
+  * *pomato.tools.julia_management.add_mosek()* adds the mosek solver to the julia environment. 
 
 Examples
 --------

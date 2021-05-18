@@ -148,6 +148,9 @@ class DataWorker(object):
             except KeyError as error_msg:
                 self.data.missing_data.append(data)
                 self.logger.debug(error_msg)
+            except ValueError as error_msg:
+                self.data.missing_data.append(data)
+                self.logger.debug(error_msg)
 
     def read_csv_folder(self, folder):
         """Read csv files from specified folder.

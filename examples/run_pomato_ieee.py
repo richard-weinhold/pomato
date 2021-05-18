@@ -1,15 +1,16 @@
 """IEEE Test Case."""
+# %% Setup: Loading packages, create pomato instance and load data.
 from pathlib import Path
 import numpy as np
 import pandas as pd
 import pomato
 
 # Init POMATO with the options file and the dataset
-wdir = Path("/examples/") # Change to local copy of examples folder
+wdir = Path(__file__).parent # Path of this example folder
 mato = pomato.POMATO(wdir=wdir, options_file="profiles/ieee118.json")
 mato.load_data('data_input/pglib_opf_case118_ieee.m')
 
-# %% Access the data from the main pomato isntance in the data object.
+# %% Access the data from the main pomato instance in the data object.
 nodes = mato.data.nodes
 lines = mato.grid.lines
 demand = mato.data.demand_el

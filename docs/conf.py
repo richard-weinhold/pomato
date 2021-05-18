@@ -20,7 +20,7 @@ copyright = '2020, riw'
 author = 'riw, rom'
 
 # The full version, including alpha/beta/rc tags
-release = '0.2.5'
+release = '0.3.2'
 
 # -- General configuration ---------------------------------------------------
 

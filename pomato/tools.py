@@ -19,6 +19,13 @@ from pathlib import Path
 import pandas as pd
 import pomato._installation.manage_julia_env as julia_management
 
+def remove_unsupported_chars(line):
+    """Remove string from julia log, that are not supported by python logging."""
+    remove_str = ["└", "┌", "│", "[ Info: "]
+    for r in remove_str:
+        line = line.replace(r, "")
+    return line.strip()
+
 class JuliaDaemon():
     """Class to communicate with a julia daemon process.
     
@@ -76,11 +83,12 @@ class JuliaDaemon():
         """Stat julia daemon"""
         args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
                 str(self.julia_daemon_path), self.julia_module, str(self.package_dir)]
-        with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                              stderr=subprocess.STDOUT, cwd=str(self.wdir)) as program:
-            for line in program.stdout:
-                if not any(w in line.decode(errors="ignore") for w in ["Academic license"]):
-                    self.logger.info(line.decode("UTF-8", errors="ignore").replace("[ Info:", "").strip())
+        process = subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
+                                   stderr=subprocess.STDOUT, cwd=str(self.wdir))
+        while process.returncode is None:    
+            for line in process.stdout:
+                self.logger.info(remove_unsupported_chars(line.decode()))
+            process.poll()
 
     def join(self):
         """Exit the julia daemon and join python threads"""

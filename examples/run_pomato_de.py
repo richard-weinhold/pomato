@@ -8,7 +8,7 @@ import pandas as pd
 import pomato
 
 # Init POMATO with the options file and the dataset
-wdir = Path("/examples/") # Change to local copy of examples folder
+wdir = Path(__file__).parent # Path of this example folder
 mato = POMATO(wdir=wdir, options_file="profiles/de.json")
 mato.load_data('data_input/dataset_de.zip')
 
@@ -35,7 +35,7 @@ print("Number of N-0 Overloads: ", len(n0_r))
 
 # Generation comparison between Market Result and Redispatch.
 # Redispatch is calculated G_redispatch - G_market as delta
-# The absulute delta represents the total redispatched energy
+# The absolute delta represents the total redispatched energy
 gen = pd.merge(market_result.data.plants[["plant_type", "fuel", "tech", "g_max", "node"]],
                market_result.G, left_index=True, right_on="p")
 gen = pd.merge(gen, redisp_result.G, on=["p", "t"], suffixes=("_market", "_redispatch"))
