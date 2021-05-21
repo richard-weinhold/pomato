@@ -89,7 +89,9 @@ def page_generation():
                                             options=[
                                                 {"label": "Show Prices:", "value": 1},
                                                 {"label": "Show Redispatch", "value": 2, "disabled": True},
-                                                {"label": "Show Curtailment", "value": 3}],
+                                                {"label": "Show Curtailment", "value": 3},
+                                                {"label": "Show Infeasibility:", "value": 1}
+                                                ],
                                             value=[],
                                             id="switches-generation",
                                             switch=True,
@@ -147,7 +149,9 @@ def page_transmission():
                                             options=[
                                                 {"label": "Show Prices:", "value": 1},
                                                 {"label": "Show Redispatch", "value": 2, "disabled": True},
-                                                {"label": "Show Curtailment:", "value": 1}],
+                                                {"label": "Show Curtailment:", "value": 1},
+                                                {"label": "Show Infeasibility:", "value": 1}
+                                                ],
                                             value=[],
                                             id="switches-transmission",
                                             switch=True,
@@ -544,8 +548,10 @@ class Dashboard():
                                          isinstance(result.result_attributes["corresponding_market_result_name"], str))
         switches = [
             {"label": "Show Prices:", "value": 1},
-            {"label": "Show Redispatch", "value": 2, "disabled": enable_redispatch},
-            {"label": "Show Curtailment:", "value": 3}]
+            {"label": "Show Redispatch:", "value": 2, "disabled": enable_redispatch},
+            {"label": "Show Curtailment:", "value": 3},
+            {"label": "Show Infeasibility:", "value": 4}
+            ]
         return options_lineflow, switches
 
     def update_components_generation(self, result_name):
@@ -555,8 +561,10 @@ class Dashboard():
 
         switches = [
             {"label": "Show Prices:", "value": 1},
-            {"label": "Show Redispatch", "value": 2, "disabled": enable_redispatch},
-            {"label": "Show Curtailment:", "value": 3}]
+            {"label": "Show Redispatch:", "value": 2, "disabled": enable_redispatch},
+            {"label": "Show Curtailment:", "value": 3},
+            {"label": "Show Infeasibility:", "value": 4}
+            ]
         nodes_options = [{"label": node, "value": node} for node in result.data.nodes.index]
         return switches, nodes_options
         
@@ -672,6 +680,7 @@ class Dashboard():
         show_prices = True if 1 in switches else False
         show_redispatch = True  if 2 in switches else False
         show_curtailment = True  if 3 in switches else False
+        show_infeasibility = True  if 4 in switches else False
         result = self.pomato_instance.data.results[result_name]
         vis = self.pomato_instance.visualization
         if len(lines) == 0:
@@ -680,6 +689,7 @@ class Dashboard():
                                    show_redispatch=show_redispatch, 
                                    show_prices=show_prices,
                                    show_curtailment=show_curtailment,
+                                   show_infeasibility=show_infeasibility,
                                    line_color_option=line_color_option,
                                    highlight_lines=lines, 
                                    timestep=timestep, 
@@ -692,12 +702,14 @@ class Dashboard():
         show_prices = True if 1 in switches else False
         show_redispatch = True  if 2 in switches else False
         show_curtailment = True  if 3 in switches else False
+        show_infeasibility = True  if 4 in switches else False
         result = self.pomato_instance.data.results[result_name]
         vis = self.pomato_instance.visualization
         fig =  vis.create_geo_plot(result, 
                                    show_redispatch=show_redispatch, 
                                    show_prices=show_prices,
                                    show_curtailment=show_curtailment,
+                                   show_infeasibility=show_infeasibility,
                                    line_color_option=0,
                                    timestep=None, 
                                    highlight_nodes=nodes,
