@@ -489,7 +489,7 @@ class Dashboard():
         self.pomato_instance.options["fbmc"]["enforce_ntc_domain"] = include_ntc
         self.pomato_instance.options["fbmc"]["gsk"] = gsk
         fb_parameter_function = self.pomato_instance.fbmc.create_flowbased_parameters
-        fb_parameters = fb_parameter_function(basecase)
+        fb_parameters = fb_parameter_function(basecase, enforce_ntc_domain=include_ntc)
         fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
         domain_x, domain_y = domain_x.split("-"), domain_y.split("-")
         if correct_for_nex:

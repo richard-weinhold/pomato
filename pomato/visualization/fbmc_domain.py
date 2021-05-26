@@ -324,7 +324,7 @@ class FBDomainPlots():
             domain_info.loc[:, "ram"] = domain_info.loc[:, "ram"] - ram_correction
             if not domain_info[domain_info.ram < 0].empty:
                 self.logger.warning("Correction caused negative rams!")
-                domain_info.loc[domain_info.ram < 0, "ram"] = 0.1 
+                domain_info.loc[domain_info.ram < 0.1, "ram"] = 1
                 # domain_info[domain_info.ram>0.1].reset_index()
 
         # Zonal PTDF with dimensionality number of zones x CBCOs and RAM

@@ -11,8 +11,9 @@ import time
 import numpy as np
 import pandas as pd
 import tempfile
-from context import pomato, copytree
-           
+import pomato
+from pomato.tools import copytree
+ 
 # pylint: disable-msg=E1101
 class TestPomatoMarketModel(unittest.TestCase):
 

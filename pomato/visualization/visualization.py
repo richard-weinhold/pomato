@@ -7,6 +7,7 @@ from pathlib import Path
 import matplotlib
 import io
 from PIL import Image
+from numpy.lib.arraysetops import isin
 
 import pandas as pd
 import numpy as np
@@ -485,7 +486,7 @@ class Visualization():
         
         Parameters
         ----------
-        market_result : :class:`~pomato.data.DataManagement`
+        market_result : :class:`~pomato.data.Result`
             Market result which is plotted. 
         nodes: list, optional,
             Show only generation at the supplied subset of nodes. By default None, which shows all
@@ -549,14 +550,32 @@ class Visualization():
         else:
             return fig
 
-    def create_available_intermittent_capacity_plot(self, data, show_plot=True, filepath=None):
+    def create_available_intermittent_capacity_plot(self, data, zones=None, show_plot=True, filepath=None):
+        """[summary]
+
+        Parameters
+        ----------
+        data : :class:`~pomato.data.DataManagement`
+            Pomato data object. 
+        zones: list, optional,
+            Subset of zones to include in the plot. 
+        show_plot : bool, optional
+            Shows plot after generation. If false, returns plotly figure instead. By default True.
+        filepath : pathlib.Path, str, optional
+            If filepath is supplied, saves figure as .html, by default None
+        """        
         ava = self.data.availability.copy()
         plants = self.data.plants.copy()
+
+        plants["zone"] = self.data.nodes.loc[self.data.plants.node, "zone"].values
+        if isinstance(zones, list):
+            plants = plants[plants.zone.isin(zones)]
+      
         if not "technology" in plants.columns:
             plants["technology"] = plants.plant_type
-        ava= pd.merge(ava, plants[["g_max", "fuel", "technology"]], left_on="plant", right_index=True, how="left")
+        ava= pd.merge(ava, plants[["g_max", "fuel", "technology", "zone"]], left_on="plant", right_index=True, how="left")
         ava["Available Capacity [GW]"] = ava.availability * ava.g_max / 1000
-        cols = ["timestep", "fuel", "technology", "Available Capacity [GW]"]
+        cols = ["timestep", "fuel", "technology", "zone", "Available Capacity [GW]"]
         ava = ava[cols].groupby(cols[:-1], observed=True).sum().reset_index()
         capacity_colors = color_map(ava)
         ava = pd.merge(ava, capacity_colors, on=["fuel", "technology"])
@@ -564,6 +583,7 @@ class Visualization():
         # Sort by variance
         sort_names = ava.groupby("name", observed=True).var().sort_values(by="Available Capacity [GW]", ascending=True).index
         fig = px.area(ava, x="timestep", y="Available Capacity [GW]", color="name", 
+                    line_group="zone", 
                     color_discrete_map=capacity_colors[["color", "name"]].set_index("name").color.to_dict(),
                     category_orders={"name": list(sort_names)})
 
@@ -687,7 +707,8 @@ class Visualization():
         else:
             return fig
 
-    def create_installed_capacity_plot(self, data=None, show_plot=True, filepath=None):
+    def create_installed_capacity_plot(self, data=None, zones=None,
+                                       show_plot=True, filepath=None):
         """Create plot visualizing installed capacity per market area.
 
         The installed capacity plot visualizes the installed capacity as stacked bar charts. The 
@@ -697,6 +718,8 @@ class Visualization():
         ----------
         data : :class:`~pomato.data.DataManagement` or :class:`~pomato.data.Results`, optional
             Data to plot, defaults to class attribute data. 
+        zones : list, optional 
+            Subset of zones to include in the capacity plot. 
         show_plot : bool, optional
             Shows plot after generation. If false, returns plotly figure instead. By default True.
         filepath : pathlib.Path, str, optional
@@ -710,10 +733,13 @@ class Visualization():
         if not isinstance(data, pomato.data.DataManagement):
             raise TypeError("Please supply a Result oder DataManagement instance.")
         
-        plants = data.plants
+        plants = data.plants.copy()
         plants["zone"] = data.nodes.loc[plants.node, "zone"].values
+
         if not "technology" in plants.columns:
             plants["technology"] = plants.plant_type
+        if isinstance(zones, list):
+            plants = plants[plants.zone.isin(zones)]
 
         plants = (plants[["technology", "fuel", "zone", "g_max"]].groupby(["zone", "technology", "fuel"], observed=True).sum()/1000).reset_index()
         plant_colors = color_map(plants)

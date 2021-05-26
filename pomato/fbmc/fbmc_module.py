@@ -375,7 +375,7 @@ class FBMCModule():
         b = fb_parameters.loc[:, "ram"].values.reshape(len(A), 1)
 
         zones = list(self.data.zones.index)
-        ntc = self.data.ntc.copy()
+        ntc = self.data.ntc[self.data.ntc.ntc > 0].copy()
         ntc.set_index(["zone_i", "zone_j"], inplace=True)
         points = []
         for exchange in itertools.combinations(ntc.index, len(zones)):
@@ -384,7 +384,6 @@ class FBMCModule():
                 tmp[zones.index(f)] += ntc.loc[(f,t), "ntc"]
                 tmp[zones.index(t)] -= ntc.loc[(f,t), "ntc"]
             points.append(tmp)
-    
         condition = []
         for p in points:
             condition.append(np.dot(A, p).reshape(len(A), 1) <= b)
