@@ -911,7 +911,7 @@ class Visualization():
             If filepath is supplied, saves figure as .html, by default None
         """
 
-        if not all([isinstance(r, pomato.data.Results) for r in  market_results]):
+        if not all([isinstance(r, pomato.data.Results) or isinstance(r, pomato.data.results.Results) for r in  market_results]):
             raise TypeError("Submit list of market results")
     
         cost_data = pd.DataFrame()
@@ -973,7 +973,7 @@ class Visualization():
         filepath : pathlib.Path, str, optional
             If filepath is supplied, saves figure as .html, by default None
         """
-        if not all([isinstance(r, pomato.data.Results) for r in  market_results]):
+        if not all([isinstance(r, pomato.data.Results) or isinstance(r, pomato.data.results.Results) for r in  market_results]):
             raise TypeError("Submit list of market results")
 
         gen = pd.DataFrame()

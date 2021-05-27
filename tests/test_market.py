@@ -1,15 +1,19 @@
 import logging
+import os
 import random
 import shutil
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import tempfile
 
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pomato
 from pomato.tools import copytree
+
 
 class JuliaMockup():
     def __init__(self):

@@ -1,19 +1,23 @@
 import logging
+import os
 import random
 import shutil
-import os
+import sys
+import tempfile
+import time
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
-from datetime import datetime
-import time 
 
 import numpy as np
 import pandas as pd
-import tempfile
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pomato
 from pomato.tools import copytree
- 
+
+
 # pylint: disable-msg=E1101
 class TestPomatoMarketModel(unittest.TestCase):
 
