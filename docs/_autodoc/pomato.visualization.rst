@@ -9,7 +9,6 @@ pomato.visualization
       :toctree: 
 
       Visualization
-      GeoPlot
       FBDomainPlots
 
 

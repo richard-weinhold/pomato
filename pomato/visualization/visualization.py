@@ -551,7 +551,7 @@ class Visualization():
             return fig
 
     def create_available_intermittent_capacity_plot(self, data, zones=None, show_plot=True, filepath=None):
-        """[summary]
+        """Visualize available intermittet generation capacities over time.
 
         Parameters
         ----------

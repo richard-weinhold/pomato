@@ -10,10 +10,15 @@ Visualization
 
    .. autosummary::
 
+	  ~Visualization.create_geo_plot
+	  ~Visualization.create_zonal_geoplot
 	  ~Visualization.create_generation_plot
+	  ~Visualization.create_generation_pie
+	  ~Visualization.create_generation_overview
+	  ~Visualization.create_available_intermittent_capacity_plot
 	  ~Visualization.create_installed_capacity_plot
 	  ~Visualization.create_storage_plot
-	  ~Visualization.result_data_struct
-	  ~Visualization.create_result_data
-	  ~Visualization.create_averaged_result_data
-	  ~Visualization.color_map
+	  ~Visualization.create_lineflow_plot
+	  ~Visualization.create_fb_domain_plot
+	  ~Visualization.create_cost_overview
+	  ~Visualization.create_merit_order

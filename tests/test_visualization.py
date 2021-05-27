@@ -14,7 +14,6 @@ import plotly
 import pomato
 from pomato.tools import copytree
 
-
 class TestPomatoVisualization(unittest.TestCase):
     
     @classmethod

@@ -169,7 +169,6 @@ class Results():
             folder.mkdir()
         tools.copytree(self.result_attributes["source_folder"], folder)
 
-
     def result_data_struct(self):
         """Data struct, as a standart template for result processing.
         
@@ -218,7 +217,7 @@ class Results():
         data_struct.generation = self.generation()
         data_struct.demand = self.demand()
         data_struct.n_0_flow = self.n_0_flow()
-        data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.1)
+        data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.2)
         data_struct.prices = self.price()
         self._cached_results.result_data = data_struct
         self.logger.info("Done calculating common results.")

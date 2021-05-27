@@ -10,7 +10,8 @@ import numpy as np
 import pandas as pd
 import tempfile
 
-from context import pomato, copytree
+import pomato
+from pomato.tools import copytree
 
 class TestPomatoGridModel(unittest.TestCase):
     

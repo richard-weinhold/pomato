@@ -10,7 +10,6 @@ pomato.POMATO
 
    .. autosummary::
    
-      ~POMATO.create_geo_plot
       ~POMATO.create_grid_representation
       ~POMATO.init_grid_model
       ~POMATO.initialize_market_results
