@@ -47,10 +47,10 @@ setup(name='pomato',
       python_requires='>=3.6',
       include_package_data = True,
       install_requires=[
-        'alabaster',
+        # 'alabaster',
+        # 'numpydoc',
         'matplotlib',
         'numpy',
-        'numpydoc',
         'xlrd',
         'openpyxl',
         'pandas',
@@ -68,7 +68,7 @@ setup(name='pomato',
         'dash',
         'dash_bootstrap_components',
         'dash_daq',
-        'pypoman'
+        # 'pypoman'
         ],
       cmdclass={
         'develop': DevelopCommand,

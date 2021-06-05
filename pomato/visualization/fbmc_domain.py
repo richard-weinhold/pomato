@@ -7,7 +7,7 @@ import imageio
 import numpy as np
 import pandas as pd
 import progress
-from pypoman import compute_polytope_vertices
+# from pypoman import compute_polytope_vertices
 from scipy import spatial
 from scipy.spatial.qhull import QhullError
 
@@ -32,19 +32,19 @@ def domain_volume(self, A, A_hat, b):
         # for known domain halpfspaces. 
         
         tmp = spatial.ConvexHull(A/b.reshape(len(A), 1)).vertices
-        points = compute_polytope_vertices(A[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
+        # points = compute_polytope_vertices(A[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
         # points = compute_polytope_vertices(A[tmp, :], b[tmp])
-        hull = spatial.ConvexHull(points)
-        return hull.volume/1e6
+        # hull = spatial.ConvexHull(points)
+        return tmp.volume/1e6
     except QhullError:
         try:
             self.logger.warning("Cannot calculate volume in full dimensionality.")
             tmp = spatial.ConvexHull(A_hat/b.reshape(len(A_hat), 1)).vertices
-            points = compute_polytope_vertices(A_hat[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
+            # points = compute_polytope_vertices(A_hat[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
             # points = compute_polytope_vertices(A[tmp, :], b[tmp])
-            hull = spatial.ConvexHull(points)
+            # hull = spatial.ConvexHull(points)
             self.logger.warning("Returning area of plottet domain slice.")
-            return hull.volume/1e6
+            return tmp.volume/1e6
         except QhullError:
             self.logger.error("Error in domain volume calculation.")
             return 0
