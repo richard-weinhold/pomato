@@ -31,8 +31,6 @@ def domain_volume(self, A, A_hat, b):
         # fail without clear indication. To solve, the vertices are found 
         # for known domain halpfspaces. 
         
-        # A == 0
-        # a = A[:, ~np.all(A == 0, axis = 0)]
         tmp = spatial.ConvexHull(A/b.reshape(len(A), 1)).vertices
         points = compute_polytope_vertices(A[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
         # points = compute_polytope_vertices(A[tmp, :], b[tmp])
