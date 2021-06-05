@@ -38,7 +38,7 @@ class InstallCommand(install):
         julia_instantiate(self.install_lib)
 
 setup(name='pomato',
-      version='0.3.2',
+      version='0.4.0',
       description='Power Market Tool',
       author='Richard Weinhold',
       author_email='riw@wip.tu-berlin.de',

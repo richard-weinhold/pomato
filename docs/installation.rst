@@ -6,7 +6,28 @@ Installation
 POMATO is written in python and julia. Python takes care of the data processing
 and julia runs the economic dispatch and N-1 redundancy removal algorithm. 
 
-The recommended way to install POMATO with python and pip:
+This structure can take advantage of both: The computational performance ease of defining
+optimization problems with the modeling language JuMP in julia. And the well readable and
+maintabable object-oriented programming paradigm in python which solves issues typically related to
+static scripts. The combination enables a flexible model structure that ensures consitency on the
+data side, especially when deriving network representations from dispatch results and continuously
+resolving optimization problems. 
+
+However this also means maintaining multiple model parts. To create a reliable and maintainable model, 
+the main part of POMATO resides in this python repository and the two julia components reside in separate 
+repositories and are pulled installed when installing POMATO. The advantage is that each repository 
+contains solely code of either julia or python and can be tested individually and functionality can be 
+ensured. The main python repository actually performs an integration test that pulls and uses the 
+julia components. 
+
+The disadvantage is that it might be difficult to bring everything together. But that is probably
+always the case. 
+
+
+Installing POMATO
+-------------------------------------
+
+The recommended installation with python and pip:
 
     - Install `python <https://www.python.org/downloads/>`_ for your operating system. On linux
       based operating systems python is often already installed and available under the python3
@@ -42,7 +63,7 @@ After this is completed pomato can be imported in python:
 
     from pomato import POMATO
 
-See :doc:`case_studies` for instruction how to run a model.
+See :doc:`running_pomato` for instruction how to run a model.
 
 Notes on the Installation:
 **************************
@@ -135,7 +156,3 @@ To set POMATO up in this manner:
 
     - This command instantiates a julia environment within the ``_installation`` subfolder of the
       pomato repository. 
-
-
-
-

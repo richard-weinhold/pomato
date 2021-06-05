@@ -185,6 +185,9 @@ when most lines are part of the optimization, like in nodal pricing, the angle f
 faster. When only a small subset of lines is relevant or contingency cases are used, the PTDF formulation 
 is better. Zonal application will always use the PTDF formulation. 
 
+Commercial Exchange and Flow on DC-Lines
+""""""""""""""""""""""""""""""""""""""""
+
 Beside nodal/zonal transmission network representations, tranport constraints can be includes as 
 net trans capacities (NTC), that directly constraint the commercial exchange. These constraints 
 can be configured to only apply to commercial exchange from and to a subset of zones. 
@@ -200,6 +203,11 @@ result and their power flow is optimized with system cost in mind.
 
 The flow on a dc line is mapped to the start and endnodes using the :math:`\mathrm{incidence}_{dc,n}`  
 parameter and is included in the nodal energy balance. 
+
+Both commercial exchange and flows on dc lines are decision variables. This can cause unintended
+behavior, where the absolute values of flows can be high when only condition is that all flows are
+balanced. Therefore there are small costs associated with both commercial flows and flows on dc
+lines that are captured as :math:`\mathit{COST\_EX}`.
 
 
 Heat-Generation Constraints

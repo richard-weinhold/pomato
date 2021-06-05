@@ -13,10 +13,9 @@ but made sure the definitions are easily accessible to potentially adopt pomato 
 .. toctree::
   :maxdepth: 1
 
-  folder_structure.rst
-  input_model_data.rst
-  options.rst
   model_formulation
+  input_model_data
+  options
   line_parameters
 
 
@@ -40,3 +39,20 @@ See the related publication, available as *preprint*, for more detailed descript
 structure `Weinhold and Mieth (2020), Power Market Tool (POMATO) for the Analysis of 
 Zonal Electricity Markets <https://arxiv.org/abs/2011.11594>`_.
 
+Running pomato requires besides input data, temporary directories to store data and results from the 
+market model or redundancy removal. The idea is to have a working folder to run the model including 
+all relevant inputs and store outputs and results. The folder structure is defined as follows and will
+be automatically generated when running the model: 
+
+::
+
+    working_directory
+    ├── profiles/
+    ├── logs/
+    ├── data_input/
+    ├── data_output/
+    ├── data_temp/
+        └── julia_files/
+             ├── cbco_data/
+             ├── results/
+             └── data/
