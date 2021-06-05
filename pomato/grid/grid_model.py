@@ -127,14 +127,14 @@ class GridModel():
             self.grid_representation.grid = self.create_nodal_grid_parameters()
         elif self.options["type"] == "zonal":
             self.grid_representation.grid = self.create_zonal_grid_parameters()
-            self.grid_representation.ntc = self.create_ntc()
+            self.process_ntc()
         elif self.options["type"] == "cbco_nodal":
             self.grid_representation.contingency_groups = self.grid.contingency_groups
             self.grid_representation.grid = self.create_cbco_nodal_grid_parameters()
         elif self.options["type"] == "cbco_zonal":
             self.grid_representation.contingency_groups = self.grid.contingency_groups
             self.grid_representation.grid = self.create_cbco_zonal_grid_parameters()
-            self.grid_representation.ntc = self.create_ntc()
+            self.process_ntc()
         else:
             self.logger.info("No grid representation needed for dispatch model")
         
@@ -162,6 +162,7 @@ class GridModel():
         self.grid_representation.option = "cbco_zonal"
         self.grid_representation.grid = flowbased_paramters
         self.grid_representation.contingency_groups = self.grid.contingency_groups
+        self.process_ntc()
 
     def create_nodal_grid_parameters(self):
         """Process grid information for nodal N-0 representation.

@@ -84,12 +84,14 @@ class FBMCModule():
             gsk[zone] = 0
             nodes_in_zone = self.grid.nodes.index[self.grid.nodes.zone == zone]
             tmp = gen[gen.n.isin(nodes_in_zone)].groupby("n").sum().copy()
-            tmp.loc[:, "G"] /= tmp.G.max()
-            gsk.loc[tmp.index, zone] = tmp.G.values
-        
+            if tmp.G.sum() > 0:
+                tmp.loc[:, "G"] /= tmp.G.sum()
+                gsk.loc[tmp.index, zone] = tmp.G.values
+            else:
+                 gsk.loc[nodes_in_zone, zone] = 1/len(nodes_in_zone)
         return gsk.values
         
-    def create_gsk(self, option="flat"):
+    def create_gsk(self, option="gmax"):
         """Returns static GSK.
 
         Input options are: 
@@ -119,13 +121,13 @@ class FBMCModule():
         
         gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]] \
                         .groupby("node").sum()
-
+    
         for zone in self.data.zones.index:
             nodes_in_zone = self.grid.nodes.index[self.grid.nodes.zone == zone]
             gsk[zone] = 0
             gmax_in_zone = gmax_per_node[gmax_per_node.index.isin(nodes_in_zone)]
             if option == "gmax":
-                if not gmax_in_zone.empty:
+                if not (gmax_in_zone.empty or gmax_in_zone.g_max.sum() == 0):
                     gsk_value = gmax_in_zone.g_max/gmax_in_zone.values.sum()
                     gsk.loc[gsk.index.isin(gmax_in_zone.index), zone] = gsk_value
                 else:
@@ -133,7 +135,7 @@ class FBMCModule():
 
             elif option == "flat":
                 gsk.loc[gsk.index.isin(nodes_in_zone), zone] = 1/len(nodes_in_zone)
-
+        
         return gsk.values
 
     def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax", 
@@ -293,7 +295,6 @@ class FBMCModule():
         """
 
         # Check arguments and options 
-        
         if not timesteps:
             timesteps = basecase.model_horizon
         cne_sensitivity = self.options["fbmc"]["cne_sensitivity"]
@@ -332,6 +333,10 @@ class FBMCModule():
             zonal_fbmc_ptdf_tmp = np.dot(nodal_fbmc_ptdf, self.create_gsk(gsk_strategy))
             zonal_fbmc_ptdf = {timestep: zonal_fbmc_ptdf_tmp for timestep in timesteps}
             f_da = np.dot(zonal_fbmc_ptdf_tmp, nex.values.T)
+        
+        t = self.create_gsk(gsk_strategy)
+        
+        
 
         f_ref_nonmarket = f_ref_base_case - f_da
         ram = (self.grid.lines.capacity[fbmc_data.cb].values - frm_fav - f_ref_nonmarket.T).T
@@ -362,7 +367,6 @@ class FBMCModule():
             
         fb_parameters.set_index(fb_parameters.cb + "_" + fb_parameters.co, inplace=True)
         return fb_parameters
-
 
     def enforce_ntc_domain(self, fb_parameters):
         """Remove enforce domain to include NTC values"""

@@ -214,11 +214,11 @@ class POMATO():
         defined in tools.
     """
    
-    def __init__(self, wdir, options_file=None, logging_level=logging.INFO, file_logger=False):
+    def __init__(self, wdir, options_file=None, logging_level=logging.INFO, file_logger=True):
 
         self.wdir = wdir
         self.package_dir = Path(pomato.__path__[0])
-        self.logger = _logging_setup(self.wdir, logging_level, file_logger=False)
+        self.logger = _logging_setup(self.wdir, logging_level, file_logger)
         tools.create_folder_structure(self.wdir, self.logger)
         # Core Attributes
         if not options_file:

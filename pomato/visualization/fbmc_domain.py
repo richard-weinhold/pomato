@@ -18,7 +18,9 @@ from pomato.fbmc import FBMCModule
 from pomato.grid import GridModel
 from progress.bar import Bar
 
-def domain_volume(self, A, b):
+
+
+def domain_volume(self, A, A_hat, b):
     """Calculating the volume of the FB-domain.
 
     Input arguments A and b define the domain feasible region as Ax<=b, the dimensionality of A
@@ -28,14 +30,26 @@ def domain_volume(self, A, b):
         # The vertex enumeration compute_polytope_vertices does sometimes
         # fail without clear indication. To solve, the vertices are found 
         # for known domain halpfspaces. 
+        
+        # A == 0
+        # a = A[:, ~np.all(A == 0, axis = 0)]
         tmp = spatial.ConvexHull(A/b.reshape(len(A), 1)).vertices
         points = compute_polytope_vertices(A[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
         # points = compute_polytope_vertices(A[tmp, :], b[tmp])
         hull = spatial.ConvexHull(points)
         return hull.volume/1e6
     except QhullError:
-        self.logger.error("Error in FB domain volume calculation")
-        return 0
+        try:
+            self.logger.warning("Cannot calculate volume in full dimensionality.")
+            tmp = spatial.ConvexHull(A_hat/b.reshape(len(A_hat), 1)).vertices
+            points = compute_polytope_vertices(A_hat[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
+            # points = compute_polytope_vertices(A[tmp, :], b[tmp])
+            hull = spatial.ConvexHull(points)
+            self.logger.warning("Returning area of plottet domain slice.")
+            return hull.volume/1e6
+        except QhullError:
+            self.logger.error("Error in domain volume calculation.")
+            return 0
 
 def domain_feasible_region_indices(A, b):
     """Determining the feasible region of the FB domain, utilizing a convexhull algorithm.
@@ -50,8 +64,8 @@ def domain_feasible_region_indices(A, b):
     -------
         indices : array of indices of A,b that define the domain's feasible region. 
     """
-    A = np.array(A, dtype=np.float)
-    b = np.array(b, dtype=np.float).reshape(len(b), 1)
+    A = np.array(A, dtype=float)
+    b = np.array(b, dtype=float).reshape(len(b), 1)
     D = A/b
     k = spatial.ConvexHull(D) #pylint: disable=no-member
     return k.vertices
@@ -272,7 +286,6 @@ class FBDomainPlots():
         vertices_sorted = np.array(vertices_sorted)   
         return vertices_sorted[:, [0,1]]
 
-
     def generate_flowbased_domains(self, domain_x, domain_y, 
                                    filename_suffix=None, commercial_exchange=None, timesteps=None):
         """Create FB domains for all timesteps of the supplied FB parameters.
@@ -309,7 +322,6 @@ class FBDomainPlots():
             Optionally append to the resulting filename a suffix that makes it easier to 
             identify when domains for more scenarios are created, by default None.
         """
-        
         domain_info = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep].copy()
         domain_info = domain_info[~(domain_info[self.data.zones.index] == 0).all(axis=1)].reset_index()
 
@@ -338,8 +350,10 @@ class FBDomainPlots():
         #     raise ValueError("Not all RAM >= 0, check FB paramters.")
         if not isinstance(self.flowbased_parameters, pd.DataFrame):
             raise AttributeError("No precalculated flow based parameters available, run create_flowbased_parameters with basecase and GSK")
-        if not len(self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].gsk_strategy.unique()) == 1:
+        if len(self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].gsk_strategy.unique()) > 1:
             raise AttributeError("Multiple GSK Strategies in flow based parameters, slice first!")
+        elif self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].empty:
+            raise AttributeError("No FB parameters available with given parameters!")
         else:
             gsk_strategy = self.flowbased_parameters[self.flowbased_parameters.timestep == timestep].gsk_strategy.unique()[0]
 
@@ -361,7 +375,8 @@ class FBDomainPlots():
             plot_indices = domain_info.index
 
         feasible_region_vertices = self.create_feasible_region_vertices(A_hat, b)
-        feasible_region_volume = domain_volume(self, A, b)
+        feasible_region_volume = domain_volume(self, A, A_hat, b) 
+           
         # Specify plot dimension relative to the size plus an absolute margin.
         x_max, y_max = feasible_region_vertices.max(axis=0)*2
         x_min, y_min = feasible_region_vertices.min(axis=0)*2

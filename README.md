@@ -1,5 +1,6 @@
-[![PomatoLogo](https://github.com/richard-weinhold/pomato/blob/master/docs/_static/graphics/pomato_logo_small.png "Pomato Soup")](#) POMATO - Power Market Tool
-=====================================================================================================================================
+<img  height="24" src="https://raw.githubusercontent.com/richard-weinhold/pomato/main/docs/_static/graphics/pomato_logo_small.png"> POMATO - Power Market Tool <img  height="24" src="https://raw.githubusercontent.com/richard-weinhold/pomato/main/docs/_static/graphics/pomato_logo_small.png">
+=========================================================================================================================================================
+
 Master Branch: ![Python package](https://github.com/richard-weinhold/pomato/workflows/Python%20package/badge.svg?branch=master) 
 
 Construction Branch: ![Python package](https://github.com/richard-weinhold/pomato/workflows/Python%20package/badge.svg?branch=construction)
@@ -19,16 +20,6 @@ Market-Coupling (FBMC) and is therefore equipped with a fast security
 constrained optimal power flow algorithm and allows zonal market clearing
 with endogenously generated flow-based parameters, and redispatch.
 
-Model Structure
----------------
-The model is structured in three interconnected parts : 
-  * Data Management: Data input, processing and result analysis.
-  * Market Model: Calculation of the economic dispatch based on the
-    dataset and chosen grid representation.
-  * Grid Model: Providing grid representation for economic dispatch
-    calculation in chosen granularity (N-0, N-1, FBMC, NTC, copperplate)
-    and analysis for ex-post analysis of the market result.
-
 Documentation
 -------------
 
@@ -40,39 +31,45 @@ Installation
 POMATO is written in python and julia. Python takes care of the data processing
 and julia runs the economic dispatch and N-1 redundancy removal algorithm. 
 
-The recommended way to install POMATO:
-  - Install Julia and have it available on the system path
-  - Install POMATO through *pip* in python >= 3.6 by creating a virtual environment and install pomato into it
+The recommended way to install POMATO with python and pip:
+
+    - Install [python](https://www.python.org/downloads/) for your operating system. On linux
+      based operating systems python is often already installed and available under the python3
+      command. For Windows install python into a folder of your choice. POMATO is written and tested
+      in python 3.7 by any version >= 3.6 should be compadible. 
+    
+    - Install [julia](https://julialang.org/downloads/) for your operating system. POMATO is
+      written and tested with 1.5, but the newest version 1.6 works as well, but throws some
+      warnings.  
+
+    - Add *python* and *julia* to the system Path, this allows you to start  *python* and *julia*
+      directly for the command line without typing out the full path of the installation. PLattform
+      specific instructions on how to do this are part of the [julia installation instructions](https://julialang.org/downloads/platform/)and work analogous for the python .  
+    
+    - Install POMATO through *pip* in python. It is recommended to create a virtual environment and
+      install pomato into it, but not necessary:
+    
+    .. code-block::
 
         python -m venv pomato
-        .\pomato\Scripts\activate
+        ./pomato/Scripts/activate
         pip install git+https://github.com/richard-weinhold/pomato.git
 
-This will not only clone the master branch of this repository into the local python environment, but also pull the master branch of the MarketModel and RedundancyRemoval Julia packages which are required to run POMATO.
+
+This will not only clone the master branch of this repository into the local python environment, but
+also pull the master branch of the MarketModel and RedundancyRemoval julia packages which are
+required to run POMATO. This process can take a few minutes to complete.
 
 After this is completed pomato can be imported in python:
 
+.. code-block:: python
+
     from pomato import POMATO
 
-POMATO functions from a *working directory*, ideally the project folder includes the virtual environment, and creates additional folders for results, temporary data and logs. The way we use POMATO is illustrated by the *examples* folder, cloning its contents as a *working directory* allows to run the included examples.
 
-Pomato works with open solvers, if Gurobi is available on the PATH within the venv/project it will be used. See [Gurobi.jl](https://github.com/JuliaOpt/Gurobi.jl) for notes on the installation. Additionally, the 
-Chance-Constrained model formulation requires MOSEK solver which can be installed from within Pomato, 
-but requires a licence to use [Mosek.jl](https://github.com/JuliaOpt/Mosek.jl). 
+See the [POMATO Documentation](https://pomato.readthedocs.io/en/latest/installation.html) for
+further information on the installation process. 
 
-
-You can also install the latest version available on the construction branch via 
-
-        pip install git+https://github.com/richard-weinhold/pomato.git@construction
-
-This will not only install the construction branch of POMATO but also of the MarketModel, to remain compadible. 
-
-The integration of Julia and Python can be tricky to manage when updating or changing versions. Besides deleting and reinstalling POMATO provides some means to manage the julia environment via a functions available in `pomato.tools.julia_management`. 
-
-  * `pomato.tools.julia_management.instantiate_julia(redundancyremoval_branch="master", marketmodel_branch="master")` will re-install the julia packages MarketModel and RedundancyRemoval from their git repositories. Allows to specify a specific branch to use for the repsective modules.
-  * `pomato.tools.julia_management.instantiate_julia_dev(redundancyremoval_path, marketmodel_path)` will instantiate the julia environment from local repositories. This is useful when actively changing the code.
-  * `pomato.tools.julia_management.add_gurobi()` adds the gurobi solver to the julia environment. 
-  * `pomato.tools.julia_management.add_mosek()` adds the mosek solver to the julia environment. 
 
 Examples
 --------
@@ -83,16 +80,15 @@ This release includes two examples in the *examples* folder. Including the conte
 
         $ python /run_pomato_ieee.py
 
-  - The DE case study, based on data from [ELMOD-DE](http://www.diw.de/elmod) which is openly available and
-    described in detail in [DIW DataDocumentation 83](https://www.diw.de/documents/publikationen/73/diw_01.c.528927.de/diw_datadoc_2016-083.pdf) which represents a more complex system and can be run for longer model horizon (although 
-    shortened to allow to host this data in this git).
+  - The DE case study, based on data from openly available data sources. The file can be run via
 
         $ python /run_pomato_de.py
 
+See more in depth descriptions of this two case studies part of the [POMATO Documentation](file:///C:/Users/riw/Documents/repositories/pomato/docs/_build/html/running_pomato.html).
 
-However, the functionality of POMATO is best utilized when running inside a
-IDE (e.g. Spyder) to access POMATO objects and develop a personal script based
-on the provided functionality and its results.
+The *examples* folder also contains the two examples as Jupyter notebooks. Another possibility to
+access the functionality of POMATO with an online REPL/Console when running POMATO inside a IDE with
+an interactive IPython Console (e.g. Spyder) to access POMATO objects and variables.
 
 Release Status
 --------------
@@ -116,8 +112,10 @@ Related Publications
 Acknowledgments
 ---------------
 
-Richard and Robert would like to acknowledge the support of Reiner Lemoine-Foundation, the Danish Energy Agency and Federal Ministry for 
-Economic Affairs and Energy (BMWi).
-Robert Mieth is funded by the Reiner Lemoine-Foundation scholarship. Richard Weinhold is funded by the Danish Energy Agency.
-The development of POMATO and its applications was funded by BMWi in the project “Long-term Planning and Short-term Optimization of the German Electricity System Within the European Context” (LKD-EU, 03ET4028A).
+Richard and Robert would like to acknowledge the support of Reiner Lemoine-Foundation, the Danish
+Energy Agency and Federal Ministry for Economic Affairs and Energy (BMWi). Robert Mieth is funded by
+the Reiner Lemoine-Foundation scholarship. Richard Weinhold is funded by the Danish Energy Agency.
+The development of POMATO and its applications was funded by BMWi in the project “Long-term Planning
+and Short-term Optimization of the German Electricity System Within the European Context” (LKD-EU,
+03ET4028A).
 

@@ -31,7 +31,7 @@ class Results():
     result_attributes : dict,
         *result_attributes* covers all variables from the market model,
         along with dual and infeasibility/slack variables and other market
-        model specific information which are relevant to the results itself.
+        model specific information which are relevant to the results itself.  
 
     Parameters
     ----------

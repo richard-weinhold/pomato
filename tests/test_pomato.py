@@ -63,7 +63,7 @@ class TestPomato(unittest.TestCase):
     
     def test_init_de_zip(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
-        mato.load_data('data_input/dataset_de.zip')
+        mato.load_data('data_input/DE_2020.zip')
 
     def test_init_nrel_direct_filepath(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)

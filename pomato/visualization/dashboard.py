@@ -263,7 +263,26 @@ def page_fbmc():
     return layout
 
 class Dashboard():
-    """Dashboard of Pomato"""
+    """Dashboard of Pomato.
+
+    The Dashboard provides an interactive way to browse pomato results using the methods of
+    :class:`~pomato.visualization.Visualization`. 
+
+    The Dashboard consists of three pages: 
+    
+    - Overview: Housing plots that visualizes general results like costs and total generation by 
+      type and allows to compare different results based on these metrics. 
+    - Generation: Shows generation over the model horizon for a specific results. All values are 
+      aggregated over the full model horizon.
+    - Transmission: Shows power flows for a specific timestep and results.
+    - FBMC: Allows to visualize flow based domains based on chosen basecase and parameters like 
+      GSK, minRAM etc. Allows to show location of market results in FB Domain. 
+
+    Parameters
+    ----------
+    pomato_instance : :class:`~pomato.POMATO` Pomato instance that contains data and results. 
+
+    """
     def __init__(self, pomato_instance, **kwargs):
 
         self.pomato_instance = pomato_instance
@@ -287,7 +306,6 @@ class Dashboard():
         self.app.run_server(**server_args)
 
     def join(self):
-        """Close the locally hosted dash plot"""
         print("Teardown Dash Server.")
         if self.dash_thread.is_alive():
             print("Joining Dash Thread.")
@@ -488,6 +506,7 @@ class Dashboard():
         self.pomato_instance.options["fbmc"]["lodf_sensitivity"] = cnec_sensitivity/100
         self.pomato_instance.options["fbmc"]["enforce_ntc_domain"] = include_ntc
         self.pomato_instance.options["fbmc"]["gsk"] = gsk
+        self.pomato_instance.options["fbmc"]["reduce"] = False
         fb_parameter_function = self.pomato_instance.fbmc.create_flowbased_parameters
         fb_parameters = fb_parameter_function(basecase, enforce_ntc_domain=include_ntc)
         fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
