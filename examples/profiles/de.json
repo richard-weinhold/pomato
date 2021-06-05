@@ -1,8 +1,8 @@
 {
-	"type": "dispatch",
-	"model_horizon": [0, 168],
+	"type": "ntc",
+	"model_horizon": [0, 48],
 	"timeseries": {
-		"market_horizon": 168, 
+		"market_horizon": 48, 
 		"redispatch_horizon": 24
 	},
 	"redispatch": {
@@ -14,7 +14,7 @@
 		"electricity": {
 			"include": true,
 			"cost": 1E2,
-			"bound": 1000
+			"bound": 1E4
 		}
 	},
 	"plant_types": {
