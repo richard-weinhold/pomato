@@ -1,8 +1,9 @@
 
 .. _line_parameters:
 
-Line Parameters for linear power flow
+Line parameters for linear power flow
 -------------------------------------
+
 Power flow calculations rely on many parameters, related to the existing infrastructure of lines
 (branches), nodes (buses) and transformers. Detailed information is scarce and especially in the
 composition of open energy models, it is required to abstract and interpolate the existing data to
@@ -121,8 +122,8 @@ In linear power flow only active power is accounted for. While also representing
 the full apparent power is used as thermal capacity and therefore as limit to active power in the
 calculations. 
 
-The values for reactance and resistance in per unit (p.u.), in reference to :math:`S_B = 1`MVA and the
-nominal line voltage $U_d$ become:
+The values for reactance and resistance in per unit (p.u.), in reference to :math:`S_B = 1` MVA and the
+nominal line voltage :math:`U_d` become:
 
 .. math::
 
@@ -152,7 +153,7 @@ drop (:math:`u_{kr}`, :math:`u_{Rr}`$  in [1]_,  :math:`v_{sc}`, :math:`v_{scr}`
 documentation <www.pypsa.readthedocs.io/en/latest/components.html#transformer-types>`_ (at least to
 my understanding). These parameters are from from the pyPSA project [3]_ as `standard types
 <www.github.com/PyPSA/PyPSA/blob/master/pypsa/standard_types/transformer_types.csv>`_ mostly
-equivalent to the ones used in pandapower [4]_ and SimBench [5]_, the latter included higher rated
+equivalent to the ones used in pandapower [4]_ and SimBench [5]_ [6]_, the latter included higher rated
 transformers and a 220/380 type. The following table contains the relevant types, with reference. 
 
 .. table:: Transformer parameters from various sources. 

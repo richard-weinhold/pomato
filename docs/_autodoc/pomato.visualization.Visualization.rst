@@ -22,3 +22,5 @@ Visualization
 	  ~Visualization.create_fb_domain_plot
 	  ~Visualization.create_cost_overview
 	  ~Visualization.create_merit_order
+
+	  

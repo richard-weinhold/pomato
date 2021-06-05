@@ -10,6 +10,7 @@ pomato.visualization
 
       Visualization
       FBDomainPlots
+      Dashboard
 
 
 

@@ -112,7 +112,9 @@ plants
     +------------------+-----------------+---------+
     | g_max            | float64         |         |
     +------------------+-----------------+---------+
-    | h_max            | float64         | 0       |
+    | h_max            | float64         | 0       |    
+    +------------------+-----------------+---------+
+    | d_max            | float64         | 0       |
     +------------------+-----------------+---------+
     | eta              | float64         | 1       |
     +------------------+-----------------+---------+
@@ -161,7 +163,7 @@ dclines
     +---------+-------------+---------+
     | node_j  | nodes.index |         |
     +---------+-------------+---------+
-    | capacity | float64     |         |
+    | capacity| float64     |         |
     +---------+-------------+---------+
 
 
@@ -271,7 +273,7 @@ net position for market areas
 heatareas
 *********
 
-district heating networks 
+district heating networks, analog to zones.
 
 .. table::
     :align: left
@@ -285,7 +287,7 @@ district heating networks
 demand_h
 ********
 
-district heating demand
+district heating demand.
 	
 .. table::
     :align: left
