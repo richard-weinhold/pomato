@@ -130,18 +130,18 @@ DE Case Study
 In this example the german system is modeled, first as a single market clearing based on the 
 options stored in a *.json* file and then in a second step including redispatch and altered options. 
 
-The data for the underlying dataset comes from multiple sources: 
-   - Conventional power plant data comes from the 
+The data for the underlying data comes from multiple sources: 
+   - Conventional power plant data is taken from the 
      `Open Power System Data <https://open-power-system-data.org/>`_ Platform (OPSD).
    - Geographic information is used from the `ExtremOS <https://opendata.ffe.de/project/extremos/>`_
      project of Forschungsstelle für Energiewirtschaft (FfE) and their FfE Open Data Portal.   
-   - Wind and PV capacities are distributed using the NUTS3 Potentials from FfE. Futire capacities
-     are taken from results of the large scale energy system model `AnyMod
+   - Wind and PV capacities are distributed using the NUTS3 Potentials from FfE. 
+   - Future capacities are taken from results of the large scale energy system model `AnyMod
      <https://github.com/leonardgoeke/AnyMOD.jl>`_.
-   - The availability timeseries are generated using the  `atlite
-     <https://github.com/PyPSA/atlite>`_, package.
-   - The grid data comes from the `GridKit
-     <https://github.com/bdw/GridKit>`_ project, more specifically 
+   - NUTS3 availability timeseries for wind and solar are generated using the `atlite
+     <https://github.com/PyPSA/atlite>`_, package. Offshore availability based on EEZ regions of FfE.
+   - The grid data comes from the `GridKit <https://github.com/bdw/GridKit>`_ project, more
+     specifically 
      `PyPSA/pypsa-eur <https://github.com/PyPSA/pypsa-eur/tree/master/data/entsoegridkit>`_ fork,
      which contains more recent data. 
    - Generation costs are based on data from `ELMOD-DE <http://www.diw.de/elmod>`_ which is 
@@ -151,6 +151,7 @@ The data for the underlying dataset comes from multiple sources:
      <https://github.com/energy-modelling-toolkit/hydro-power-database>`_ and inflows are determined
      using the `atlite <https://github.com/PyPSA/atlite>`_ hydro capabilities and scaled using
      annual generation.
+   - Load, commercial exchange from ENTSO-E Transparency platform [9]
 
 This step-by-step guide is part of the ``/examples`` folder which can be copied as working folder.  
 

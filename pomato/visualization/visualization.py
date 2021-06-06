@@ -15,7 +15,6 @@ import plotly.express as px
 import plotly.graph_objects as go
 import pomato
 import pomato.tools as tools
-from matplotlib import cm
 from plotly.offline import plot
 from plotly.subplots import make_subplots
 from pomato.visualization.geoplot_functions import line_coordinates, line_colors, add_prices_layer, _create_geo_json
@@ -283,6 +282,7 @@ class Visualization():
                         "Redispatch: %{customdata[2]:.2f} MW",
                     ]) + "<extra></extra>"
                 ))
+
         elif show_curtailment and any(nodes.CURT > 0):
             condition = (nodes.CURT > 0)
             affected_nodes = nodes.index[condition]
@@ -348,7 +348,7 @@ class Visualization():
         ))
 
         if show_prices:
-            compress=True
+            compress = True
             colorscale = "RdBu_r"
             contours = 8
             prices_layer, coordinates, hight_width = add_prices_layer(nodes, prices, compress)
@@ -392,7 +392,7 @@ class Visualization():
                                             cmax=1,
                                             colorbar=dict(thickness=5)
                                         ), hoverinfo='none')
-            fig.add_trace(lines_colorbar)
+            # fig.add_trace(lines_colorbar)
 
         center = {
             'lon': round((max(nodes.lon) + min(nodes.lon)) / 2, 6),
@@ -400,7 +400,7 @@ class Visualization():
             }
         fig.update_layout(    
             showlegend = False,
-            margin={"r":0,"t":0,"l":0,"b":0},
+            # margin={"r":0,"t":0,"l":0,"b":0},
             mapbox= {"style": "carto-positron",
                     "layers": [price_layer],
                     "zoom": 3,
@@ -500,6 +500,7 @@ class Visualization():
         demand = market_result.demand()
         inf = market_result.infeasibility(drop_zero=False)
         net_export = market_result.data.net_export
+
         if isinstance(nodes, list):
             gen = gen[gen.node.isin(nodes)]
             demand = demand[demand.n.isin(nodes)]
@@ -807,12 +808,12 @@ class Visualization():
     def create_fb_domain_plot(self, fb_domain, show_plot=True, filepath=None):
         """Create FlowBased Domain plot. 
 
-        This is a copy of :meth:`~pomato.visualization.FBDomain.create_fbmc_figure`
-        using plotly instead of matplotlib. This allows for proper integration in the 
-        Dashboard functionality including interaction with the geo plot. 
+        This is a copy of the previous :meth:`~pomato.visualization.FBDomain.create_fbmc_figure`
+        using plotly instead of matplotlib. This allows for proper integration in the Dashboard
+        functionality including interaction with the geo plot. 
 
-        Input argument remains an instance of :class:`~pomato.visualization.FBDomain` which 
-        can be created by utilizing :meth:`~pomato.visualization.FBDomainPlots` module. 
+        Input argument remains an instance of :class:`~pomato.visualization.FBDomain` which can be
+        created by utilizing :meth:`~pomato.visualization.FBDomainPlots` module. 
         """
         # fb_domain = domain_plot
         fig = go.Figure()

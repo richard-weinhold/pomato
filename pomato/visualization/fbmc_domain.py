@@ -11,13 +11,46 @@ import progress
 from scipy import spatial
 from scipy.spatial.qhull import QhullError
 
-
 progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
 import pomato.tools as tools
 from pomato.fbmc import FBMCModule
 from pomato.grid import GridModel
 from progress.bar import Bar
+import cdd
 
+
+def compute_polytope_vertices(A, b):
+    """
+    This is a copy of https://github.com/stephane-caron/pypoman/blob/master/pypoman/duality.py
+    which unfortunately does not like to install with github actions. 
+    
+    Compute the vertices of a polytope given in halfspace representation by
+    :math:`A x \\leq b`.
+    Parameters
+    ----------
+    A : array, shape=(m, k)
+        Matrix of halfspace representation.
+    b : array, shape=(m,)
+        Vector of halfspace representation.
+    Returns
+    -------
+    vertices : list of arrays
+        List of polytope vertices.
+
+    """
+    b = b.reshape((b.shape[0], 1))
+    mat = cdd.Matrix(np.hstack([b, -A]), number_type='float')
+    mat.rep_type = cdd.RepType.INEQUALITY
+    P = cdd.Polyhedron(mat)
+    g = P.get_generators()
+    V = np.array(g)
+    vertices = []
+    for i in range(V.shape[0]):
+        if V[i, 0] != 1:  # 1 = vertex, 0 = ray
+            raise Exception("Polyhedron is not a polytope")
+        elif i not in g.lin_set:
+            vertices.append(V[i, 1:])
+    return vertices
 
 
 def domain_volume(self, A, A_hat, b):
@@ -32,19 +65,20 @@ def domain_volume(self, A, A_hat, b):
         # for known domain halpfspaces. 
         
         tmp = spatial.ConvexHull(A/b.reshape(len(A), 1)).vertices
-        # points = compute_polytope_vertices(A[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
+        points = compute_polytope_vertices(A[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
         # points = compute_polytope_vertices(A[tmp, :], b[tmp])
-        # hull = spatial.ConvexHull(points)
-        return tmp.volume/1e6
+        hull = spatial.ConvexHull(points)
+        hull = spatial.ConvexHull(points)
+        return hull.volume/1e6
     except QhullError:
         try:
             self.logger.warning("Cannot calculate volume in full dimensionality.")
             tmp = spatial.ConvexHull(A_hat/b.reshape(len(A_hat), 1)).vertices
-            # points = compute_polytope_vertices(A_hat[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
+            points = compute_polytope_vertices(A_hat[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
             # points = compute_polytope_vertices(A[tmp, :], b[tmp])
-            # hull = spatial.ConvexHull(points)
+            hull = spatial.ConvexHull(points)
             self.logger.warning("Returning area of plottet domain slice.")
-            return tmp.volume/1e6
+            return hull.volume/1e6
         except QhullError:
             self.logger.error("Error in domain volume calculation.")
             return 0
@@ -168,26 +202,21 @@ class FBDomainPlots():
 
     def create_domain_plot(self, A, b, indices, plot_limits=None):
         """Create linear equations of the FB domain. 
-        
-        Create 2D equation from the 2D projection of the zonal PTDF, suitable to for a 
-        matplotlib line plot in the form axis.plot(plot_equations[i][0], plot_equations[i][1])
-        for each linear inequation that represents a specific line under contingency.
+
+        Create 2D equation from the 2D projection of the zonal PTDF, suitable to for a line plot in
+        the form axis.plot(plot_equations[i][0], plot_equations[i][1]) for each linear inequation
+        that represents a specific line under contingency.
 
         The indices represent a subset of equations to be plottet if the size of A is too high. 
-        
+
         Parameters
         ----------
-        A : np.array
-            Projected zonal PTDF with width 2. 
-        b : np.array
-            Vector of RAMs
-        indices : list-like
-            List of indices that compose the domain plot.
+        A : np.array Projected zonal PTDF with width 2. b : np.array Vector of RAMs indices :
+            list-like List of indices that compose the domain plot.
 
         Returns
         -------
-        plot_equations : list of [[x1;x2],[y1;y2]]
-            Each plot consists of two x and y coordinates.
+        plot_equations : list of [[x1;x2],[y1;y2]] Each plot consists of two x and y coordinates.
 
         """
         # indices = plot_indices

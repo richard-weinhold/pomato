@@ -214,7 +214,7 @@ class GridModel():
         table is added to not allow unintuitive commercial flows.
 
         """
-        gsk = self.options["grid"]["gsk"]
+        gsk = self.options["fbmc"]["gsk"]
         grid_option = self.options["grid"]
         zonal_network = pd.DataFrame(index=self.grid.lines.index,
                                      columns=self.data.zones.index,

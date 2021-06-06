@@ -260,7 +260,7 @@ class FBMCModule():
 
         return nodal_fbmc_ptdf, fbmc_data
    
-    def create_flowbased_parameters(self, basecase, timesteps=None, enforce_ntc_domain=True):
+    def create_flowbased_parameters(self, basecase, timesteps=None, enforce_ntc_domain=False):
         """Create Flow-Based Paramters.
 
         Creates the FB Paramters for the supplied basecase. Optional arguments are 
