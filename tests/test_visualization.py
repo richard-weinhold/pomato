@@ -27,7 +27,7 @@ class TestPomatoVisualization(unittest.TestCase):
         copytree(Path.cwd().joinpath("tests/test_data/cbco_lists"), cls.wdir)
 
         cls.mato = pomato.POMATO(wdir=cls.wdir, options_file="profiles/nrel118.json",
-                                  logging_level=logging.ERROR)
+                                  logging_level=logging.ERROR, file_logger=False)
         cls.mato.load_data('data_input/nrel_118.zip')
         cls.mato.options["grid"]["precalc_filename"] = "cbco_nrel_118"
 
