@@ -73,12 +73,12 @@ class TestPomatoGridModel(unittest.TestCase):
     def test_zonal(self):
         
         self.grid_model.options["type"] = "zonal"
-        self.grid_model.options["grid"]["gsk"] = "gmax"
+        self.grid_model.options["fbmc"]["gsk"] = "gmax"
 
         self.grid_model.create_grid_representation()
         grid_representation_gmax = copy.copy(self.grid_model.grid_representation)
 
-        self.grid_model.options["grid"]["gsk"] = "flat"
+        self.grid_model.options["fbmc"]["gsk"] = "flat"
         self.grid_model.create_grid_representation()
         grid_representation_flat = self.grid_model.grid_representation
 
