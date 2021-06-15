@@ -15,7 +15,7 @@ resolving optimization problems.
 
 However this also means maintaining multiple model parts. To create a reliable and maintainable model, 
 the main part of POMATO resides in this python repository and the two julia components reside in separate 
-repositories and are pulled installed when installing POMATO. The advantage is that each repository 
+repositories and are pulled when installing POMATO. The advantage is that each repository 
 contains solely code of either julia or python and can be tested individually and functionality can be 
 ensured. The main python repository actually performs an integration test that pulls and uses the 
 julia components. The disadvantage is that it might be difficult to bring everything together. 
