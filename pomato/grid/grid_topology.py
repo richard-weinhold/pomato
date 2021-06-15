@@ -1,6 +1,5 @@
 """Grid Model of POMATO"""
 import logging
-import sys
 from concurrent.futures import ThreadPoolExecutor
 import traceback
 import numpy as np
@@ -344,7 +343,7 @@ class GridTopology():
         # lodf = np.hstack([self.create_lodf([line for line in range(0, len(self.lines))], 
         #                                    [outage]) for outage in range(0, len(self.lines))])   
         # return lodf
-        from concurrent.futures import ThreadPoolExecutor
+        
         lines = [line for line in range(0, len(self.lines))]
         lodf = np.empty((len(self.lines), len(self.lines)))
         def f(i):

@@ -2,7 +2,7 @@
 
 This module creates the interface between the data, grid representation and
 the market model written in julia. This is done by saving the relevant data as csv,
-run the model in a subprocess which provides the results in folder as csv files.
+run the model in a threaded julia program which provides the results in folder as csv files.
 
 The Modes is initionaled empty and then filled with data seperately. This makes it
 easy to change the data and rerun without re-initializing everything again.
@@ -11,11 +11,9 @@ easy to change the data and rerun without re-initializing everything again.
 import datetime
 import json
 import logging
-import subprocess
 from pathlib import Path
 
 import pandas as pd
-
 import pomato
 import pomato.tools as tools
 

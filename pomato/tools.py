@@ -11,18 +11,15 @@ import operator
 import os
 import shutil
 import subprocess
-import sys
 import threading
 import time
 from functools import reduce
 from pathlib import Path
 
 import logaugment
-import numpy as np
 import pandas as pd
 import progress
 from progress.spinner import Spinner
-import pomato._installation.manage_julia_env as julia_management
 
 progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
 

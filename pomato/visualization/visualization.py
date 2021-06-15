@@ -1,23 +1,25 @@
 """Visualization Module of POMATO"""
 
+import io
 import logging
-import types
 from pathlib import Path
 
 import matplotlib
-import io
-from PIL import Image
-from numpy.lib.arraysetops import isin
-
-import pandas as pd
 import numpy as np
+import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import pomato
 import pomato.tools as tools
+from matplotlib import cm
+from numpy.lib.arraysetops import isin
+from PIL import Image
 from plotly.offline import plot
 from plotly.subplots import make_subplots
-from pomato.visualization.geoplot_functions import line_coordinates, line_colors, add_prices_layer, _create_geo_json
+from pomato.visualization.geoplot_functions import (_create_geo_json,
+                                                    add_prices_layer,
+                                                    line_colors,
+                                                    line_coordinates)
 
 BASIC_FUEL_COLOR_MAP = {
         "uran": ["#C44B50", "#7B011A", "#9C242E"],
@@ -392,7 +394,7 @@ class Visualization():
                                             cmax=1,
                                             colorbar=dict(thickness=5)
                                         ), hoverinfo='none')
-            # fig.add_trace(lines_colorbar)
+            fig.add_trace(lines_colorbar)
 
         center = {
             'lon': round((max(nodes.lon) + min(nodes.lon)) / 2, 6),
@@ -400,7 +402,7 @@ class Visualization():
             }
         fig.update_layout(    
             showlegend = False,
-            # margin={"r":0,"t":0,"l":0,"b":0},
+            margin={"r":0,"t":0,"l":0,"b":0},
             mapbox= {"style": "carto-positron",
                     "layers": [price_layer],
                     "zoom": 3,

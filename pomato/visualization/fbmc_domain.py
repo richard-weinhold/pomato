@@ -1,23 +1,16 @@
 
-import datetime as dt
 import logging
-from pathlib import Path
 
-import imageio
+import cdd
 import numpy as np
 import pandas as pd
 import progress
+from progress.bar import Bar
 # from pypoman import compute_polytope_vertices
 from scipy import spatial
 from scipy.spatial.qhull import QhullError
 
 progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
-import pomato.tools as tools
-from pomato.fbmc import FBMCModule
-from pomato.grid import GridModel
-from progress.bar import Bar
-import cdd
-
 
 def compute_polytope_vertices(A, b):
     """

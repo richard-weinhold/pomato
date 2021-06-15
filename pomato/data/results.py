@@ -4,8 +4,8 @@ import logging
 import numpy as np
 import pandas as pd
 import types
-import threading
 from copy import deepcopy
+from zipfile import ZipFile
 
 import pomato.tools as tools
 from pomato.visualization.geoplot_functions import line_coordinates
@@ -126,8 +126,12 @@ class Results():
         folder : pathlib.Path
             Folder with the results of the market model.
         """
-        folder_name = folder.name
-        self.logger.info("Loading Results from results folder %s", folder_name)
+
+        if ".zip" in str(folder):
+            with ZipFile(folder) as zip_archive:
+                tmp_zip_folder = self.wdir.joinpath("data_temp/temp_zip")
+                zip_archive.extractall(self.wdir.joinpath("data_temp/temp_zip"))
+                folder = self.wdir.joinpath("data_temp/temp_zip")
 
         for variable_type in ["variables", "dual_variables", "infeasibility_variables"]:
             for var in self.result_attributes[variable_type]:
@@ -136,7 +140,7 @@ class Results():
                     # setattr(self, var, (pd.read_csv(str(folder.joinpath(f"{var}.csv")))))
                     self.result_attributes[variable_type][var] = True
                 except FileNotFoundError:
-                    self.logger.warning("%s not in results folder %s", var, folder_name)
+                    self.logger.warning("%s not in results folder %s", var, str(folder.name))
 
         # Set result attributes from result json file or data.option:
         try:

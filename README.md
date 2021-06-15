@@ -35,24 +35,22 @@ and julia runs the economic dispatch and N-1 redundancy removal algorithm.
 
 The recommended way to install POMATO with python and pip:
 
-    - Install [python](https://www.python.org/downloads/) for your operating system. On linux
-      based operating systems python is often already installed and available under the python3
-      command. For Windows install python into a folder of your choice. POMATO is written and tested
-      in python 3.7 by any version >= 3.6 should be compadible. 
-    
-    - Install [julia](https://julialang.org/downloads/) for your operating system. POMATO is
-      written and tested with 1.5, but the newest version 1.6 works as well, but throws some
-      warnings.  
+  - Install [python](https://www.python.org/downloads/) for your operating system. On linux
+    based operating systems python is often already installed and available under the python3
+    command. For Windows install python into a folder of your choice. POMATO is written and tested
+    in python 3.7 by any version >= 3.6 should be compadible. 
+  
+  - Install [julia](https://julialang.org/downloads/) for your operating system. POMATO is
+    written and tested with 1.5, but the newest version 1.6 works as well, but throws some
+    warnings.  
 
-    - Add *python* and *julia* to the system Path, this allows you to start  *python* and *julia*
-      directly for the command line without typing out the full path of the installation. PLattform
-      specific instructions on how to do this are part of the [julia installation instructions](https://julialang.org/downloads/platform/)and work analogous for the python .  
-    
-    - Install POMATO through *pip* in python. It is recommended to create a virtual environment and
-      install pomato into it, but not necessary:
-    
-    .. code-block::
-
+  - Add *python* and *julia* to the system Path, this allows you to start  *python* and *julia*
+    directly for the command line without typing out the full path of the installation. PLattform
+    specific instructions on how to do this are part of the [julia installation instructions](https://julialang.org/downloads/platform/)and work analogous for the python .  
+  
+  - Install POMATO through *pip* in python. It is recommended to create a virtual environment and
+    install pomato into it, but not necessary:
+        
         python -m venv pomato
         ./pomato/Scripts/activate
         pip install git+https://github.com/richard-weinhold/pomato.git
@@ -64,9 +62,7 @@ required to run POMATO. This process can take a few minutes to complete.
 
 After this is completed pomato can be imported in python:
 
-.. code-block:: python
-
-    from pomato import POMATO
+  from pomato import POMATO
 
 
 See the [POMATO Documentation](https://pomato.readthedocs.io/en/latest/installation.html) for

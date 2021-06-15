@@ -1,7 +1,6 @@
 """Collection of functions used in the generation of the GeoPlot."""
 
 from math import atan2
-
 import geojson
 import numpy as np
 import pandas as pd
@@ -10,7 +9,6 @@ import scipy.spatial
 import shapely
 import shapely.geometry
 import shapely.ops
-
 
 def merc(lat, lon):
     """convert lat lon to x,y"""

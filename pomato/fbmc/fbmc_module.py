@@ -1,19 +1,11 @@
-import datetime as dt
+import itertools
 import logging
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import progress
-progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
-import types
-import itertools
-
 import pomato
-import pomato.tools as tools
 from pomato.grid import GridModel
-from progress.bar import Bar
 
 class FBMCModule():
     """The FBMC module calculates FB paramerters based on a suitable market result.
@@ -335,9 +327,7 @@ class FBMCModule():
             f_da = np.dot(zonal_fbmc_ptdf_tmp, nex.values.T)
         
         t = self.create_gsk(gsk_strategy)
-        
-        
-
+    
         f_ref_nonmarket = f_ref_base_case - f_da
         ram = (self.grid.lines.capacity[fbmc_data.cb].values - frm_fav - f_ref_nonmarket.T).T
         minram = (self.grid.lines.capacity[fbmc_data.cb] * self.options["fbmc"]["minram"]).values.reshape(len(f_ref_base_case), 1)
@@ -353,8 +343,8 @@ class FBMCModule():
             fb_parameters["timestep"] = timestep
             fb_parameters["gsk_strategy"] = gsk_strategy
             fb_parameters = fb_parameters[["cb", "co", "ram", "timestep", "gsk_strategy"] + list(list(self.data.zones.index))]
-
             domain_data[timestep] = fb_parameters
+
         fb_parameters =  pd.concat([domain_data[timestep] for timestep in timesteps], ignore_index=True)
         
         if enforce_ntc_domain:
