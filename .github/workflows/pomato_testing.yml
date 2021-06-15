@@ -30,7 +30,7 @@ jobs:
       run: |
         python --version
         julia --version
-        julia pomato/_installation/julia_install_from_git.jl master construction
+        julia pomato/_installation/julia_install_from_git.jl main main
         pip install pytest-cov 
         pip install pytest==4.6
         pip install -r requirements.txt
