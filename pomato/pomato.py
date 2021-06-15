@@ -1,7 +1,7 @@
 """
-POMATO stands for (POwer MArket TOol) and it is very good.
+POMATO stands for (POwer MArket TOol).
 
-POMATO stands for (POwer MArket TOol) and is an easy to use tool for the comprehensive analysis of
+POMATO stands for (POwer MArket TOol), it is very good and is an easy to use tool for the comprehensive analysis of
 the modern electricity market. It comprises the necessary power engineering framework to account for
 power flow physics, thermal transport constraints and security policies of the underlying
 transmission infrastructure, depending on the requirements defined by the user. POMATO was
@@ -11,11 +11,12 @@ clearing with endogenously generated flow-based parameters, and redispatch.
 
 Model Structure
 ---------------
-The model is structured in three interconnected parts: - Data Management: Data input, processing and
-    result analysis. - Market Model: Calculation of the economic dispatch based on the dataset and
-    chosen grid representation. - Grid Model: Providing grid representation for economic dispatch
-    calculation in chosen granularity (N-0, N-1, FBMC, NTC, copperplate) and analysis for ex-post
-    analysis of the market result.
+The model is structured in three interconnected parts: 
+
+    - Data Management: Data input, processing and result analysis. 
+    - Market Model: Calculation of the economic dispatch based on the dataset and chosen grid representation. 
+    - Grid Model: Providing grid representation for economic dispatch calculation in chosen 
+      granularity (N-0, N-1, FBMC, NTC, copperplate) and analysis for ex-post analysis of the market result.
 
 Installation
 ------------
@@ -42,7 +43,7 @@ The recommended way to install POMATO with python and pip:
     <https://julialang.org/downloads/platform>`_ and work analogous for the python .  
 
   - Install POMATO through *pip* in python. It is recommended to create a virtual environment and
-    install pomato into it, but not necessary:
+    install pomato into it, but not necessary::
 
         python -m venv pomato
         ./pomato/Scripts/activate
@@ -53,11 +54,11 @@ This will not only clone the master branch of this repository into the local pyt
 also pull the master branch of the MarketModel and RedundancyRemoval julia packages which are
 required to run POMATO. This process can take a few minutes to complete.
 
-After this is completed pomato can be imported in python:
+After this is completed pomato can be imported in python::
 
   from pomato import POMATO
 
-See the `POMATO Documentation` <https://pomato.readthedocs.io/en/latest/installation.html>`_ for
+See the `POMATO Documentation <https://pomato.readthedocs.io/en/latest/installation.html>`_ for
 further information on the installation process. 
 
 Examples
