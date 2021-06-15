@@ -18,11 +18,9 @@ the main part of POMATO resides in this python repository and the two julia comp
 repositories and are pulled installed when installing POMATO. The advantage is that each repository 
 contains solely code of either julia or python and can be tested individually and functionality can be 
 ensured. The main python repository actually performs an integration test that pulls and uses the 
-julia components. 
+julia components. The disadvantage is that it might be difficult to bring everything together. 
 
-The disadvantage is that it might be difficult to bring everything together. But that is probably
-always the case. 
-
+However, this can be dealt with by careful instruction, which is the purpose of this page. 
 
 Installing POMATO
 -------------------------------------
@@ -36,14 +34,15 @@ The recommended installation with python and pip:
     
     - Install `julia <https://julialang.org/downloads/>`_ for your operating system. POMATO is
       written and tested with 1.5, but the newest version 1.6 works as well, but throws some
-      warnings.  
-
-    - Add *python* and *julia* to the system Path, this allows you to start  *python* and *julia*
-      directly for the command line without typing out the full path of the installation. PLattform
-      specific instructions on how to do this are part of the `julia installation instructions
-      <https://julialang.org/downloads/platform/>`_ and work analogous for the python .  
+      warnings. Note, the order in which you install python and julia itself does not matter. 
     
-    - Install POMATO through *pip* in python. It is recommended to create a virtual environment and
+    - Add *python* and *julia* to the system Path, this allows you to start  *python* and *julia*
+      directly for the command line without typing out the full path of the installation. Plattform
+      specific instructions on how to do this are part of the `julia installation instructions
+      <https://julialang.org/downloads/platform/>`_ and work analogous for the python.   
+    
+    - When both, *python* and *julia* are available on the user's system the installation of POMATO
+      is managed through Python via pip. It is recommended to create a virtual environment and
       install pomato into it, but not necessary:
     
     .. code-block::

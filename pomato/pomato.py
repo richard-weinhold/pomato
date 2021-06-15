@@ -74,10 +74,6 @@ However, the functionality of POMATO is best utilized when running inside a
 IDE (e.g. Spyder) to access POMATO objects and develop a personal script based
 on the provided functionality and its results.
 
-However, the functionality of POMATO is best utilized when running inside a
-IDE (e.g. Spyder) to access POMATO objects and develop a personal script based
-on the provided functionality and its results.
-
 Release Status
 --------------
 

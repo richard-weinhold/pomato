@@ -64,10 +64,8 @@ After this is completed pomato can be imported in python:
 
   from pomato import POMATO
 
-
 See the [POMATO Documentation](https://pomato.readthedocs.io/en/latest/installation.html) for
 further information on the installation process. 
-
 
 Examples
 --------
