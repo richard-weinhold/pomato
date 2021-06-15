@@ -1,113 +1,122 @@
 """
-POMATO stands for (POwer MArket TOol) and it is very good.
+POMATO stands for (POwer MArket TOol).
 
-Actually, POMATO is an easy to use tool for the comprehensive
-analysis of the modern power market. It comprises the necessary power
-engineering framework to account for power flow physics, thermal transport
-constraints and security policies of the underlying transmission
-infrastructure, depending on the requirements defined by the user.
-POMATO was specifically designed to realistically model Flow-Based
-Market-Coupling (FBMC) and is therefore equipped with a fast security
-constrained optimal power flow algorithm and allows zonal market clearing
-with endogenously generated flow-based parameters, and redispatch.
+POMATO stands for (POwer MArket TOol), it is very good and is an easy to use tool for the comprehensive analysis of
+the modern electricity market. It comprises the necessary power engineering framework to account for
+power flow physics, thermal transport constraints and security policies of the underlying
+transmission infrastructure, depending on the requirements defined by the user. POMATO was
+specifically designed to realistically model Flow-Based Market-Coupling (FBMC) and is therefore
+equipped with a fast security constrained optimal power flow algorithm and allows zonal market
+clearing with endogenously generated flow-based parameters, and redispatch.
 
 Model Structure
 ---------------
-The model is structured in three interconnected parts:
-    - Data Management: Data input, processing and result analysis.
-    - Market Model: Calculation of the economic dispatch based on the
-      dataset and chosen grid representation. asd asd
-    - Grid Model: Providing grid representation for economic dispatch
-      calculation in chosen granularity (N-0, N-1, FBMC, NTC, copperplate)
-      and analysis for ex-post analysis of the market result.
+The model is structured in three interconnected parts: 
+
+    - Data Management: Data input, processing and result analysis. 
+    - Market Model: Calculation of the economic dispatch based on the dataset and chosen grid representation. 
+    - Grid Model: Providing grid representation for economic dispatch calculation in chosen 
+      granularity (N-0, N-1, FBMC, NTC, copperplate) and analysis for ex-post analysis of the market result.
 
 Installation
 ------------
 
-POMATO is written in python and julia. Python takes care of the data processing
-and julia runs the economic dispatch and N-1 redundancy removal algorithm. 
+POMATO is written in python and julia. Python takes care of the data processing and julia runs the
+economic dispatch and N-1 redundancy removal algorithm. The julia components `MarketModel
+<https://github.com/richard-weinhold/MarketModel>`_ and `RedundancyRemoval
+<https://github.com/richard-weinhold/RedundancyRemoval>`_ are housed in their separate repositories
+and will be installed with POMATO.
 
-The recommended way to install POMATO:
-  - Install Julia and have it available on the system path
-  - Install POMATO through *pip* in python >= 3.6 by creating a virtual environment and install pomato into it::
+The recommended way to install POMATO with python and pip:
+
+  - Install `python <https://www.python.org/downloads>`_ for your operating system. On linux based
+    operating systems python is often already installed and available under the python3 command. For
+    Windows install python into a folder of your choice. POMATO is written and tested in python 3.7
+    by any version >= 3.6 should be compadible. 
+
+  - Install `julia <https://julialang.org/downloads/>`_ for your operating system. POMATO is written
+    and tested with 1.5, but the newest version 1.6 works as well, but throws some warnings.  
+
+  - Add *python* and *julia* to the system Path, this allows you to start  *python* and *julia*
+    directly for the command line without typing out the full path of the installation. PLattform
+    specific instructions on how to do this are part of the `julia installation instructions
+    <https://julialang.org/downloads/platform>`_ and work analogous for the python .  
+
+  - Install POMATO through *pip* in python. It is recommended to create a virtual environment and
+    install pomato into it, but not necessary::
 
         python -m venv pomato
         ./pomato/Scripts/activate
         pip install git+https://github.com/richard-weinhold/pomato.git
 
 
+This will not only clone the master branch of this repository into the local python environment, but
+also pull the master branch of the MarketModel and RedundancyRemoval julia packages which are
+required to run POMATO. This process can take a few minutes to complete.
+
 After this is completed pomato can be imported in python::
 
-    from pomato import POMATO
+  from pomato import POMATO
 
-Pomato functions from a *working directory*, ideally the project folder includes the virtual 
-environment, and creates additional folders for results, temporary data and logs. The way we use 
-pomato is illustrated by the *examples* folder, cloning its contents as a *working directory* 
-allows to run the included examples.
-
-Pomato works with open solvers, if Gurobi is available on the PATH within the venv/project it will 
-be used. See `Gurobi.jl <https://github.com/JuliaOpt/Gurobi.jl>`_ for notes on the installation. 
-Additionally, the Chance-Constrained model formulation requires MOSEK solver which can be installed
-from within Pomato, but requires a licence to use `Mosek.jl <https://github.com/JuliaOpt/Mosek.jl>`_. 
-
+See the `POMATO Documentation <https://pomato.readthedocs.io/en/latest/installation.html>`_ for
+further information on the installation process. 
 
 Examples
 --------
-This release includes two examples in the *examples* folder. Including the contents of 
-this folder into the pomato working directory will allow their execution:
+This release includes two examples in the *examples* folder. Including the contents of this folder
+into the pomato working directory will allow their execution:
 
-  - The IEEE 118 bus network, which contains a singular timestep. The data is available under 
-    open license at `https://power-grid-lib.github.io/ <https://power-grid-lib.github.io/>`_
-    and re-hosted in this repository::
+  - The IEEE 118 bus network, which contains a singular timestep. The data is available under open
+    license at `https://power-grid-lib.github.io/ <https://power-grid-lib.github.io/>`_ and
+    re-hosted in this repository::
 
         $ python /run_pomato_ieee.py
 
-  - The DE case study, based on data from `ELMOD-DE <http://www.diw.de/elmod>`_ which is 
-    openly available and described in detail in 
-    `DIW DataDocumentation 83 <https://www.diw.de/documents/publikationen/73/diw_01.c.528927.de/diw_datadoc_2016-083.pdf>`_ 
-    which represents a more complex system and can be run for longer model horizon (although 
+  - The DE case study, based on data from `ELMOD-DE <http://www.diw.de/elmod>`_ which is openly
+    available and described in detail in `DIW DataDocumentation 83
+    <https://www.diw.de/documents/publikationen/73/diw_01.c.528927.de/diw_datadoc_2016-083.pdf>`_
+    which represents a more complex system and can be run for longer model horizon (although
     shortened to allow to host this data in this git)::
 
         $ python /run_pomato_de.py
 
-However, the functionality of POMATO is best utilized when running inside a
-IDE (e.g. Spyder) to access POMATO objects and develop a personal script based
-on the provided functionality and its results.
+See more in depth descriptions of this two case studies part of the `POMATO Documentation`
+<https://pomato.readthedocs.io/en/latest/running_pomato.html>`_.
 
-However, the functionality of POMATO is best utilized when running inside a
-IDE (e.g. Spyder) to access POMATO objects and develop a personal script based
-on the provided functionality and its results.
+The *examples* folder also contains the two examples as Jupyter notebooks. Another possibility to
+access the functionality of POMATO with an online REPL/Console when running POMATO inside a IDE with
+an interactive IPython Console (e.g. Spyder) to access POMATO objects and variables.
 
 Release Status
 --------------
 
-POMATO is part of my PhD and actively developed by Robert and myself. This means it will keep 
+POMATO is part of my PhD and actively developed by Robert and myself. This means it will keep
 changing to include new functionality or to improve existing features. The existing examples, which
-are also part of the Getting Started guide in the documentation, are part of a testing suite to 
-ensure some robustness. However, we are not software engineers, thus the "program" is not written 
-with robustness in mind and our experience is limited when it comes to common best practices. 
-Expect errors, bug, funky behavior and code structures from the minds of two engineering economists.  
+are also part of the Getting Started guide in the documentation, are part of a testing suite to
+ensure some robustness. However, we are not software engineers, thus the "program" is not written
+with robustness in mind and our experience is limited when it comes to common best practices. Expect
+errors, bug, funky behavior and code structures from the minds of two engineering economists.  
 
 Related Publications
 --------------------
 
-- `Weinhold and Mieth (2020), Power Market Tool (POMATO) for the Analysis of Zonal 
-  Electricity Markets <https://arxiv.org/abs/2011.11594>`_ (*preprint*).
-- `Weinhold and Mieth (2020), Fast Security-Constrained Optimal Power Flow through 
-  Low-Impact and Redundancy Screening <https://ieeexplore.ieee.org/document/9094021>`_.
-- `Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for 
-  generation shift keys (GSKs) on the flow-based market coupling domain: A model-based analysis 
-  of Central Western Europe <https://www.sciencedirect.com/science/article/pii/S0306261919317544>`_.
+- `Weinhold and Mieth (2020), Power Market Tool (POMATO) for the Analysis of Zonal Electricity
+  Markets <https://arxiv.org/abs/2011.11594>`_ (*preprint*).
+- `Weinhold and Mieth (2020), Fast Security-Constrained Optimal Power Flow through Low-Impact and
+  Redundancy Screening <https://ieeexplore.ieee.org/document/9094021>`_.
+- `Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for generation shift
+  keys (GSKs) on the flow-based market coupling domain: A model-based analysis of Central Western
+  Europe <https://www.sciencedirect.com/science/article/pii/S0306261919317544>`_.
 
 Acknowledgments
 ---------------
 
-Richard and Robert would like to acknowledge the support of Reiner Lemoine-Foundation, the Danish 
-Energy Agency and Federal Ministry for Economic Affairs and Energy (BMWi).
-Robert Mieth is funded by the Reiner Lemoine-Foundation scholarship. Richard Weinhold is funded 
-by the Danish Energy Agency. The development of POMATO and its applications was funded by 
-BMWi in the project “Long-term Planning and Short-term Optimization of the German Electricity 
-System Within the European Context” (LKD-EU, 03ET4028A).
+Richard and Robert would like to acknowledge the support of Reiner Lemoine-Foundation, the Danish
+Energy Agency and Federal Ministry for Economic Affairs and Energy (BMWi). Robert Mieth is funded by
+the Reiner Lemoine-Foundation scholarship. Richard Weinhold is funded by the Danish Energy Agency.
+The development of POMATO and its applications was funded by BMWi in the project “Long-term Planning
+and Short-term Optimization of the German Electricity System Within the European Context” (LKD-EU,
+03ET4028A).
 """
 
 import json
@@ -119,32 +128,33 @@ import pomato.tools as tools
 from pomato.data import DataManagement, Results
 from pomato.grid import GridTopology, GridModel
 from pomato.market_model import MarketModel
-from pomato.visualization import Visualization
-from pomato.visualization import GeoPlot
+from pomato.visualization import Visualization, Dashboard
 from pomato.fbmc import FBMCModule
 
-def _logging_setup(wdir, logging_level=logging.INFO):
+def _logging_setup(wdir, logging_level=logging.INFO, file_logger=False):
     # Logging setup
-    logger = logging.getLogger('Log.MarketModel')
+    logger = logging.getLogger('log.pomato')
     logger.setLevel(logging_level)
-    if len(logger.handlers) < 2:
+    if len(logger.handlers) < (1 + int(file_logger)):
         # create file handler which logs even debug messages
         if not wdir.joinpath("logs").is_dir():
             wdir.joinpath("logs").mkdir()
+            open(wdir.joinpath("logs/market_tool.log"), 'a').close()
+        if file_logger:
+            file_handler = logging.FileHandler(wdir.joinpath("logs").joinpath('market_tool.log'))
+            file_handler.setLevel(logging.DEBUG)
+            file_handler_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+                                                        '%d.%m.%Y %H:%M')
+            file_handler.setFormatter(file_handler_formatter)
+            logger.addHandler(file_handler)
 
-        file_handler = logging.FileHandler(wdir.joinpath("logs").joinpath('market_tool.log'))
-        file_handler.setLevel(logging.DEBUG)
-        file_handler_formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-                                                    '%d.%m.%Y %H:%M')
-        file_handler.setFormatter(file_handler_formatter)
         console_handler = logging.StreamHandler()
         console_handler.setLevel(logging.INFO)
         console_handler_formatter = logging.Formatter('%(levelname)s - %(message)s')
         console_handler.setFormatter(console_handler_formatter)
-
-        # add the handlers to the logger
+        
         logger.addHandler(console_handler)
-        logger.addHandler(file_handler)
+
     return logger
 
 class POMATO():
@@ -199,13 +209,9 @@ class POMATO():
         Module containing and managing the market model. This includes storing
         the necessary data, running and managing a julia process instance and
         initializing the result object inside ``data``.
-    geo_plot : :class:`~pomato.visualization.GeoPlot`
-        Enabling a geographic visualization of the market results through the
-        library ``Bokeh``. This module processes the results and input data to
-        create a static map plot containing mean line loadings or a
-        dynamic/interactive plot for a timeseries. The latter is implemented
-        through a bokeh server which requires some subprocess management.
-
+    visualization : :class:`~pomato.visualization.Visualization`
+        Module that collects all visualization functionality. Including a geoplot and dashboard
+        based around the library plotly. 
     Parameters
     ----------
     wdir : pathlib.Path, optional
@@ -217,21 +223,17 @@ class POMATO():
         defined in tools.
     """
    
-    def __init__(self, wdir, options_file=None, logging_level=logging.INFO):
+    def __init__(self, wdir, options_file=None, logging_level=logging.INFO, file_logger=True):
 
         self.wdir = wdir
         self.package_dir = Path(pomato.__path__[0])
-
-        self.logger = _logging_setup(self.wdir, logging_level)
-        self.logger.info("Market Tool Initialized")
+        self.logger = _logging_setup(self.wdir, logging_level, file_logger)
         tools.create_folder_structure(self.wdir, self.logger)
-
         # Core Attributes
         if not options_file:
             self.options = tools.default_options()        
         else: 
             self.initialize_options(options_file)
-        
         self.data = DataManagement(self.options, self.wdir)
         self.grid = GridTopology()       
         self.grid_model = GridModel(self.wdir, self.grid, self.data, self.options)
@@ -240,8 +242,9 @@ class POMATO():
 
         # Instances for Result Processing 
         self.visualization = Visualization(self.wdir, self.data)
-        self.geo_plot = GeoPlot(self.wdir, self.data)
         self.fbmc = FBMCModule(self.wdir, self.grid, self.data, self.options)
+        self.dashboard = None
+        self.logger.info("POMATO initialized!")
 
     def initialize_options(self, options_file):
         """Initialize options file.
@@ -262,8 +265,6 @@ class POMATO():
             self.logger.warning("No or invalid options file provided, using default options")
             self.options = tools.default_options()
             self.logger.debug("Optimization Options:" + json.dumps(self.options, indent=2) + "\n")
-        except BaseException as unknown_exception:
-            self.logger.exception("Error: %s", unknown_exception)
 
     def load_data(self, filename):
         """Load data into :class:`~pomato.data.DataManagement` module.
@@ -342,8 +343,7 @@ class POMATO():
         
         for result in self.data.results:
             self.data.results[result.replace(oldname, newname)] = self.data.results.pop(result)
-
-
+       
     def run_market_model(self, update_data=True, update_grid_representation=False):
         """Run the market model based on the current state of data and options. 
         
@@ -365,11 +365,6 @@ class POMATO():
         else:
             self.logger.warning("Market Model not successfully run!")
 
-    def _clear_data(self):
-        """Reset DataManagement Class."""
-        self.logger.info("Resetting Data Object")
-        self.data = DataManagement(self.options, self.wdir)
-
     def create_flowbased_parameters(self, basecase, **kwargs):
         """Create flow based parameters based on a chosen basecase.
 
@@ -378,7 +373,6 @@ class POMATO():
 
         Additionally, this method create the appropriate grid representation. 
         """
-        self.fbmc.calculate_parameters()
         flowbased_paramters = self.fbmc.create_flowbased_parameters(basecase, **kwargs)
         self.create_grid_representation(flowbased_paramters=flowbased_paramters)
         return flowbased_paramters
@@ -395,26 +389,21 @@ class POMATO():
         """
         self.grid_model.create_grid_representation(**kwargs)
 
-    def create_geo_plot(self, show=True, empty=False, **kwargs):
-        """Initialize GeoPlot based on the dataset and a market result.
+    def start_dashboard(self, **kwargs):
+        """Initialize Dashboard for result analysis.
 
-        This is done with the :meth:`~pomato.visualization.geoplot.create_static_plot` method. 
+        This is done with the :meth:`~pomato.visualization.dashboard.Dashboard` class. 
         See the correpsonding documentation for the available conditional arguments.
-        
-        Parameters
-        ----------
-        show : bool, optional
-            Show the plot after completion, this will open a browser window. Default is True.
-        empty : bool, optional
-            Create a geoplot without results, only showing topology and voltage levels.
+
         """
-        if (not self.data.results) :  # if results dict is empty
-            self.logger.info("Create empty geoplot!")
-            self.geo_plot.create_empty_static_plot()
-        else:
-            self.geo_plot.create_static_plot(**kwargs)
-        if show:
-            self.geo_plot.show_plot()
+        self.dashboard = Dashboard(self, **kwargs)
+        self.dashboard.start()
+    
+    def stop_dashboard(self):
+        """Stop Dashboard server."""
+        if isinstance(self.dashboard, Dashboard):
+            self.dashboard.join()
+            self.dashboard = None
 
     def _instantiate_julia_dev(self, redundancyremoval_path, marketmodel_path):
         """Instantiate the pomato julia environment from local repositories, 
@@ -442,6 +431,9 @@ class POMATO():
         if self.grid_model.julia_instance:
             self.grid_model.julia_instance.join()
             self.grid_model.julia_instance = None
+        if self.fbmc.grid_model.julia_instance:
+            self.fbmc.grid_model.julia_instance.join()
+            self.fbmc.grid_model.julia_instance = None
 
     def _join_julia_instances(self):
         self._join_julia_instance_market_model()
@@ -454,3 +446,4 @@ class POMATO():
     def __del__(self):
         """Join Julia instances on deletion."""
         self._join_julia_instances()
+        self.stop_dashboard()

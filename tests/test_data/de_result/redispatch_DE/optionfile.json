@@ -1,23 +1,34 @@
 {
-  "type": "ntc",
+  "title": "default",
+  "type": "dispatch",
   "model_horizon": [
     0,
     24
   ],
   "heat_model": false,
   "constrain_nex": false,
-  "split_timeseries": true,
+  "timeseries": {
+    "split": true,
+    "market_horizon": 1000,
+    "redispatch_horizon": 72
+  },
   "redispatch": {
     "include": true,
+    "zonal_redispatch": true,
     "zones": [
       "DE"
     ],
-    "cost": 1
+    "cost": 50
   },
   "curtailment": {
     "include": true,
-    "cost": 1,
-    "bound": 0.2
+    "cost": 100
+  },
+  "chance_constrained": {
+    "include": false,
+    "fixed_alpha": true,
+    "cc_res_mw": 50,
+    "alpha_plants_mw": 200
   },
   "parameters": {
     "storage_start": 0.5
@@ -30,13 +41,8 @@
     },
     "electricity": {
       "include": true,
-      "cost": 100.0,
-      "bound": 1000
-    },
-    "lines": {
-      "include": false,
-      "cost": 1000.0,
-      "bound": 20
+      "cost": 1000,
+      "bound": 2000
     }
   },
   "plant_types": {
@@ -46,11 +52,25 @@
     ],
     "hs": [],
     "ts": [
-      "wind",
+      "wind onshore",
+      "wind offshore",
       "solar"
     ],
     "ph": []
   },
-  "t_start": "t0001",
-  "t_end": "t0024"
+  "grid": {
+    "redundancy_removal_option": "clarkson_base",
+    "precalc_filename": "",
+    "sensitivity": 0.05,
+    "capacity_multiplier": 1,
+    "preprocess": true,
+    "gsk": "gmax",
+    "minram": 0.2,
+    "senstitivity": 0.05
+  },
+  "data": {
+    "result_copy": false,
+    "unique_mc": false
+  },
+  "Title": "DE - Dispatch"
 }

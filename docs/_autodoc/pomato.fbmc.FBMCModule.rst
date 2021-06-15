@@ -10,9 +10,9 @@ FBMCModule
 
    .. autosummary::
    
-      ~FBMCModule.create_dynamic_gsk
-      ~FBMCModule.create_fbmc_info
-      ~FBMCModule.create_flowbased_parameters
-      ~FBMCModule.create_flowbased_ptdf
       ~FBMCModule.create_gsk
+      ~FBMCModule.create_dynamic_gsk
       ~FBMCModule.return_critical_branches
+      ~FBMCModule.create_base_fbmc_parameters
+      ~FBMCModule.create_flowbased_parameters
+      ~FBMCModule.enforce_ntc_domain

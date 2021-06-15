@@ -6,6 +6,7 @@ This module is divided into one main and three sub-modules:
       access to all relevant data. It manages the read in of raw data,
       processing and validating the raw data and the means to store, process,
       analyses and access the results.
+      
 This is done within the two sub-modules:
     - :obj:`~pomato.data.DataWorker` : Reading in data from an excel or matpower file.
     - :obj:`~pomato.data.Results` : Since the DataManagement module is available to

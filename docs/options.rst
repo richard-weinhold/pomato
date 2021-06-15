@@ -11,7 +11,7 @@ All options are collected in the options attribute of pomato and can be initiali
 located in the ``/profiles`` folder.
 
 The option file does not have to include every possible options. Not specified options are set with 
-a default value. The default options are available as a method ``pomato.tools.default_options()`` 
+a default value. The default options are available as a method :meth:`~pomato.tools.default_options`
 and are structured in a dictionary or a json file when read into from disk.
 
 The options are divided into three sections: Optimization, Grid, Data and are as follows:
@@ -102,7 +102,7 @@ The options are divided into three sections: Optimization, Grid, Data and are as
   detail in `Weinhold and Mieth (2020), Fast Security-Constrained Optimal Power Flow through 
   Low-Impact and Redundancy Screening <https://ieeexplore.ieee.org/document/9094021>`_.
 
-   - *cbco_option* (string): Option to specify how/if reduce the PTDF matrix. Options are:
+   - *redundancy_removal_option* (string): Option to specify how/if reduce the PTDF matrix. Options are:
       - *full*: Including all N-1 constraints. The number should correspond to L x L minus lines that 
         are either radial or disconnect the network (indicated by contingency = false) and duplicates
         which are removed by the *preprocess* options. 
@@ -120,21 +120,37 @@ The options are divided into three sections: Optimization, Grid, Data and are as
      that is the input to the RedundancyRemoval algorithm. The idea is that only lines, that in case of 
      an outage, impact line flows above a certain sensitivity are potentially part of the essential 
      set or in short cbco's. See the description of the method 
-     :meth:`~pomato.grid.GridModel.create_filtered_n_1_ptdf` 
+     :meth:`~pomato.grid.GridTopology.create_filtered_n_1_ptdf` 
      or the Section on `Impact Screening` in the publication for more information. 
    - *capacity_multiplier* (float): Multiplies line capacities by a factor. 
    - *preprocess* (bool): Preprocessing the N-1 PTDF means removing duplicates. This can be omitted
      to obtain the true full N-1 PTDF. 
-   - *gsk*: Generation Shift Key is a term used in flow based market coupling, describing how nodes
-     participate in changes of the net position, representing a linear mapping of zonal net position 
-     to nodal injection. This can be used to translate a nodal PTDF into a zonal PTDF. Options are 
-     `gmax` or `flat`, weighting nodal injection by installed capacity (of conventional generators) 
-     or equally.
-   - *minram*: This option is only relevant in the FBMC module of pomato. Forcing a minimum capacity 
-     on cbco's that make of the Flow Based Domain. 
+
+
+- *FBMC*: The FBMC options define how FB-parameters are processed. Options are:
+  
+  - *gsk*: Generation Shift Key is a term used in flow based market coupling, describing how nodes
+    participate in changes of the net position, representing a linear mapping of zonal net position 
+    to nodal injection. This can be used to translate a nodal PTDF into a zonal PTDF. Options are 
+    `gmax` or `flat`, weighting nodal injection by installed capacity (of conventional generators) 
+    or equally.
+  - *minram*: This option is only relevant in the FBMC module of pomato. Forcing a minimum capacity 
+    on cbco's that make of the Flow Based Domain. 
+  - *flowbased_region* defines for which market areas FB parameters are calculated. Defaults to all.
+  - *cne_sensitivity* (float): Defines with which sensitivity critical network elements are selected
+    from zone-to-zone PTDF. 
+  - *lodf_sensitivity* (float): Defines the sensitivity for which outages
+    are selected for the previously found set of CNE. 
+  - *frm* (float): percentage of line capacity to reduce ram by as reliability margin. 
+  - *reduce* (bool): Run the RedundancyRemoval on the resulting
+    FB-parameters to obtain a non-redundant (presolved) set of constraints. 
+  - *enforce_ntc_domain* (bool): Enforces the NTC domain to be included in the FB-parameter feasible
+    region. 
+
 - Data: The following options relate to the input data. Over the corse of the development of pomato, 
   the rules on input data got more strict, therefore less input data is processed in pomato itself. 
   The following functions remain:
 
    - *unique_mc* (bool): Sometimes it can be beneficial to computation time to have unique generation 
      costs. This option add small increments to make all plants have unique marginal costs.  
+

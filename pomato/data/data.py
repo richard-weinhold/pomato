@@ -1,11 +1,8 @@
-# pylint: disable-msg=E1101
-
 import json
 import logging
 import shutil
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -66,7 +63,6 @@ class Timeseries():
         else:
             return self._availability_rt
 
-
 class DataManagement():
     """The DataManagement class provides processed data to all other modules in POMATO
 
@@ -105,7 +101,7 @@ class DataManagement():
 
     def __init__(self, options, wdir):
         # import logger
-        self.logger = logging.getLogger('Log.MarketModel.DataManagement')
+        self.logger = logging.getLogger('log.pomato.data.DataManagement')
         self.logger.info("Initializing DataObject")
 
         self.wdir = wdir
@@ -182,28 +178,6 @@ class DataManagement():
         shutil.make_archive(filepath, 'zip', filepath)
         shutil.rmtree(filepath, ignore_errors=True)
         self.logger.info("saved!")
-    
-    def save_results(self, folder, name=None):
-        """Copy the loaded results into a folder.
-
-        Parameters
-        ----------
-         folder: pathlib.Path
-            Folder where all results are copied to.
-        """
-        if len(self.results) == 0:
-            self.logger.warning("No results to save")
-        else:
-            for key in self.results:
-                if name:
-                    if any(char.isdigit() for char in key):
-                        result_folder = name + key[9:]
-                    else:
-                        result_folder = name + "_" + key
-                else:
-                    result_folder = key
-                folder.joinpath(result_folder).mkdir()
-                tools.copytree(self.results[key].result_attributes["source"], folder.joinpath(result_folder))
 
     def load_data(self, filepath):
         """Load Data from dataset at filepath.
@@ -313,7 +287,6 @@ class DataManagement():
         else:
             self.logger.warning("Data validation completed with no issues.")
 
-
     def process_input(self):
         """Input Processing to bring input data is the desired pomato format.
 
@@ -349,7 +322,7 @@ class DataManagement():
         processed data to the predefined model structure and adds default values or empty tables
         to allow different data sets run in POMATO.
 
-        For example: the IEEE118 case study does not containt heat demand or generation, also are
+        For example: the IEEE118 case study does not contain heat demand or generation, also are
         there no timeseries to cover adjacent regions via net export parameters. So the input data
         can cover a subjet of possible data set but the model data has to be consistent.
         """
@@ -380,7 +353,8 @@ class DataManagement():
                         tmp.loc[tmp[attr].isna(), attr] = default_value
                         self.model_validation_report["default_values"][data][attr] = default_value
                         # self.logger.warning("Attribute %s in %s contains NaNs, initialized as %s", attr, data, str(default_value))
-                setattr(self, data, tmp)
+                setattr(self, data, tools.reduce_df_size(tmp))
+                # setattr(self, data, (tmp))
         
 
         if len(self.model_validation_report["empty"]) > 0:
@@ -428,41 +402,8 @@ class DataManagement():
         self.inflows["timestep"] = self.demand_el.timestep.unique()
 
         tmp = self.inflows.pivot(index="timestep", columns="plant", values="inflow").fillna(0)
-        condition = self.plants.plant_type.isin(self.options["optimization"]["plant_types"]["es"])
+        condition = self.plants.plant_type.isin(self.options["plant_types"]["es"])
         for es_plant in self.plants.index[condition]:
             if es_plant not in tmp.columns:
                 tmp[es_plant] = 0
         self.inflows = pd.melt(tmp.reset_index(), id_vars=["timestep"], value_name="inflow").dropna()
-
-    def unique_mc(self):
-        """Make marginal costs unique.
-
-        This is done by adding a small increment multiplied by the number if plants with the
-        same mc. This makes the solver find a unique solution (at least in regards to generation
-        schedule) and is sopposed to have positive effect on solvetime.
-        """
-        for marginal_cost in self.plants.mc_el:
-            condition_mc = self.plants.mc_el == marginal_cost
-            self.plants.loc[condition_mc, "mc"] = \
-            self.plants.mc_el[condition_mc] + \
-            [int(x)*1E-4 for x in range(0, len(self.plants.mc_el[condition_mc]))]
-
-    def line_susceptance(self):
-        """Calculate line susceptance for lines that have none set.
-
-        This is not maintained as the current grid data set includes this parameter. However, this
-        Was done with the simple formula b = length/type ~ where type is voltage level. While this
-        is technically wrong, it works with linear load flow, as it only relies on the
-        conceptual "conductance"/"resistance" of each circuit/line in relation to others.
-        """
-        if ("x per km" in self.lines.columns)&("voltage" in self.nodes.columns):
-            self.lines['x'] = self.lines['x per km'] * self.lines["length"] * 1e-3
-            self.lines.loc[self.lines.technology == "transformer", 'x'] = 0.01
-            base_mva = 100
-            base_kv = self.nodes.loc[self.lines.node_i, "voltage"].values
-            # base_kv = 110
-            v_base = base_kv * 1e3
-            s_base = base_mva * 1e6
-            z_base = np.power(v_base,2)/s_base
-            self.lines['x'] = np.divide(self.lines['x'], z_base)
-            self.lines['b'] = np.divide(1, self.lines['x'])

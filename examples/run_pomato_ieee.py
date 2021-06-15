@@ -18,7 +18,7 @@ zones = mato.data.zones
 plants = mato.data.plants
 
 # %% Run uniform pricing
-mato.options["optimization"]["type"] = "dispatch"
+mato.options["type"] = "dispatch"
 mato.create_grid_representation()
 mato.run_market_model()
 
@@ -33,7 +33,7 @@ print("Number of overloaded lines (Dispatch): ", len(df1))
 print("Number of overloaded lines N-1 (Dispatch): ", len(df3))
 
 # %% Run nodal-prcing market clearing
-mato.options["optimization"]["type"] = "nodal"
+mato.options["type"] = "nodal"
 mato.create_grid_representation()
 mato.run_market_model()
 
@@ -48,15 +48,15 @@ df3, df4 = nodal_result.overloaded_lines_n_1()
 print("Number of overloaded lines (nodal): ", len(df1))
 print("Number of overloaded lines N-1 (nodal): ", len(df3))
 
-# Create geoplot for nodal market result, including price layer
-mato.create_geo_plot(show=True, show_prices=True, market_result_name=nodal_result_name)
-# Save geoplot as html
-mato.geo_plot.save_plot(mato.wdir.joinpath("geoplot_nodal.html"))
+# Create geoplot for nodal result, including price layer and saving it as .html
+mato.visualization.create_geo_plot(nodal_result, 
+                                   show_prices=True,
+                                   filepath=mato.wdir.joinpath("geoplot_nodal.html"))
 
 # %% Rerun the model as SCOPF
-mato.options["optimization"]["type"] = "cbco_nodal"
-mato.options["grid"]["cbco_option"] = "clarkson_base"
-# Requires to presolve the network with the RedundancyRemvoal Algorithm
+mato.options["type"] = "cbco_nodal"
+mato.options["grid"]["redundancy_removal_option"] = "clarkson_base"
+# Requires to presolve the network with the RedundancyRemoval Algorithm
 mato.create_grid_representation()
 
 # Update the model data
@@ -73,9 +73,10 @@ df3, df4 = scopf_result.overloaded_lines_n_1()
 print("Number of overloaded lines (SCOPF): ", len(df1))
 print("Number of overloaded lines N-1 (SCOPF): ", len(df3))
 
-# Create geoplot for scopf result, including price layer
-mato.create_geo_plot(show=True, show_prices=True, market_result_name=scopf_result_name)
-mato.geo_plot.save_plot(mato.wdir.joinpath("geoplot_scopf.html"))
+# Create geoplot for scopf result, including price layer and saving it as .html
+mato.visualization.create_geo_plot(scopf_result, 
+                                   show_prices=True,
+                                   filepath=mato.wdir.joinpath("geoplot_scopf.html"))
 
 # Join all subprocesses. 
 mato._join_julia_instances()

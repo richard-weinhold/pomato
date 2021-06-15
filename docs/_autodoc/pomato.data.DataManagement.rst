@@ -16,7 +16,6 @@ DataManagement
       ~DataManagement.process_input
       ~DataManagement.load_model_structure
       ~DataManagement.save_data
-      ~DataManagement.save_results
       ~DataManagement.return_results
       ~DataManagement.process_inflows
       ~DataManagement.process_results

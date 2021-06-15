@@ -1,36 +1,49 @@
 import logging
+import os
 import random
 import shutil
-import os
+import sys
+import tempfile
+import time
 import unittest
+from datetime import datetime
 from pathlib import Path
 from unittest.mock import patch
-from datetime import datetime
-   
+
 import numpy as np
 import pandas as pd
 
-from context import pomato, copytree	
-           
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import pomato
+from pomato.tools import copytree
+
+
 # pylint: disable-msg=E1101
 class TestPomatoMarketModel(unittest.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.wdir = Path(cls.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), cls.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data/cbco_lists"), cls.wdir)
+
     def setUp(self):
-        self.wdir = Path.cwd().joinpath("examples")
+        pass
 
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_temp"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("data_output"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("logs"), ignore_errors=True)
-        shutil.rmtree(Path.cwd().joinpath("examples").joinpath("domains"), ignore_errors=True)
+        cls.mato = None
+        cls.wdir = None
+        cls.temp_dir = None
     
     def test_run_nrel(self):
         # What takes how long
         mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/nrel118.json",
-                             logging_level=logging.ERROR)
+                                 logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/nrel_118.zip')
         
-        my_file = self.wdir.parent.joinpath('tests/test_data/cbco_nrel_118.csv')
+        my_file = self.wdir.joinpath('cbco_nrel_118.csv')
         to_file = self.wdir.joinpath('data_temp/julia_files/cbco_data/cbco_nrel_118.csv')
         shutil.copyfile(str(my_file), str(to_file))
 
@@ -38,76 +51,32 @@ class TestPomatoMarketModel(unittest.TestCase):
                     "bus080", "bus081", "bus097", "bus098", "bus099"]
         mato.data.nodes.loc[R2_to_R3, "zone"] = "R3"
 
-        mato.options["optimization"]["model_horizon"] = [0, 1]
-        mato.options["optimization"]["constrain_nex"] = False
-        mato.options["optimization"]["redispatch"]["include"] = True
-        mato.options["optimization"]["redispatch"]["zones"] = list(mato.data.zones.index)
-        mato.options["optimization"]["infeasibility"]["electricity"]["bound"] = 200
-        mato.options["optimization"]["infeasibility"]["electricity"]["cost"] = 1000
-        mato.options["optimization"]["redispatch"]["cost"] = 20
+        mato.options["model_horizon"] = [0, 1]
+        mato.options["constrain_nex"] = False
+        mato.options["redispatch"]["include"] = True
+        mato.options["redispatch"]["zones"] = list(mato.data.zones.index)
+        mato.options["infeasibility"]["electricity"]["bound"] = 200
+        mato.options["infeasibility"]["electricity"]["cost"] = 1000
+        mato.options["redispatch"]["cost"] = 20
 
-        # %% NTC Model NEX = 0
+        # %% Nodal Basecase
         mato.data.results = {}
-        mato.options["optimization"]["type"] = "ntc"
-        mato.options["optimization"]["constrain_nex"] = True
-        mato.data.set_default_net_position(0)
-        mato.create_grid_representation()
-        # mato.update_market_model_data()
-        # mato.run_market_model()
-
-        # NTC Model NTC = 100
-        mato.data.results = {}
-        mato.options["optimization"]["type"] = "ntc"
-        mato.options["optimization"]["constrain_nex"] = False
-        mato.create_grid_representation()
-        mato.grid_representation.ntc["ntc"] = \
-            mato.grid_representation.ntc["ntc"]*0.001
-        # mato.update_market_model_data()
-        # mato.run_market_model()
-
-        # %% Zonal PTDF model
-        mato.data.results = {}
-        mato.options["optimization"]["type"] = "zonal"
-        mato.options["grid"]["gsk"] = "gmax"
-        mato.create_grid_representation()
-        # mato.update_market_model_data()
-        # mato.run_market_model()
-        
-        # %% Nodal PTDF model
-        mato.data.results = {}
-        mato.options["optimization"]["type"] = "nodal"
+        mato.options["type"] = "nodal"
         mato.create_grid_representation()
         mato.update_market_model_data()
         mato.run_market_model()
-
-        # %% FBMC basecase
-        # mato.data.results = {}
-        mato.options["optimization"]["timeseries"]["market_horizon"] = 168
-        mato.options["optimization"]["type"] = "cbco_nodal"
-        mato.grid_model.options["grid"]["cbco_option"] = "clarkson_base"
-        mato.options["optimization"]["redispatch"]["include"] = False
-        mato.options["optimization"]["chance_constrained"]["include"] = False
-        mato.options["grid"]["sensitivity"] = 0.05
-
-        mato.grid_model.options["grid"]["precalc_filename"] = "cbco_nrel_118"
-        mato.create_grid_representation()
-        # mato.update_market_model_data()
-        # mato.run_market_model()
-
         result_name = next(r for r in list(mato.data.results))
         basecase = mato.data.results[result_name]
-        mato.options["grid"]["minram"] = 0.1
-        mato.options["grid"]["sensitivity"] = 0.05
-        fb_parameters = mato.create_flowbased_parameters(basecase, gsk_strategy="gmax", reduce=False)
+        mato.options["fbmc"]["minram"] = 0.2
+        mato.options["fbmc"]["lodf_sensitivity"] = 0.1
+        mato.options["fbmc"]["cne_sensitivity"] = 0.2
+        fb_parameters = mato.create_flowbased_parameters(basecase)
 
         # %% FBMC market clearing
-        mato.data.results = {}
-        mato.options["optimization"]["timeseries"]["market_horizon"] = 100
-        mato.options["optimization"]["redispatch"]["include"] = True
-        mato.options["optimization"]["redispatch"]["zones"] = list(mato.data.zones.index)
+        mato.options["redispatch"]["include"] = True
+        mato.options["redispatch"]["zones"] = list(mato.data.zones.index)
         mato.create_grid_representation(flowbased_paramters=fb_parameters)
         mato.update_market_model_data()
         mato.run_market_model()
-
-        mato.create_geo_plot()
+        mato.visualization.create_generation_overview(mato.data.results.values(), show_plot=False)
         mato._join_julia_instances()

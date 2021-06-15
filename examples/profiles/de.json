@@ -1,26 +1,24 @@
 {
-	"optimization": {
-		"type": "dispatch",
-		"model_horizon": [0, 168],
-		"timeseries": {
-			"market_horizon": 168, 
-			"redispatch_horizon": 24
-		},
-		"redispatch": {
+	"type": "ntc",
+	"model_horizon": [0, 48],
+	"timeseries": {
+		"market_horizon": 48, 
+		"redispatch_horizon": 24
+	},
+	"redispatch": {
+		"include": true,
+		"zones": ["DE"],
+		"cost": 50
+	},
+	"infeasibility": {
+		"electricity": {
 			"include": true,
-			"zones": ["DE"],
-			"cost": 50
-		},
-		"infeasibility": {
-			"electricity": {
-				"include": true,
-				"cost": 1E2,
-				"bound": 1000
-			}
-		},
-		"plant_types": {
-			"es": ["hydro_res", "hydro_psp"],
-			"ts": ["wind onshore", "wind offshore", "solar"]
+			"cost": 1E2,
+			"bound": 1E4
 		}
+	},
+	"plant_types": {
+		"es": ["hydro_res", "hydro_psp"],
+		"ts": ["wind onshore", "wind offshore", "solar"]
 	}
 }

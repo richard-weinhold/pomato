@@ -11,4 +11,4 @@ Description of the Modules
 	:maxdepth: 2
 
 	getting_started
-	reference.rst
+	reference

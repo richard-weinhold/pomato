@@ -1,22 +1,19 @@
 import logging
-import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
-import pyproj
 import scipy.io as sio
 import xlrd
+import pomato.tools as tools
 
 def _mpc_data_pu_to_real(lines,  base_kv, base_mva):
     """Convert pu to actual units for the mpc case."""
     v_base = base_kv * 1e3
     s_base = base_mva * 1e6
     z_base = np.power(v_base,2)/s_base
-    lines['r'] = np.multiply(lines['r'], z_base)
-    lines['x'] = np.divide(lines['x'], z_base)
-    lines['b_other'] = np.divide(lines['b_other'], z_base)
-    lines['b'] = np.divide(1, lines['x'])
+    lines['r_pu'] = np.divide(lines['r'], z_base)
+    lines['x_pu'] = np.divide(lines['x'], z_base)
     return lines
 
 def _mpc_data_structure():
@@ -39,7 +36,7 @@ def _mpc_data_structure():
         ["lines", "node_i", "nodes.index", False],
         ["lines", "node_j", "nodes.index", False],
         ["lines", "b", "float64", False],
-        ["lines", "maxflow", "float64", False],
+        ["lines", "capacity", "float64", False],
         ["lines", "contingency", "bool", False],
         ["lines", "technology", "float64", True],
         ["lines", "type", "float64", True],
@@ -80,7 +77,7 @@ class DataWorker(object):
     """
 
     def __init__(self, data, file_path):
-        self.logger = logging.getLogger('Log.MarketModel.DataManagement.DataWorker')
+        self.logger = logging.getLogger('log.pomato.data.DataWorker')
         self.data = data
 
         if ".xls" in str(file_path):
@@ -119,7 +116,8 @@ class DataWorker(object):
         data = data.stack().reset_index()
         data.columns = columns
         data = data.sort_values("timestep")
-        return data.infer_objects()
+        data = data.infer_objects()
+        return data
 
     def read_xls(self, xls_filepath):
         """Read excel file at specified filepath.
@@ -134,13 +132,12 @@ class DataWorker(object):
             engine = "xldr"
         else:
             engine = "openpyxl"
-        
         xls = pd.ExcelFile(xls_filepath, engine=engine)
         self.data.data_structure = xls.parse("data_structure", engine=engine)
         self.data.data_attributes.update({d: False for d in self.data.data_structure.data.unique()})
         for data in self.data.data_attributes:
             try:
-                raw_data = xls.parse(data, engine=engine, index_col=0).infer_objects()
+                raw_data = xls.parse(data, engine=engine, index_col=0)
                 self._set_data_attribute(data, raw_data)
             except xlrd.XLRDError as error_msg:
                 self.data.missing_data.append(data)
@@ -413,7 +410,7 @@ class DataWorker(object):
                 'idx': line_idx,
                 'node_i': branch_df['fbus'],
                 'node_j': branch_df['tbus'],
-                'maxflow': branch_df['rateA'],
+                'capacity': branch_df['rateA'],
                 'b_other': branch_df['b'],
                 'r': branch_df['r'],
                 'x': branch_df['x']
@@ -477,16 +474,8 @@ class DataWorker(object):
 
         # add coordinates from CSV with X and Y columns for the grid coordinates
         if Path(str(casefile).split(".")[0] + "_coordinates.csv").is_file():
-            xy = pd.read_csv(str(casefile).split(".")[0] + "_coordinates.csv",
-                             sep=";", index_col=0)
-            lat0, lon0 = 25, 82.5
-            projection = pyproj.Proj(f"+proj=stere +lat_0={str(lat0)} +lon_0={str(lon0)} \
-                                         +k=1 +x_0=0 +y_0=0 +a=6371200 +b=6371200 +units=m +no_defs")
-
-            coord = pd.DataFrame(columns=["lon", "lat"], index=self.data.nodes.index,
-                                data = [projection(x*4000,y*4000, inverse=True) for x,y in zip(xy.X, xy.Y)])
-            coord = coord[["lat", "lon"]]
-            self.data.nodes[["lat", "lon"]] = coord
+            xy = pd.read_csv(str(casefile).split(".")[0] + "_coordinates.csv", sep=",", index_col=0)
+            self.data.nodes[["lat", "lon"]] = xy.values
         else:
             self.data.nodes.loc[:, "lat"] = 0
             self.data.nodes.loc[:, "lon"] = 0

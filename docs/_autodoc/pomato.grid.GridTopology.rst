@@ -20,7 +20,6 @@ GridTopology
       ~GridTopology.create_lodf
       ~GridTopology.create_n_1_lodf_matrix
       ~GridTopology.create_n_1_ptdf_cbco
-      ~GridTopology.create_n_1_ptdf_line
       ~GridTopology.create_n_1_ptdf_outage
       ~GridTopology.create_psdf_matrix
       ~GridTopology.create_ptdf_matrix
@@ -28,7 +27,6 @@ GridTopology
       ~GridTopology.lodf_filter
       ~GridTopology.shift_phase_on_line
       ~GridTopology.slack_zones
-      ~GridTopology.slack_zones_index
    
    
 

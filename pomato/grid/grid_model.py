@@ -63,7 +63,7 @@ class GridModel():
 
     def __init__(self, wdir, grid, data, option):
         # Import Logger
-        self.logger = logging.getLogger('Log.MarketModel.GridTopology')
+        self.logger = logging.getLogger('log.pomato.grid.GridTopology')
         self.logger.info("Initializing the GridTopology....")
 
         self.options = option
@@ -114,31 +114,34 @@ class GridModel():
 
         """
         # Data Structure of grid_representation dict
-        self.grid_representation.option = self.options["optimization"]["type"]
+        self.grid_representation.option = self.options["type"]
         self.grid_representation.multiple_slack = self.grid.multiple_slack
         self.grid_representation.slack_zones = self.grid.slack_zones()
 
         if isinstance(flowbased_paramters, pd.DataFrame):
             self.process_flowbased_grid_representation(flowbased_paramters)
-        elif self.options["optimization"]["type"] == "ntc":
+        elif self.options["type"] == "ntc":
             self.process_ntc()
-        elif self.options["optimization"]["type"] == "nodal":
+            self.grid_representation.grid = pd.DataFrame()
+        elif self.options["type"] == "nodal":
             self.grid_representation.grid = self.create_nodal_grid_parameters()
-        elif self.options["optimization"]["type"] == "zonal":
+        elif self.options["type"] == "zonal":
             self.grid_representation.grid = self.create_zonal_grid_parameters()
-            self.grid_representation.ntc = self.create_ntc()
-        elif self.options["optimization"]["type"] == "cbco_nodal":
+            self.process_ntc()
+        elif self.options["type"] == "cbco_nodal":
             self.grid_representation.contingency_groups = self.grid.contingency_groups
             self.grid_representation.grid = self.create_cbco_nodal_grid_parameters()
-        elif self.options["optimization"]["type"] == "cbco_zonal":
+        elif self.options["type"] == "cbco_zonal":
             self.grid_representation.contingency_groups = self.grid.contingency_groups
             self.grid_representation.grid = self.create_cbco_zonal_grid_parameters()
-            self.grid_representation.ntc = self.create_ntc()
+            self.process_ntc()
         else:
             self.logger.info("No grid representation needed for dispatch model")
         
-        if self.options["optimization"]["redispatch"]["include"]:
+        if self.options["redispatch"]["include"]:
             self.add_redispatch_grid()
+        else:
+            self.grid.redispatch_grid = pd.DataFrame()
     
     def process_flowbased_grid_representation(self, flowbased_paramters):
         """Process grid information for flow based grid representation.
@@ -155,9 +158,11 @@ class GridModel():
             Flowbased parameters, derived using :class:`~pomato.fbmc.FBMCModule`
 
         """
-        self.options["optimization"]["type"] = "cbco_zonal"
+        self.options["type"] = "cbco_zonal"
         self.grid_representation.option = "cbco_zonal"
         self.grid_representation.grid = flowbased_paramters
+        self.grid_representation.contingency_groups = self.grid.contingency_groups
+        self.process_ntc()
 
     def create_nodal_grid_parameters(self):
         """Process grid information for nodal N-0 representation.
@@ -170,12 +175,12 @@ class GridModel():
             
         grid_option = self.options["grid"]
         nodal_network = pd.DataFrame(columns=self.grid.nodes.index, data=self.grid.ptdf)
-        nodal_network["ram"] = self.grid.lines.maxflow.values*self.options["grid"]["capacity_multiplier"]
+        nodal_network["ram"] = self.grid.lines.capacity.values*self.options["grid"]["capacity_multiplier"]
         nodal_network["cb"] = list(self.grid.lines.index)
         nodal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
         nodal_network = nodal_network[["cb", "co", "ram"] + list(self.grid.nodes.index)]
 
-        if grid_option["cbco_option"] == "nodal_clarkson":
+        if grid_option["redundancy_removal_option"] == "nodal_clarkson":
             nodal_injection_limits = self.create_nodal_injection_limits()
 
             cbco_index = self.clarkson_algorithm(A=nodal_network.loc[:, self.grid.nodes.index].values, 
@@ -209,17 +214,17 @@ class GridModel():
         table is added to not allow unintuitive commercial flows.
 
         """
-        gsk = self.options["grid"]["gsk"]
+        gsk = self.options["fbmc"]["gsk"]
         grid_option = self.options["grid"]
         zonal_network = pd.DataFrame(index=self.grid.lines.index,
                                      columns=self.data.zones.index,
                                      data=np.dot(self.grid.ptdf, self.create_gsk(gsk)))
         zonal_network["cb"] = list(self.grid.lines.index)
         zonal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
-        zonal_network["ram"] = self.grid.lines.maxflow.values*self.options["grid"]["capacity_multiplier"]
+        zonal_network["ram"] = self.grid.lines.capacity.values*self.options["grid"]["capacity_multiplier"]
         zonal_network = zonal_network[["cb", "co", "ram"] + list(self.data.zones.index)]
 
-        if grid_option["cbco_option"] == "clarkson":
+        if grid_option["redundancy_removal_option"] == "clarkson":
             cbco_index = self.clarkson_algorithm(A=zonal_network.loc[:, self.data.zones.index].values, 
                                                  b=zonal_network.loc[:, "ram"].values)
             zonal_network = self.return_cbco(zonal_network, cbco_index)
@@ -251,24 +256,8 @@ class GridModel():
         cbco_index = self.clarkson_algorithm(A=A, b=b)
 
         cbco_zonal_network = self.return_cbco(cbco_info, cbco_index)
-        cbco_zonal_network *= grid_option["capacity_multiplier"]
+        cbco_zonal_network.loc[:, "ram"] *= grid_option["capacity_multiplier"]
         return cbco_zonal_network
-
-    def _add_zone_to_grid_representation(self, grid):
-        """Add information in which country a line is located.
-        
-        By adding two columns in dataframe: zone_i, zone_j. This information is needed for zonal redispatch 
-        to identify which lines should be redispatched. 
-        """
-
-        if "cb" in grid.columns:
-            grid["zone_i"] = self.grid.nodes.loc[self.grid.lines.loc[grid.cb, "node_i"], "zone"].values
-            grid["zone_j"] = self.grid.nodes.loc[self.grid.lines.loc[grid.cb, "node_j"], "zone"].values
-        else:
-            grid["zone_i"] = self.grid.nodes.loc[self.grid.lines.loc[grid.index, "node_i"], "zone"].values
-            grid["zone_j"] = self.grid.nodes.loc[self.grid.lines.loc[grid.index, "node_j"], "zone"].values
-            
-        return grid
 
     def create_cbco_nodal_grid_parameters(self):
         """Process grid information for nodal N-1 representation.
@@ -316,32 +305,28 @@ class GridModel():
                 cbco_index = cbco_index = list(range(0, len(b)))
 
         else:
-            # 3 valid args supported for cbco_option:
+            # 3 valid args supported for redundancy_removal_option:
             # clarkson, clarkson_base, full (default)
-            if self.options["grid"]["cbco_option"] == "full":
-                cbco_index = list(range(0, len(b)))
-
-            elif self.options["grid"]["cbco_option"] == "clarkson_base":
-                nodal_injection_limits = self.create_nodal_injection_limits()
-                cbco_index = self.clarkson_algorithm(A=A, b=b, x_bounds=nodal_injection_limits)
-
-            elif self.options["grid"]["cbco_option"] == "clarkson":
+            if self.options["grid"]["redundancy_removal_option"] == "full":
+                cbco_index = list(range(len(b)))
+            elif self.options["grid"]["redundancy_removal_option"] == "clarkson_base":
+                cbco_index = self.clarkson_algorithm(
+                    A=A, b=b, x_bounds=self.create_nodal_injection_limits())
+            elif self.options["grid"]["redundancy_removal_option"] == "clarkson":
                 cbco_index = self.clarkson_algorithm(A=A, b=b)
-
-            elif self.options["grid"]["cbco_option"] == "save":
-                nodal_injection_limits = self.create_nodal_injection_limits()
-                cbco_index = list(range(0, len(b)))
-
+            elif self.options["grid"]["redundancy_removal_option"] == "save":
+                cbco_index = list(range(len(b)))
                 self.write_cbco_info(self.julia_dir.joinpath("cbco_data"), "py_save", 
-                                     A=A, b=b, Ab_info=cbco_info, x_bounds=nodal_injection_limits)
+                                     A=A, b=b, Ab_info=cbco_info, 
+                                     x_bounds=self.create_nodal_injection_limits())
             else:
-                self.logger.warning("No valid cbco_option set!")
+                raise AttributeError("No valid redundancy_removal_option set!")
 
         cbco_nodal_network = self.return_cbco(cbco_info, cbco_index)
         cbco_nodal_network.ram *= self.options["grid"]["capacity_multiplier"]
         return cbco_nodal_network
 
-    def create_cbco_data(self, sensitivity=5e-2, preprocess=True, gsk=None):
+    def create_cbco_data(self, sensitivity=5e-2, preprocess=False, gsk=None):
         """Create all relevant N-1 PTDFs in the form of Ax<b (PTDF x < ram).
 
         This uses the method :meth:`~pomato.grid.create_filtered_n_1_ptdf` to
@@ -373,22 +358,25 @@ class GridModel():
             row corresponds to.
 
         """
-        A, b, info = self.grid.create_filtered_n_1_ptdf(sensitivity=sensitivity)
+        n_1_ptdf = self.grid.create_filtered_n_1_ptdf(sensitivity=sensitivity)
         # Processing: Rounding, remove duplicates and 0...0 rows
         if preprocess:
             self.logger.info("Preprocessing Ab...")
-            _, idx = np.unique(info[list(self.grid.nodes.index) + ["ram"]].round(decimals=6).values,
+            _, idx = np.unique(n_1_ptdf[list(self.grid.nodes.index) + ["ram"]].round(decimals=6).values,
                                axis=0, return_index=True)
-            A = A[np.sort(idx)]
-            b = b[np.sort(idx)]
-            info = info.loc[np.sort(idx), :]
 
+            n_1_ptdf = n_1_ptdf.loc[np.sort(idx), :]
+
+
+        A = n_1_ptdf.loc[:, self.grid.nodes.index].values
+        b = n_1_ptdf["ram"].values
+        
         if isinstance(gsk, np.ndarray):  # replace nodal ptdf by zonal ptdf
             A = np.dot(A, gsk)
-            info = pd.concat((info.loc[:, ["cb", "co", "ram"]],
+            n_1_ptdf = pd.concat((n_1_ptdf.loc[:, ["cb", "co", "ram"]],
                               pd.DataFrame(columns=self.data.zones.index,
                                            data=A)), axis=1)
-        return A, b, info
+        return A, b, n_1_ptdf
 
     def write_cbco_info(self, folder, suffix, **kwargs):
         """Write cbco information to disk to run the redundancy removal algorithm.
@@ -436,13 +424,13 @@ class GridModel():
             Contains the abs maximum power injected/load at each node.
 
         """
-        infeasibility_upperbound = self.options["optimization"]["infeasibility"]["electricity"]["bound"]
+        infeasibility_upperbound = self.options["infeasibility"]["electricity"]["bound"]
         nodal_injection_limits = []
         demand_el = self.data.demand_el.copy()
         net_export = self.data.net_export[self.data.net_export.net_export > 0].copy()
 
         for node in self.data.nodes.index:
-            plant_types = self.options["optimization"]["plant_types"]
+            plant_types = self.options["plant_types"]
 
             condition_plant_node = self.data.plants.node == node
 
@@ -451,7 +439,7 @@ class GridModel():
             condition_el_heat = condition_plant_node & \
                                 (self.data.plants.plant_type.isin(plant_types["ph"]))
 
-            max_dc_inj = self.data.dclines.maxflow[(self.data.dclines.node_i == node) |
+            max_dc_inj = self.data.dclines.capacity[(self.data.dclines.node_i == node) |
                                                    (self.data.dclines.node_j == node)].sum()
             
             condition_nex = net_export.node == node
@@ -500,7 +488,7 @@ class GridModel():
         if not self.julia_instance.is_alive:
             self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
-        if self.options["optimization"]["type"] in ["zonal"]:
+        if self.options["type"] in ["zonal"]:
             self.julia_instance.disable_multi_threading()
 
         t_start = dt.datetime.now()
@@ -560,8 +548,8 @@ class GridModel():
         """
         self.logger.info("Creating gsk with option: %s", option)
         gsk = pd.DataFrame(index=self.data.nodes.index)
-        condition = (self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["ts"]) 
-                        & (~self.data.plants.plant_type.isin(self.options["optimization"]["plant_types"]["es"])))
+        condition = (self.data.plants.plant_type.isin(self.options["plant_types"]["ts"]) 
+                        & (~self.data.plants.plant_type.isin(self.options["plant_types"]["es"])))
         gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]].groupby("node").sum()
 
         for zone in self.data.zones.index:

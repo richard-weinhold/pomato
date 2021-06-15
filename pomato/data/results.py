@@ -1,14 +1,14 @@
-"""Results of POMATO."""
-
 import json
 import logging
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import types
+from copy import deepcopy
+from zipfile import ZipFile
 
 import pomato.tools as tools
-# pylint: disable-msg=E1101
+from pomato.visualization.geoplot_functions import line_coordinates
 
 class Results():
     """Results of POMATO makes market results available to the user.
@@ -31,7 +31,7 @@ class Results():
     result_attributes : dict,
         *result_attributes* covers all variables from the market model,
         along with dual and infeasibility/slack variables and other market
-        model specific information which are relevant to the results itself.
+        model specific information which are relevant to the results itself.  
 
     Parameters
     ----------
@@ -46,36 +46,39 @@ class Results():
     """
 
     def __init__(self, data, grid, result_folder):
-        self.logger = logging.getLogger('Log.MarketModel.DataManagement.ResultData')
-        self.data = data
+        self.logger = logging.getLogger('log.pomato.data.Results')
         self.grid = grid
+        self.data = data
+        self.output_folder = self.data.wdir.joinpath("data_output").joinpath(result_folder.name)
 
-        result_folder_name = str(result_folder).split("\\")[-1]
-
-        self.output_folder = self.data.wdir.joinpath("data_output").joinpath(result_folder_name)
-
-        variables = {variable: False for variable in ["G", "H",
-                                                      "D_es", "L_es",
-                                                      "D_hs", "L_hs",
-                                                      "INJ", "EX",
-                                                      "D_ph", "F_DC", "CURT", "Alpha"]}
+        variables = {variable: False for variable in ["G", "H", "D_es", "L_es", "D_hs", "L_hs",
+                                                      "INJ", "EX", "D_ph", "F_DC", "CURT", "Alpha",
+                                                      "COST_G", "COST_H", "COST_EX", "COST_CURT", 
+                                                      "COST_REDISPATCH", "COST_INFEASIBILITY_EL",
+                                                      "COST_INFEASIBILITY_H"]}
 
         dual_variables = {variable: False for variable in ["EB_nodal", "EB_zonal", "EB_heat"]}
 
         infeasibility_variables = {variable: False
-                                   for variable in ["INFEAS_H_POS", "INFEAS_H_NEG",
-                                                    "INFEAS_EL_N_POS", "INFEAS_EL_N_NEG",
-                                                    "INFEAS_LINES"]}
+                                   for variable in ["INFEASIBILITY_H_POS", "INFEASIBILITY_H_NEG",
+                                                    "INFEASIBILITY_EL_POS", "INFEASIBILITY_EL_NEG"]}
 
         self.result_attributes = {"variables": variables,
                                   "dual_variables": dual_variables,
                                   "infeasibility_variables": infeasibility_variables,
-                                  "model_horizon": None, "source": None, "status": None,
-                                  "objective": None, "t_start": None, "t_end": None,
+                                  "model_horizon": None, "source_folder": None, "objective": None,
                                   "is_redispatch_result": False, 
                                   "corresponding_market_result_name": None}
 
         self.model_horizon = self.result_attributes["model_horizon"]
+
+        self._cached_results = types.SimpleNamespace(n_0_flows=pd.DataFrame(), 
+                                                     n_1_flows=pd.DataFrame(),
+                                                     generation=pd.DataFrame(),
+                                                     curtailment=pd.DataFrame(),
+                                                     demand=pd.DataFrame(),
+                                                     result_data=None,
+                                                     averaged_result_data=None)
 
         for var in self.result_attributes["variables"]:
             setattr(self, var, pd.DataFrame())
@@ -85,21 +88,28 @@ class Results():
             setattr(self, var, pd.DataFrame())
 
         # Add opt Set-Up to the results attributes
-        self.result_attributes["source"] = result_folder
-        self.result_attributes["name"] = result_folder.parts[-1]
         self.load_results_from_folder(result_folder)
-
         # Set Redispatch = True if result is a redispatch result 
         if "redispatch" in self.result_attributes["name"]:
+            if not "redispatch" in self.result_attributes["title"]:
+                self.result_attributes["title"] += "_redispatch"
             self.result_attributes["is_redispatch_result"] = True
-            market_result_name = "_".join(self.result_attributes["name"].split("_")[:3]) + "_market_results"
-            if market_result_name in self.data.results:
-                self.result_attributes["corresponding_market_result_name"] = "_".join(self.result_attributes["name"].split("_")[:3]) + "_market_results"
+            # Find corresponding market result
+            potential_name_1 = self.result_attributes["name"].split("redispatch")[0] + "market_results"
+            potential_name_2 = self.result_attributes["name"].split("_redispatch")[0]
+            market_result_names = [potential_name_1, potential_name_2]
+            result_exists = [(name in self.data.results) for name in market_result_names]
+            if sum(result_exists) == 1:
+                result = [market_result_names[i] for i, exists in enumerate(result_exists) if exists][0]
+                self.result_attributes["corresponding_market_result_name"] = result
+            elif sum(result_exists) > 1:
+                result = [market_result_names[i] for i, exists in enumerate(result_exists) if exists][0]
+                self.result_attributes["corresponding_market_result_name"] = result
+                self.logger.warning("Multiple market results to %s found, using %s", 
+                                    self.result_attributes["name"], result)
             else:
-                self.logger.warning("Corresponding market result %s to %s not or with new name instantiated", market_result_name, self.result_attributes["name"])
+                self.logger.warning("Corresponding market result to %s not or with new name instantiated", self.result_attributes["name"])
                 self.logger.warning("Manually set market result name in result attributes.")
-        # set-up: don't show the graphs when created
-        plt.ioff()
 
     def load_results_from_folder(self, folder):
         """Load results from folder.
@@ -116,16 +126,21 @@ class Results():
         folder : pathlib.Path
             Folder with the results of the market model.
         """
-        folder_name = str(folder).split("\\")[-1]
-        self.logger.info("Loading Results from results folder %s", folder_name)
+
+        if ".zip" in str(folder):
+            with ZipFile(folder) as zip_archive:
+                tmp_zip_folder = self.wdir.joinpath("data_temp/temp_zip")
+                zip_archive.extractall(self.wdir.joinpath("data_temp/temp_zip"))
+                folder = self.wdir.joinpath("data_temp/temp_zip")
 
         for variable_type in ["variables", "dual_variables", "infeasibility_variables"]:
             for var in self.result_attributes[variable_type]:
                 try:
-                    setattr(self, var, pd.read_csv(str(folder.joinpath(f"{var}.csv"))))
+                    setattr(self, var, tools.reduce_df_size(pd.read_csv(str(folder.joinpath(f"{var}.csv")))))
+                    # setattr(self, var, (pd.read_csv(str(folder.joinpath(f"{var}.csv")))))
                     self.result_attributes[variable_type][var] = True
                 except FileNotFoundError:
-                    self.logger.warning("%s not in results folder %s", var, folder_name)
+                    self.logger.warning("%s not in results folder %s", var, str(folder.name))
 
         # Set result attributes from result json file or data.option:
         try:
@@ -142,19 +157,113 @@ class Results():
             self.logger.warning("No options file found in result folder, \
                                 using data.options")
             self.result_attributes = {**self.result_attributes,
-                                      **self.data.options["optimization"]}
+                                      **self.data.options}
 
+        self.result_attributes["source_folder"] = str(folder)
+        self.result_attributes["name"] = folder.name
+        if not "title" in self.result_attributes or self.result_attributes["title"] == "default":
+            self.result_attributes["title"] = self.result_attributes["name"]
         # Model Horizon as attribute
-        self.result_attributes["model_horizon"] = list(self.INJ.t.unique())
+        self.result_attributes["model_horizon"] = list(self.INJ['t'].drop_duplicates().sort_values())
         self.model_horizon = self.result_attributes["model_horizon"]
 
+    def save(self, folder):
+        """Save Result to folder"""
+        if not folder.is_dir():
+            folder.mkdir()
+        tools.copytree(self.result_attributes["source_folder"], folder)
+
+    def result_data_struct(self):
+        """Data struct, as a standart template for result processing.
+        
+        Returns
+        -------
+        result_data, types.SimpleNamespace
+            Returns empty data struct, with predefined data structure. 
+        """        
+
+        return types.SimpleNamespace(
+            nodes=self.data.nodes,
+            lines=self.data.lines,
+            line_coordinates=line_coordinates(self.data.lines.copy(), self.data.nodes.copy()),
+            dclines=self.data.dclines,
+            dcline_coordinates=line_coordinates(self.data.dclines, self.data.nodes),
+            inj=pd.Series(index=self.data.nodes.index, data=0),
+            dc_flow= pd.Series(index=self.data.dclines.index, data=0),
+            generation=pd.DataFrame(),
+            demand=pd.DataFrame(),
+            prices=pd.DataFrame(),
+            n_0_flow=pd.Series(index=self.data.lines.index, data=0),
+            n_1_flow=pd.Series(index=self.data.lines.index, data=0)
+            )
+    
+    def create_result_data(self, force_recalc=False):
+        """Creates result data struct from result instance.
+
+        Based on :meth:`~result_data_struct`this method fills the data struct with data and results
+        from the market result specified which is an instance of :class:`~pomato.data.Results`.
+        This data struct is intended for the generation of visualizations of result in e.g. the
+        dynamic geoplot.
+
+        Parameters
+        ----------
+        market_result : :class:`~pomato.data.Results`
+            Market result which gets subsumed into the predefined data struct.
+        """
+        if not (not isinstance(self._cached_results.result_data, types.SimpleNamespace) or force_recalc):
+            self.logger.debug("Returning cached result for result_data.")
+            return deepcopy(self._cached_results.result_data)
+        
+        self.logger.info("Precalculating and caching common results..")
+        data_struct = self.result_data_struct()
+        data_struct.inj = self.INJ
+        data_struct.dc_flow = self.F_DC
+        data_struct.generation = self.generation()
+        data_struct.demand = self.demand()
+        data_struct.n_0_flow = self.n_0_flow()
+        data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.2)
+        data_struct.prices = self.price()
+        self._cached_results.result_data = data_struct
+        self.logger.info("Done calculating common results.")
+
+        return deepcopy(data_struct)
+
+    def create_averaged_result_data(self, force_recalc=False):
+        """Creates averaged result data struct.
+
+        Based on :meth:`~result_data_struct` and  :meth:`~create_result_data` this method fills 
+        the data struct with data and results from the market result specified which is an 
+        instance of :class:`~pomato.data.Results`. All results are averaged in useful ways. This 
+        data struct is intended for the static geoplot, which visualizes the results in 
+        average flows, injections, generation and prices. 
+        """
+        if not (not isinstance(self._cached_results.averaged_result_data, types.SimpleNamespace) or force_recalc):
+            self.logger.debug("Returning cached result for averaged_result_data.")
+            return deepcopy(self._cached_results.averaged_result_data)
+
+        data_struct = self.create_result_data()
+
+        data_struct.inj = data_struct.inj.groupby("n").mean().reindex(self.grid.nodes.index).INJ
+        data_struct.n_0_flow = data_struct.n_0_flow.abs().mean(axis=1)
+        data_struct.n_1_flow = data_struct.n_1_flow.abs().mean(axis=1)
+        data_struct.dc_flow = data_struct.dc_flow.pivot(index="dc", columns="t", values="F_DC") \
+                                .abs().mean(axis=1).reindex(self.data.dclines.index).fillna(0)
+        data_struct.prices = data_struct.prices[["n", "marginal"]].groupby("n").mean()
+        self._cached_results.averaged_result_data = data_struct
+        return data_struct
+
     def redispatch(self):
-        """Return Redispatch"""
+        """Return Redispatch.
+        Calculates a delta between redispatch,- and market result. 
+        Positive delta represents a higher generation after redispatch i.e. positive and negative 
+        vice versa. 
+        """
         # Find corresponding Market Result
         corresponding_market_result = self.result_attributes["corresponding_market_result_name"]
-        if not self.result_attributes["is_redispatch_result"] and bool(corresponding_market_result):
+        if not (self.result_attributes["is_redispatch_result"] and bool(corresponding_market_result)):
             self.logger.warning("Corresponding market result not initialized or found")
             return None
+
         gen = self.generation()
         # Redispatch Calculation G_redispatch - G_market
         gen = pd.merge(self.data.results[corresponding_market_result].G, gen, on=["p", "t"], 
@@ -180,9 +289,9 @@ class Results():
         DataFrame
             DataFrame of nodal infeasibilities with columns [t, n, pos, neg].
         """        
-        infeasibility = pd.merge(self.data.nodes, self.INFEAS_EL_N_POS, left_index=True, right_on="n")
-        infeasibility = pd.merge(infeasibility, self.INFEAS_EL_N_NEG, on=["t", "n"])
-        infeasibility = infeasibility.rename(columns={"INFEAS_EL_N_POS": "pos", "INFEAS_EL_N_NEG": "neg"})
+        infeasibility = pd.merge(self.data.nodes, self.INFEASIBILITY_EL_POS, left_index=True, right_on="n")
+        infeasibility = pd.merge(infeasibility, self.INFEASIBILITY_EL_NEG, on=["t", "n"])
+        infeasibility = infeasibility.rename(columns={"INFEASIBILITY_EL_POS": "pos", "INFEASIBILITY_EL_NEG": "neg"})
         
         if drop_zero:
             return infeasibility[(infeasibility.pos > 0) | (infeasibility.neg > 0)]
@@ -208,45 +317,12 @@ class Results():
         eb_nodal = pd.merge(eb_nodal, self.data.nodes.zone.to_frame(),
                             how="left", left_on="n", right_index=True)
         eb_nodal.loc[abs(eb_nodal.EB_nodal) < 1E-3, "EB_nodal"] = 0
-
         eb_zonal = self.EB_zonal.copy()
         eb_zonal.loc[abs(eb_zonal.EB_zonal) < 1E-3, "EB_zonal"] = 0
-
         price = pd.merge(eb_nodal, eb_zonal, how="left",
                          left_on=["t", "zone"], right_on=["t", "z"])
-
         price["marginal"] = -(price.EB_zonal + price.EB_nodal)
         return price[["t", "n", "z", "marginal"]]
-
-    def commercial_exchange(self, from_zone, to_zone):
-        """Return commercial exchange for a pair of market areas.
-
-        Parameters
-        ----------
-        from_zone : str
-           Exporting market area.
-        to_zone : str
-           Importing market area.
-
-        Returns
-        -------
-        exchange : DataFrame
-            Commercial exchange between two market areas. 
-        """
-
-        from_to = self.EX[(self.EX.z == from_zone)&(self.EX.zz == to_zone)]
-        to_from = self.EX[(self.EX.z == to_zone)&(self.EX.zz == from_zone)]
-
-        from_to = from_to.loc[:, ["t", "z", "zz", "EX"]].set_index("t")
-        to_from = to_from.loc[:, ["t", "z", "zz", "EX"]].set_index("t")
-
-        exchange = pd.merge(from_to, to_from, left_index=True, right_index=True)
-
-        exchange = exchange.loc[:, ["EX_x", "EX_y"]]
-        exchange.columns = ["-".join([from_zone, to_zone]), "-".join([to_zone, from_zone])]
-        exchange.loc[:, "-".join([to_zone, from_zone])] *= -1
-
-        return exchange
 
     def net_position(self):
         """Calculate net position for each zone and timestep.
@@ -262,68 +338,75 @@ class Results():
                                  self.EX[self.EX.zz == zone].groupby("t").sum()
         return net_position
     
-    def curtailment(self):
-        """[Deprecated] Check for curtailment of plants of type ts (i.e. with availabilities).
-
-        Deprecated: changed curtailment to explicit variable.
-        Curtailment is checked by comparing actual with potential generation.
-
-        Returns
-        -------
-        gen : DataFrame
-            DataFrame with actual and potential generation for each plant and
-            timestep.
-        """
+    def generation(self, force_recalc=False):
+        """Return generation variable merged to input data.
         
-        ts_option = self.data.options["optimization"]["plant_types"]["ts"]
-        res_plants = self.data.plants[self.data.plants.plant_type.isin(ts_option)].copy()
-
-        gen = self.G.copy()
-        ava = self.data.availability[["timestep", "plant", "availability"]].copy()
-        ava.columns = ["t", "p", "ava"]
-
-        gen = gen[gen.p.isin(res_plants.index)]
-        gen = pd.merge(gen, res_plants[["g_max"]], how="left", left_on="p", right_index=True)
-        gen = pd.merge(gen, ava, how="left", on=["p", "t"])
-
-        gen.ava.fillna(1, inplace=True)
-
-        gen["ava_gen"] = gen.g_max*gen.ava
-        gen["curt"] = gen.ava_gen - gen.G
-        curtailment = gen["curt"].round(3).sum()
-        self.logger.info("%s MWh curtailed in market model results!", curtailment)
-        return gen
-
-    def res_share(self, res_plant_type):
-        """Calculate the share of renewables.
-
         Parameters
         ----------
-        res_plant_type : list of plant_types
-            plant_types (ref. plants.plant_types) that represent renewables.
+        force_recalc : bool, optional
+            Generation is cached automatically. To enforce recalc, e.g. when explicitly changing
+            data set this force_recalc to True. Defaults to False. 
 
         Returns
         -------
-        res_share : float
-            Share of reneable generation in the resulting dispatch.
-        """
-        res_plants = self.data.plants[self.data.plants.plant_type.isin(res_plant_type)]
-        gen = self.G
-        gen_res = gen[gen.p.isin(res_plants.index)]
-        res_share = gen_res.G.sum()/gen.G.sum()
-        self.logger.info("Renewable share is %d %% in resulting dispatch!",
-                         round(res_share*100, 2))
-        return res_share
+        generation : DataFrame
+            Returns DataFrame with columns [node, plant_type, g_max, zone, t, p, G]
 
-    def generation(self):
-        """Generation data.
-        
-        Returns DataFrame with columns [node, plant_type, zone, t, p, G]
         """
-        gen = pd.merge(self.data.plants[["plant_type", "fuel", "node"]],
+        if not (self._cached_results.generation.empty or force_recalc):
+            self.logger.debug("Returning cached result for generation.")
+            return self._cached_results.generation.copy()
+        
+        gen = pd.merge(self.data.plants[["plant_type", "fuel", "node", "g_max"]],
                         self.G, left_index=True, right_on="p", how="right")
+        
         gen["zone"] = self.data.nodes.loc[gen.node, "zone"].values
+        if "technology" in self.data.plants.columns:
+            gen = pd.merge(gen, self.data.plants[["technology"]], 
+                           right_index=True, left_on="p")
+        else:
+            gen["technology"] = gen.plant_type
+        gen = tools.reduce_df_size(gen)
+        self._cached_results.generation = gen.copy()
         return gen
+
+    def curtailment(self, force_recalc=False):
+        """Return Curtailment merge to input data.
+        
+        Parameters
+        ----------
+        force_recalc : bool, optional
+            Generation is cached automatically. To enforce recalc, e.g. when explicitly changing
+            data set this force_recalc to True. Defaults to False. 
+        
+        Returns
+        -------
+        Curtailment : DataFrame
+            Returns DataFrame with columns [node, plant_type, g_max, zone, t, p, CURT]
+        """
+        if not (self._cached_results.curtailment.empty or force_recalc):
+            self.logger.debug("Returning cached result for curtailment.")
+            return self._cached_results.curtailment.copy()
+
+        curtailment = pd.merge(self.data.plants[["plant_type", "node", "g_max"]],
+                               self.CURT, left_index=True, right_on="p", how="right")
+        curtailment["zone"] = self.data.nodes.loc[curtailment.node, "zone"].values
+        curtailment = tools.reduce_df_size(curtailment)
+        self._cached_results.curtailment = curtailment.copy()
+        return curtailment.copy()
+
+    def full_load_hours(self):
+        """Returns plant data including full load hours."""        
+
+        gen = self.generation()[["t", "p", "fuel", "technology", "G", "g_max"]].copy()
+        ava = self.data.availability.copy()[["timestep", "plant", "availability"]]
+        ava.columns = ["t", "p", "availability"]
+        
+        flh = pd.merge(gen, ava, on=["t", "p"], how="left")
+        flh.loc[:, "availability"] = flh.loc[:, "availability"].fillna(1)
+        flh["utilization"] = flh.G/(flh.g_max * flh.availability)
+        flh["flh"] = flh.G/(gen.g_max)
+        return flh.groupby([ "p", "fuel", "technology"], observed=True).mean()[["flh", "utilization"]].reset_index()
 
     def storage_generation(self):
         """Return storage generation schedules.
@@ -331,7 +414,7 @@ class Results():
         Returns DataFrame with columns [node, plant_type, zone, t, p, G, D_es, L_es]
         """
 
-        es_plant_types = self.data.options["optimization"]["plant_types"]["es"]
+        es_plant_types = self.data.options["plant_types"]["es"]
         es_plants = self.data.plants.loc[self.data.plants.plant_type.isin(es_plant_types), ["node", "plant_type"]]
         es_plants["zone"] = self.data.nodes.loc[es_plants.node, "zone"].values
 
@@ -340,31 +423,44 @@ class Results():
         es_gen = pd.merge(es_gen, self.L_es, on=["p", "t"])
         return es_gen
 
-    def demand(self):
-        """Process total nodal demand composed of load and market results of storage/heatpump usage."""
+    def _sort_timesteps(self, column):
+        """Helper function to sort timesteps explicitly."""
+        order = {timestep: index for index, timestep in enumerate(self.model_horizon)}
+        return column.map(order)
 
-        map_pn = self.data.plants.node.reset_index()
+    def demand(self, force_recalc=False):
+        """Process total nodal demand composed of load and market results of storage/heatpump usage."""
+        
+        if not (self._cached_results.demand.empty or force_recalc):
+            self.logger.debug("Returning cached result for demand.")
+            return self._cached_results.demand.copy()
+
+        map_pn = self.data.plants.node.copy().reset_index()
         map_pn.columns = ['p', 'n']
-        demand = self.data.demand_el.copy()
+        demand = self.data.demand_el[self.data.demand_el.timestep.isin(self.model_horizon)].copy()
         demand.rename(columns={"node": "n", "timestep": "t"}, inplace=True)
         if not self.D_ph.empty:
             demand_ph = pd.merge(self.D_ph, map_pn[["p", "n"]], 
-                                 how="left", on="p").groupby(["n", "t"], as_index=False).sum()
+                                 how="left", on="p").groupby(["n", "t"], as_index=False, observed=True).sum()
             demand = pd.merge(demand, demand_ph[["D_ph", "n", "t"]], how="outer", on=["n", "t"])
         else:
             demand["D_ph"] = 0
         if not self.D_es.empty:
             demand_es = pd.merge(self.D_es, map_pn[["p", "n"]], 
-                                 how="left", on="p").groupby(["n", "t"], as_index=False).sum()
+                                 how="left", on="p").groupby(["n", "t"], as_index=False, observed=True).sum()
             demand = pd.merge(demand, demand_es[["D_es", "n", "t"]], how="outer", on=["n", "t"])
         else:
             demand["D_es"] = 0
-        demand.fillna(value=0, inplace=True)
+        
+        demand.loc[:, ["demand_el", "D_ph", "D_es"]].fillna(value=0, inplace=True)
         demand["demand"] = demand.demand_el + demand.D_ph + demand.D_es
-        return demand
+        demand = demand.sort_values(by='t', key=self._sort_timesteps)
+        
+        self._cached_results.demand = demand.copy()
+        return demand.copy()
 
     # Grid Analytics - Load Flows
-    def n_0_flow(self, timesteps=None):
+    def n_0_flow(self, force_recalc=False):
         """Calculate N-0 Flows.
 
         Calculates the N-0 power flows on all lines. Optionally just calculate
@@ -372,50 +468,40 @@ class Results():
 
         Parameters
         ----------
-        timesteps : list like, optional
-            Set of timesteps to calculate the power flow for. Defaults to the
-            full model horizon.
+        force_recalc : bool, optional
+            Power flow results are automatically cached to avoid recalculation.
+            This argument forces recalculation e.g. when paramters have been altered. 
 
         Returns
         -------
         n_0_flows : DataFrame
             N-0 power flows for each line.
         """
-        if not timesteps:
-            self.logger.info("Calculating N-0 Flows for the full model horizon")
-            timesteps = self.result_attributes["model_horizon"]
-
-        # n_0_flows = pd.DataFrame(index=self.data.lines.index)
-        # for t in timesteps:
-        #     n_0_flows[t] = np.dot(self.grid.ptdf, self.INJ.INJ[self.INJ.t == t].values)
+        if not (self._cached_results.n_0_flows.empty or force_recalc):
+            self.logger.debug("Returning cached result for n_0_flows.")
+            return self._cached_results.n_0_flows.copy()
 
         inj = self.INJ.pivot(index="t", columns="n", values="INJ")
-        inj = inj.loc[timesteps, self.data.nodes.index]
+        inj = inj.loc[self.model_horizon, self.data.nodes.index]
         flow = np.dot(self.grid.ptdf, inj.T)
-        n_0_flows = pd.DataFrame(index=self.data.lines.index, columns=timesteps, data=flow)
+        n_0_flows = pd.DataFrame(index=self.data.lines.index, columns=self.model_horizon, data=flow)
 
-        return n_0_flows
+        self._cached_results.n_0_flows = n_0_flows.copy()
+        return n_0_flows.copy()
 
-    def n_1_flow(self, timesteps=None, lines=None, outages=None, sensitivity=5e-2):
+    def n_1_flow(self, sensitivity=5e-2, force_recalc=False):
         """N-1 power flows on lines (cb) under outages (co).
 
-        Calculates the power flows on the specified lines under the specified
-        outages for the specified timesteps.
-
-        All arguments are optional and per default this method calculates the
-        power flow on all lines considering outages with significant impact.
+        Calculates the power flows on all lines under the outages with significant impact.
         This is calculated with :meth:`~pomato.grid.create_filtered_n_1_ptdf`
         where this is described in greater detail.
 
         Parameters
         ----------
-        timesteps : list like, optional
-            Set of timesteps to calculate the power flow for. Defaults to the
-            full model horizon.
-        lines : list like, optional
-            Considered lines, defaults to all.
-        outages : list like, optional
-            Considered lines, defaults those with > 5% sensitivity.
+        force_recalc : bool, optional
+            Power flow results are automatically cached to avoid recalculation.
+            This argument forces recalculation e.g. when paramters have been altered. 
+
         sensitivity : float, optional
             The sensitivity defines the threshold from which outages are
             considered critical. An outage that can impact the line flow,
@@ -428,68 +514,25 @@ class Results():
             Returns Dataframe of N-1 power flows with lines and contingencies
             specified.
         """
-        if not self.grid:
-            self.logger.error("Grid not available in results object!")
-            return None
-
-        if (lines and not all([l in self.data.lines.index for l in lines])) or \
-                (outages and not all([o in self.data.lines.index for o in outages])):
-
-            self.logger.error("Not all CBs/COs are indices of lines!")
-            return None
-
-        if not timesteps:
-            self.logger.info("Calculating N-1 Flows for the full model horizon")
-            timesteps = self.result_attributes["model_horizon"]
-
-        if not lines:
-            self.logger.info("Using all lines from grid model as CBs")
-            lines = list(self.grid.lines.index)
-
-        use_lodf = False
-        if not outages:
-            self.logger.info("Using COs with a sensitivity of %d percent to CBs",
-                             round(sensitivity*100, 2))
-            use_lodf = True
-
-        ptdf = [self.grid.ptdf]
-        label_lines = list(self.grid.lines.index)
-        label_outages = ["basecase" for i in range(0, len(self.grid.lines.index))]
-
-        for line in self.grid.lines.index[self.grid.lines.contingency]:
-            if use_lodf:
-                outages = list(self.grid.lodf_filter(line, sensitivity))
-            label_lines.extend([line for i in range(0, len(outages))])
-            label_outages.extend(outages)
-
-        # estimate size of array = nr_elements * bytes per element
-        # (float64 + sep = 8 + 1) / (1024**2) MB
-        estimate_size = len(label_lines)*len(self.grid.nodes.index)*(8 + 1)/(1024*1024)
-        if estimate_size > 10000:
-            self.logger.error("Estimated size of N-1 PTDF = %d", estimate_size)
-            raise Exception('Matrix N-1 PTDF MAtrix too large! Use a higher sensitivity!')
-
-        for line in self.grid.lines.index[self.grid.lines.contingency]:
-            if use_lodf:
-                outages = list(self.grid.lodf_filter(line, sensitivity))
-            tmp_ptdf = np.vstack([self.grid.create_n_1_ptdf_cbco(line, out) for out in outages])
-            ptdf.append(tmp_ptdf)
-
-        ptdf = np.concatenate(ptdf).reshape(len(label_lines),
-                                            len(list(self.grid.nodes.index)))
-
+        if not (self._cached_results.n_1_flows.empty or force_recalc):
+            self.logger.debug("Returning cached result for n_1_flows.")
+            return self._cached_results.n_1_flows.copy()
+        
+        data = self.grid.create_filtered_n_1_ptdf(sensitivity=sensitivity)
+        ptdf = data.loc[:, self.data.nodes.index]
         inj = self.INJ.pivot(index="t", columns="n", values="INJ")
-        inj = inj.loc[timesteps, self.data.nodes.index]
+        inj = inj.loc[self.model_horizon, self.data.nodes.index]
         flow = np.dot(ptdf, inj.T)
-        n_1_flows = pd.DataFrame(columns=timesteps, data=flow)
-        n_1_flows["cb"] = label_lines
-        n_1_flows["co"] = label_outages
+        n_1_flows = pd.DataFrame(columns=self.model_horizon, data=flow)
+        n_1_flows["cb"] = data.cb
+        n_1_flows["co"] = data.co
 
         self.logger.info("Done Calculating N-1 Flows")
+        n_1_flows = n_1_flows.loc[:, ["cb", "co"] + self.model_horizon]
+        self._cached_results.n_1_flows = n_1_flows.copy()
+        return n_1_flows.copy()
 
-        return n_1_flows.loc[:, ["cb", "co"] + timesteps]
-
-    def absolute_max_n_1_flow(self, timesteps=None, sensitivity=0.05):
+    def absolute_max_n_1_flow(self, sensitivity=0.05):
         """Calculate the absolute max of N-1 Flows.
 
         This method essentially proviedes a n_1_flow.groupby("cb") yielding the 
@@ -498,12 +541,15 @@ class Results():
         
         Parameters
         ----------
-        timesteps : list like, optional
-            Subset of model horizon. Defaults to the full model horizon.
+        sensitivity : float, optional
+            The sensitivity defines the threshold from which outages are
+            considered critical. An outage that can impact the line flow,
+            relative to its maximum capacity, more than the sensitivity is
+            considered critical. Defaults to 5%.
 
         """
 
-        n_1_flows = self.n_1_flow(timesteps=timesteps, sensitivity=sensitivity)
+        n_1_flows = self.n_1_flow(sensitivity=sensitivity)
         n_1_flows = n_1_flows.drop("co", axis=1)
         n_1_flow_max = n_1_flows.groupby("cb").max()
         n_1_flow_min = n_1_flows.groupby("cb").min()
@@ -512,7 +558,7 @@ class Results():
 
         return n_1_flows.reindex(self.grid.lines.index)
 
-    def overloaded_lines_n_0(self, timesteps=None):
+    def overloaded_lines_n_0(self):
         """Calculate overloaded lines (N-0) power.
 
         Calculates what lines are overloaded, without taking into account
@@ -534,13 +580,9 @@ class Results():
         n_0_load : DataFrame
             Line loadings for the overloaded lines and considered timesteps.
         """
-        if not timesteps:
-            # if not specified use full model horizon
-            timesteps = self.result_attributes["model_horizon"]
-
-        flows = self.n_0_flow(timesteps)
-
-        rel_load_array = np.vstack([(abs(flows[t]))/self.data.lines.maxflow for t in timesteps]).T
+        flows = self.n_0_flow()
+        timesteps = self.model_horizon
+        rel_load_array = np.vstack([(abs(flows[t]))/self.data.lines.capacity for t in timesteps]).T
         rel_load = pd.DataFrame(index=flows.index, columns=flows.columns,
                                 data=rel_load_array)
 
@@ -552,7 +594,7 @@ class Results():
 
         overloaded_energy = (n_0_load - 1)
         overloaded_energy[overloaded_energy < 0] = 0
-        line_capacities = self.data.lines.loc[condition, "maxflow"]
+        line_capacities = self.data.lines.loc[condition, "capacity"]
         overloaded_energy = overloaded_energy.multiply(line_capacities, axis=0).sum(axis=1)
 
         agg_info["# of overloads"] = np.sum(rel_load.values > 1.01, axis=1)[condition]
@@ -560,7 +602,7 @@ class Results():
         agg_info["overloaded energy [GWh]"] = overloaded_energy/1000
         return agg_info, n_0_load
 
-    def overloaded_lines_n_1(self, timesteps=None, sensitivity=5e-2):
+    def overloaded_lines_n_1(self, sensitivity=5e-2):
         """Overloaded lines under contingencies (N-1).
 
         Uses method :meth:`~n_1_flow()` to obtain N-1 power flows under
@@ -589,17 +631,14 @@ class Results():
         n_1_overload : DataFrame
             Line loadings for the overloaded cbco's and considered timesteps.
         """
-        if not timesteps:
-            # if not specified use full model horizon
-            timesteps = self.result_attributes["model_horizon"]
-
-        n_1_flow = self.n_1_flow(timesteps=timesteps, sensitivity=sensitivity)
+        n_1_flow = self.n_1_flow(sensitivity=sensitivity)
         n_1_load = n_1_flow.copy()
 
         self.logger.info("Processing Flows")
-        # timesteps = self.result_attributes["model_horizon"]
-        maxflow_values = self.grid.lines.maxflow[n_1_load.cb].values
-        n_1_load.loc[:, timesteps] = n_1_flow.loc[:, timesteps].div(maxflow_values, axis=0).abs()
+
+        timesteps = self.model_horizon
+        capacity_values = self.grid.lines.capacity[n_1_load.cb].values
+        n_1_load.loc[:, timesteps] = n_1_flow.loc[:, timesteps].div(capacity_values, axis=0).abs()
 
         # 1% overload as tolerance
         n_1_overload = n_1_load[~(n_1_load[timesteps] <= 1.01).all(axis=1)]

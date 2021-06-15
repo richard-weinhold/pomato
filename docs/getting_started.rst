@@ -1,3 +1,5 @@
+.. _getting_started:
+
 Getting Started
 ***************
 
@@ -19,5 +21,6 @@ but made sure the definitions are easily accessible to potentially adopt pomato 
 	:maxdepth: 2
 
 	installation
-	prerequisites
-	case_studies
+	model_structure
+	running_pomato
+	model_functionality

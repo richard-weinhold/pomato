@@ -1,6 +1,9 @@
 import logging
+import os
 import random
 import shutil
+import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -8,19 +11,33 @@ from unittest.mock import patch
 import numpy as np
 import pandas as pd
 
-from context import pomato
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import pomato
+from pomato.tools import copytree
 
-# pylint: disable-msg=E1101
+
 class TestPomatoGrid(unittest.TestCase):
     
+    @classmethod
+    def setUpClass(cls):
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        cls.wdir = Path(cls.temp_dir.name)
+        copytree(Path.cwd().joinpath("examples"), cls.wdir)
+        cls.options = pomato.tools.default_options()
+        cls.data = pomato.data.DataManagement(cls.options, cls.wdir)
+        cls.data.logger.setLevel(logging.ERROR)
+        cls.data.load_data('data_input/pglib_opf_case118_ieee.m')
+        cls.grid  = pomato.grid.GridTopology()
+        cls.grid.calculate_parameters(cls.data.nodes, cls.data.lines)
+    
     def setUp(self):
-        self.wdir = Path.cwd().joinpath("examples")
-        self.options = pomato.tools.default_options()
-        self.data = pomato.data.DataManagement(self.options, self.wdir)
-        self.data.logger.setLevel(logging.ERROR)
-        self.data.load_data('data_input/pglib_opf_case118_ieee.m')
-        self.grid  = pomato.grid.GridTopology()
-        self.grid.calculate_parameters(self.data.nodes, self.data.lines)
+        pass
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.grid = None
+        cls.data = None
+        cls.temp_dir = None
 
     def test_init(self):
         self.assertAlmostEqual(np.shape(self.grid.ptdf), (186, 118))
@@ -132,6 +149,22 @@ class TestPomatoGrid(unittest.TestCase):
 
         for line in outages:
             self.assertAlmostEqual(post_contingency_flow[self.grid.lines.index.get_loc(line)], 0)
+
+    def test_phase_shift(self):
+        
+        line = "l1"
+        line_idx = self.grid.lines.index.get_loc(line)
+        node_i, node_j = self.grid.lines.loc[line, ["node_i", "node_j"]]
+        node_i_idx, node_j_idx = self.grid.nodes.index.get_loc(node_i), self.grid.nodes.index.get_loc(node_j)
+        ptdf = self.grid.ptdf 
+        inj = np.zeros((118, ))
+        inj[node_i_idx], inj[node_j_idx] = 100, -100
+        flow = np.dot(ptdf[line_idx, :], inj)
+
+        self.grid.shift_phase_on_line({line: 1})
+        ptdf_post_shift = self.grid.ptdf 
+        flow_post_shift = np.dot(ptdf_post_shift[line_idx, :], inj)
+        self.assertTrue(flow < flow_post_shift)
 
 if __name__ == '__main__':
     unittest.main()

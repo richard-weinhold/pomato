@@ -1,6 +1,11 @@
 Pomato release notes
 ========================
 
+Version 0.4.0 (2020)
+-------------------------------
+  * Plotly/Dash Implementation
+  * SoftwareX Revision
+
 Version 0.3.0 (2020)
 -------------------------------
   * SoftwareX Publication Update

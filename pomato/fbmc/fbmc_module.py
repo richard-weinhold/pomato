@@ -1,13 +1,10 @@
-import datetime as dt
+import itertools
 import logging
 from pathlib import Path
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-
 import pomato
-import pomato.tools as tools
 from pomato.grid import GridModel
 
 class FBMCModule():
@@ -35,7 +32,7 @@ class FBMCModule():
 
     """
     def __init__(self, wdir, grid, data, options):
-        self.logger = logging.getLogger('Log.MarketModel.FBMCModule')
+        self.logger = logging.getLogger('log.pomato.fbmc.FBMCModule')
         self.logger.info("Initializing the FBMCModule....")
 
         self.wdir = wdir
@@ -45,22 +42,7 @@ class FBMCModule():
         self.grid = grid
         self.data = data
 
-    def calculate_parameters(self, custom_cbco=None, flowbased_region=None):
-        """Calculate basic, non result specific, paramters.
-
-
-        Parameters
-        ----------
-        custom_cbco : pd.DataFrame, optional
-            Specify the list of CBCOs considered for the FB paramters, by default None which 
-            will cause CBCOs chosen based on a zone-to-zone sensitivity.
-        flowbased_region : list, optional
-            List of countries for which the FB parameters are calculated, defaults to all zones.
-        """        
-        self.custom_cbco = custom_cbco
-        if not flowbased_region:
-            self.flowbased_region = list(self.data.zones.index)
-        self.nodal_fbmc_ptdf, self.domain_info = self.create_fbmc_info()
+        self.grid_model = GridModel(self.wdir, self.grid, self.data, self.data.options)
 
     def create_dynamic_gsk(self, basecase, timestep):
         """Returns GSK based on the included basecase.
@@ -83,7 +65,7 @@ class FBMCModule():
         """
         
         gsk = pd.DataFrame(index=self.grid.nodes.index)
-        plant_types = self.data.options["optimization"]["plant_types"]
+        plant_types = self.data.options["plant_types"]
         condition = (~self.data.plants.plant_type.isin(plant_types["ts"])) & \
                     (~self.data.plants.plant_type.isin(plant_types["es"]))
         
@@ -94,12 +76,14 @@ class FBMCModule():
             gsk[zone] = 0
             nodes_in_zone = self.grid.nodes.index[self.grid.nodes.zone == zone]
             tmp = gen[gen.n.isin(nodes_in_zone)].groupby("n").sum().copy()
-            tmp.loc[:, "G"] /= tmp.G.max()
-            gsk.loc[tmp.index, zone] = tmp.G.values
-        
+            if tmp.G.sum() > 0:
+                tmp.loc[:, "G"] /= tmp.G.sum()
+                gsk.loc[tmp.index, zone] = tmp.G.values
+            else:
+                 gsk.loc[nodes_in_zone, zone] = 1/len(nodes_in_zone)
         return gsk.values
         
-    def create_gsk(self, option="flat"):
+    def create_gsk(self, option="gmax"):
         """Returns static GSK.
 
         Input options are: 
@@ -123,19 +107,19 @@ class FBMCModule():
         """        
         gsk = pd.DataFrame(index=self.grid.nodes.index)
 
-        plant_types = self.data.options["optimization"]["plant_types"]
+        plant_types = self.data.options["plant_types"]
         condition = (~self.data.plants.plant_type.isin(plant_types["ts"])) & \
                     (~self.data.plants.plant_type.isin(plant_types["es"]))
         
         gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]] \
                         .groupby("node").sum()
-
+    
         for zone in self.data.zones.index:
             nodes_in_zone = self.grid.nodes.index[self.grid.nodes.zone == zone]
             gsk[zone] = 0
             gmax_in_zone = gmax_per_node[gmax_per_node.index.isin(nodes_in_zone)]
             if option == "gmax":
-                if not gmax_in_zone.empty:
+                if not (gmax_in_zone.empty or gmax_in_zone.g_max.sum() == 0):
                     gsk_value = gmax_in_zone.g_max/gmax_in_zone.values.sum()
                     gsk.loc[gsk.index.isin(gmax_in_zone.index), zone] = gsk_value
                 else:
@@ -143,10 +127,11 @@ class FBMCModule():
 
             elif option == "flat":
                 gsk.loc[gsk.index.isin(nodes_in_zone), zone] = 1/len(nodes_in_zone)
-
+        
         return gsk.values
 
-    def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax"):
+    def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax", 
+                                 only_crossborder=False, flowbased_region=None):
         """Returns Critical branches based on Zone-to-Zone ptdf.
         
         In the calculation of FB parameters it makes sense to use only lines
@@ -166,48 +151,55 @@ class FBMCModule():
             Zone-to-Zone PTDF threshold, defaults to 5%. 
         gsk_strategy : str, optional
             GSK strategy, defaults to *gmax*.
-        
+        only_crossborder : str, optional 
+            Only consider cross-border lines as critical branches, defaults to False. 
+        flowbased_region : list-like, optional,
+            Specify a subset of zones that compose the flow based region. Default to all zones. 
         Returns
         -------
         CBs : list
             List of all critical branches, including all cross border lines. 
         
         """
-        self.logger.info("List of CBs is generated from zone-to-zone PTDFs with:")
-        self.logger.info("GSK Strategy: %s, Threshold: %d percent", gsk_strategy, threshold*100)
 
-        gsk = self.create_gsk(gsk_strategy)
-        zonal_ptdf = np.dot(self.grid.ptdf, gsk)
-        zonal_ptdf_df = pd.DataFrame(index=self.grid.lines.index,
-                                     columns=self.data.zones.index,
-                                     data=zonal_ptdf)
+        if not flowbased_region:
+            flowbased_region = list(self.data.zones.index)
+        
+        if not only_crossborder:
+            gsk = self.create_gsk(gsk_strategy)
+            zonal_ptdf = np.dot(self.grid.ptdf, gsk)
+            zonal_ptdf_df = pd.DataFrame(index=self.grid.lines.index,
+                                         columns=self.data.zones.index,
+                                         data=zonal_ptdf)
 
-        z2z_ptdf_df = pd.DataFrame(index=self.grid.lines.index)
-        for zone in self.flowbased_region:
-            for z_zone in self.flowbased_region:
-                z2z_ptdf_df["-".join([zone, z_zone])] = zonal_ptdf_df[zone] - zonal_ptdf_df[z_zone]
+            z2z_ptdf_df = pd.DataFrame(index=self.grid.lines.index)
+            for zone in flowbased_region:
+                for z_zone in flowbased_region:
+                    z2z_ptdf_df["-".join([zone, z_zone])] = zonal_ptdf_df[zone] - zonal_ptdf_df[z_zone]
 
-        critical_branches = list(z2z_ptdf_df.index[np.any(z2z_ptdf_df.abs() > threshold, axis=1)])
+            critical_branches = list(z2z_ptdf_df.index[np.any(z2z_ptdf_df.abs() > threshold, axis=1)])
+        else: 
+            critical_branches = []
 
         condition_cross_border = self.grid.nodes.zone[self.grid.lines.node_i].values != \
                                  self.grid.nodes.zone[self.grid.lines.node_j].values
 
-        condition_fb_region = self.grid.nodes.zone[self.grid.lines.node_i].isin(self.flowbased_region).values & \
-                         self.grid.nodes.zone[self.grid.lines.node_j].isin(self.flowbased_region).values
-
+        condition_fb_region = self.grid.nodes.zone[self.grid.lines.node_i].isin(flowbased_region).values & \
+            self.grid.nodes.zone[self.grid.lines.node_j].isin(flowbased_region).values
         cross_border_lines = list(self.grid.lines.index[condition_cross_border&condition_fb_region])
         
         all_cbs = list(set(critical_branches + cross_border_lines))
         self.logger.info("Number of Critical Branches: %d, Number of Cross Border lines: %d, Total Number of CBs: %d",
-                          len(critical_branches), len(cross_border_lines), len(critical_branches))
+                          len(critical_branches), len(cross_border_lines), len(all_cbs))
 
         return all_cbs
 
-    def create_fbmc_info(self, lodf_sensitivity=10e-2):
+    def create_base_fbmc_parameters(self, critical_branches, lodf_sensitivity=10e-2):
         """Create the nodal ptdf for the FB paramters.
         
         Which lines are considered critical and their critical outages are independent 
-        from the basecase. Therefore the CBCOs are obtained once and used throughout this method.
+        from the basecase. Therefore the ptdf for all CBCOs are obtained once and used throughout 
+        this method.
         
         The process is similar to :meth:`~pomato.grid.GridTopology.create_filtered_n_1_ptdf`, 
         for a list of CBs, that are obtained in :meth:`~return_critical_branches`,
@@ -216,6 +208,8 @@ class FBMCModule():
         
         Parameters
         ----------
+        critical_branches : list-like, 
+            Lines considered critical network elements, which are considered for the FB parameters.  
         lodf_sensitivity : float, optional
             The sensitivity defines the threshold from which outages are
             considered critical. A outage that can impact the lineflow,
@@ -226,41 +220,21 @@ class FBMCModule():
         -------
         nodal_fbmc_ptdf : numpy.array
             nodal PTDF for each CBCO
-        domain_info : pandas.DataFrame
+        fbmc_data : pandas.DataFrame
             The ptdf, together with all information, like CBCO, capacity, nodes.
         """
+        self.grid.lines["cb"] = False
+        self.grid.lines.loc[self.grid.lines.index.isin(critical_branches), "cb"] = True
+        select_lines = self.grid.lines.index[(self.grid.lines["cb"])&(self.grid.lines.contingency)]
+        select_outages = {}
+        for line in select_lines:
+            select_outages[line] = list(self.grid.lodf_filter(line, lodf_sensitivity))
 
-        if isinstance(self.custom_cbco, pd.DataFrame):
-            base_cb = list(self.custom_cbco.cb[self.custom_cbco.co == "basecase"])
-
-            index_position = [self.grid.lines.index.get_loc(line) for line in base_cb]
-            base_ptdf = self.grid.ptdf[index_position, :]
-            full_ptdf = [base_ptdf, -base_ptdf]
-            label_lines = list(base_cb)+list(base_cb)
-            label_outages = ["basecase" for line in label_lines]
-
-            self.custom_cbco = self.custom_cbco[~(self.custom_cbco.co == "basecase")]
-            select_lines = []
-            select_outages = {}
-            for line in self.custom_cbco.cb.unique():
-                select_lines.append(line)
-                select_outages[line] = list(self.custom_cbco.co[self.custom_cbco.cb == line])
-
-        else:
-            self.grid.lines["cb"] = False
-            critical_branches = self.return_critical_branches(threshold=self.options["grid"]["sensitivity"])
-            self.grid.lines.loc[self.grid.lines.index.isin(critical_branches), "cb"] = True
-
-            select_lines = self.grid.lines.index[(self.grid.lines["cb"])&(self.grid.lines.contingency)]
-            select_outages = {}
-            for line in select_lines:
-                select_outages[line] = list(self.grid.lodf_filter(line, lodf_sensitivity))
-
-            index_position = [self.grid.lines.index.get_loc(line) for line in select_lines]
-            base_ptdf = self.grid.ptdf[index_position, :]
-            full_ptdf = [base_ptdf, -base_ptdf]
-            label_lines = list(select_lines)+list(select_lines)
-            label_outages = ["basecase" for line in label_lines]
+        index_position = [self.grid.lines.index.get_loc(line) for line in select_lines]
+        base_ptdf = self.grid.ptdf[index_position, :]
+        full_ptdf = [base_ptdf, -base_ptdf]
+        label_lines = list(select_lines)+list(select_lines)
+        label_outages = ["basecase" for line in label_lines]
 
         for line in select_lines:
             outages = select_outages[line]
@@ -272,17 +246,21 @@ class FBMCModule():
         nodal_fbmc_ptdf = np.concatenate(full_ptdf)
         nodal_fbmc_ptdf = nodal_fbmc_ptdf.reshape(len(label_lines), len(list(self.grid.nodes.index)))
 
-        domain_info = pd.DataFrame(columns=list(self.data.zones.index))
-        domain_info["cb"] = label_lines
-        domain_info["co"] = label_outages
+        fbmc_data = pd.DataFrame(columns=list(self.data.zones.index))
+        fbmc_data["cb"] = label_lines
+        fbmc_data["co"] = label_outages
 
-        return nodal_fbmc_ptdf, domain_info
+        return nodal_fbmc_ptdf, fbmc_data
+   
+    def create_flowbased_parameters(self, basecase, timesteps=None, enforce_ntc_domain=False):
+        """Create Flow-Based Paramters.
 
-    def create_flowbased_ptdf(self, gsk_strategy, timestep, basecase):
-        """Create Zonal PTDF, reference flows and RAM based on the basecase and GSK.
+        Creates the FB Paramters for the supplied basecase. Optional arguments are 
+        the GSK that is used during the process and whether the constraints are reduced
+        to a minimal set.  
 
-        For a specific timestep, the reference flow is calculated as the basecase flow 
-        minus the flow resulting from the DA market:
+        For a specific timestep or over the full model horizon, the reference flow is calculated 
+        as the basecase flow minus the flow resulting from the DA market:
         
         F_ref = F_basecase - F_DA
 
@@ -295,123 +273,113 @@ class FBMCModule():
 
         This either indicates an error in the calculation or the need for relaxation via the 
         minRAM option. 
-
-        Parameters
-        ----------
-        gsk_strategy : str
-            GSK strategy, which will be generation by :meth:`~create_gsk()`. 
-        timestep : str
-            Timestep for which the paramters are calculated for.
-        basecase : :class:`~pomato.data.Results`
-            Market resultsfrom which the FB paramters are deducted. 
-
-        Returns
-        -------
-        zonal_fbmc_ptdf, np.array
-            Zonal PTDF. Length is the number of CBCOs and width the number zones within 
-            the Flowbased region. 
-        ram, vector
-            RAM for each CBCOs, same order as the zonal_ptdf.
-        """
-
-        self.logger.info("Creating zonal Ab for timestep %s", timestep)
-
-        # optional frm/fav margin todo
-        frm_fav = pd.DataFrame(index=self.domain_info.cb.unique())
-        frm_fav["value"] = self.grid.lines.maxflow[frm_fav.index]*(1 - self.options["grid"]["capacity_multiplier"])
-
-        # F Ref Basecase: The actual flow in the basecase
-        # On all CBs under COs
-        injection = basecase.INJ.INJ[basecase.INJ.t == timestep].values
-        f_ref_base_case = np.dot(self.nodal_fbmc_ptdf, injection)
-
-        if gsk_strategy == "dynamic":
-            gsk = self.create_dynamic_gsk(basecase, timestep)
-        else:
-            gsk = self.create_gsk(gsk_strategy)
-
-
-        # F Day Ahead: The Flow on each CBCO, without injection from the market 
-        # coupling. The market is "removed" by removing the NEX via a zonal ptdf and GSK
-        net_position = basecase.net_position() * 1
-        zonal_fbmc_ptdf = np.dot(self.nodal_fbmc_ptdf, gsk)
-
-        f_da = np.dot(zonal_fbmc_ptdf, net_position.loc[timestep].values)
-
-        # F_ref without the DA market = F Ref Basecase - F DA
-        f_ref_nonmarket = f_ref_base_case - f_da
-
-        # RAMs
-        ram = (self.grid.lines.maxflow[self.domain_info.cb] 
-               - frm_fav.value[self.domain_info.cb] 
-               - f_ref_nonmarket)
-
-        self.logger.info("Applying minRAM at %i percent of line capacity", 
-                         int(self.options["grid"]["minram"]*100))
-        minram = self.grid.lines.maxflow[self.domain_info.cb] * self.options["grid"]["minram"] 
-        ram[ram < minram] = minram[ram < minram]
-
-        ram = ram.values.reshape(len(ram), 1)
-
-        if any(ram < 0):
-            self.logger.warning("Number of RAMs below: [0 - %d, 10 - %d, 100 - %d, 1000 - %d]", 
-                                sum(ram<0), sum(ram<10), sum(ram<100), sum(ram<1000))
-
-        self.domain_info[list(self.data.zones.index)] = zonal_fbmc_ptdf
-        self.domain_info["ram"] = ram
-        self.domain_info["timestep"] = timestep
-        self.domain_info["gsk_strategy"] = gsk_strategy
-        self.domain_info = self.domain_info[["cb", "co", "ram", "timestep", "gsk_strategy"] + list(list(self.data.zones.index))]
-        # self.logger.info("Done!")
-        return zonal_fbmc_ptdf, ram
-
-    def create_flowbased_parameters(self, basecase, gsk_strategy="gmax", reduce=True):
-        """Create Flow-Based Paramters.
-
-        Creates the FB Paramters for the basecase arguments. Optional arguments are 
-        the GSK that is used during the process and whether the constraints are reduced
-        to a minimal set.  
         
         Parameters
         ----------
         basecase : :class:`~pomato.data.Results`
             Market resultsfrom which the FB paramters are deducted. 
-        gsk_strategy : str, optional
-            GSK strategy, defaults to "gmax". 
-        reduce : bool, optional
-            Runs the RedundancyRemoval for each timestep 
-        
+
         Returns
         -------
-        fb_paramters : pandas.DataFrame
+        fb_parameters : pandas.DataFrame
             Flow Based Parameters which are a zonal ptdf for each and ram, depending
             on the reference flows derived from the basecase for each timestep. 
         """
-        domain_data = {}
-        grid_model = GridModel(self.wdir, self.grid, self.data, self.data.options)
-        
-        if reduce:
-            grid_model._start_julia_daemon()
-            
-        grid_model.options["optimization"]["type"] = "cbco_zonal"
-        grid_model.options["grid"]["cbco_option"] = "clarkson"
 
-        for timestep in basecase.INJ.t.unique():
-            self.create_flowbased_ptdf(gsk_strategy, timestep, basecase)
-            domain_data[timestep] = self.domain_info.copy()
+        # Check arguments and options 
+        if not timesteps:
+            timesteps = basecase.model_horizon
+        cne_sensitivity = self.options["fbmc"]["cne_sensitivity"]
+        lodf_sensitivity = self.options["fbmc"]["lodf_sensitivity"]
+        gsk_strategy = self.options["fbmc"]["gsk"]
 
-        cbco_info =  pd.concat([domain_data[t] for t in domain_data.keys()], ignore_index=True)
-        
-        if reduce:
-            cbco_index = grid_model.clarkson_algorithm(args={"fbmc_domain": True}, Ab_info=cbco_info)
+        if not self.options["fbmc"]["flowbased_region"]:
+            flowbased_region = list(self.data.zones.index)
+            self.options["grid"]["flowbased_region"] = flowbased_region
         else:
-            cbco_index = list(range(0, len(cbco_info)))
+            flowbased_region = self.options["fbmc"]["flowbased_region"]
 
-        fb_paramters = grid_model.return_cbco(cbco_info, cbco_index)
-        fb_paramters.set_index(fb_paramters.cb + "_" + fb_paramters.co, inplace=True)
+        self.logger.info("CBs are selected from zone-to-zone PTDFs with %d%% threshold", cne_sensitivity*100)
+        critical_branches = self.return_critical_branches(cne_sensitivity, flowbased_region=flowbased_region)
+        self.logger.info("COs are selected from nodal PTDFs with %d%% threshold", lodf_sensitivity*100)
+        nodal_fbmc_ptdf, fbmc_data = self.create_base_fbmc_parameters(critical_branches, lodf_sensitivity)
 
-        if reduce:
-            grid_model.julia_instance.join()
-            grid_model.julia_instance.julia_instance = None
+        if self.options["fbmc"]["reduce"] or self.options["grid"]["precalc_filename"]:
+            cbco = self.grid_model.create_cbco_nodal_grid_parameters()
+            condition = fbmc_data[["cb", "co"]].apply(tuple, axis=1).isin(cbco[["cb", "co"]].apply(tuple, axis=1).values).values
+            nodal_fbmc_ptdf, fbmc_data = nodal_fbmc_ptdf[condition | (fbmc_data.co == "basecase") , :], \
+                                                         fbmc_data.loc[condition | (fbmc_data.co == "basecase") , :]
 
-        return fb_paramters
+        inj = basecase.INJ[basecase.INJ.t.isin(timesteps)].pivot(index="t", columns="n", values="INJ")
+        inj = inj.loc[timesteps, basecase.data.nodes.index]
+        f_ref_base_case = np.dot(nodal_fbmc_ptdf, inj.T)
+
+        frm_fav = self.grid.lines.capacity[fbmc_data.cb].values*(1 - self.options["grid"]["capacity_multiplier"])
+        nex = basecase.net_position().loc[timesteps, :]
+
+        self.logger.info("Calculating zonal ptdf using %s gsk strategy.", gsk_strategy)
+        if gsk_strategy == "dynamic":
+            zonal_fbmc_ptdf = {timestep: np.dot(nodal_fbmc_ptdf, self.create_dynamic_gsk(basecase, timestep)) for timestep in timesteps}
+            f_da = np.vstack([np.dot(zonal_fbmc_ptdf[timestep], nex.loc[timestep, :]) for timestep in timesteps]).T
+        else:
+            zonal_fbmc_ptdf_tmp = np.dot(nodal_fbmc_ptdf, self.create_gsk(gsk_strategy))
+            zonal_fbmc_ptdf = {timestep: zonal_fbmc_ptdf_tmp for timestep in timesteps}
+            f_da = np.dot(zonal_fbmc_ptdf_tmp, nex.values.T)
+        
+        t = self.create_gsk(gsk_strategy)
+    
+        f_ref_nonmarket = f_ref_base_case - f_da
+        ram = (self.grid.lines.capacity[fbmc_data.cb].values - frm_fav - f_ref_nonmarket.T).T
+        minram = (self.grid.lines.capacity[fbmc_data.cb] * self.options["fbmc"]["minram"]).values.reshape(len(f_ref_base_case), 1)
+        self.logger.info("Applying minRAM of %d%% on %d CBCOs", self.options["fbmc"]["minram"]*100, (ram < minram).any(axis=1).sum())
+        for j in range(0, ram.shape[0]):
+            ram[j, ram[j, :] < minram[j]] = minram[j]
+
+        domain_data = {}
+        for t, timestep in enumerate(timesteps):
+            fb_parameters = fbmc_data.copy()
+            fb_parameters[list(self.data.zones.index)] = zonal_fbmc_ptdf[timestep]
+            fb_parameters["ram"] = ram[:, t]
+            fb_parameters["timestep"] = timestep
+            fb_parameters["gsk_strategy"] = gsk_strategy
+            fb_parameters = fb_parameters[["cb", "co", "ram", "timestep", "gsk_strategy"] + list(list(self.data.zones.index))]
+            domain_data[timestep] = fb_parameters
+
+        fb_parameters =  pd.concat([domain_data[timestep] for timestep in timesteps], ignore_index=True)
+        
+        if enforce_ntc_domain:
+            fb_parameters = self.enforce_ntc_domain(fb_parameters)
+
+        if self.options["fbmc"]["reduce"]:
+            cbco_index = self.grid_model.clarkson_algorithm(args={"fbmc_domain": True}, 
+                                                            Ab_info=fb_parameters)   
+            fb_parameters = fb_parameters.loc[cbco_index, :]
+            
+        fb_parameters.set_index(fb_parameters.cb + "_" + fb_parameters.co, inplace=True)
+        return fb_parameters
+
+    def enforce_ntc_domain(self, fb_parameters):
+        """Remove enforce domain to include NTC values"""
+
+        if self.data.ntc.empty:
+            self.logger.error("NTCs not in data.")
+            return fb_parameters
+        self.logger.info("Enforcing FB-parameters to include NTC domain.")
+        A = fb_parameters.loc[:, self.data.zones.index].values
+        b = fb_parameters.loc[:, "ram"].values.reshape(len(A), 1)
+
+        zones = list(self.data.zones.index)
+        ntc = self.data.ntc[self.data.ntc.ntc > 0].copy()
+        ntc.set_index(["zone_i", "zone_j"], inplace=True)
+        points = []
+        for exchange in itertools.combinations(ntc.index, len(zones)):
+            tmp = np.zeros((len(zones), 1))
+            for (f,t) in exchange:
+                tmp[zones.index(f)] += ntc.loc[(f,t), "ntc"]
+                tmp[zones.index(t)] -= ntc.loc[(f,t), "ntc"]
+            points.append(tmp)
+        condition = []
+        for p in points:
+            condition.append(np.dot(A, p).reshape(len(A), 1) <= b)
+
+        return fb_parameters.loc[np.hstack(condition).all(axis=1), :]

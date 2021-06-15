@@ -4,20 +4,49 @@ This collection is characterized by a certain degree of generality and they cann
 attributed to a specified component of pomato.
 """
 
-import json
 import datetime
+import json
+import logging
 import operator
+import os
+import shutil
 import subprocess
 import threading
-import shutil, os 
 import time
-import numpy as np
 from functools import reduce
 from pathlib import Path
 
-
+import logaugment
 import pandas as pd
-import pomato._installation.manage_julia_env as julia_management
+import progress
+from progress.spinner import Spinner
+
+progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
+
+
+def _process_record(record):
+    now = datetime.datetime.utcnow()
+    try:
+        delta = (now - _process_record.now).total_seconds()
+    except AttributeError:
+        delta = 0
+    _process_record.now = now
+    return {'time_since_last': delta}
+
+class TimeSinceLastLog(logging.Handler):
+    """A handler class which stores custom logrecord attribute for last log."""
+    def __init__(self):
+        super().__init__()
+        self.value = 0
+    def emit(self, record):
+        self.value = record.time_since_last
+
+def remove_unsupported_chars(line):
+    """Remove string from julia log, that are not supported by python logging."""
+    remove_str = ["└", "┌", "│", "[ Info: "]
+    for r in remove_str:
+        line = line.replace(r, "")
+    return line.strip()
 
 def remove_unsupported_chars(line):
     """Remove string from julia log, that are not supported by python logging."""
@@ -64,6 +93,10 @@ class JuliaDaemon():
         self.julia_module = julia_module
 
         self.logger = logger
+        logaugment.add(self.logger, _process_record)
+        self._last_log = TimeSinceLastLog()
+        logger.addHandler(self._last_log)
+
         self.wdir = wdir
         self.package_dir = package_dir
         self.daemon_file = package_dir.joinpath(f"daemon_{julia_module}.json")
@@ -133,7 +166,7 @@ class JuliaDaemon():
                     json.dump(file, config, indent=2)
                     break
             except:
-                self.logger.warning("Failed to write to daemon file.")
+                self.logger.debug("Failed to write to daemon file.")
                 time.sleep(1)
 
     def read_daemon_file(self):
@@ -144,7 +177,7 @@ class JuliaDaemon():
                     file = json.load(jsonfile)
                 return file
             except:
-                self.logger.warning("Failed to read from daemon file.")
+                self.logger.debug("Failed to read from daemon file.")
                 time.sleep(1)
 
     def halt_while_processing(self):
@@ -152,8 +185,7 @@ class JuliaDaemon():
 
         Sometimes its better for the user to wait until julia is done.
         """
-        progress_indicator = 1
-        counter = 0
+        spinner = Spinner('Processing... ', check_tty=False, hide_cursor=True)
         while True:
             time.sleep(0.1)
             file = self.read_daemon_file()
@@ -161,17 +193,8 @@ class JuliaDaemon():
                 self.logger.info("Program Done")
                 break
             else:
-                # self.logger.info("Waiting for processing to complete")
-                counter += 1
-                if counter > 100:
-                    if progress_indicator < 0:
-                        dots = "\\"
-                    else:
-                        dots = "/"
-                    print("\r" + dots + "Waiting for processing to complete" + dots, end="")
-                    progress_indicator *= -1
-                    counter = 0
-
+                if self._last_log.value > 10:
+                    spinner.next()
 
     def halt_until_ready(self):
         """Halt python main thread until julia is initialized.
@@ -180,8 +203,7 @@ class JuliaDaemon():
         it has to be ready before a model can be run. 
         This method halts the main thread until julia is ready. 
         """
-        progress_indicator = 1
-        counter = 0
+        spinner = Spinner('Starting Julia Process... ', check_tty=False, hide_cursor=True)
         while True:
             time.sleep(0.1)
             file = self.read_daemon_file()
@@ -189,15 +211,8 @@ class JuliaDaemon():
                 self.logger.info("Process ready!")
                 break
             else:
-                counter += 1
-                if counter > 50:
-                    if progress_indicator < 0:
-                        dots = "\\"
-                    else:
-                        dots = "/"
-                    print("\r" + dots + "Waiting until Julia is ready" + dots, end="")
-                    progress_indicator *= -1
-                    counter = 0
+                if self._last_log.value > 10:
+                    spinner.next()
 
     def run(self, args=None):
         """Run julia process.
@@ -275,9 +290,6 @@ def create_folder_structure(base_path, logger=None):
         "data_input": {},
         "data_output": {},
         "data_temp": {
-                "bokeh_files": {
-                        "market_result": {}
-                        },
                 "julia_files": {
                         "data": {},
                         "results": {},
@@ -329,10 +341,29 @@ def _delete_empty_subfolders(folder):
         if subfolder not in non_empty_subfolders:
             subfolder.rmdir()
 
+def reduce_df_size(df):
+    """Reduce size of DataFrame by assigning adequate data types."""
+    for col, dtype in zip(df.dtypes.index, [i.name for i in df.dtypes.values]):
+        if dtype == "object":
+            df[col] = df[col].astype("category")
+        # elif "int" in dtype:
+        #     df[col] = pd.to_numeric(df[col], downcast="integer")
+        # else:
+        #     df[col] = pd.to_numeric(df[col], downcast="float")
+    return df
+
+def fillna_numeric_columns(df, value):
+    """Fill NaN with value in numeric columns."""
+    df = df.copy()
+    for col in df:
+        if df[col].dtype in ("int", "float"):
+            df[col] = df[col].fillna(value)
+    return df
+
 def default_options():
     """Returns the default options of POMATO."""
-    options_dict = {"optimization": {}, "grid": {}, "data": {}}
-    options_dict["optimization"] = {
+    options = {
+        "title": "default", 
         "type": "ntc",
         "model_horizon": [0, 2],
         "heat_model": False,
@@ -343,7 +374,7 @@ def default_options():
             "redispatch_horizon": 24},
         "redispatch": {
             "include": False,
-            "zonal_redispatch": True,
+            "zonal_redispatch": False,
             "zones": [],
             "cost": 1},
         "curtailment": {
@@ -369,43 +400,62 @@ def default_options():
             "es": [],
             "hs": [],
             "ts": [],
-            "ph": [],}
-        }
-
-    options_dict["grid"] = {
-            "cbco_option": "full",
+            "ph": [],
+            },
+        "grid": {
+            "redundancy_removal_option": "full",
             "precalc_filename": "",
             "sensitivity": 5e-2,
             "capacity_multiplier": 1,
             "preprocess": True,
+            },
+        "fbmc": {
             "gsk": "gmax",
-            "minram": 0.2,
-            }
-
-    options_dict["data"] = {
-        "unique_mc": False,
+            "minram": 0,
+            "flowbased_region": [],
+            "cne_sensitivity": 5e-2,
+            "lodf_sensitivity": 5e-2,
+            "frm": 0,
+            "reduce": False,         
+            "enforce_ntc_domain": False,  
+        },
+        "data": {
+            "result_copy": False,
         }
+    }
+    return options
 
-    return options_dict
+def add_default_values_to_dict(value_dict, default_dict):
+    """Combines values from user dict with default values from default_dict.
 
-def add_default_options(option_dict):
+    Parameters
+    ----------
+    value_dict : dict
+        Dict with values.
+    default_dict : dict
+        Dict containing default values that are added if not present in value_dict.
+    """    
+    for i in _dict_generator(value_dict):
+        try: 
+            _setInDict(default_dict, i, _getFromDict(value_dict, i))
+        except:
+            raise ValueError(".".join(i) + " is not a valid option")
+    return default_dict
+
+def add_default_options(input_options):
     """Takes the loaded option dict and adds missing values from default options.
     
     Uses function that are a result from https://stackoverflow.com/a/14692747.
 
     Parameters
     ----------
-    option_dict : option_dict
-        Optionfile loaded from disk.
+    input_options : dict
+        Optionfile from user input.
     """
-    options = default_options()
-    for i in _dict_generator(option_dict):
-        try: 
-            _setInDict(options, i, _getFromDict(option_dict, i))
-        except:
-            raise ValueError(".".join(i) + " is not a valid option")
-    return options
-
+    default_option_values = default_options()
+    options = add_default_values_to_dict(input_options, default_option_values)
+    return options 
+    
 def _dict_generator(indict, pre=None):
     """Flatten Option Dict.
 

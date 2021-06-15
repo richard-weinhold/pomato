@@ -32,7 +32,7 @@
  	"index": {"type": "any", "default": "none"},
  	"node_i": {"type": "nodes.index", "default": "none"},
  	"node_j": {"type": "nodes.index", "default": "none"},
- 	"maxflow": {"type": "float64", "default": "none"}
+ 	"capacity": {"type": "float64", "default": "none"}
 },
  "demand_el": {
  	"index": {"type": "any", "default": "none"},

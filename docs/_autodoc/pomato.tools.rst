@@ -19,7 +19,6 @@ pomato.tools
       copytree
       create_folder_structure
       default_options
-      find_xy_limits
       newest_file_folder
       split_length_in_ranges
    

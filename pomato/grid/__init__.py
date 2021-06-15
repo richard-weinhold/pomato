@@ -71,7 +71,7 @@ There are multiple options available:
       line DE case study, with gurobi).
 
 The options which grid representation is generated is ["optimization"]["type"]
-and option for the reduction level is under ["grid"]["cbco_option"].
+and option for the reduction level is under ["grid"]["redundancy_removal_option"].
 
 Corresponding paper to reduction algorithm used in POMATO: `Fast
 Security-Constrained Optimal Power Flow through Low-Impact and Redundancy
