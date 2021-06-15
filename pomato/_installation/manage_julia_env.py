@@ -1,9 +1,7 @@
 import subprocess, sys, os
 from pathlib import Path
     
-
-
-def instantiate_julia(gurobi=True, redundancyremoval_branch="master", marketmodel_branch="master"):
+def instantiate_julia(gurobi=True, redundancyremoval_branch="main", marketmodel_branch="main"):
     cwd = str(Path(__file__).parent)
     args = ["julia", "julia_install_from_git.jl", redundancyremoval_branch, marketmodel_branch] 
     with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,

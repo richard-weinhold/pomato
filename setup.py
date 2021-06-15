@@ -7,7 +7,7 @@ import subprocess, sys, os
 from pathlib import Path
 
 def julia_instantiate(install_lib_path):
-    args = ["julia", "_installation/julia_install_from_git.jl", "master", "construction"]   
+    args = ["julia", "_installation/julia_install_from_git.jl", "main", "main"]   
     # raise ImportError("package path %s", package_path)
     package_path = Path(install_lib_path).joinpath("pomato")
     process = subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,

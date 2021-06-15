@@ -1,7 +1,7 @@
 <img  height="24" src="https://raw.githubusercontent.com/richard-weinhold/pomato/main/docs/_static/graphics/pomato_logo_small.png"> POMATO - Power Market Tool <img  height="24" src="https://raw.githubusercontent.com/richard-weinhold/pomato/main/docs/_static/graphics/pomato_logo_small.png">
 =========================================================================================================================================================
 
-Main Branch: ![Python package](https://github.com/richard-weinhold/pomato/workflows/Python%20package/badge.svg?branch=master) [![codecov](https://codecov.io/gh/richard-weinhold/pomato/branch/master/graph/badge.svg?token=1K2PHOjJmC)](https://codecov.io/gh/richard-weinhold/pomato)
+Main Branch: ![Python package](https://github.com/richard-weinhold/pomato/workflows/Python%20package/badge.svg?branch=master) [![codecov](https://codecov.io/gh/richard-weinhold/pomato/branch/main/graph/badge.svg?token=1K2PHOjJmC)](https://codecov.io/gh/richard-weinhold/pomato)
 
 
 Construction Branch: ![Python package](https://github.com/richard-weinhold/pomato/workflows/Python%20package/badge.svg?branch=construction) [![codecov](https://codecov.io/gh/richard-weinhold/pomato/branch/construction/graph/badge.svg?token=1K2PHOjJmC)](https://codecov.io/gh/richard-weinhold/pomato)
