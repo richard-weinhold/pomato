@@ -344,12 +344,12 @@ class GridTopology():
         #                                    [outage]) for outage in range(0, len(self.lines))])   
         # return lodf
         
-        # lines = [line for line in range(0, len(self.lines))]
-        lodf = np.zeros((len(self.lines), len(self.lines)))
-        # def f(i):
-        #     lodf[:, i] = self.create_lodf(lines, [i]).reshape(1, len(lines))
-        # with ThreadPoolExecutor() as executor:
-        #     executor.map(f, range(len(lines)))
+        lines = [line for line in range(0, len(self.lines))]
+        lodf = np.empty((len(self.lines), len(self.lines)))
+        def f(i):
+            lodf[:, i] = self.create_lodf(lines, [i]).reshape(1, len(lines))
+        with ThreadPoolExecutor() as executor:
+            executor.map(f, range(len(lines)))
 
         return lodf
 
