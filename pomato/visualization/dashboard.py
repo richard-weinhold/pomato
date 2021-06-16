@@ -314,7 +314,7 @@ class Dashboard():
             self.dash_thread.join()
         self.dash_thread = self.dash_thread = threading.Thread(target=self.run, args=())
     
-    def init_app(self, include_fbmc=True):
+    def init_app(self, include_fbmc=False):
         self.app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
         # self.app.config['suppress_callback_exceptions'] = True
 
