@@ -16,7 +16,7 @@ import requests
 from dash.dependencies import Input, Output, State
 from flask import request
 from pomato.tools import add_default_values_to_dict
-from pomato.visualization import FBDomainPlots
+from pomato.visualization import FBDomainPlots, fbmc_domain
 from dash.exceptions import PreventUpdate
 import plotly.graph_objects as go
 
@@ -314,21 +314,24 @@ class Dashboard():
             self.dash_thread.join()
         self.dash_thread = self.dash_thread = threading.Thread(target=self.run, args=())
     
-    def init_app(self):
+    def init_app(self, include_fbmc=True):
         self.app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
         # self.app.config['suppress_callback_exceptions'] = True
+
+        tabs = [dcc.Tab(label='Overview', children=[page_overview()]),
+                dcc.Tab(label='Generation', children=[page_generation()]),
+                dcc.Tab(label='Transmission', children=[page_transmission()])]
+
+        if include_fbmc: 
+            tabs.append(dcc.Tab(label='FBMC', children=[page_fbmc()]))
+
         self.app.layout = html.Div([
             dcc.Location(id='url'),
             dcc.Store(id='viewport-container'),
-            dcc.Tabs(id='pomato-tabs', children=[
-                dcc.Tab(label='Overview', children=[page_overview()]),
-                dcc.Tab(label='Generation', children=[page_generation()]),
-                dcc.Tab(label='Transmission', children=[page_transmission()]),
-                dcc.Tab(label='FBMC', children=[page_fbmc()]),
-            ]),
+            dcc.Tabs(id='pomato-tabs', children=tabs)
         ])
         self.app.server.route('/shutdown', methods=['POST'])(shutdown)
-        
+
         self.app.clientside_callback(
             """
             function(href) {
@@ -341,18 +344,27 @@ class Dashboard():
             Input('url', 'href')
         )
 
-        for page in ["overview", "generation", "transmission", "fbmc"]:
+
+        for page in ["overview", "generation", "transmission"]:
             self.app.callback(
                 [Output(f'results-dropdown-{page}', 'options'),
                  Output(f'results-dropdown-{page}', 'value')],
-                Input(f'results-botton-{page}', 'n_clicks'))(self.update_result_selection)
+                 Input(f'results-botton-{page}', 'n_clicks'))(self.update_result_selection)
         
-        self.app.callback(
-            [Output('results-dropdown-fbmc-market', 'options'),
-            Output('results-dropdown-fbmc-market', 'value')],
-            Input('results-botton-fbmc', 'n_clicks'))(self.update_result_selection)
+        if include_fbmc:
+            self.app.callback(
+                [Output('results-dropdown-fbmc', 'options'),
+                Output('results-dropdown-fbmc', 'value')],
+                Input('results-botton-fbmc', 'n_clicks'))(self.update_result_selection)
+            self.app.callback(
+                [Output('results-dropdown-fbmc-market', 'options'),
+                Output('results-dropdown-fbmc-market', 'value')],
+                Input('results-botton-fbmc', 'n_clicks'))(self.update_result_selection)
         
-        for page in ["transmission", "fbmc-market"]:
+        pages = ["transmission"]
+        if include_fbmc:
+            pages.append("fbmc-market")
+        for page in pages:
             self.app.callback([Output(f'timestep-selector-{page}', 'max'),
                                Output(f'timestep-selector-{page}', 'marks'),
                                Output(f'timestep-selector-{page}', 'value')],
@@ -367,7 +379,8 @@ class Dashboard():
         self.add_overview_callbacks()
         self.add_generation_callbacks()
         self.add_tranmission_callbacks()
-        self.add_flowbased_callbacks()
+        if include_fbmc:
+            self.add_flowbased_callbacks()
         
     def add_flowbased_callbacks(self):
         # FB Parameters

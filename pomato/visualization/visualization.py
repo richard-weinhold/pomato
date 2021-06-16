@@ -352,13 +352,13 @@ class Visualization():
         if show_prices:
             compress = True
             colorscale = "RdBu_r"
-            contours = 8
+            contours = 12
             prices_layer, coordinates, hight_width = add_prices_layer(nodes, prices, compress)
             price_fig = go.Figure(
                 data=go.Contour(z=prices_layer, showscale=False, 
                                 colorscale=colorscale, ncontours=contours))
             price_fig.update_layout(
-                width=1e3, height=1e3*hight_width, 
+                width=2e3, height=2e3*hight_width, 
                 xaxis = {'visible': False},
                 yaxis = {'visible': False},
                 margin={"r":0,"t":0,"l":0,"b":0}
@@ -366,10 +366,11 @@ class Visualization():
             
             img_pil = Image.open(io.BytesIO(price_fig.to_image()))
             price_layer =  {   
+                    "below": 'traces',
                     "sourcetype": "image",
                     "source": img_pil,
                     "coordinates": coordinates,
-                    "opacity": 0.4,
+                    "opacity": .5,
                 }
             # Price Colorbar
             price_colorbar = go.Scatter(x=[None],y=[None],
@@ -400,13 +401,24 @@ class Visualization():
             'lon': round((max(nodes.lon) + min(nodes.lon)) / 2, 6),
             'lat': round((max(nodes.lat) + min(nodes.lat)) / 2, 6)
             }
+
+        map_layer = {
+            "below": 'traces',
+            "sourcetype": "raster",
+            "sourceattribution": "Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap, under ODbL.",
+            "source": [
+                "https://stamen-tiles.a.ssl.fastly.net/toner-background/{z}/{x}/{y}.png"
+            ]
+        }
+
         fig.update_layout(    
             showlegend = False,
             margin={"r":0,"t":0,"l":0,"b":0},
-            mapbox= {"style": "carto-positron",
-                    "layers": [price_layer],
-                    "zoom": 3,
-                    "center": center},
+            mapbox= {
+                "style": "white-bg",
+                "layers": [map_layer, price_layer],
+                "zoom": 3,
+                "center": center},
             xaxis = {'visible': False},
             yaxis = {'visible': False})
 

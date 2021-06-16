@@ -84,7 +84,7 @@ def add_prices_layer(nodes, prices, compress=True):
     xx, yy = merc(np.array(lat), np.array(lon))
     ratio = (max(xx) - min(xx))/(max(yy) - min(yy))
     # size = (max(yy) - min(yy))/5e4
-    size = 250
+    size = 300
     # prices Plot Coordinates (0,0) (plot_width, plot_hight)
     x = ((xx - min(xx))/max(xx - min(xx))*ratio*size).astype(int)
     y = ((yy - min(yy))/max(yy - min(yy))*size).astype(int)
