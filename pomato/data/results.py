@@ -322,7 +322,8 @@ class Results():
         price = pd.merge(eb_nodal, eb_zonal, how="left",
                          left_on=["t", "zone"], right_on=["t", "z"])
         price["marginal"] = -(price.EB_zonal + price.EB_nodal)
-        return price[["t", "n", "z", "marginal"]]
+        price = tools.reduce_df_size(price[["t", "n", "z", "marginal"]])
+        return price
 
     def net_position(self):
         """Calculate net position for each zone and timestep.
@@ -366,6 +367,7 @@ class Results():
                            right_index=True, left_on="p")
         else:
             gen["technology"] = gen.plant_type
+            
         gen = tools.reduce_df_size(gen)
         self._cached_results.generation = gen.copy()
         return gen
