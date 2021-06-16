@@ -223,7 +223,7 @@ class Results():
         data_struct.n_0_flow = self.n_0_flow()
         data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.6)
         data_struct.prices = self.price()
-        self._cached_results.result_data = data_struct
+        # self._cached_results.result_data = data_struct
         self.logger.info("Done calculating common results.")
 
         return deepcopy(data_struct)
@@ -249,8 +249,8 @@ class Results():
         data_struct.dc_flow = data_struct.dc_flow.pivot(index="dc", columns="t", values="F_DC") \
                                 .abs().mean(axis=1).reindex(self.data.dclines.index).fillna(0)
         data_struct.prices = data_struct.prices[["n", "marginal"]].groupby("n").mean()
-        self._cached_results.averaged_result_data = data_struct
-        return data_struct
+        # self._cached_results.averaged_result_data = data_struct
+        return deepcopy(data_struct)
 
     def redispatch(self):
         """Return Redispatch.
@@ -459,9 +459,9 @@ class Results():
         demand.loc[:, ["demand_el", "D_ph", "D_es"]].fillna(value=0, inplace=True)
         demand["demand"] = demand.demand_el + demand.D_ph + demand.D_es
         demand = demand.sort_values(by='t', key=self._sort_timesteps)
-        
-        self._cached_results.demand = demand.copy()
-        return demand.copy()
+        demand = tools.reduce_df_size(demand)
+        # self._cached_results.demand = demand.copy()
+        return demand
 
     # Grid Analytics - Load Flows
     def n_0_flow(self, force_recalc=False):
@@ -486,12 +486,12 @@ class Results():
             return self._cached_results.n_0_flows.copy()
 
         inj = self.INJ.pivot(index="t", columns="n", values="INJ")
-        inj = inj.loc[self.model_horizon, self.data.nodes.index]
-        flow = np.dot(self.grid.ptdf, inj.T)
+        inj = np.array(inj.loc[self.model_horizon, self.data.nodes.index], dtype=np.float32)
+        flow = np.dot(np.array(self.grid.ptdf, dtype=np.float32), inj.T)
         n_0_flows = pd.DataFrame(index=self.data.lines.index, columns=self.model_horizon, data=flow)
 
         self._cached_results.n_0_flows = n_0_flows.copy()
-        return n_0_flows.copy()
+        return n_0_flows
 
     def n_1_flow(self, sensitivity=5e-2, force_recalc=False):
         """N-1 power flows on lines (cb) under outages (co).
@@ -523,9 +523,9 @@ class Results():
             return self._cached_results.n_1_flows.copy()
         
         data = self.grid.create_filtered_n_1_ptdf(sensitivity=sensitivity)
-        ptdf = data.loc[:, self.data.nodes.index]
+        ptdf = np.array(data.loc[:, self.data.nodes.index], dtype=np.float32)
         inj = self.INJ.pivot(index="t", columns="n", values="INJ")
-        inj = inj.loc[self.model_horizon, self.data.nodes.index]
+        inj = np.array(inj.loc[self.model_horizon, self.data.nodes.index], dtype=np.float32)
         flow = np.dot(ptdf, inj.T)
         n_1_flows = pd.DataFrame(columns=self.model_horizon, data=flow)
         n_1_flows["cb"] = data.cb
@@ -534,7 +534,7 @@ class Results():
         self.logger.info("Done Calculating N-1 Flows")
         n_1_flows = n_1_flows.loc[:, ["cb", "co"] + self.model_horizon]
         self._cached_results.n_1_flows = n_1_flows.copy()
-        return n_1_flows.copy()
+        return n_1_flows
 
     def absolute_max_n_1_flow(self, sensitivity=0.05):
         """Calculate the absolute max of N-1 Flows.
