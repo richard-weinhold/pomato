@@ -322,7 +322,9 @@ class Results():
         price = pd.merge(eb_nodal, eb_zonal, how="left",
                          left_on=["t", "zone"], right_on=["t", "z"])
         price["marginal"] = -(price.EB_zonal + price.EB_nodal)
-        price = tools.reduce_df_size(price[["t", "n", "z", "marginal"]])
+
+        price = price[["t", "n", "z", "marginal"]]
+        price = tools.reduce_df_size(price)
         return price
 
     def net_position(self):

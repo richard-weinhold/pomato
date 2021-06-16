@@ -283,13 +283,13 @@ class Dashboard():
     pomato_instance : :class:`~pomato.POMATO` Pomato instance that contains data and results. 
 
     """
-    def __init__(self, pomato_instance, **kwargs):
+    def __init__(self, pomato_instance, include_fbmc=False, **kwargs):
 
         self.pomato_instance = pomato_instance
         for result in self.pomato_instance.data.results:
             self.pomato_instance.data.results[result].create_result_data()
         self.app = None
-        self.init_app()      
+        self.init_app(include_fbmc)      
         self.dash_thread = threading.Thread(target=self.run, kwargs=kwargs)
         self._fb_domain = None
         
