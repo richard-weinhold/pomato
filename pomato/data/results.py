@@ -221,7 +221,7 @@ class Results():
         data_struct.generation = self.generation()
         data_struct.demand = self.demand()
         data_struct.n_0_flow = self.n_0_flow()
-        data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.2)
+        data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.3)
         data_struct.prices = self.price()
         self._cached_results.result_data = data_struct
         self.logger.info("Done calculating common results.")
