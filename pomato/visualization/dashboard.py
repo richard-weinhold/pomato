@@ -286,8 +286,8 @@ class Dashboard():
     def __init__(self, pomato_instance, include_fbmc=False, **kwargs):
 
         self.pomato_instance = pomato_instance
-        for result in self.pomato_instance.data.results:
-            self.pomato_instance.data.results[result].create_result_data()
+        # for result in self.pomato_instance.data.results:
+        #     self.pomato_instance.data.results[result].create_result_data()
         self.app = None
         self.init_app(include_fbmc)      
         self.dash_thread = threading.Thread(target=self.run, kwargs=kwargs)
