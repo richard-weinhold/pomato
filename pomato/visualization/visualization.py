@@ -352,13 +352,13 @@ class Visualization():
         if show_prices:
             compress = True
             colorscale = "RdBu_r"
-            contours = 12
+            contours = 8
             prices_layer, coordinates, hight_width = add_prices_layer(nodes, prices, compress)
             price_fig = go.Figure(
                 data=go.Contour(z=prices_layer, showscale=False, 
                                 colorscale=colorscale, ncontours=contours))
             price_fig.update_layout(
-                width=2e3, height=2e3*hight_width, 
+                width=1e3, height=1e3*hight_width, 
                 xaxis = {'visible': False},
                 yaxis = {'visible': False},
                 margin={"r":0,"t":0,"l":0,"b":0}
