@@ -74,7 +74,6 @@ class Visualization():
         # Impoort Logger
         self.logger = logging.getLogger('Log.pomato.visualization.Visualization')
         self.wdir = wdir
-        self.data = data
 
     def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, show_infeasibility=False,
                         show_curtailment=False, timestep=None, threshold=0, highlight_nodes=None, 

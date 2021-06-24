@@ -70,7 +70,7 @@ def domain_volume(self, A, A_hat, b):
             points = compute_polytope_vertices(A_hat[tmp, :]/b[tmp].reshape(len(tmp), 1), np.ones(len(tmp)))
             # points = compute_polytope_vertices(A[tmp, :], b[tmp])
             hull = spatial.ConvexHull(points)
-            self.logger.warning("Returning area of plottet domain slice.")
+            # self.logger.warning("Returning area of plottet domain slice.")
             return hull.volume/1e6
         except QhullError:
             self.logger.error("Error in domain volume calculation.")

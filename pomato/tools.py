@@ -364,7 +364,8 @@ def default_options():
         "timeseries": {
             "split": True,
             "market_horizon": 1000,
-            "redispatch_horizon": 24},
+            "redispatch_horizon": 24,
+            "type": "da"},
         "redispatch": {
             "include": False,
             "zonal_redispatch": False,

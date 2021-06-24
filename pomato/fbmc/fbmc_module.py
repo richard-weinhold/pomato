@@ -252,7 +252,7 @@ class FBMCModule():
 
         return nodal_fbmc_ptdf, fbmc_data
    
-    def create_flowbased_parameters(self, basecase, timesteps=None, enforce_ntc_domain=False):
+    def create_flowbased_parameters(self, basecase, timesteps=None):
         """Create Flow-Based Paramters.
 
         Creates the FB Paramters for the supplied basecase. Optional arguments are 
@@ -295,7 +295,7 @@ class FBMCModule():
 
         if not self.options["fbmc"]["flowbased_region"]:
             flowbased_region = list(self.data.zones.index)
-            self.options["grid"]["flowbased_region"] = flowbased_region
+            self.options["fbmc"]["flowbased_region"] = flowbased_region
         else:
             flowbased_region = self.options["fbmc"]["flowbased_region"]
 
@@ -347,7 +347,7 @@ class FBMCModule():
 
         fb_parameters =  pd.concat([domain_data[timestep] for timestep in timesteps], ignore_index=True)
         
-        if enforce_ntc_domain:
+        if self.options["fbmc"]["enforce_ntc_domain"]:
             fb_parameters = self.enforce_ntc_domain(fb_parameters)
 
         if self.options["fbmc"]["reduce"]:
@@ -364,20 +364,34 @@ class FBMCModule():
         if self.data.ntc.empty:
             self.logger.error("NTCs not in data.")
             return fb_parameters
+
+
         self.logger.info("Enforcing FB-parameters to include NTC domain.")
         A = fb_parameters.loc[:, self.data.zones.index].values
         b = fb_parameters.loc[:, "ram"].values.reshape(len(A), 1)
 
+        fb_region = self.options["fbmc"]["flowbased_region"]
         zones = list(self.data.zones.index)
-        ntc = self.data.ntc[self.data.ntc.ntc > 0].copy()
+
+        ntc = self.data.ntc[(self.data.ntc.ntc > 0)].copy()
+        condition_fb_region = (ntc.zone_i.isin(fb_region))&(ntc.zone_j.isin(fb_region))
         ntc.set_index(["zone_i", "zone_j"], inplace=True)
+
+        vertices_ntc_domain = int(np.math.factorial(len(ntc.index)) / np.math.factorial(len(fb_region))  / 
+            np.math.factorial(len(ntc.index) - len(fb_region))) 
+        self.logger.info("Including %s vertices of the NTC domains", vertices_ntc_domain)
+        if vertices_ntc_domain > 1e7:
+            self.logger.error("Too many dimension to consider (combination(ntc, FB Region).")
+            return fb_parameters
+
         points = []
-        for exchange in itertools.combinations(ntc.index, len(zones)):
+        for exchange in itertools.combinations(ntc.loc[condition_fb_region.values].index, len(fb_region)):
             tmp = np.zeros((len(zones), 1))
             for (f,t) in exchange:
                 tmp[zones.index(f)] += ntc.loc[(f,t), "ntc"]
                 tmp[zones.index(t)] -= ntc.loc[(f,t), "ntc"]
             points.append(tmp)
+        
         condition = []
         for p in points:
             condition.append(np.dot(A, p).reshape(len(A), 1) <= b)
