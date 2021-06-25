@@ -167,7 +167,7 @@ class TestPomatoDashboard(unittest.TestCase):
         copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), wdir)
 
         mato = pomato.POMATO(wdir=wdir, options_file="profiles/nrel118.json",
-                                  logging_level=logging.ERROR)
+                                  logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/nrel_118.zip')
         R2_to_R3 = ["bus118", "bus076", "bus077", "bus078", "bus079", 
                     "bus080", "bus081", "bus097", "bus098", "bus099"]

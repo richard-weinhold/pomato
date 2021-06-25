@@ -436,7 +436,7 @@ class Visualization():
 
         commercial_exchange = market_result.EX.copy()
         net_position = market_result.net_position()
-        geojson = _create_geo_json(self.data.zones, self.data.nodes)
+        geojson = _create_geo_json(market_result.data.zones, market_result.data.nodes)
         if isinstance(timestep, int):
             timestep = market_result.model_horizon[timestep]
         if isinstance(timestep, str):
@@ -447,7 +447,7 @@ class Visualization():
             commercial_exchange = commercial_exchange.groupby(["z", "zz"], observed=True).mean().reset_index()
 
         custom_data = []
-        for zone in self.data.zones.index:
+        for zone in market_result.data.zones.index:
             data = [zone, net_position.loc[zone]]
             tmp_ex_to = commercial_exchange.loc[(commercial_exchange.z == zone)&(commercial_exchange.zz != zone)]
             tmp_ex_from = commercial_exchange.loc[(commercial_exchange.zz == zone)&(commercial_exchange.z != zone)]
@@ -471,7 +471,7 @@ class Visualization():
         fig.add_trace(go.Choroplethmapbox(
                 geojson=geojson, 
                 colorscale="deep",
-                locations=self.data.zones.index, # Spatial coordinates
+                locations=market_result.data.zones.index, # Spatial coordinates
                 z = net_position.values,
                 customdata=custom_data,
                 hovertemplate=hovertemplate,
@@ -578,10 +578,10 @@ class Visualization():
         filepath : pathlib.Path, str, optional
             If filepath is supplied, saves figure as .html, by default None
         """        
-        ava = self.data.availability.copy()
-        plants = self.data.plants.copy()
+        ava = data.availability.copy()
+        plants = data.plants.copy()
 
-        plants["zone"] = self.data.nodes.loc[self.data.plants.node, "zone"].values
+        plants["zone"] = data.nodes.loc[data.plants.node, "zone"].values
         if isinstance(zones, list):
             plants = plants[plants.zone.isin(zones)]
       
@@ -739,8 +739,6 @@ class Visualization():
         filepath : pathlib.Path, str, optional
             If filepath is supplied, saves figure as .html, by default None
         """
-        if not data:
-            data = self.data
         if isinstance(data, pomato.data.Results):
             data = data.data
         
@@ -1089,9 +1087,7 @@ class Visualization():
         filepath : pathlib.Path, str, optional
             If filepath is supplied, saves figure as .html, by default None
         """
-        if not data:
-            plants = self.data.plants.copy()
-        elif isinstance(data, pomato.data.DataManagement):
+        if isinstance(data, pomato.data.DataManagement):
             plants = data.plants.copy()
         elif isinstance(data, pomato.data.Results):
             plants = data.data.plants.copy()
@@ -1104,7 +1100,7 @@ class Visualization():
             plants = plants.drop("name", axis=1)
 
         if timestep:
-            ava = self.data.availability[self.data.availability.timestep == timestep].copy()
+            ava = data.availability[data.availability.timestep == timestep].copy()
             ava = ava.drop("timestep", axis=1).set_index("plant")
             plants.loc[ava.index, "g_max"] *= ava.availability
 
