@@ -45,11 +45,11 @@ The recommended installation with python and pip:
       is managed through Python via pip. It is recommended to create a virtual environment and
       install pomato into it, but not necessary:
     
-    .. code-block::
-
-        python -m venv pomato
-        ./pomato/Scripts/activate
-        pip install git+https://github.com/richard-weinhold/pomato.git
+      .. code-block::
+  
+          python -m venv pomato
+          ./pomato/Scripts/activate
+          pip install git+https://github.com/richard-weinhold/pomato.git
 
 
 This will not only clone the master branch of this repository into the local python environment, but
