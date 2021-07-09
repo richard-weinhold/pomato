@@ -721,7 +721,7 @@ class Visualization():
         else:
             return fig
 
-    def create_installed_capacity_plot(self, data=None, zones=None,
+    def create_installed_capacity_plot(self, data, zones=None, aggregate=None,
                                        show_plot=True, filepath=None):
         """Create plot visualizing installed capacity per market area.
 
@@ -753,9 +753,13 @@ class Visualization():
         if isinstance(zones, list):
             plants = plants[plants.zone.isin(zones)]
 
+        if isinstance(aggregate, dict):
+            plants.zone.replace(to_replace=aggregate["zones"], value=aggregate["name"], inplace=True)
+
         plants = (plants[["technology", "fuel", "zone", "g_max"]].groupby(["zone", "technology", "fuel"], observed=True).sum()/1000).reset_index()
         plant_colors = color_map(plants)
         plants = pd.merge(plants, plant_colors, on=["fuel", "technology"])
+
         fig = px.bar(plants, x="zone", y="g_max", color="name", 
                      color_discrete_map=plant_colors[["color", "name"]].set_index("name").color.to_dict())
         fig.update_xaxes(categoryorder='array', categoryarray=data.zones.index)
