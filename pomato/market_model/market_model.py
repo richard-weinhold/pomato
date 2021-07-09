@@ -138,7 +138,7 @@ class MarketModel():
             self.logger.warning("Process not terminated successfully!")
             self.status = 'error'
     
-    def rolling_horizon_storage_levels(self, model_horizon):
+    def save_rolling_horizon_storage_levels(self, model_horizon):
         """Set start/end storage levels for rolling horizon market clearing.
         
         This method alters the *storage_level* attribute of the :class:`~pomato.data.DataManagement`
@@ -153,16 +153,47 @@ class MarketModel():
 
         splits = int(len(model_horizon)/self.options["timeseries"]["market_horizon"])
         market_model_horizon = self.options["timeseries"]["market_horizon"]
-
-        splits = max(1, int(len(model_horizon)/self.options["timeseries"]["market_horizon"]))
         splits = [model_horizon[t*market_model_horizon] for t in range(0, splits)]
-        if not all(t in self.data.storage_level.timestep for t in splits):
-            data = []
-            for plant in self.data.plants[self.data.plants.plant_type.isin(self.options["plant_types"]["es"])].index:
-                for t in splits:
-                    data.append([t, plant, self.options["parameters"]["storage_start"]])
-            self.data.storage_level = pd.DataFrame(columns=self.data.storage_level.columns, data=data)
+        splits.append(model_horizon[-1])
 
+        t_split_map = {}
+        timesteps = list(self.data.storage_level.timestep.unique())
+        if len(timesteps) > 0:
+            for t in splits:
+                if t in timesteps:
+                    t_split_map[t] = t
+                else:
+                    int_t = int(t[1:])
+                    delta = [abs(int_t - int(t[1:])) for t in timesteps]
+                    t_split_map[t] = timesteps[delta.index(min(delta))]
+                    
+            
+
+        storage_level = self.data.storage_level.copy()
+        storage_level = storage_level.set_index(["timestep", "plant"])
+        data = []
+
+        for plant in self.data.plants[self.data.plants.plant_type.isin(self.options["plant_types"]["es"])].index:
+            for t in splits:
+                if (t_split_map[t], plant) in storage_level.index:
+                    data.append([t, plant, storage_level.loc[(t_split_map[t], plant), "storage_level"]])
+                else:
+                    data.append([t, plant, self.options["parameters"]["storage_start"]])
+                    
+        tmp_storage_level = pd.DataFrame(columns=self.data.storage_level.columns, data=data)
+
+        # Apply smoothing 
+        if self.options["timeseries"]["smooth_storage_level"]:
+            self.logger.info("Smoothing storage levels for rolling horizon")
+            for plant in tmp_storage_level.plant.unique():
+                tmp_storage_level.loc[tmp_storage_level.plant == plant, "storage_level"] = tmp_storage_level[tmp_storage_level.plant == plant].rolling(8, min_periods =1).mean()
+
+        # tmp store for debug and then save into data folder for MarketModel
+        self.storage_levels_used = tmp_storage_level
+        self.storage_levels_used.to_csv(str(self.data_dir.joinpath('storage_level.csv')), index_label='index')
+     
+        
+        
     def data_to_csv(self, model_horizon):
         """Export input data to csv files in the data_dir sub-directory.
 
@@ -179,7 +210,6 @@ class MarketModel():
         if not self.data_dir.is_dir():
             self.data_dir.mkdir()
         
-        self.rolling_horizon_storage_levels(model_horizon)
         
         for data in [d for d in self.data.model_structure]:
             cols = [col for col in self.data.model_structure[data].keys() if col != "index"]
@@ -188,6 +218,8 @@ class MarketModel():
                     .to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
             else:
                 getattr(self.data, data)[cols].to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
+
+        self.save_rolling_horizon_storage_levels(model_horizon)
 
         plant_types = pd.DataFrame(index=self.data.plants.plant_type.unique())
         for ptype in self.options["plant_types"]:

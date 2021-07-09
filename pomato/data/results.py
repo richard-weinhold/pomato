@@ -53,6 +53,7 @@ class Results():
 
         variables = {variable: False for variable in ["G", "H", "D_es", "L_es", "D_hs", "L_hs",
                                                       "INJ", "EX", "D_ph", "F_DC", "CURT", "Alpha",
+                                                      "CC_LINE_MARGIN",
                                                       "COST_G", "COST_H", "COST_EX", "COST_CURT", 
                                                       "COST_REDISPATCH", "COST_INFEASIBILITY_EL",
                                                       "COST_INFEASIBILITY_H"]}

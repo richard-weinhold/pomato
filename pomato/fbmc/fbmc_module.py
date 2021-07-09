@@ -130,8 +130,7 @@ class FBMCModule():
         
         return gsk.values
 
-    def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax", 
-                                 only_crossborder=False, flowbased_region=None):
+    def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax", flowbased_region=None):
         """Returns Critical branches based on Zone-to-Zone ptdf.
         
         In the calculation of FB parameters it makes sense to use only lines
@@ -165,7 +164,7 @@ class FBMCModule():
         if not flowbased_region:
             flowbased_region = list(self.data.zones.index)
         
-        if not only_crossborder:
+        if not self.options["fbmc"]["only_crossborder"]:
             gsk = self.create_gsk(gsk_strategy)
             zonal_ptdf = np.dot(self.grid.ptdf, gsk)
             zonal_ptdf_df = pd.DataFrame(index=self.grid.lines.index,
@@ -314,7 +313,7 @@ class FBMCModule():
         inj = inj.loc[timesteps, basecase.data.nodes.index]
         f_ref_base_case = np.dot(nodal_fbmc_ptdf, inj.T)
 
-        frm_fav = self.grid.lines.capacity[fbmc_data.cb].values*(1 - self.options["grid"]["capacity_multiplier"])
+        frm_fav = self.grid.lines.capacity[fbmc_data.cb].values*self.options["fbmc"]["frm"]
         nex = basecase.net_position().loc[timesteps, :]
 
         self.logger.info("Calculating zonal ptdf using %s gsk strategy.", gsk_strategy)
@@ -326,8 +325,6 @@ class FBMCModule():
             zonal_fbmc_ptdf = {timestep: zonal_fbmc_ptdf_tmp for timestep in timesteps}
             f_da = np.dot(zonal_fbmc_ptdf_tmp, nex.values.T)
         
-        t = self.create_gsk(gsk_strategy)
-    
         f_ref_nonmarket = f_ref_base_case - f_da
         ram = (self.grid.lines.capacity[fbmc_data.cb].values - frm_fav - f_ref_nonmarket.T).T
         minram = (self.grid.lines.capacity[fbmc_data.cb] * self.options["fbmc"]["minram"]).values.reshape(len(f_ref_base_case), 1)

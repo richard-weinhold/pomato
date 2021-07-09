@@ -365,6 +365,7 @@ def default_options():
             "split": True,
             "market_horizon": 1000,
             "redispatch_horizon": 24,
+            "smooth_storage_level": False,
             "type": "da"},
         "redispatch": {
             "include": False,
@@ -378,7 +379,8 @@ def default_options():
             "include": False,
             "fixed_alpha": True,
             "cc_res_mw": 50,
-            "alpha_plants_mw": 200},
+            "alpha_plants_mw": 200,
+            "alpha_plants_mc": 30},
         "parameters": {
             "storage_start": 0.65},
         "infeasibility": {
@@ -399,6 +401,7 @@ def default_options():
         "grid": {
             "redundancy_removal_option": "full",
             "precalc_filename": "",
+            "include_contingencies_redispatch": False,
             "sensitivity": 5e-2,
             "capacity_multiplier": 1,
             "preprocess": True,
@@ -406,6 +409,7 @@ def default_options():
         "fbmc": {
             "gsk": "gmax",
             "minram": 0,
+            "only_crossborder": False,
             "flowbased_region": [],
             "cne_sensitivity": 5e-2,
             "lodf_sensitivity": 5e-2,

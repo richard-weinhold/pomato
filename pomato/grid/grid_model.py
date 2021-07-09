@@ -190,13 +190,13 @@ class GridModel():
 
         return nodal_network
            
-    def add_redispatch_grid(self, contingencies=False):
+    def add_redispatch_grid(self):
         """Add nodal N-0 grid representation as redispatch grid.
         
         Depending on the optional argument *grid_representation.redispatch_grid* 
         will reflect N-0 or N-1, i.e. including contingencies, grid representation.
         """
-        if contingencies:
+        if self.options["grid"]["include_contingencies_redispatch"]:
             self.grid_representation.redispatch_grid = self.create_cbco_nodal_grid_parameters()
         else:
             self.grid_representation.redispatch_grid = self.create_nodal_grid_parameters()
@@ -367,7 +367,6 @@ class GridModel():
 
             n_1_ptdf = n_1_ptdf.loc[np.sort(idx), :]
 
-
         A = n_1_ptdf.loc[:, self.grid.nodes.index].values
         b = n_1_ptdf["ram"].values
         
@@ -488,8 +487,8 @@ class GridModel():
         if not self.julia_instance.is_alive:
             self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
 
-        if self.options["type"] in ["zonal"]:
-            self.julia_instance.disable_multi_threading()
+        # if self.options["type"] in ["zonal"]:
+        #     self.julia_instance.disable_multi_threading()
 
         t_start = dt.datetime.now()
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
