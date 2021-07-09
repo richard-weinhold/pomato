@@ -521,7 +521,7 @@ class Dashboard():
         self.pomato_instance.options["fbmc"]["gsk"] = gsk
         self.pomato_instance.options["fbmc"]["reduce"] = False
         fb_parameter_function = self.pomato_instance.fbmc.create_flowbased_parameters
-        fb_parameters = fb_parameter_function(basecase)
+        fb_parameters = fb_parameter_function(basecase, timesteps=[timestep])
         fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
         domain_x, domain_y = domain_x.split("-"), domain_y.split("-")
         if correct_for_nex:
