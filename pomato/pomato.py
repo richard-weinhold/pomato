@@ -344,22 +344,17 @@ class POMATO():
         for result in self.data.results:
             self.data.results[result.replace(oldname, newname)] = self.data.results.pop(result)
        
-    def run_market_model(self, update_data=True, update_grid_representation=False):
+    def run_market_model(self, update_data=False):
         """Run the market model based on the current state of data and options. 
         
         Parameters
         ----------
         update_data : bool, optional
             Update data before model run. Default: True.
-        update_grid_representation : bool, optional
-            Update the grid representation before model run. Default: False.
         """
-
         if update_data:
             self.update_market_model_data()
-        
         self.market_model.run()
-
         if self.market_model.status == "solved":
             self.initialize_market_results(self.market_model.result_folders)
         else:

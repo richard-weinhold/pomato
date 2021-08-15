@@ -151,12 +151,16 @@ class Results():
             self.logger.warning("Results Not Found. This is an Error")
             
         try:
-            with open(str(folder.joinpath("optionfile.json")), "r") as jsonfile:
-                self.result_attributes = {**self.result_attributes,
-                                          **json.load(jsonfile)}
+            if folder.joinpath("optionfile.json").is_file():
+                with open(str(folder.joinpath("optionfile.json")), "r") as jsonfile:
+                    self.result_attributes = {**self.result_attributes,
+                                            **json.load(jsonfile)}
+            else:
+                with open(str(folder.joinpath("options.json")), "r") as jsonfile:
+                    self.result_attributes = {**self.result_attributes,
+                                            **json.load(jsonfile)}
         except FileNotFoundError:
-            self.logger.warning("No options file found in result folder, \
-                                using data.options")
+            self.logger.warning("No option file found in result folder, using data.options")
             self.result_attributes = {**self.result_attributes,
                                       **self.data.options}
 

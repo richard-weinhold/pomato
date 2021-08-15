@@ -303,7 +303,7 @@ class FBMCModule():
         self.logger.info("COs are selected from nodal PTDFs with %d%% threshold", lodf_sensitivity*100)
         nodal_fbmc_ptdf, fbmc_data = self.create_base_fbmc_parameters(critical_branches, lodf_sensitivity)
 
-        if self.options["fbmc"]["reduce"] or self.options["grid"]["precalc_filename"]:
+        if (self.options["grid"]["precalc_filename"]) and (not self.options["fbmc"]["precalc_filename"]):
             cbco = self.grid_model.create_cbco_nodal_grid_parameters()
             condition = fbmc_data[["cb", "co"]].apply(tuple, axis=1).isin(cbco[["cb", "co"]].apply(tuple, axis=1).values).values
             nodal_fbmc_ptdf, fbmc_data = nodal_fbmc_ptdf[condition | (fbmc_data.co == "basecase") , :], \
@@ -348,7 +348,19 @@ class FBMCModule():
             fb_parameters = self.enforce_ntc_domain(fb_parameters)
 
         if self.options["fbmc"]["reduce"]:
-            cbco_index = self.grid_model.clarkson_algorithm(args={"fbmc_domain": True}, 
+            if self.options["fbmc"]["precalc_filename"]:
+                if Path(self.options["fbmc"]["precalc_filename"]).is_file():
+                    filename = Path(self.options["fbmc"]["precalc_filename"])
+                if Path(self.options["fbmc"]["precalc_filename"]).with_suffix('.csv').is_file():
+                    filename = Path(self.options["fbmc"]["precalc_filename"]).with_suffix('.csv')
+                elif self.grid_model.julia_dir.joinpath(f"cbco_data/{filename}.csv").is_file():
+                    filename = self.julia_dir.joinpath(f"cbco_data/{filename}.csv").is_file()
+                else:
+                    raise FileNotFoundError("No precalculated list of CBCOs found")
+                precalc_cbco = pd.read_csv(filename, delimiter=',')
+                cbco_index = list(precalc_cbco.constraints.values)
+            else:
+                cbco_index = self.grid_model.clarkson_algorithm(args={"fbmc_domain": True}, 
                                                             Ab_info=fb_parameters)   
             fb_parameters = fb_parameters.loc[cbco_index, :]
             

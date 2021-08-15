@@ -77,7 +77,7 @@ class Visualization():
 
     def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, show_infeasibility=False,
                         show_curtailment=False, timestep=None, threshold=0, highlight_nodes=None, 
-                        highlight_lines=None,  line_color_option=0, show_plot=True, filepath=None):
+                        highlight_lines=None,  line_color_option=0, price_compress=True, show_plot=True, filepath=None):
         """Creates Geoplot of market result.
 
         The geoplot is a interactive plotly figure showing lineloading, redispatch and prices 
@@ -349,10 +349,9 @@ class Visualization():
         ))
 
         if show_prices:
-            compress = True
             colorscale = "RdBu_r"
             contours = 12
-            prices_layer, coordinates, hight_width = add_prices_layer(nodes, prices, compress)
+            prices_layer, coordinates, hight_width = add_prices_layer(nodes, prices, price_compress)
             price_fig = go.Figure(
                 data=go.Contour(z=prices_layer, showscale=False, 
                                 colorscale=colorscale, ncontours=contours))
@@ -414,8 +413,10 @@ class Visualization():
             showlegend = False,
             margin={"r":0,"t":0,"l":0,"b":0},
             mapbox= {
-                "style": "white-bg",
-                "layers": [map_layer, price_layer],
+                # "style": "white-bg",
+                "style": "carto-positron",
+                # "layers": [map_layer, price_layer],
+                "layers": [price_layer],
                 "zoom": 3,
                 "center": center},
             xaxis = {'visible': False},

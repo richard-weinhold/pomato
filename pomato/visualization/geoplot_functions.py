@@ -3,6 +3,7 @@
 from math import atan2
 import geojson
 import numpy as np
+from numpy.lib.arraysetops import isin
 import pandas as pd
 import scipy
 import scipy.spatial
@@ -71,10 +72,14 @@ def _build_raster(nodes, plot_width, plot_hight, alpha=4):
 def add_prices_layer(nodes, prices, compress=True):
     """Adds prices layer to Geoplot"""
 
-    if compress:
+    if isinstance(compress, bool):
         quantile = .1
         prices.loc[prices.marginal > prices.marginal.quantile(1 - quantile), "marginal"] = prices.marginal.quantile(1 - quantile)
         prices.loc[prices.marginal < prices.marginal.quantile(quantile), "marginal"] = prices.marginal.quantile(quantile)
+    elif isinstance(compress, tuple):
+        prices.loc[prices.marginal > compress[0], "marginal"] = compress[0]
+        prices.loc[prices.marginal < compress[1], "marginal"] = compress[1]
+
 
     nodes = pd.merge(nodes[["lat", "lon"]], prices, left_index=True, right_index=True)
     lat, lon = list(nodes.lat.values), list(nodes.lon.values)

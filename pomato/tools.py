@@ -391,6 +391,10 @@ def default_options():
             "electricity": {
                 "include": True,
                 "cost": 1E3,
+                "bound": 20},
+            "storages": {
+                "include": True,
+                "cost": 1E2,
                 "bound": 20}},
         "plant_types": {
             "es": [],
@@ -416,9 +420,12 @@ def default_options():
             "frm": 0,
             "reduce": False,         
             "enforce_ntc_domain": False,  
+            "precalc_filename": None, 
         },
         "data": {
             "result_copy": False,
+        },
+        "solver_options": {
         }
     }
     return options

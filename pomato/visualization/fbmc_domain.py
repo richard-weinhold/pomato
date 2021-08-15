@@ -162,9 +162,9 @@ class FBDomainPlots():
         self.logger = logging.getLogger('log.pomato.visualization.FBDomainPlots')
         self.logger.info("Initializing FBDomainPlots....")
         self.data = data
-        self.fbmc_plots = {} # keep plots 
+        self.fbmc_plots = [] # keep plots 
         self.flowbased_parameters = flowbased_parameters
-        
+
     def set_xy_limits_forall_plots(self):
         """For each fbmc plot object, set x and y limits"""
         self.logger.info("Resetting x and y limits for all domain plots")
@@ -173,11 +173,13 @@ class FBDomainPlots():
         y_min = min([self.fbmc_plots[plot].y_min for plot in self.fbmc_plots])
         y_max = max([self.fbmc_plots[plot].y_max for plot in self.fbmc_plots])
 
-        for plots in self.fbmc_plots:
-            self.fbmc_plots[plots].x_min = x_min
-            self.fbmc_plots[plots].x_max = x_max
-            self.fbmc_plots[plots].y_min = y_min
-            self.fbmc_plots[plots].y_max = y_max
+        plot_limits = (x_max, x_min, y_max, y_min)
+
+        for plot in self.fbmc_plots:
+            plot.x_min = x_min
+            plot.x_max = x_max
+            plot.y_min = y_min
+            plot.y_max = y_max
 
     def zonal_ptdf_projection(self, domain_x, domain_y, A):
         """The zonal PTDF has to be projected into 2D to be visualized as a domain plot. 
@@ -325,7 +327,7 @@ class FBDomainPlots():
         # bar.finish()
 
     def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None, 
-                                  commercial_exchange=None):
+                                  commercial_exchange=None, plot_limits=None):
         """Create FB Domain for specified zones and timesteps. 
         
         Parameters
@@ -385,7 +387,7 @@ class FBDomainPlots():
         domain_info.loc[domain_info.index.isin(feasible_region_indices), "in_domain"] = True
         
         # Limit the number of constraints plottet to a threshold
-        threshold = int(1e4)
+        threshold = int(2e4)
         if len(A) > threshold:
             self.logger.debug("Plot limited to %d constraints plotted", threshold)
             random_choice = np.random.choice(domain_info.index, size=threshold, replace=False)
@@ -398,10 +400,13 @@ class FBDomainPlots():
         feasible_region_volume = domain_volume(self, A, A_hat, b) 
            
         # Specify plot dimension relative to the size plus an absolute margin.
-        x_max, y_max = feasible_region_vertices.max(axis=0)*2
-        x_min, y_min = feasible_region_vertices.min(axis=0)*2
-        x_margin, y_margin = 0.2*abs(x_max - x_min), 0.2*abs(y_max - y_min)
-        plot_limits = ((x_max + x_margin, x_min - x_margin), (y_max + y_margin, y_min - y_margin))
+        if plot_limits:
+            plot_limits = plot_limits
+        else:
+            x_max, y_max = feasible_region_vertices.max(axis=0)*2
+            x_min, y_min = feasible_region_vertices.min(axis=0)*2
+            x_margin, y_margin = 0.2*abs(x_max - x_min), 0.2*abs(y_max - y_min)
+            plot_limits = ((x_max + x_margin, x_min - x_margin), (y_max + y_margin, y_min - y_margin))
 
         # Bring the 2D FB Domain into a format plottable. 
         plot_equations, plot_indices = self.create_domain_plot(A_hat, b, plot_indices, plot_limits)
@@ -418,7 +423,7 @@ class FBDomainPlots():
         fbmc_plot = FBDomain(plot_information, plot_equations, feasible_region_vertices, 
                              domain_info.copy(), feasible_region_volume)
 
-        self.fbmc_plots[fbmc_plot.title] = fbmc_plot
+        self.fbmc_plots.append(fbmc_plot)
         return fbmc_plot
 
 

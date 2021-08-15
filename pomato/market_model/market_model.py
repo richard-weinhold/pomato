@@ -153,13 +153,18 @@ class MarketModel():
 
         splits = int(len(model_horizon)/self.options["timeseries"]["market_horizon"])
         market_model_horizon = self.options["timeseries"]["market_horizon"]
-        splits = [model_horizon[t*market_model_horizon] for t in range(0, splits)]
-        splits.append(model_horizon[-1])
+        splits_start = [model_horizon[t*market_model_horizon] for t in range(0, splits)]
+
+        def add_to_timestep(t):
+            int_t = int(t[1:]) + market_model_horizon
+            return 't' + "{0:0>4}".format(int_t)
+
+        splits_end = [add_to_timestep(model_horizon[t*market_model_horizon]) for t in range(0, splits)]
 
         t_split_map = {}
         timesteps = list(self.data.storage_level.timestep.unique())
         if len(timesteps) > 0:
-            for t in splits:
+            for t in set(splits_start + splits_end):
                 if t in timesteps:
                     t_split_map[t] = t
                 else:
@@ -167,32 +172,45 @@ class MarketModel():
                     delta = [abs(int_t - int(t[1:])) for t in timesteps]
                     t_split_map[t] = timesteps[delta.index(min(delta))]
                     
-            
-
         storage_level = self.data.storage_level.copy()
         storage_level = storage_level.set_index(["timestep", "plant"])
         data = []
-
         for plant in self.data.plants[self.data.plants.plant_type.isin(self.options["plant_types"]["es"])].index:
-            for t in splits:
-                if (t_split_map[t], plant) in storage_level.index:
-                    data.append([t, plant, storage_level.loc[(t_split_map[t], plant), "storage_level"]])
+            for t_start, t_end in zip(splits_start, splits_end):
+                if ((t_split_map[t_start], plant) in storage_level.index) and (self.data.plants.loc[plant, "plant_type"] == "hydro_res"):
+                    data.append([t_start, plant, 
+                                storage_level.loc[(t_split_map[t_start], plant), "storage_level"],
+                                storage_level.loc[(t_split_map[t_end], plant), "storage_level"]])
                 else:
-                    data.append([t, plant, self.options["parameters"]["storage_start"]])
+                    data.append([t_start, plant, self.options["parameters"]["storage_start"], 
+                                self.options["parameters"]["storage_start"]])
                     
-        tmp_storage_level = pd.DataFrame(columns=self.data.storage_level.columns, data=data)
+        tmp_storage_level = pd.DataFrame(columns=["timestep", "plant", "storage_start", "storage_end"], data=data)
+
 
         # Apply smoothing 
         if self.options["timeseries"]["smooth_storage_level"]:
             self.logger.info("Smoothing storage levels for rolling horizon")
-            for plant in tmp_storage_level.plant.unique():
-                tmp_storage_level.loc[tmp_storage_level.plant == plant, "storage_level"] = tmp_storage_level[tmp_storage_level.plant == plant].rolling(8, min_periods =1).mean()
+            timesteps = pd.DataFrame(index=tmp_storage_level["timestep"].unique())
+            timesteps["group"] = 0
+            timesteps["t_int"] = [int(t[1:]) for t in timesteps.index]
+            counter = 1
+            for (i, t) in enumerate(timesteps.index[:-1]):
+                timesteps.loc[t, "group"] = counter
+                if timesteps.loc[timesteps.index[i + 1], "t_int"] - timesteps.loc[t, "t_int"] > market_model_horizon:
+                    counter += 1
+            timesteps.loc[timesteps.index[-1], "group"] = counter
+            
+            for plant in tmp_storage_level[tmp_storage_level.storage_start != self.options["parameters"]["storage_start"]].plant.unique():   
+                for group in timesteps.group.unique():  
+                    condition = (tmp_storage_level.timestep.isin(timesteps[timesteps.group == group].index))&(tmp_storage_level.plant == plant)
+                    window=int(168/market_model_horizon)
+                    tmp_storage_level.loc[condition, "storage_start"] = tmp_storage_level.loc[condition, "storage_start"].rolling(window, min_periods=1).mean()
+                    tmp_storage_level.loc[condition, "storage_end"] = tmp_storage_level.loc[condition, "storage_end"].rolling(window, min_periods=1).mean()
 
         # tmp store for debug and then save into data folder for MarketModel
         self.storage_levels_used = tmp_storage_level
         self.storage_levels_used.to_csv(str(self.data_dir.joinpath('storage_level.csv')), index_label='index')
-     
-        
         
     def data_to_csv(self, model_horizon):
         """Export input data to csv files in the data_dir sub-directory.
