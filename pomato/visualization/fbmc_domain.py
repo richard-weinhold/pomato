@@ -168,10 +168,10 @@ class FBDomainPlots():
     def set_xy_limits_forall_plots(self):
         """For each fbmc plot object, set x and y limits"""
         self.logger.info("Resetting x and y limits for all domain plots")
-        x_min = min([self.fbmc_plots[plot].x_min for plot in self.fbmc_plots])
-        x_max = max([self.fbmc_plots[plot].x_max for plot in self.fbmc_plots])
-        y_min = min([self.fbmc_plots[plot].y_min for plot in self.fbmc_plots])
-        y_max = max([self.fbmc_plots[plot].y_max for plot in self.fbmc_plots])
+        x_min = min([plot.x_min for plot in self.fbmc_plots])
+        x_max = max([plot.x_max for plot in self.fbmc_plots])
+        y_min = min([plot.y_min for plot in self.fbmc_plots])
+        y_max = max([plot.y_max for plot in self.fbmc_plots])
 
         plot_limits = (x_max, x_min, y_max, y_min)
 

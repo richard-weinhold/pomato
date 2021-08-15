@@ -112,7 +112,7 @@ class TestPomatoVisualization(unittest.TestCase):
                                                commercial_exchange=market_result.EX)
 
         fbmc_domain.set_xy_limits_forall_plots()
-        domain_plot = list(fbmc_domain.fbmc_plots.values())[0]
+        domain_plot = fbmc_domain.fbmc_plots[0]
         #Plotly implementation
         self.mato.visualization.create_fb_domain_plot(domain_plot, show_plot=False)
 
