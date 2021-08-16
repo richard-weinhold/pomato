@@ -368,7 +368,7 @@ class Visualization():
                     "sourcetype": "image",
                     "source": img_pil,
                     "coordinates": coordinates,
-                    "opacity": .5,
+                    "opacity": .3,
                 }
             # Price Colorbar
             price_colorbar = go.Scatter(x=[None],y=[None],
