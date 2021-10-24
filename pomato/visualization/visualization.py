@@ -76,7 +76,8 @@ class Visualization():
         self.wdir = wdir
 
     def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, show_infeasibility=False,
-                        show_curtailment=False, timestep=None, threshold=0, highlight_nodes=None, 
+                        show_curtailment=False, timestep=None, threshold=0, highlight_nodes=None, redispatch_input=None,
+                        redispatch_reference=None, 
                         highlight_lines=None,  line_color_option=0, price_compress=True, show_plot=True, filepath=None):
         """Creates Geoplot of market result.
 
@@ -109,18 +110,20 @@ class Visualization():
         if isinstance(timestep, int):
             timestep = market_result.model_horizon[timestep]
         
-        if show_redispatch: 
+        if show_redispatch and not isinstance(redispatch_input, pd.DataFrame): 
             gen = market_result.redispatch()  
             if isinstance(timestep, str) and isinstance(gen, pd.DataFrame):
                 gen = gen.loc[gen.t == timestep, ["node", "delta", "delta_abs"]].groupby("node").sum()
                 gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)
                 nodes = pd.merge(nodes, gen[["delta", "delta_abs"]].fillna(0), left_index=True, right_index=True)
-            elif isinstance(gen, pd.DataFrame):
+            elif isinstance(nodes, pd.DataFrame):
                 gen = gen.loc[:, ["node", "delta", "delta_abs"]].groupby("node").sum()
                 gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)
                 nodes = pd.merge(nodes, gen[["delta", "delta_abs"]].fillna(0), left_index=True, right_index=True)
             else:
                 show_redispatch = False
+        elif show_redispatch and isinstance(redispatch_input, pd.DataFrame):
+            nodes = redispatch_input
         
         if show_curtailment: 
             curtailment = market_result.curtailment()
@@ -257,13 +260,23 @@ class Visualization():
             ))
 
         if show_redispatch and any(nodes.delta_abs > 0):
+
             affected_nodes = nodes.index[nodes.delta_abs > 0]
-            sizeref = max(2*max(nodes['delta_abs'])/12**2, 1)
+            nodes.loc[:, "delta_abs"] /= 1000
+            if isinstance(redispatch_reference, (int, float)):
+                sizeref = 2*redispatch_reference/20**2
+                print("sizeref 1", sizeref)
+            else:
+                sizeref = 2*max(nodes['delta_abs'])/20**2
+                print("sizeref 2", sizeref)
+
+            print(max(nodes['delta_abs']))
             for condition, color in zip([nodes["delta"] < 0, nodes["delta"] > 0], ["red", "green"]):
                 markers = go.scattermapbox.Marker(
                     size = nodes.loc[condition, 'delta_abs'],
                     sizeref = sizeref,
-                    sizemin = 3,
+                    sizemin = 1,
+                    sizemode='area',
                     color = color,
                     opacity=0.8,
                     # line = {"color": 'rgb(40,40,40)'},
@@ -280,7 +293,7 @@ class Visualization():
                     "<br>".join([
                         "Node: %{customdata[0]}",
                         "Zone: %{customdata[1]}",
-                        "Redispatch: %{customdata[2]:.2f} MW",
+                        "Redispatch: %{customdata[2]:.2f} GWh",
                     ]) + "<extra></extra>"
                 ))
 
@@ -350,13 +363,20 @@ class Visualization():
 
         if show_prices:
             colorscale = "RdBu_r"
-            contours = 12
+            contours = 15
+            price_high = 60
+            price_low = 50
             prices_layer, coordinates, hight_width = add_prices_layer(nodes, prices, price_compress)
             price_fig = go.Figure(
-                data=go.Contour(z=prices_layer, showscale=False, 
-                                colorscale=colorscale, ncontours=contours))
+                data=go.Contour(z=prices_layer, 
+                                showscale=False, 
+                                colorscale=colorscale, 
+                                ncontours=contours,
+                                # contours=dict(start=price_low,end=price_high,size=30/contours)
+                                )
+            )
             price_fig.update_layout(
-                width=2e3, height=2e3*hight_width, 
+                width=5e3, height=5e3*hight_width, 
                 xaxis = {'visible': False},
                 yaxis = {'visible': False},
                 margin={"r":0,"t":0,"l":0,"b":0}
@@ -368,7 +388,7 @@ class Visualization():
                     "sourcetype": "image",
                     "source": img_pil,
                     "coordinates": coordinates,
-                    "opacity": .3,
+                    "opacity": .25,
                 }
             # Price Colorbar
             price_colorbar = go.Scatter(x=[None],y=[None],
@@ -417,8 +437,9 @@ class Visualization():
                 "style": "carto-positron",
                 # "layers": [map_layer, price_layer],
                 "layers": [price_layer],
-                "zoom": 3,
-                "center": center},
+                # "zoom": 3,
+                # "center": center
+                },
             xaxis = {'visible': False},
             yaxis = {'visible': False})
 
@@ -978,23 +999,28 @@ class Visualization():
         else:
             return fig
 
-    def create_generation_overview(self, market_results, show_plot=True, filepath=None):
+    def create_generation_overview(self, market_results, zones=None, show_plot=True, filepath=None):
         """Create generation overview of multiple model results. 
 
         Parameters
         ----------
-        market_results : list of :class:`~pomato.data.Results`
+        market_results : list of :class:`~pomato.data.Results` or dict(title, :class:`~pomato.data.Results`)
             Market results which is plotted. 
         show_plot : bool, optional
             Shows plot after generation. If false, returns plotly figure instead. By default True.
         filepath : pathlib.Path, str, optional
             If filepath is supplied, saves figure as .html, by default None
         """
-        if not all([isinstance(r, pomato.data.Results) or isinstance(r, pomato.data.results.Results) for r in  market_results]):
-            raise TypeError("Submit list of market results")
+
+        if isinstance(market_results, list) and all(isinstance(e, pomato.data.Results) for e in market_results):
+            market_result_dict = {result.result_attributes["title"]: result for result in market_results}
+        elif isinstance(market_results, dict):
+            market_result_dict = market_results
+        else:
+            raise TypeError("Submit list of market results")    
 
         gen = pd.DataFrame()
-        for result in market_results: 
+        for result_name, result in market_result_dict.items(): 
             if (result.result_attributes["is_redispatch_result"] and 
                 result.result_attributes["corresponding_market_result_name"]):
                 tmp = result.redispatch()
@@ -1003,11 +1029,14 @@ class Visualization():
                 tmp = result.generation()
                 tmp["delta"] = 0
                 tmp["delta_abs"] = 0
-            tmp["result"] = result.result_attributes["title"]
+            tmp["result"] = result_name
             if gen.empty:
                 gen = tmp
             else:
                 gen = pd.concat([gen, tmp], ignore_index=True)
+        
+        if isinstance(zones, list):
+            gen = gen[gen.zone.isin(zones)]
             
         names = color_map(gen)
         gen.loc[:, ["G", "delta", "delta_abs"]] /= 1000
@@ -1057,11 +1086,12 @@ class Visualization():
                     hovertemplate=hovertemplate_red,
                     customdata=gen.loc[gen.name == name, ["name", redispatch, "total_redispatch", "precentage_redispatch"]],
                     width=0.8,
-                    opacity=0.7,
+                    opacity=0.9,
                     yaxis='y2')
                     )
         layout = go.Layout(
             template="simple_white",
+            margin={"r":0,"t":0,"l":0,"b":0},
             legend=dict(x=1.1),
             barmode='relative',
             yaxis=dict(title='Generation [GWh]'),
@@ -1070,7 +1100,7 @@ class Visualization():
                         side='right'),
             )
         fig = go.Figure(data=data, layout=layout)
-        result_tiles = [r.result_attributes["title"] for r in market_results]
+        result_tiles = list(market_result_dict.keys())
         fig.update_xaxes(categoryorder='array', categoryarray=result_tiles)
 
         if filepath:
@@ -1080,7 +1110,7 @@ class Visualization():
         else:
             return fig
 
-    def create_merit_order(self, data=None, timestep=None, show_plot=True, filepath=None):
+    def create_merit_order(self, data=None, zones=None, timestep=None, show_plot=True, filepath=None):
         """Create merit order of the input data. 
 
         Parameters
@@ -1094,10 +1124,15 @@ class Visualization():
         """
         if isinstance(data, pomato.data.DataManagement):
             plants = data.plants.copy()
+            plants["zone"] = data.nodes.loc[plants.node, "zone"].values
         elif isinstance(data, pomato.data.Results):
             plants = data.data.plants.copy()
+            plants["zone"] = data.data.nodes.loc[plants.node, "zone"].values
         else:
             raise TypeError("Data input argument not correct type. ")
+
+        if isinstance(zones, list):
+            plants = plants[plants.zone.isin(zones)]
 
         if not "technology" in plants.columns:
             plants["technology"] = plants.plant_type
@@ -1107,7 +1142,10 @@ class Visualization():
         if timestep:
             ava = data.availability[data.availability.timestep == timestep].copy()
             ava = ava.drop("timestep", axis=1).set_index("plant")
+            ava = ava.loc[ava.index.isin(plants.index)]
             plants.loc[ava.index, "g_max"] *= ava.availability
+
+
 
         color = color_map(plants)
         plants = pd.merge(plants, color, on=["technology", "fuel"])

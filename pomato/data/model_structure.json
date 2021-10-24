@@ -28,6 +28,7 @@
  	"h_max": {"type": "float64", "default": 0},
  	"d_max": {"type": "float64", "default": "none"},
  	"eta": {"type": "float64", "default": 1},
+ 	"availability": {"type": "float64", "default": 1},
  	"plant_type": {"type": "any", "default": ""},
  	"heatarea": {"type": "heatareas.index", "default": "none"},
  	"storage_capacity": {"type": "float64", "default": "none"}

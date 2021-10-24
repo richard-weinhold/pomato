@@ -73,12 +73,12 @@ def add_prices_layer(nodes, prices, compress=True):
     """Adds prices layer to Geoplot"""
 
     if isinstance(compress, bool):
-        quantile = .1
+        quantile = .01
         prices.loc[prices.marginal > prices.marginal.quantile(1 - quantile), "marginal"] = prices.marginal.quantile(1 - quantile)
         prices.loc[prices.marginal < prices.marginal.quantile(quantile), "marginal"] = prices.marginal.quantile(quantile)
     elif isinstance(compress, tuple):
-        prices.loc[prices.marginal > compress[0], "marginal"] = compress[0]
-        prices.loc[prices.marginal < compress[1], "marginal"] = compress[1]
+        prices.loc[prices.marginal < compress[0], "marginal"] = compress[0]
+        prices.loc[prices.marginal > compress[1], "marginal"] = compress[1]
 
 
     nodes = pd.merge(nodes[["lat", "lon"]], prices, left_index=True, right_index=True)
