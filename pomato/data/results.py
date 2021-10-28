@@ -49,7 +49,8 @@ class Results():
         self.logger = logging.getLogger('log.pomato.data.Results')
         self.grid = grid
         self.data = data
-        self.output_folder = self.data.wdir.joinpath("data_output").joinpath(result_folder.name)
+        self.wdir = self.data.wdir
+        self.output_folder = self.wdir.joinpath("data_output").joinpath(result_folder.name)
 
         variables = {variable: False for variable in ["G", "H", "D_es", "L_es", "D_hs", "L_hs",
                                                       "INJ", "EX", "D_ph", "F_DC", "CURT", "Alpha",
@@ -73,13 +74,11 @@ class Results():
 
         self.model_horizon = self.result_attributes["model_horizon"]
 
-        self._cached_results = types.SimpleNamespace(n_0_flows=pd.DataFrame(), 
-                                                     n_1_flows=pd.DataFrame(),
-                                                     generation=pd.DataFrame(),
-                                                     curtailment=pd.DataFrame(),
-                                                     demand=pd.DataFrame(),
-                                                     result_data=None,
-                                                     averaged_result_data=None)
+        self._cached_results = {}
+        self._cached_result_structs = types.SimpleNamespace(
+            result_data=None,
+            averaged_result_data=None,
+        )
 
         for var in self.result_attributes["variables"]:
             setattr(self, var, pd.DataFrame())
@@ -178,6 +177,26 @@ class Results():
             folder.mkdir()
         tools.copytree(self.result_attributes["source_folder"], folder)
 
+    def cache_to_disk(self, df, name):
+        """Cache processed results as feather format to relieve memory."""
+
+        folder = self.wdir.joinpath("data_temp/results_cache").joinpath(str(id(self)))
+        if not folder.is_dir():
+            folder.mkdir()
+        file = folder.joinpath(name)
+        df.reset_index(drop=True).to_feather(file)
+        self._cached_results[name] = file
+
+    def read_cached_result(self, name):
+        """Read cached processed from disk."""
+
+        if not name in self._cached_results:
+            raise ValueError("Result not cached yet.")
+        else:
+            file = self._cached_results[name]
+            df = pd.read_feather(file)
+            return df
+
     def result_data_struct(self):
         """Data struct, as a standart template for result processing.
         
@@ -215,9 +234,9 @@ class Results():
         market_result : :class:`~pomato.data.Results`
             Market result which gets subsumed into the predefined data struct.
         """
-        if not (not isinstance(self._cached_results.result_data, types.SimpleNamespace) or force_recalc):
+        if not (not isinstance(self._cached_result_structs.result_data, types.SimpleNamespace) or force_recalc):
             self.logger.debug("Returning cached result for result_data.")
-            return deepcopy(self._cached_results.result_data)
+            return deepcopy(self._cached_result_structs.result_data)
         
         self.logger.info("Precalculating and caching common results..")
         data_struct = self.result_data_struct()
@@ -228,10 +247,11 @@ class Results():
         data_struct.n_0_flow = self.n_0_flow()
         data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.2)
         data_struct.prices = self.price()
-        self._cached_results.result_data = data_struct
+        
+        self._cached_result_structs.result_data = data_struct
         self.logger.info("Done calculating common results.")
 
-        return deepcopy(data_struct)
+        return data_struct
 
     def create_averaged_result_data(self, force_recalc=False):
         """Creates averaged result data struct.
@@ -242,9 +262,9 @@ class Results():
         data struct is intended for the static geoplot, which visualizes the results in 
         average flows, injections, generation and prices. 
         """
-        if not (not isinstance(self._cached_results.averaged_result_data, types.SimpleNamespace) or force_recalc):
+        if not (not isinstance(self._cached_result_structs.averaged_result_data, types.SimpleNamespace) or force_recalc):
             self.logger.debug("Returning cached result for averaged_result_data.")
-            return deepcopy(self._cached_results.averaged_result_data)
+            return deepcopy(self._cached_result_structs.averaged_result_data)
 
         data_struct = self.create_result_data()
 
@@ -254,27 +274,46 @@ class Results():
         data_struct.dc_flow = data_struct.dc_flow.pivot(index="dc", columns="t", values="F_DC") \
                                 .abs().mean(axis=1).reindex(self.data.dclines.index).fillna(0)
         data_struct.prices = data_struct.prices[["n", "marginal"]].groupby("n").mean()
-        self._cached_results.averaged_result_data = data_struct
+        self._cached_result_structs.averaged_result_data = data_struct
         return data_struct
 
-    def redispatch(self):
+    def redispatch(self, force_recalc=False):
         """Return Redispatch.
         Calculates a delta between redispatch,- and market result. 
         Positive delta represents a higher generation after redispatch i.e. positive and negative 
         vice versa. 
+
+        Parameters
+        ----------
+        force_recalc : bool, optional
+            Price is cached automatically. To enforce recalc, e.g. when explicitly changing
+            data set this force_recalc to True. Defaults to False. 
+
+        Returns
+        -------
+        redispatch : DataFrame
+            Returns DataFrame with columns [node, plant_type, g_max, zone, t, p, G, delta, delta_abs]
+
         """
+        
         # Find corresponding Market Result
         corresponding_market_result = self.result_attributes["corresponding_market_result_name"]
         if not (self.result_attributes["is_redispatch_result"] and bool(corresponding_market_result)):
             self.logger.warning("Corresponding market result not initialized or found")
             return None
 
-        gen = self.generation()
+        if not ((not "redispatch" in self._cached_results) or force_recalc):
+            self.logger.debug("Returning cached result for redispatch.")
+            return self.read_cached_result("redispatch")
+
+        gen = self.generation(force_recalc=force_recalc)
         # Redispatch Calculation G_redispatch - G_market
         gen = pd.merge(self.data.results[corresponding_market_result].G, gen, on=["p", "t"], 
                        suffixes=("_market", "_redispatch"))
         gen["delta"] = gen["G_redispatch"] - gen["G_market"]
         gen["delta_abs"] = gen["delta"].abs()
+        gen = tools.reduce_df_size(gen)
+        self.cache_to_disk(gen, "redispatch")
         return gen
 
     def infeasibility(self, drop_zero=True):
@@ -303,7 +342,7 @@ class Results():
         else:
             return infeasibility
 
-    def price(self):
+    def price(self, force_recalc=False):
         """Return electricity prices.
 
         Returns the dual of the energy balances (nodal and zonal). Since
@@ -312,12 +351,22 @@ class Results():
         The dual is obtained from Julia/JuMP with the dual function and therefore
         multiplied with -1.
 
+        Parameters
+        ----------
+        force_recalc : bool, optional
+            Price is cached automatically. To enforce recalc, e.g. when explicitly changing
+            data set this force_recalc to True. Defaults to False. 
+
         Returns
         -------
         price : DataFrame
             Price DataFrame with columns timestep (t), node (n), zone (z) and
             price (marginal).
         """
+        if not ((not "price" in self._cached_results) or force_recalc):
+            self.logger.debug("Returning cached result for price.")
+            return self.read_cached_result("price")
+
         eb_nodal = self.EB_nodal.copy()
         eb_nodal = pd.merge(eb_nodal, self.data.nodes.zone.to_frame(),
                             how="left", left_on="n", right_index=True)
@@ -330,6 +379,8 @@ class Results():
 
         price = price[["t", "n", "z", "marginal"]]
         price = tools.reduce_df_size(price)
+
+        self.cache_to_disk(price, "price")
         return price
 
     def net_position(self):
@@ -361,9 +412,9 @@ class Results():
             Returns DataFrame with columns [node, plant_type, g_max, zone, t, p, G]
 
         """
-        if not (self._cached_results.generation.empty or force_recalc):
+        if not ((not "generation" in self._cached_results) or force_recalc):
             self.logger.debug("Returning cached result for generation.")
-            return self._cached_results.generation.copy()
+            return self.read_cached_result("generation")
         
         gen = pd.merge(self.data.plants[["plant_type", "fuel", "node", "g_max"]],
                         self.G, left_index=True, right_on="p", how="right")
@@ -374,9 +425,8 @@ class Results():
                            right_index=True, left_on="p")
         else:
             gen["technology"] = gen.plant_type
-            
         gen = tools.reduce_df_size(gen)
-        self._cached_results.generation = gen.copy()
+        self.cache_to_disk(gen, "generation")
         return gen
 
     def curtailment(self, force_recalc=False):
@@ -393,16 +443,16 @@ class Results():
         Curtailment : DataFrame
             Returns DataFrame with columns [node, plant_type, g_max, zone, t, p, CURT]
         """
-        if not (self._cached_results.curtailment.empty or force_recalc):
+        if not ((not "curtailment" in self._cached_results) or force_recalc):
             self.logger.debug("Returning cached result for curtailment.")
-            return self._cached_results.curtailment.copy()
+            return self.read_cached_result("curtailment")
 
         curtailment = pd.merge(self.data.plants[["plant_type", "node", "g_max"]],
                                self.CURT, left_index=True, right_on="p", how="right")
         curtailment["zone"] = self.data.nodes.loc[curtailment.node, "zone"].values
         curtailment = tools.reduce_df_size(curtailment)
-        self._cached_results.curtailment = curtailment.copy()
-        return curtailment.copy()
+        self.cache_to_disk(curtailment, "curtailment")
+        return curtailment
 
     def full_load_hours(self):
         """Returns plant data including full load hours."""        
@@ -440,9 +490,9 @@ class Results():
     def demand(self, force_recalc=False):
         """Process total nodal demand composed of load and market results of storage/heatpump usage."""
         
-        if not (self._cached_results.demand.empty or force_recalc):
+        if not ((not "demand" in self._cached_results) or force_recalc):
             self.logger.debug("Returning cached result for demand.")
-            return self._cached_results.demand.copy()
+            return self.read_cached_result("demand")
 
         map_pn = self.data.plants.node.copy().reset_index()
         map_pn.columns = ['p', 'n']
@@ -464,9 +514,10 @@ class Results():
         demand.loc[:, ["demand_el", "D_ph", "D_es"]].fillna(value=0, inplace=True)
         demand["demand"] = demand.demand_el + demand.D_ph + demand.D_es
         demand = demand.sort_values(by='t', key=self._sort_timesteps)
-        
-        self._cached_results.demand = demand.copy()
-        return demand.copy()
+        demand = tools.reduce_df_size(demand)
+
+        self.cache_to_disk(demand, "demand")
+        return demand
 
     # Grid Analytics - Load Flows
     def n_0_flow(self, force_recalc=False):
@@ -486,17 +537,17 @@ class Results():
         n_0_flows : DataFrame
             N-0 power flows for each line.
         """
-        if not (self._cached_results.n_0_flows.empty or force_recalc):
+        if not ((not "n_0_flows" in self._cached_results) or force_recalc):
             self.logger.debug("Returning cached result for n_0_flows.")
-            return self._cached_results.n_0_flows.copy()
+            return self.read_cached_result("n_0_flows")
 
         inj = self.INJ.pivot(index="t", columns="n", values="INJ")
         inj = inj.loc[self.model_horizon, self.data.nodes.index]
         flow = np.dot(self.grid.ptdf, inj.T)
         n_0_flows = pd.DataFrame(index=self.data.lines.index, columns=self.model_horizon, data=flow)
 
-        self._cached_results.n_0_flows = n_0_flows.copy()
-        return n_0_flows.copy()
+        self.cache_to_disk(n_0_flows, "n_0_flows")
+        return n_0_flows
 
     def n_1_flow(self, sensitivity=5e-2, force_recalc=False):
         """N-1 power flows on lines (cb) under outages (co).
@@ -523,9 +574,9 @@ class Results():
             Returns Dataframe of N-1 power flows with lines and contingencies
             specified.
         """
-        if not (self._cached_results.n_1_flows.empty or force_recalc):
+        if not ((not "n_1_flows" in self._cached_results) or force_recalc):
             self.logger.debug("Returning cached result for n_1_flows.")
-            return self._cached_results.n_1_flows.copy()
+            return self.read_cached_result("n_1_flows")
         
         data = self.grid.create_filtered_n_1_ptdf(sensitivity=sensitivity)
         ptdf = data.loc[:, self.data.nodes.index]
@@ -538,8 +589,9 @@ class Results():
 
         self.logger.info("Done Calculating N-1 Flows")
         n_1_flows = n_1_flows.loc[:, ["cb", "co"] + self.model_horizon]
-        self._cached_results.n_1_flows = n_1_flows.copy()
-        return n_1_flows.copy()
+        
+        self.cache_to_disk(n_1_flows, "n_1_flows")
+        return n_1_flows
 
     def absolute_max_n_1_flow(self, sensitivity=0.05):
         """Calculate the absolute max of N-1 Flows.
