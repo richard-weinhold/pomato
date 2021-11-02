@@ -283,12 +283,13 @@ def create_folder_structure(base_path, logger=None):
         "data_input": {},
         "data_output": {},
         "data_temp": {
-                "julia_files": {
-                        "data": {},
-                        "results": {},
-                        "cbco_data": {},
-                        },
+            "results_cache": {},
+            "julia_files": {
+                    "data": {},
+                    "results": {},
+                    "cbco_data": {},
                     },
+                },
         "logs": {},
         "profiles": {},
     }
@@ -339,10 +340,10 @@ def reduce_df_size(df):
     for col, dtype in zip(df.dtypes.index, [i.name for i in df.dtypes.values]):
         if dtype == "object":
             df[col] = df[col].astype("category")
-        elif "int" in dtype:
-            df[col] = pd.to_numeric(df[col], downcast="integer")
-        elif "float" in dtype:
-            df[col] = pd.to_numeric(df[col], downcast="float")
+        # elif "int" in dtype:
+        #     df[col] = pd.to_numeric(df[col], downcast="integer")
+        # elif "float" in dtype:
+        #     df[col] = pd.to_numeric(df[col], downcast="float")
     return df
 
 def fillna_numeric_columns(df, value):

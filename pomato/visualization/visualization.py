@@ -1,6 +1,5 @@
 """Visualization Module of POMATO"""
 
-import io
 import logging
 from pathlib import Path
 
@@ -13,13 +12,13 @@ import pomato
 import pomato.tools as tools
 from matplotlib import cm
 from numpy.lib.arraysetops import isin
-from PIL import Image
 from plotly.offline import plot
 from plotly.subplots import make_subplots
-from pomato.visualization.geoplot_functions import (_create_geo_json,
-                                                    add_prices_layer,
-                                                    line_colors,
-                                                    line_coordinates)
+from pomato.visualization.geoplot_functions import (
+    _create_geo_json, add_prices_layer, line_colors, line_coordinates, line_voltage_colors,
+    create_redispatch_trace, create_curtailment_trace, create_infeasibilities_trace, create_price_layer,
+    create_custom_data_lines
+)
 
 BASIC_FUEL_COLOR_MAP = {
         "uran": ["#C44B50", "#7B011A", "#9C242E"],
@@ -77,8 +76,8 @@ class Visualization():
 
     def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, show_infeasibility=False,
                         show_curtailment=False, timestep=None, threshold=0, highlight_nodes=None, redispatch_input=None,
-                        redispatch_reference=None, 
-                        highlight_lines=None,  line_color_option=0, price_compress=True, show_plot=True, filepath=None):
+                        redispatch_size_reference=None, loading_range=(0,100), highlight_lines=None, 
+                        line_color_option=0, show_plot=True, filepath=None):
         """Creates Geoplot of market result.
 
         The geoplot is a interactive plotly figure showing lineloading, redispatch and prices 
@@ -99,6 +98,8 @@ class Visualization():
         line_color_option : int, optional
             Lines are colored based on N-0 flows (flow_option = 0), N-1 flows (flow_option = 1) and 
             voltage levels (flow_option = 2), by default 0.
+        loading_range : tuple(int), optional 
+            Show line colors in range of percentage lineload, defaults to (0, 100).  
         show_plot : bool, optional
             Shows plot after generation. If false, returns plotly figure instead. By default True.
         filepath : pathlib.Path, str, optional
@@ -107,21 +108,27 @@ class Visualization():
         dclines = market_result.data.dclines.copy()
         lines = market_result.data.lines.copy()
         nodes = market_result.data.nodes.copy()
+        nodes["name"] = nodes.name.astype(object)
+        nodes.loc[nodes.name.isna(), "name"] = " "
         if isinstance(timestep, int):
             timestep = market_result.model_horizon[timestep]
         
         if show_redispatch and not isinstance(redispatch_input, pd.DataFrame): 
             gen = market_result.redispatch()  
+            red_cols = ["delta", "delta_abs", "delta_pos", "delta_neg"]
             if isinstance(timestep, str) and isinstance(gen, pd.DataFrame):
-                gen = gen.loc[gen.t == timestep, ["node", "delta", "delta_abs"]].groupby("node").sum()
+                gen = gen.loc[gen.t == timestep, ["node"] + red_cols].groupby("node").sum()
                 gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)
-                nodes = pd.merge(nodes, gen[["delta", "delta_abs"]].fillna(0), left_index=True, right_index=True)
+                nodes = pd.merge(nodes, gen[red_cols].fillna(0), left_index=True, right_index=True)
             elif isinstance(nodes, pd.DataFrame):
-                gen = gen.loc[:, ["node", "delta", "delta_abs"]].groupby("node").sum()
+                gen = gen.loc[:, ["node", "delta", "delta_abs", "delta_pos", "delta_neg"]].groupby("node").sum()
                 gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)
-                nodes = pd.merge(nodes, gen[["delta", "delta_abs"]].fillna(0), left_index=True, right_index=True)
+                nodes = pd.merge(nodes, gen[red_cols].fillna(0), left_index=True, right_index=True)
             else:
                 show_redispatch = False
+            redispatch_threshold = 1e5
+            nodes.loc[nodes.delta_abs < redispatch_threshold, red_cols] = 0
+
         elif show_redispatch and isinstance(redispatch_input, pd.DataFrame):
             nodes = redispatch_input
         
@@ -149,40 +156,38 @@ class Visualization():
 
         if isinstance(timestep, str):
             result_data = market_result.create_result_data()
-            n_0_flows = result_data.n_0_flow[timestep]
             dcline_flow = result_data.dc_flow.loc[result_data.dc_flow.t == timestep].set_index("dc").F_DC.reindex(dclines.index)
+            dclines = pd.merge(dclines, dcline_flow.rename("dc_flow"), left_index=True, right_index=True)
             prices = result_data.prices[result_data.prices.t == timestep].groupby("n").mean()
-            n_1_flows = result_data.n_1_flow[timestep]
+            lines = pd.merge(lines, result_data.n_0_flow[timestep].rename("n_0_flow"), left_index=True, right_index=True)
+            lines = pd.merge(lines, result_data.n_1_flow[timestep].rename("n_1_flow"), left_index=True, right_index=True)
         else:
             result_data = market_result.create_averaged_result_data()
-            n_0_flows = result_data.n_0_flow
-            dcline_flow = result_data.dc_flow
+            dclines = pd.merge(dclines, result_data.dc_flow.rename("dc_flow"), left_index=True, right_index=True)
             prices = result_data.prices
-            n_1_flows = result_data.n_1_flow
+            lines = pd.merge(lines, result_data.n_0_flow.rename("n_0_flow"), left_index=True, right_index=True)
+            lines = pd.merge(lines, result_data.n_1_flow.rename("n_1_flow"), left_index=True, right_index=True)
 
         fig = go.Figure()
-        # DC Lines
-        dcline_coords = np.array(result_data.dcline_coordinates)
-        lons, lats = [], []
-        customdata = None
-        for dcline in dclines.index:
-            i = dclines.index.get_loc(dcline)
-            lats.extend(dcline_coords[0][i, :])
-            lats.append(None)
-            lons.extend(dcline_coords[1][i, :])
-            lons.append(None)
-            data = [dcline, dclines.loc[dcline, "capacity"], dcline_flow.loc[dcline]]
-            if isinstance(customdata, np.ndarray):
-                customdata = np.vstack([customdata,
-                                        [data for x in range(0, len(dcline_coords[1][i]))],
-                                        [None for x in range(0, len(data))]])
-            else:
-                customdata = np.vstack([[data for x in range(0, len(dcline_coords[1][i]))],
-                                        [None for x in range(0, len(data))]])
+        if show_redispatch and any(nodes.delta_abs > 0):
+            redispatch_trace = create_redispatch_trace(nodes, redispatch_size_reference)
+            for tr in redispatch_trace:
+                fig.add_trace(tr)
+        elif show_curtailment and any(nodes.CURT > 0):
+            curtailment_trace = create_curtailment_trace(nodes)
+            fig.add_trace(curtailment_trace)
+        elif show_infeasibility and any(nodes[["pos", "neg"]] > 0):
+            infeas_trace = create_infeasibilities_trace(nodes)
+            for tr in infeas_trace:
+                fig.add_trace(tr)
 
-        hovertemplate_dclines = "<br>".join(["Line: %{customdata[0]}", 
-                                             "Capcity: %{customdata[1]:.2f} MW",
-                                             "Flow %{customdata[2]:.2f} MW"]) + "<extra></extra>"
+        # DC Lines  
+        dcline_coords = np.array(result_data.dcline_coordinates)
+        lons, lats, customdata = create_custom_data_lines(dclines, dclines[["capacity", "dc_flow"]], dcline_coords)
+        hovertemplate_dclines = "<br>".join(
+            ["Line: %{customdata[0]}", "Capcity: %{customdata[1]:.2f} MW",
+             "Flow %{customdata[2]:.2f} MW"]) + "<extra></extra>"
+            
         fig.add_trace(
             go.Scattermapbox(
                 lon = lons,
@@ -194,55 +199,54 @@ class Visualization():
                 hovertemplate=hovertemplate_dclines
             )
         )
-        line_coords = np.array(result_data.line_coordinates)
-        lines["colors"], lines["alpha"] = line_colors(lines, n_0_flows, n_1_flows, 
-                                                      option=line_color_option,
-                                                      threshold=threshold,
-                                                      highlight_lines=highlight_lines)
 
-        hovertemplate_lines = "<br>".join(["Line: %{customdata[0]}", 
-                                           "Capcity: %{customdata[1]:.2f} MW",
-                                           "N-0 Flow %{customdata[2]:.2f} MW",
-                                           "N-1 Flow %{customdata[3]:.2f} MW"]) + "<extra></extra>"
+        hovertemplate_lines = "<br>".join(
+            ["Line: %{customdata[0]}", "Capcity: %{customdata[1]:.2f} MW",
+            "N-0 Flow %{customdata[2]:.2f} MW", "N-1 Flow %{customdata[3]:.2f} MW"]
+        ) + "<extra></extra>"
+
+        if line_color_option == 0:
+            lines["colors"], lines["alpha"] = line_colors(
+                lines, "n_0_flow", threshold=threshold, loading_range=loading_range
+            )
+            datacols = ["n_0_flow", "n_1_flow"]
+        elif line_color_option == 1:
+            lines["colors"], lines["alpha"] = line_colors(
+                lines, "n_1_flow", threshold=threshold, loading_range=loading_range
+            )
+            datacols = ["n_0_flow", "n_1_flow"]
+        else:
+            lines["colors"] = line_voltage_colors(lines)
+            lines["alpha"] = [0.6 for i in lines.index]
+            datacols = []
+            # Remove part of hovertemple related to lineflows
+            hovertemplate_lines.replace("<br>N-0 Flow %{customdata[2]:.2f} MW<br>N-1 Flow %{customdata[3]:.2f} MW", "")
+        if isinstance(highlight_lines, list) and len(highlight_lines) > 0:
+            lines["alpha"] = [1 if l in highlight_lines else 0.2 for l in lines.index]
+
+
+    
         # Add Lines for each color
+        line_coords = np.array(result_data.line_coordinates)
         for color, alpha in (lines[["colors", "alpha"]].apply(tuple, axis=1).unique()):
-            tmp_lines = lines[(lines.colors == color)&(lines.alpha == alpha)]
-            # tmp_lines_idx = [lines.index.get_loc(line) for line in tmp_lines.index]
-            alpha = alpha
-            lons, lats = [], []
-            customdata = None
-            for line in tmp_lines.index:
-                i = lines.index.get_loc(line)
-                lats.extend(line_coords[0][i, :])
-                lats.append(None)
-                lons.extend(line_coords[1][i, :])
-                lons.append(None)
-                data = [line, lines.loc[line, "capacity"], n_0_flows.loc[line], n_1_flows.loc[line]]
-                if isinstance(customdata, np.ndarray):
-                    customdata = np.vstack([customdata,
-                                            [data for x in range(0, len(line_coords[1][i]))],
-                                            [None for x in range(0, len(data))]])
-                else:
-                    customdata = np.vstack([[data for x in range(0, len(line_coords[1][i]))],
-                                            [None for x in range(0, len(data))]])
-
+            tmp_lines = list(lines[(lines.colors == color)&(lines.alpha == alpha)].index)
+            lons, lats, customdata = create_custom_data_lines( 
+                lines, lines[["capacity"] + datacols], line_coords, subset=tmp_lines
+            )
             fig.add_trace(
                 go.Scattermapbox(
                     lon = lons,
                     lat = lats,
                     mode = 'lines',
-                    line = dict(width = 2, color=color),
+                    line = dict(width = 5, color=color),
                     opacity = alpha,
                     customdata=customdata,
                     hovertemplate=hovertemplate_lines
                     )
                 )
-            
-        # Highlight Nodes
-        affected_nodes = []
+        # Plot highlighted nodes
         if isinstance(highlight_nodes, list):
             condition = nodes.index.isin(highlight_nodes)
-            affected_nodes = highlight_nodes
             fig.add_trace(go.Scattermapbox(
                 lon = nodes.loc[condition, 'lon'],
                 lat = nodes.loc[condition, 'lat'],
@@ -250,171 +254,54 @@ class Visualization():
                 marker = go.scattermapbox.Marker(
                     color = "#EF7FFF", # Pink 
                     opacity=1,
-                    size=30),
-                customdata=nodes.loc[condition, ["zone"]].reset_index(),
+                    size=30
+                ),
+                customdata=nodes[["zone", "name"]].reset_index(),
                 hovertemplate=
                 "<br>".join([
                     "Node: %{customdata[0]}",
                     "Zone: %{customdata[1]}",
+                    "Name: %{customdata[2]}",
                 ]) + "<extra></extra>"
             ))
-
-        if show_redispatch and any(nodes.delta_abs > 0):
-
-            affected_nodes = nodes.index[nodes.delta_abs > 0]
-            nodes.loc[:, "delta_abs"] /= 1000
-            if isinstance(redispatch_reference, (int, float)):
-                sizeref = 2*redispatch_reference/20**2
-                print("sizeref 1", sizeref)
-            else:
-                sizeref = 2*max(nodes['delta_abs'])/20**2
-                print("sizeref 2", sizeref)
-
-            print(max(nodes['delta_abs']))
-            for condition, color in zip([nodes["delta"] < 0, nodes["delta"] > 0], ["red", "green"]):
-                markers = go.scattermapbox.Marker(
-                    size = nodes.loc[condition, 'delta_abs'],
-                    sizeref = sizeref,
-                    sizemin = 1,
-                    sizemode='area',
-                    color = color,
-                    opacity=0.8,
-                    # line = {"color": 'rgb(40,40,40)'},
-                    # line_width=0.5,
-                    autocolorscale=True
-                    )
-                customdata = nodes.loc[condition, ["zone", "delta_abs"]].reset_index()
-                fig.add_trace(go.Scattermapbox(
-                    lon = nodes.loc[condition, 'lon'],
-                    lat = nodes.loc[condition, 'lat'],
-                    marker = markers,
-                    customdata=customdata,
-                    hovertemplate=
-                    "<br>".join([
-                        "Node: %{customdata[0]}",
-                        "Zone: %{customdata[1]}",
-                        "Redispatch: %{customdata[2]:.2f} GWh",
-                    ]) + "<extra></extra>"
-                ))
-
-        elif show_curtailment and any(nodes.CURT > 0):
-            condition = (nodes.CURT > 0)
-            affected_nodes = nodes.index[condition]
-            sizeref = max(2*max(nodes.loc[condition, 'CURT'])/12**2, 1)
-            fig.add_trace(go.Scattermapbox(
-                lon = nodes.loc[condition, 'lon'],
-                lat = nodes.loc[condition, 'lat'],
-                mode = 'markers',
-                marker = go.scattermapbox.Marker(
-                    color = "#8A31BD", # Purple
-                    opacity=0.8,
-                    sizeref = sizeref,
-                    sizemin = 3,
-                    size=nodes.loc[condition, "CURT"]),
-                customdata=nodes.loc[condition, ["zone", "CURT"]].reset_index(),
-                hovertemplate=
-                "<br>".join([
-                    "Node: %{customdata[0]}",
-                    "Zone: %{customdata[1]}",
-                    "Curtailment: %{customdata[2]:.2f} MW",
-                ]) + "<extra></extra>"
-            ))
-
-        elif show_infeasibility and any(nodes[["pos", "neg"]] > 0):
-            affected_nodes = nodes.index[(nodes[["pos", "neg"]] > 0).any(axis=1)]
-            sizeref = max(4*nodes[["pos", "neg"]].max().max()/12**2, 1)
-            for col, color in zip(["pos", "neg"], ["#4575B4", "#F46D43"]):
-                condition = nodes[col] > 0
-                fig.add_trace(go.Scattermapbox(
-                    lon = nodes.loc[condition, 'lon'],
-                    lat = nodes.loc[condition, 'lat'],
-                    mode = 'markers',
-                    marker = go.scattermapbox.Marker(
-                        color = color,
-                        opacity=0.8,
-                        sizeref = sizeref,
-                        sizemin = 3,
-                        size=nodes.loc[condition, col]),
-                    customdata=nodes.loc[condition, ["zone", "pos", "neg"]].reset_index(),
-                    hovertemplate=
-                    "<br>".join([
-                        "Node: %{customdata[0]}",
-                        "Zone: %{customdata[1]}",
-                        "Infeasibilities: + %{customdata[2]:.2f}, - %{customdata[3]:.2f} MW",
-                    ]) + "<extra></extra>"
-                ))
-        
-        # Plot the remaining nodes
+        # Plot all nodes at least as a blued dot. 
         fig.add_trace(go.Scattermapbox(
-            lon = nodes[~nodes.index.isin(affected_nodes)].lon,
-            lat = nodes[~nodes.index.isin(affected_nodes)].lat,
+            lon = nodes.lon,
+            lat = nodes.lat,
             mode = 'markers',
             marker = go.scattermapbox.Marker(
                 color = "#3283FE", # Blue
                 opacity=0.8
                 ), 
-            customdata=nodes[~nodes.index.isin(affected_nodes)][["zone"]].reset_index(),
+            customdata=nodes[["zone", "name"]].reset_index(),
             hovertemplate=
             "<br>".join([
                 "Node: %{customdata[0]}",
                 "Zone: %{customdata[1]}",
+                "Name: %{customdata[2]}",
             ]) + "<extra></extra>"
         ))
-
+        
         if show_prices:
-            colorscale = "RdBu_r"
-            contours = 15
-            price_high = 60
-            price_low = 50
-            prices_layer, coordinates, hight_width = add_prices_layer(nodes, prices, price_compress)
-            price_fig = go.Figure(
-                data=go.Contour(z=prices_layer, 
-                                showscale=False, 
-                                colorscale=colorscale, 
-                                ncontours=contours,
-                                # contours=dict(start=price_low,end=price_high,size=30/contours)
-                                )
-            )
-            price_fig.update_layout(
-                width=5e3, height=5e3*hight_width, 
-                xaxis = {'visible': False},
-                yaxis = {'visible': False},
-                margin={"r":0,"t":0,"l":0,"b":0}
-                )
-            
-            img_pil = Image.open(io.BytesIO(price_fig.to_image()))
-            price_layer =  {   
-                    "below": 'traces',
-                    "sourcetype": "image",
-                    "source": img_pil,
-                    "coordinates": coordinates,
-                    "opacity": .25,
-                }
-            # Price Colorbar
-            price_colorbar = go.Scatter(x=[None],y=[None],
-                                        mode='markers',
-                                        marker=dict(
-                                            colorscale=colorscale, 
-                                            showscale=True,
-                                            cmin=prices_layer.min().round(2),
-                                            cmax=prices_layer.max().round(2),
-                                            colorbar=dict(thickness=5)
-                                        ), hoverinfo='none')
+            price_layer, price_colorbar = create_price_layer(nodes, prices)
             fig.add_trace(price_colorbar)
-        else:
+        else: # Otherwise include a colorbar for lineloadings
             price_layer = {}
-            lines_colorbar = go.Scatter(x=[None],y=[None],
-                                        mode='markers',
-                                        marker=dict(
-                                            colorscale="RdYlGn", 
-                                            reversescale=True,
-                                            showscale=True,
-                                            cmin=0,
-                                            cmax=1,
-                                            colorbar=dict(thickness=5)
-                                        ), hoverinfo='none')
-            fig.add_trace(lines_colorbar)
-
+            lines_colorbar_trade = go.Scatter(
+                x=[None], y=[None], 
+                mode='markers',
+                hoverinfo='none',
+                marker=dict(
+                    colorscale="RdYlGn", 
+                    reversescale=True, 
+                    showscale=True, 
+                    cmin=loading_range[0]/100, 
+                    cmax=loading_range[1]/100, 
+                    colorbar=dict(thickness=5)
+                ), 
+            )
+            fig.add_trace(lines_colorbar_trade)
+        
         center = {
             'lon': round((max(nodes.lon) + min(nodes.lon)) / 2, 6),
             'lat': round((max(nodes.lat) + min(nodes.lat)) / 2, 6)
@@ -437,8 +324,8 @@ class Visualization():
                 "style": "carto-positron",
                 # "layers": [map_layer, price_layer],
                 "layers": [price_layer],
-                # "zoom": 3,
-                # "center": center
+                "zoom": 3,
+                "center": center
                 },
             xaxis = {'visible': False},
             yaxis = {'visible': False})
@@ -1012,14 +899,17 @@ class Visualization():
             If filepath is supplied, saves figure as .html, by default None
         """
 
-        if isinstance(market_results, list) and all(isinstance(e, pomato.data.Results) for e in market_results):
+        if isinstance(market_results, list): # and all(isinstance(e, pomato.data.Results) for e in market_results):
             market_result_dict = {result.result_attributes["title"]: result for result in market_results}
         elif isinstance(market_results, dict):
             market_result_dict = market_results
         else:
             raise TypeError("Submit list of market results")    
 
-        gen = pd.DataFrame()
+        gen = []
+        cols = ['fuel','G', 'technology', 'delta', 'delta_abs', 
+                'delta_pos', 'delta_neg', 'result']
+
         for result_name, result in market_result_dict.items(): 
             if (result.result_attributes["is_redispatch_result"] and 
                 result.result_attributes["corresponding_market_result_name"]):
@@ -1027,23 +917,17 @@ class Visualization():
                 tmp = tmp.rename(columns={"G_redispatch": "G"})
             else:
                 tmp = result.generation()
-                tmp["delta"] = 0
-                tmp["delta_abs"] = 0
+                tmp[['delta', 'delta_abs', 'delta_pos', 'delta_neg']] = 0
             tmp["result"] = result_name
-            if gen.empty:
-                gen = tmp
-            else:
-                gen = pd.concat([gen, tmp], ignore_index=True)
-        
-        if isinstance(zones, list):
-            gen = gen[gen.zone.isin(zones)]
-            
-        names = color_map(gen)
-        gen.loc[:, ["G", "delta", "delta_abs"]] /= 1000
-        gen["positive_redispatch"] = gen.loc[gen.delta > 0, "delta"]
-        gen["negative_redispatch"] = gen.loc[gen.delta < 0, "delta"]
-        gen = gen.groupby(["fuel", "technology", "result"]).sum().reset_index()
+            if isinstance(zones, list):
+                tmp = tmp[tmp.zone.isin(zones)]
 
+            tmp = tmp[cols].groupby(["fuel", "technology", "result"], observed=True).sum().reset_index()
+            gen.append(tmp)
+
+        gen = pd.concat(gen)    
+        names = color_map(gen)
+        gen.loc[:, ["G", "delta", "delta_abs", "delta_pos", "delta_neg"]] /= 1000
         gen = pd.merge(gen, names, on=["fuel", "technology"])
         gen["percentage_gen"] = 0
         gen["total_redispatch"] = 0
@@ -1075,7 +959,7 @@ class Visualization():
                 customdata=gen.loc[gen.name == name, ["name", "G", "percentage_gen"]],
                 width=0.8,
                 yaxis='y1'))
-            for redispatch in ["positive_redispatch", "negative_redispatch"]:
+            for redispatch in ["delta_pos", "delta_neg"]:
                 data.append(go.Bar(
                     name=name, 
                     legendgroup=name,

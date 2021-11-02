@@ -184,7 +184,7 @@ class Results():
         if not folder.is_dir():
             folder.mkdir()
         file = folder.joinpath(name)
-        df.reset_index(drop=True).to_feather(file)
+        df.reset_index().to_feather(file)
         self._cached_results[name] = file
 
     def read_cached_result(self, name):
@@ -194,7 +194,7 @@ class Results():
             raise ValueError("Result not cached yet.")
         else:
             file = self._cached_results[name]
-            df = pd.read_feather(file)
+            df = pd.read_feather(file).set_index("index")
             return df
 
     def result_data_struct(self):
@@ -312,6 +312,10 @@ class Results():
                        suffixes=("_market", "_redispatch"))
         gen["delta"] = gen["G_redispatch"] - gen["G_market"]
         gen["delta_abs"] = gen["delta"].abs()
+        gen[["delta_pos", "delta_neg"]] = 0
+        gen.loc[gen.delta > 0, "delta_pos"] = gen.loc[gen.delta > 0, "delta"]
+        gen.loc[gen.delta < 0, "delta_neg"] = gen.loc[gen.delta < 0, "delta"]
+
         gen = tools.reduce_df_size(gen)
         self.cache_to_disk(gen, "redispatch")
         return gen
@@ -545,7 +549,7 @@ class Results():
         inj = inj.loc[self.model_horizon, self.data.nodes.index]
         flow = np.dot(self.grid.ptdf, inj.T)
         n_0_flows = pd.DataFrame(index=self.data.lines.index, columns=self.model_horizon, data=flow)
-
+        n_0_flows.index.name = 'index'
         self.cache_to_disk(n_0_flows, "n_0_flows")
         return n_0_flows
 
@@ -589,7 +593,7 @@ class Results():
 
         self.logger.info("Done Calculating N-1 Flows")
         n_1_flows = n_1_flows.loc[:, ["cb", "co"] + self.model_horizon]
-        
+        n_1_flows.index.name = 'index'
         self.cache_to_disk(n_1_flows, "n_1_flows")
         return n_1_flows
 

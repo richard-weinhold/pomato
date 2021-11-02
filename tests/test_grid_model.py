@@ -41,7 +41,7 @@ class TestPomatoGridModel(unittest.TestCase):
         cls.grid = pomato.grid.GridTopology()
         cls.grid.calculate_parameters(cls.data.nodes, cls.data.lines)
         cls.grid_model = pomato.grid.GridModel(cls.wdir, cls.grid, cls.data, cls.options)
-        cls.grid_model.logger.setLevel(logging.ERROR)
+        cls.grid_model.logger.setLevel(logging.INFO)
 
     def setUp(self):
         pass

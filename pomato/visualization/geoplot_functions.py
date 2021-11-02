@@ -1,15 +1,19 @@
 """Collection of functions used in the generation of the GeoPlot."""
 
+import io
 from math import atan2
+
 import geojson
 import numpy as np
-from numpy.lib.arraysetops import isin
 import pandas as pd
+import plotly.graph_objects as go
 import scipy
 import scipy.spatial
 import shapely
 import shapely.geometry
 import shapely.ops
+from PIL import Image
+
 
 def merc(lat, lon):
     """convert lat lon to x,y"""
@@ -105,48 +109,26 @@ def add_prices_layer(nodes, prices, compress=True):
     return prices_layer, corners, plot_hight/plot_width
 
 
-def line_colors(lines, n_0_flows, n_1_flows, threshold=0, highlight_lines=None, 
-                option=0, range_start=0, range_end=100):
+def line_colors(line_data, flow_type="n_0_flow", threshold=0, loading_range=(0,100)):
     """Line colors in 10 shades of RedYellowGreen palette"""
     ## 0: N-0 Flows, 1: N-1 Flows 2: Line voltage levels
     # timesteps = 't'+ "{0:0>4}".format(int(slider.value))
-    stepsize = round((range_end - range_start)/10, 3)
-    steps = [range_start + i*stepsize for i in range(0, 10)]
+    stepsize = round((loading_range[1] - loading_range[0])/10, 3)
+    steps = [loading_range[0] + i*stepsize for i in range(0, 10)]
     RdYlGn = ('#006837', '#1a9850', '#66bd63', '#a6d96a', '#d9ef8b', 
               '#fee08b', '#fdae61', '#f46d43', '#d73027', '#a50026') 
-    if option == 0:
-        n_0_flows = n_0_flows.to_frame()
-        n_0_flows.columns = ["flow"]
-        n_0_flows["alpha"] = 0.7
-        condition_threshold = abs(n_0_flows.flow.values)/lines.capacity < threshold/100
-        n_0_flows.loc[condition_threshold, "alpha"] = 0.1
-        n_0_flows["color"] = RdYlGn[0]
-        for idx, loading in enumerate(steps):
-            condition = abs(n_0_flows.flow.values)/lines.capacity > loading/100
-            n_0_flows.loc[condition, "color"] = RdYlGn[idx]
-        color = list(n_0_flows.color.values)
-        line_alpha = list(n_0_flows.alpha.values)
+    flows = line_data[flow_type].to_frame()
+    flows.columns = ["flow"]
+    flows["alpha"] = 0.8
+    condition_threshold = abs(flows.flow.values)/line_data.capacity < threshold/100
+    flows.loc[condition_threshold, "alpha"] = 0.1
+    flows["color"] = RdYlGn[0]
+    for idx, loading in enumerate(steps):
+        condition = abs(flows.flow.values)/line_data.capacity > loading/100
+        flows.loc[condition, "color"] = RdYlGn[idx]
+    color = list(flows.color.values)
+    line_alpha = list(flows.alpha.values)
 
-    elif option == 1:
-        n_1_flows = n_1_flows.to_frame()
-        n_1_flows.columns = ["flow"]
-        n_1_flows["alpha"] = 0.7
-        condition_threshold = abs(n_1_flows.flow.values)/lines.capacity < threshold/100
-        n_1_flows.loc[condition_threshold, "alpha"] = 0.1
-
-        n_1_flows["color"] = RdYlGn[0]
-        for idx, loading in enumerate(steps):
-            condition = abs(n_1_flows.flow.values)/lines.capacity > loading/100
-            n_1_flows.loc[condition, "color"] = RdYlGn[idx]
-        color = list(n_1_flows.color.values)
-        line_alpha = list(n_1_flows.alpha.values)
-    
-    elif option == 2:
-        color = create_voltage_colors(lines)
-        line_alpha = [0.6 for i in lines.index]
-
-    if isinstance(highlight_lines, list) and len(highlight_lines) > 0:
-        line_alpha = [1 if l in highlight_lines else 0.2 for l in lines.index]
 
     return color, line_alpha
 
@@ -219,7 +201,7 @@ def line_coordinates(lines, nodes):
                    yj + np.sin(alpha2)*d, yj])
     return line_x, line_y
 
-def create_voltage_colors(lines): 
+def line_voltage_colors(lines): 
     #{380: 'red', 400: 'red', 220: 'green', 232: 'green', 165: 'grey', 150: 'grey', 132: 'black'}
     if not "voltage" in lines.columns:
         lines[["voltage"]] = lines[["type"]].copy()
@@ -241,3 +223,153 @@ def create_voltage_colors(lines):
             tmp.loc[line, "color"] = "purple"
 
     return list(tmp.color)
+
+
+def create_redispatch_trace(nodes, reference_size):
+    nodes.loc[:, ["delta_abs", "delta_pos", "delta_neg"]] /= 1000
+
+    if isinstance(reference_size, (int, float)):
+        sizeref = 2*reference_size/20**2
+    else:
+        sizeref = 2*max(nodes['delta_abs'])/20**2
+
+    trace = []
+    for pos_neg, condition, color in zip(["delta_neg", "delta_pos"], [nodes["delta_neg"] < 0, nodes["delta_pos"] > 0], ["red", "green"]):
+        markers = go.scattermapbox.Marker(
+            size = nodes.loc[condition, pos_neg].abs(),
+            sizeref = sizeref,
+            sizemin = 1,
+            sizemode='area',
+            color = color,
+            opacity=0.8,
+            # line = {"color": 'rgb(40,40,40)'},
+            # line_width=0.5,
+            autocolorscale=True
+            )
+        # Custom Data One for both pos/neg redispatch
+        customdata = nodes.loc[condition, ["zone", "delta_pos", "delta_neg"]].reset_index()
+        trace.append(go.Scattermapbox(
+            lon = nodes.loc[condition, 'lon'],
+            lat = nodes.loc[condition, 'lat'],
+            marker = markers,
+            customdata=customdata,
+            hovertemplate=
+            "<br>".join([
+                "Node: %{customdata[0]}",
+                "Zone: %{customdata[1]}",
+                "Positive Redispatch: %{customdata[2]:.2f} GWh",
+                "Negative Redispatch: %{customdata[3]:.2f} GWh",
+            ]) + "<extra></extra>"
+        ))
+    return trace
+
+def create_curtailment_trace(nodes):
+    condition = (nodes.CURT > 0)
+    sizeref = max(2*max(nodes.loc[condition, 'CURT'])/12**2, 1)
+    trace = go.Scattermapbox(
+        lon = nodes.loc[condition, 'lon'],
+        lat = nodes.loc[condition, 'lat'],
+        mode = 'markers',
+        marker = go.scattermapbox.Marker(
+            color = "#8A31BD", # Purple
+            opacity=0.8,
+            sizeref = sizeref,
+            sizemin = 3,
+            size=nodes.loc[condition, "CURT"]),
+        customdata=nodes.loc[condition, ["zone", "CURT"]].reset_index(),
+        hovertemplate=
+        "<br>".join([
+            "Node: %{customdata[0]}",
+            "Zone: %{customdata[1]}",
+            "Curtailment: %{customdata[2]:.2f} MW",
+        ]) + "<extra></extra>"
+    )
+    return trace
+    
+def create_infeasibilities_trace(nodes):
+    sizeref = max(4*nodes[["pos", "neg"]].max().max()/12**2, 1)
+    trace = []
+    for col, color in zip(["pos", "neg"], ["#4575B4", "#F46D43"]):
+        condition = nodes[col] > 0
+        trace.append(go.Scattermapbox(
+            lon = nodes.loc[condition, 'lon'],
+            lat = nodes.loc[condition, 'lat'],
+            mode = 'markers',
+            marker = go.scattermapbox.Marker(
+                color = color,
+                opacity=0.8,
+                sizeref = sizeref,
+                sizemin = 3,
+                size=nodes.loc[condition, col]),
+            customdata=nodes.loc[condition, ["zone", "pos", "neg"]].reset_index(),
+            hovertemplate=
+            "<br>".join([
+                "Node: %{customdata[0]}",
+                "Zone: %{customdata[1]}",
+                "Infeasibilities: + %{customdata[2]:.2f}, - %{customdata[3]:.2f} MW",
+            ]) + "<extra></extra>"
+        ))
+    return trace
+
+def create_price_layer(nodes, prices):
+    colorscale = "RdBu_r"
+    contours = 15
+    # price_high = 60
+    # price_low = 50
+    price_compress = True
+    prices_layer, coordinates, hight_width = add_prices_layer(nodes, prices, price_compress)
+    price_fig = go.Figure(
+        data=go.Contour(z=prices_layer, 
+                        showscale=False, 
+                        colorscale=colorscale, 
+                        ncontours=contours,
+                        # contours=dict(start=price_low,end=price_high,size=30/contours)
+                        )
+    )
+    price_fig.update_layout(
+        width=5e3, height=5e3*hight_width, 
+        xaxis = {'visible': False},
+        yaxis = {'visible': False},
+        margin={"r":0,"t":0,"l":0,"b":0}
+        )
+    
+    img_pil = Image.open(io.BytesIO(price_fig.to_image()))
+    price_layer =  {   
+            "below": 'traces',
+            "sourcetype": "image",
+            "source": img_pil,
+            "coordinates": coordinates,
+            "opacity": .25,
+        }
+    # Price Colorbar
+    price_colorbar = go.Scatter(
+        x=[None],y=[None], 
+        mode='markers',
+        hoverinfo='none',
+        marker=dict(
+            colorscale=colorscale, 
+            showscale=True,
+            cmin=prices_layer.min().round(2),
+            cmax=prices_layer.max().round(2),
+            colorbar=dict(thickness=5)) 
+    )
+
+    return price_layer, price_colorbar
+
+def create_custom_data_lines(lines, dispay_data, line_coords, subset=None):
+    if not isinstance(subset, list):
+        subset = lines.index
+    lons, lats = [], []
+    customdata = np.empty((0, len(dispay_data.columns) + 1))
+    for line in subset:
+        i = lines.index.get_loc(line)
+        lats.extend(line_coords[0, i])
+        lats.append(None)
+        lons.extend(line_coords[1, i])
+        lons.append(None)
+        customdata = np.vstack(
+            [customdata, 
+            np.tile([line] + list(dispay_data.loc[line, :]), (len(line_coords[0, i]),1)),
+            np.repeat(None, len(dispay_data.columns) + 1)
+        ])
+    return lons, lats, customdata

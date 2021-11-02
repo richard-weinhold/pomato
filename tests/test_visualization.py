@@ -161,8 +161,8 @@ class TestPomatoVisualization(unittest.TestCase):
 class TestPomatoDashboard(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        temp_dir = tempfile.TemporaryDirectory()
-        wdir = Path(temp_dir.name)
+        cls.temp_dir = tempfile.TemporaryDirectory()
+        wdir = Path(cls.temp_dir.name)
         copytree(Path.cwd().joinpath("examples"), wdir)
         copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), wdir)
 
@@ -185,7 +185,7 @@ class TestPomatoDashboard(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.dashboard = None
-
+        cls.temp_dir = None
     @staticmethod
     def sample_click_line():
         return {

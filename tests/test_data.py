@@ -14,7 +14,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 import pomato
-from pomato.tools import copytree
+from pomato.tools import copytree, create_folder_structure
 
 
 class TestPomatoData(unittest.TestCase):
@@ -22,10 +22,9 @@ class TestPomatoData(unittest.TestCase):
     def setUpClass(cls):
         cls.temp_dir = tempfile.TemporaryDirectory()
         cls.wdir = Path(cls.temp_dir.name)
-
         copytree(Path.cwd().joinpath("examples"), cls.wdir)
         copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), cls.wdir)
-
+        create_folder_structure(cls.wdir)
         with open(cls.wdir.joinpath("profiles/nrel118.json")) as opt_file:
                 loaded_options = json.load(opt_file)
         cls.options = pomato.tools.add_default_options(loaded_options) 
@@ -40,6 +39,7 @@ class TestPomatoData(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
+        # pass
         cls.data = None
         cls.temp_dir = None
 
@@ -150,7 +150,7 @@ class TestPomatoResults(unittest.TestCase):
 
         copytree(Path.cwd().joinpath("examples"), wdir)
         copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), wdir)
-
+        
         mato = pomato.POMATO(wdir=wdir, options_file="profiles/nrel118.json",
                                  logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/nrel_118.zip')
