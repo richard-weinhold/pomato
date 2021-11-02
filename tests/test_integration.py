@@ -33,7 +33,6 @@ class TestPomatoMarketModel(unittest.TestCase):
 
     @classmethod
     def tearDownClass(cls):
-        cls.mato = None
         cls.wdir = None
         cls.temp_dir = None
     
@@ -78,5 +77,5 @@ class TestPomatoMarketModel(unittest.TestCase):
         mato.create_grid_representation(flowbased_paramters=fb_parameters)
         mato.update_market_model_data()
         mato.run_market_model()
-        mato.visualization.create_generation_overview(mato.data.results.values(), show_plot=False)
+        mato.visualization.create_generation_overview(list(mato.data.results.values()), show_plot=False)
         mato._join_julia_instances()

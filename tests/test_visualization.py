@@ -45,6 +45,9 @@ class TestPomatoVisualization(unittest.TestCase):
 
         cls.mato.initialize_market_results([market_folder, redispatch_folder])
         cls.mato.data.results["dispatch_redispatch"].result_attributes["corresponding_market_result_name"] = "dispatch_market_results"
+        
+        for r in cls.mato.data.results.values():
+            r.create_averaged_result_data()
 
     def setUp(self):
         pass
