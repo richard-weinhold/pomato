@@ -223,8 +223,6 @@ class Visualization():
             hovertemplate_lines.replace("<br>N-0 Flow %{customdata[2]:.2f} MW<br>N-1 Flow %{customdata[3]:.2f} MW", "")
         if isinstance(highlight_lines, list) and len(highlight_lines) > 0:
             lines["alpha"] = [1 if l in highlight_lines else 0.2 for l in lines.index]
-
-
     
         # Add Lines for each color
         line_coords = np.array(result_data.line_coordinates)

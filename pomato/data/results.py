@@ -1,14 +1,15 @@
 import json
 import logging
-
-import numpy as np
-import pandas as pd
+import shutil
 import types
 from copy import deepcopy
 from zipfile import ZipFile
 
+import numpy as np
+import pandas as pd
 import pomato.tools as tools
 from pomato.visualization.geoplot_functions import line_coordinates
+
 
 class Results():
     """Results of POMATO makes market results available to the user.
@@ -196,6 +197,15 @@ class Results():
             file = self._cached_results[name]
             df = pd.read_feather(file).set_index("index")
             return df
+
+    def _clear_cached_results(self):
+        self._cached_results = {}
+        self._cached_result_structs = types.SimpleNamespace(
+            result_data=None,
+            averaged_result_data=None,
+        )
+        folder = self.wdir.joinpath("data_temp/results_cache").joinpath(str(id(self)))
+        shutil.rmtree(folder, ignore_errors=True)
 
     def result_data_struct(self):
         """Data struct, as a standart template for result processing.

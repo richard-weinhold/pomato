@@ -77,19 +77,21 @@ class MarketModel():
         """Start julia subprocess."""
         self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model")
 
+    @property
+    def model_horizon(self):
+        model_horizon_range = range(self.options["model_horizon"][0],
+                                    self.options["model_horizon"][1])
+        timesteps = self.data.demand_el.timestep.unique()
+        model_horizon = [str(x) for x in timesteps[model_horizon_range]]
+        return model_horizon
+    
     def update_data(self):
         """Initialise or update the underlying data of the market model.
 
         Updates all data used to run the market model: input data, grid representation, options and
         model horizon by running :meth:`~data_to_csv`.
         """
-
-        model_horizon_range = range(self.options["model_horizon"][0],
-                                    self.options["model_horizon"][1])
-
-        timesteps = self.data.demand_el.timestep.unique()
-        model_horizon = [str(x) for x in timesteps[model_horizon_range]]
-        self.data_to_csv(model_horizon)
+        self.data_to_csv()
 
     def run(self):
         """Run the julia program via command Line.
@@ -138,20 +140,17 @@ class MarketModel():
             self.logger.warning("Process not terminated successfully!")
             self.status = 'error'
     
-    def save_rolling_horizon_storage_levels(self, model_horizon):
+    def save_rolling_horizon_storage_levels(self):
         """Set start/end storage levels for rolling horizon market clearing.
         
         This method alters the *storage_level* attribute of the :class:`~pomato.data.DataManagement`
         instance, when market model horizon shorter than total model horizon. Per default storage levels 
         are 65% of total capacity, however the storage_level attribute can be edited manually. 
         
-        Parameters
-        ----------
-        model_horizon : list
-            List of timesteps that are the model horizon
         """
-
-        splits = int(len(model_horizon)/self.options["timeseries"]["market_horizon"])
+        
+        model_horizon = self.model_horizon
+        splits = round(len(model_horizon)/self.options["timeseries"]["market_horizon"])
         market_model_horizon = self.options["timeseries"]["market_horizon"]
         splits_start = [model_horizon[t*market_model_horizon] for t in range(0, splits)]
 
@@ -177,7 +176,7 @@ class MarketModel():
         data = []
         for plant in self.data.plants[self.data.plants.plant_type.isin(self.options["plant_types"]["es"])].index:
             for t_start, t_end in zip(splits_start, splits_end):
-                if ((t_split_map[t_start], plant) in storage_level.index) and (self.data.plants.loc[plant, "plant_type"] == "hydro_res"):
+                if ((t_split_map[t_start], plant) in storage_level.index): # and (self.data.plants.loc[plant, "plant_type"] == "hydro_res"):
                     data.append([t_start, plant, 
                                 storage_level.loc[(t_split_map[t_start], plant), "storage_level"],
                                 storage_level.loc[(t_split_map[t_end], plant), "storage_level"]])
@@ -208,11 +207,9 @@ class MarketModel():
                     tmp_storage_level.loc[condition, "storage_start"] = tmp_storage_level.loc[condition, "storage_start"].rolling(window, min_periods=1).mean()
                     tmp_storage_level.loc[condition, "storage_end"] = tmp_storage_level.loc[condition, "storage_end"].rolling(window, min_periods=1).mean()
 
-        # tmp store for debug and then save into data folder for MarketModel
-        self.storage_levels_used = tmp_storage_level
-        self.storage_levels_used.to_csv(str(self.data_dir.joinpath('storage_level.csv')), index_label='index')
+        return tmp_storage_level
         
-    def data_to_csv(self, model_horizon):
+    def data_to_csv(self):
         """Export input data to csv files in the data_dir sub-directory.
 
         Writes all data specified in the *model structure* attribute of DataManagement to csv.
@@ -225,10 +222,12 @@ class MarketModel():
         model_horizon : list
             List of timesteps that are the model horizon
         """
+        
         if not self.data_dir.is_dir():
             self.data_dir.mkdir()
-        
-        
+
+        model_horizon = self.model_horizon
+
         for data in [d for d in self.data.model_structure]:
             cols = [col for col in self.data.model_structure[data].keys() if col != "index"]
             if "timestep" in cols:
@@ -237,7 +236,8 @@ class MarketModel():
             else:
                 getattr(self.data, data)[cols].to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
 
-        self.save_rolling_horizon_storage_levels(model_horizon)
+        storage_level = self.save_rolling_horizon_storage_levels()
+        storage_level.to_csv(str(self.data_dir.joinpath('storage_level.csv')), index_label='index')
 
         plant_types = pd.DataFrame(index=self.data.plants.plant_type.unique())
         for ptype in self.options["plant_types"]:

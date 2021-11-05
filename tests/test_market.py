@@ -33,7 +33,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         pomato.tools.create_folder_structure(cls.wdir)
         cls.options = pomato.tools.default_options()
         cls.data = pomato.data.DataManagement(cls.options, cls.wdir)
-        cls.data.load_data('data_input/pglib_opf_case118_ieee.m')
+        cls.data.load_data('data_input/nrel_118.zip')
         cls.grid = pomato.grid.GridTopology()
         cls.grid.calculate_parameters(cls.data.nodes, cls.data.lines)
         cls.grid_model = pomato.grid.GridModel(cls.wdir, cls.grid, cls.data, cls.options)
@@ -74,3 +74,37 @@ class TestPomatoMarketModel(unittest.TestCase):
         self.grid_model.create_grid_representation()
         self.market_model.update_data()
         self.assertRaises(FileNotFoundError, self.market_model.run)
+
+
+    def test_market_model_rolling_horizon_storage_levels(self):
+        
+        self.options["timeseries"]["market_horizon"] = 20
+        self.options["model_horizon"] = [0, 168]
+        self.options["plant_types"]["es"] = ["es"]
+        model_horizon = self.market_model.model_horizon
+        # Add Storage Plant 
+        es = [["bus026", 0, 100, "es", "water", 0, 0, 100, 1, 1, None, 1000]]
+        self.data.plants = self.data.plants.append(
+            pd.DataFrame(index=["es1"], 
+            columns=self.data.plants.columns, 
+            data=es)
+        ) 
+        self.data.storage_level = pd.DataFrame(
+            columns=self.data.storage_level.columns,
+            data=[["t0001", "es1", 0.5], ["t0168", "es1", 1]]
+        )
+
+        # print("asd")
+        storage_level = self.market_model.save_rolling_horizon_storage_levels()
+        self.assertEqual(
+            len(storage_level), 
+            round(self.options["model_horizon"][1]/self.options["timeseries"]["market_horizon"])
+        )
+        self.assertTrue(all([s in [0.5, 1] for s in storage_level.storage_start]))
+        self.assertTrue(all([s in [0.5, 1] for s in storage_level.storage_end]))
+
+        self.options["timeseries"]["smooth_storage_level"] = True
+        storage_level = self.market_model.save_rolling_horizon_storage_levels()
+
+        self.assertFalse(all([s in [0.5, 1] for s in storage_level.storage_start]))
+        self.assertFalse(all([s in [0.5, 1] for s in storage_level.storage_end]))

@@ -163,7 +163,8 @@ class TestPomatoResults(unittest.TestCase):
         cls.market_result, cls.redispatch_result = mato.data.return_results()
 
     def setUp(self):
-        pass
+        self.market_result._clear_cached_results()
+        self.redispatch_result._clear_cached_results()
 
     @classmethod
     def tearDownClass(cls):
