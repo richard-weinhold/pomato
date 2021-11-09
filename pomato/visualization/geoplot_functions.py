@@ -235,20 +235,20 @@ def create_redispatch_trace(nodes, reference_size):
 
     trace = []
     for pos_neg, condition, color in zip(["delta_neg", "delta_pos"], [nodes["delta_neg"] < 0, nodes["delta_pos"] > 0], ["red", "green"]):
-        markers = go.scattermapbox.Marker(
+        markers = go.scattergeo.Marker(
             size = nodes.loc[condition, pos_neg].abs(),
             sizeref = sizeref,
             sizemin = 1,
             sizemode='area',
             color = color,
-            opacity=0.8,
+            opacity=0.7,
             # line = {"color": 'rgb(40,40,40)'},
-            # line_width=0.5,
+            line_width=0,
             autocolorscale=True
             )
         # Custom Data One for both pos/neg redispatch
         customdata = nodes.loc[condition, ["zone", "delta_pos", "delta_neg"]].reset_index()
-        trace.append(go.Scattermapbox(
+        trace.append(go.Scattergeo(
             lon = nodes.loc[condition, 'lon'],
             lat = nodes.loc[condition, 'lat'],
             marker = markers,
@@ -266,11 +266,11 @@ def create_redispatch_trace(nodes, reference_size):
 def create_curtailment_trace(nodes):
     condition = (nodes.CURT > 0)
     sizeref = max(2*max(nodes.loc[condition, 'CURT'])/12**2, 1)
-    trace = go.Scattermapbox(
+    trace = go.Scattergeo(
         lon = nodes.loc[condition, 'lon'],
         lat = nodes.loc[condition, 'lat'],
         mode = 'markers',
-        marker = go.scattermapbox.Marker(
+        marker = go.scattergeo.Marker(
             color = "#8A31BD", # Purple
             opacity=0.8,
             sizeref = sizeref,
@@ -291,11 +291,11 @@ def create_infeasibilities_trace(nodes):
     trace = []
     for col, color in zip(["pos", "neg"], ["#4575B4", "#F46D43"]):
         condition = nodes[col] > 0
-        trace.append(go.Scattermapbox(
+        trace.append(go.Scattergeo(
             lon = nodes.loc[condition, 'lon'],
             lat = nodes.loc[condition, 'lat'],
             mode = 'markers',
-            marker = go.scattermapbox.Marker(
+            marker = go.scattergeo.Marker(
                 color = color,
                 opacity=0.8,
                 sizeref = sizeref,

@@ -189,7 +189,7 @@ class Visualization():
              "Flow %{customdata[2]:.2f} MW"]) + "<extra></extra>"
             
         fig.add_trace(
-            go.Scattermapbox(
+            go.Scattergeo(
                 lon = lons,
                 lat = lats,
                 mode = 'lines',
@@ -215,9 +215,15 @@ class Visualization():
                 lines, "n_1_flow", threshold=threshold, loading_range=loading_range
             )
             datacols = ["n_0_flow", "n_1_flow"]
-        else:
+        elif line_color_option == 2:
             lines["colors"] = line_voltage_colors(lines)
             lines["alpha"] = [0.6 for i in lines.index]
+            datacols = []
+            # Remove part of hovertemple related to lineflows
+            hovertemplate_lines.replace("<br>N-0 Flow %{customdata[2]:.2f} MW<br>N-1 Flow %{customdata[3]:.2f} MW", "")
+        else:
+            lines["colors"] = ["#737373" for i in lines.index]
+            lines["alpha"] = [.6 for i in lines.index]
             datacols = []
             # Remove part of hovertemple related to lineflows
             hovertemplate_lines.replace("<br>N-0 Flow %{customdata[2]:.2f} MW<br>N-1 Flow %{customdata[3]:.2f} MW", "")
@@ -232,11 +238,11 @@ class Visualization():
                 lines, lines[["capacity"] + datacols], line_coords, subset=tmp_lines
             )
             fig.add_trace(
-                go.Scattermapbox(
+                go.Scattergeo(
                     lon = lons,
                     lat = lats,
                     mode = 'lines',
-                    line = dict(width = 5, color=color),
+                    line = dict(width = 2, color=color),
                     opacity = alpha,
                     customdata=customdata,
                     hovertemplate=hovertemplate_lines
@@ -245,14 +251,16 @@ class Visualization():
         # Plot highlighted nodes
         if isinstance(highlight_nodes, list):
             condition = nodes.index.isin(highlight_nodes)
-            fig.add_trace(go.Scattermapbox(
+            fig.add_trace(go.Scattergeo(
                 lon = nodes.loc[condition, 'lon'],
                 lat = nodes.loc[condition, 'lat'],
                 mode = 'markers',
-                marker = go.scattermapbox.Marker(
-                    color = "#EF7FFF", # Pink 
+                marker = go.scattergeo.Marker(
+                    color = "blue",
                     opacity=1,
-                    size=30
+                    size=12,
+                    line=dict(width=2),
+                    symbol="pentagon-open"
                 ),
                 customdata=nodes[["zone", "name"]].reset_index(),
                 hovertemplate=
@@ -263,13 +271,14 @@ class Visualization():
                 ]) + "<extra></extra>"
             ))
         # Plot all nodes at least as a blued dot. 
-        fig.add_trace(go.Scattermapbox(
+        fig.add_trace(go.Scattergeo(
             lon = nodes.lon,
             lat = nodes.lat,
             mode = 'markers',
-            marker = go.scattermapbox.Marker(
-                color = "#3283FE", # Blue
-                opacity=0.8
+            marker = go.scattergeo.Marker(
+                color = "grey", # "#3283FE" Blue
+                opacity=0.8,
+                size=3
                 ), 
             customdata=nodes[["zone", "name"]].reset_index(),
             hovertemplate=
@@ -298,7 +307,7 @@ class Visualization():
                     colorbar=dict(thickness=5)
                 ), 
             )
-            fig.add_trace(lines_colorbar_trade)
+            # fig.add_trace(lines_colorbar_trade)
         
         center = {
             'lon': round((max(nodes.lon) + min(nodes.lon)) / 2, 6),
@@ -317,14 +326,14 @@ class Visualization():
         fig.update_layout(    
             showlegend = False,
             margin={"r":0,"t":0,"l":0,"b":0},
-            mapbox= {
-                # "style": "white-bg",
-                "style": "carto-positron",
-                # "layers": [map_layer, price_layer],
-                "layers": [price_layer],
-                "zoom": 3,
-                "center": center
-                },
+            # mapbox= {
+            #     # "style": "white-bg",
+            #     # "style": "carto-positron",
+            #     # "layers": [map_layer, price_layer],
+            #     # "layers": [price_layer],
+            #     "zoom": 3,
+            #     "center": center
+            #     },
             xaxis = {'visible': False},
             yaxis = {'visible': False})
 
