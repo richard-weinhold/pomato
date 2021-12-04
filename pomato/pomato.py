@@ -442,3 +442,7 @@ class POMATO():
         """Join Julia instances on deletion."""
         self._join_julia_instances()
         self.stop_dashboard()
+        # Delete temporary files.
+        for result in self.data.results.values():
+            if len(result._cached_results) > 0:
+                result.delete_temporary_files()

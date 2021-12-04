@@ -77,7 +77,7 @@ class Visualization():
     def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, show_infeasibility=False,
                         show_curtailment=False, timestep=None, threshold=0, highlight_nodes=None, redispatch_input=None,
                         redispatch_size_reference=None, loading_range=(0,100), highlight_lines=None, 
-                        line_color_option=0, show_plot=True, filepath=None):
+                        line_color_option=0, show_plot=True, filepath=None, vector_plot=False):
         """Creates Geoplot of market result.
 
         The geoplot is a interactive plotly figure showing lineloading, redispatch and prices 
@@ -96,8 +96,8 @@ class Visualization():
             Timestep for which the load, redispatch or price is plotted. Can be timestep index or
             timestep string identifier. If None, average values are presented. Defaults to None.
         line_color_option : int, optional
-            Lines are colored based on N-0 flows (flow_option = 0), N-1 flows (flow_option = 1) and 
-            voltage levels (flow_option = 2), by default 0.
+            Lines are colored based on N-0 flows (0), N-1 flows (1) and 
+            voltage levels (2), all grey (3). by default 0.
         loading_range : tuple(int), optional 
             Show line colors in range of percentage lineload, defaults to (0, 100).  
         show_plot : bool, optional
@@ -105,6 +105,15 @@ class Visualization():
         filepath : pathlib.Path, str, optional
             If filepath is supplied, saves figure as .html, by default None
         """  
+        if vector_plot:
+            plotly_function = {
+                "marker": go.scattergeo.Marker,
+                "geo": go.Scattergeo}          
+        else:
+            plotly_function = {
+                "marker": go.scattermapbox.Marker,
+                "geo": go.Scattermapbox}
+
         dclines = market_result.data.dclines.copy()
         lines = market_result.data.lines.copy()
         nodes = market_result.data.nodes.copy()
@@ -170,14 +179,14 @@ class Visualization():
 
         fig = go.Figure()
         if show_redispatch and any(nodes.delta_abs > 0):
-            redispatch_trace = create_redispatch_trace(nodes, redispatch_size_reference)
+            redispatch_trace = create_redispatch_trace(nodes, redispatch_size_reference, plotly_function)
             for tr in redispatch_trace:
                 fig.add_trace(tr)
         elif show_curtailment and any(nodes.CURT > 0):
-            curtailment_trace = create_curtailment_trace(nodes)
+            curtailment_trace = create_curtailment_trace(nodes, plotly_function)
             fig.add_trace(curtailment_trace)
         elif show_infeasibility and any(nodes[["pos", "neg"]] > 0):
-            infeas_trace = create_infeasibilities_trace(nodes)
+            infeas_trace = create_infeasibilities_trace(nodes, plotly_function)
             for tr in infeas_trace:
                 fig.add_trace(tr)
 
@@ -189,7 +198,7 @@ class Visualization():
              "Flow %{customdata[2]:.2f} MW"]) + "<extra></extra>"
             
         fig.add_trace(
-            go.Scattergeo(
+            plotly_function["geo"](
                 lon = lons,
                 lat = lats,
                 mode = 'lines',
@@ -221,12 +230,13 @@ class Visualization():
             datacols = []
             # Remove part of hovertemple related to lineflows
             hovertemplate_lines.replace("<br>N-0 Flow %{customdata[2]:.2f} MW<br>N-1 Flow %{customdata[3]:.2f} MW", "")
-        else:
+        else: # all grey
             lines["colors"] = ["#737373" for i in lines.index]
             lines["alpha"] = [.6 for i in lines.index]
             datacols = []
             # Remove part of hovertemple related to lineflows
             hovertemplate_lines.replace("<br>N-0 Flow %{customdata[2]:.2f} MW<br>N-1 Flow %{customdata[3]:.2f} MW", "")
+        
         if isinstance(highlight_lines, list) and len(highlight_lines) > 0:
             lines["alpha"] = [1 if l in highlight_lines else 0.2 for l in lines.index]
     
@@ -238,7 +248,7 @@ class Visualization():
                 lines, lines[["capacity"] + datacols], line_coords, subset=tmp_lines
             )
             fig.add_trace(
-                go.Scattergeo(
+                plotly_function["geo"](
                     lon = lons,
                     lat = lats,
                     mode = 'lines',
@@ -251,11 +261,11 @@ class Visualization():
         # Plot highlighted nodes
         if isinstance(highlight_nodes, list):
             condition = nodes.index.isin(highlight_nodes)
-            fig.add_trace(go.Scattergeo(
+            fig.add_trace(plotly_function["geo"](
                 lon = nodes.loc[condition, 'lon'],
                 lat = nodes.loc[condition, 'lat'],
                 mode = 'markers',
-                marker = go.scattergeo.Marker(
+                marker = plotly_function["marker"](
                     color = "blue",
                     opacity=1,
                     size=12,
@@ -271,11 +281,11 @@ class Visualization():
                 ]) + "<extra></extra>"
             ))
         # Plot all nodes at least as a blued dot. 
-        fig.add_trace(go.Scattergeo(
+        fig.add_trace(plotly_function["geo"](
             lon = nodes.lon,
             lat = nodes.lat,
             mode = 'markers',
-            marker = go.scattergeo.Marker(
+            marker = plotly_function["marker"](
                 color = "grey", # "#3283FE" Blue
                 opacity=0.8,
                 size=3
@@ -307,7 +317,7 @@ class Visualization():
                     colorbar=dict(thickness=5)
                 ), 
             )
-            # fig.add_trace(lines_colorbar_trade)
+            fig.add_trace(lines_colorbar_trade)
         
         center = {
             'lon': round((max(nodes.lon) + min(nodes.lon)) / 2, 6),
@@ -323,17 +333,34 @@ class Visualization():
             ]
         }
 
+        if vector_plot:
+            fig.update_geos(
+                projection=dict(type="mercator"),
+                visible=False, 
+                projection_scale=15, 
+                center=center,
+                showframe=True, 
+                resolution=50,
+                showcountries=True,
+                # margin={"r":0,"t":0,"l":0,"b":0}
+            )
+        else:
+            fig.update_layout(
+                mapbox= {
+                    # "style": "white-bg",
+                    "style": "carto-positron",
+                    # "layers": [map_layer, price_layer],
+                    "layers": [price_layer],
+                    "zoom": 3,
+                    "center": center
+                },
+            )
+
         fig.update_layout(    
             showlegend = False,
+            autosize=True,
             margin={"r":0,"t":0,"l":0,"b":0},
-            # mapbox= {
-            #     # "style": "white-bg",
-            #     # "style": "carto-positron",
-            #     # "layers": [map_layer, price_layer],
-            #     # "layers": [price_layer],
-            #     "zoom": 3,
-            #     "center": center
-            #     },
+            # margin={"autoexpand": True},
             xaxis = {'visible': False},
             yaxis = {'visible': False})
 

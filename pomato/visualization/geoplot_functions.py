@@ -225,7 +225,7 @@ def line_voltage_colors(lines):
     return list(tmp.color)
 
 
-def create_redispatch_trace(nodes, reference_size):
+def create_redispatch_trace(nodes, reference_size, plotly_function):
     nodes.loc[:, ["delta_abs", "delta_pos", "delta_neg"]] /= 1000
 
     if isinstance(reference_size, (int, float)):
@@ -235,7 +235,7 @@ def create_redispatch_trace(nodes, reference_size):
 
     trace = []
     for pos_neg, condition, color in zip(["delta_neg", "delta_pos"], [nodes["delta_neg"] < 0, nodes["delta_pos"] > 0], ["red", "green"]):
-        markers = go.scattergeo.Marker(
+        markers = plotly_function["marker"](
             size = nodes.loc[condition, pos_neg].abs(),
             sizeref = sizeref,
             sizemin = 1,
@@ -243,12 +243,12 @@ def create_redispatch_trace(nodes, reference_size):
             color = color,
             opacity=0.7,
             # line = {"color": 'rgb(40,40,40)'},
-            line_width=0,
+            # line_width=0 if ,
             autocolorscale=True
             )
         # Custom Data One for both pos/neg redispatch
         customdata = nodes.loc[condition, ["zone", "delta_pos", "delta_neg"]].reset_index()
-        trace.append(go.Scattergeo(
+        trace.append(plotly_function["geo"](
             lon = nodes.loc[condition, 'lon'],
             lat = nodes.loc[condition, 'lat'],
             marker = markers,
@@ -263,14 +263,14 @@ def create_redispatch_trace(nodes, reference_size):
         ))
     return trace
 
-def create_curtailment_trace(nodes):
+def create_curtailment_trace(nodes, plotly_function):
     condition = (nodes.CURT > 0)
     sizeref = max(2*max(nodes.loc[condition, 'CURT'])/12**2, 1)
-    trace = go.Scattergeo(
+    trace = plotly_function["geo"](
         lon = nodes.loc[condition, 'lon'],
         lat = nodes.loc[condition, 'lat'],
         mode = 'markers',
-        marker = go.scattergeo.Marker(
+        marker = plotly_function["marker"](
             color = "#8A31BD", # Purple
             opacity=0.8,
             sizeref = sizeref,
@@ -286,16 +286,16 @@ def create_curtailment_trace(nodes):
     )
     return trace
     
-def create_infeasibilities_trace(nodes):
+def create_infeasibilities_trace(nodes, plotly_function):
     sizeref = max(4*nodes[["pos", "neg"]].max().max()/12**2, 1)
     trace = []
     for col, color in zip(["pos", "neg"], ["#4575B4", "#F46D43"]):
         condition = nodes[col] > 0
-        trace.append(go.Scattergeo(
+        trace.append(plotly_function["geo"](
             lon = nodes.loc[condition, 'lon'],
             lat = nodes.loc[condition, 'lat'],
             mode = 'markers',
-            marker = go.scattergeo.Marker(
+            marker = plotly_function["marker"](
                 color = color,
                 opacity=0.8,
                 sizeref = sizeref,

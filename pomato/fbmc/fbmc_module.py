@@ -349,14 +349,15 @@ class FBMCModule():
 
         if self.options["fbmc"]["reduce"]:
             if self.options["fbmc"]["precalc_filename"]:
-                if Path(self.options["fbmc"]["precalc_filename"]).is_file():
-                    filename = Path(self.options["fbmc"]["precalc_filename"])
-                if Path(self.options["fbmc"]["precalc_filename"]).with_suffix('.csv').is_file():
-                    filename = Path(self.options["fbmc"]["precalc_filename"]).with_suffix('.csv')
-                elif self.grid_model.julia_dir.joinpath(f"cbco_data/{filename}.csv").is_file():
-                    filename = self.julia_dir.joinpath(f"cbco_data/{filename}.csv").is_file()
+                name = self.options["fbmc"]["precalc_filename"]
+                if Path(name).is_file():
+                    filename = Path(name)
+                if Path(name).with_suffix('.csv').is_file():
+                    filename = Path(name).with_suffix('.csv')
+                elif self.grid_model.wdir.joinpath(f"data_temp/julia_files/cbco_data/{name}.csv").is_file():
+                    filename = self.wdir.joinpath(f"data_temp/julia_files/cbco_data/{name}.csv")
                 else:
-                    raise FileNotFoundError("No precalculated list of CBCOs found")
+                    raise FileNotFoundError("No precalculated list of CNECs found")
                 precalc_cbco = pd.read_csv(filename, delimiter=',')
                 cbco_index = list(precalc_cbco.constraints.values)
             else:

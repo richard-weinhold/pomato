@@ -112,6 +112,12 @@ class Results():
                 self.logger.warning("Corresponding market result to %s not or with new name instantiated", self.result_attributes["name"])
                 self.logger.warning("Manually set market result name in result attributes.")
 
+    def delete_temporary_files(self):
+        """Delete temporary files."""
+        folder = self.wdir.joinpath("data_temp/results_cache").joinpath(str(id(self)))
+        self.logger.debug("Deleting folder %s", folder)
+        shutil.rmtree(folder, ignore_errors=True)
+        
     def load_results_from_folder(self, folder):
         """Load results from folder.
 
