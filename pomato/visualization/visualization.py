@@ -269,8 +269,8 @@ class Visualization():
                     color = "blue",
                     opacity=1,
                     size=12,
-                    line=dict(width=2),
-                    symbol="pentagon-open"
+                    # line=dict(width=2),
+                    # symbol="pentagon-open"
                 ),
                 customdata=nodes[["zone", "name"]].reset_index(),
                 hovertemplate=
