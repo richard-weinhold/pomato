@@ -62,7 +62,7 @@ required to run POMATO. This process can take a few minutes to complete.
 
 After this is completed pomato can be imported in python:
 
-  from pomato import POMATO
+    from pomato import POMATO
 
 See the [POMATO Documentation](https://pomato.readthedocs.io/en/latest/installation.html) for
 further information on the installation process. 
@@ -98,12 +98,20 @@ Expect errors, bug, funky behavior and code structures from the minds of two eng
 
 Related Publications
 --------------------
-- (*preprint*) [Weinhold and Mieth (2020), Power Market Tool (POMATO) for the Analysis of Zonal 
-   Electricity Markets](https://arxiv.org/abs/2011.11594)
+- (*preprint*) [Weinhold (2021), Evaluating Policy Implications on the Restrictiveness of Flow-based
+  Market Coupling with High Shares of Intermittent Generation: A Case Study for Central Western
+  Europe](https://arxiv.org/abs/2109.04940)
+- (*preprint*) [Weinhold and Mieth (2021), Uncertainty-Aware Capacity Allocation in Flow-Based
+  Market Coupling](https://arxiv.org/abs/2109.04968)
+- [Weinhold and Mieth (2021), Power Market Tool (POMATO) for the Analysis of Zonal 
+   Electricity Markets](https://www.sciencedirect.com/science/article/pii/S2352711021001394)
 - [Weinhold and Mieth (2020), Fast Security-Constrained Optimal Power Flow through 
    Low-Impact and Redundancy Screening](https://ieeexplore.ieee.org/document/9094021)
 - [Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for generation 
    shift keys (GSKs) on  the flow-based market coupling domain: A model-based analysis of Central Western Europe](https://www.sciencedirect.com/science/article/pii/S0306261919317544)
+
+POMATO was also presented as part of the 2021 JuliaCon JuMP-dev train. The talk is available on
+[JuliaCon2021 youtube channel](https://www.youtube.com/watch?v=n0wmYTm6Y64). 
 
 Acknowledgments
 ---------------
@@ -113,5 +121,5 @@ Energy Agency and Federal Ministry for Economic Affairs and Energy (BMWi). Rober
 the Reiner Lemoine-Foundation scholarship. Richard Weinhold is funded by the Danish Energy Agency.
 The development of POMATO and its applications was funded by BMWi in the project “Long-term Planning
 and Short-term Optimization of the German Electricity System Within the European Context” (LKD-EU,
-03ET4028A).
+03ET4028A) and the project “Modellierung (De-)Zentraler Energiewenden: Wechselwirkungen, Koordination und Lösungsansätze aus systemorientierter Perspektive” (MODEZEEN, 03EI1019B).
 
