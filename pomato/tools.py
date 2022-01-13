@@ -408,7 +408,8 @@ def default_options():
             "precalc_filename": "",
             "include_contingencies_redispatch": False,
             "sensitivity": 5e-2,
-            "capacity_multiplier": 1,
+            "short_term_rating_factor": 1,
+            "long_term_rating_factor": 1,
             "preprocess": True,
             },
         "fbmc": {

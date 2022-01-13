@@ -493,7 +493,7 @@ class Results():
         Returns DataFrame with columns [node, plant_type, zone, t, p, G, D_es, L_es]
         """
 
-        es_plant_types = self.data.options["plant_types"]["es"]
+        es_plant_types = self.result_attributes["plant_types"]["es"]
         es_plants = self.data.plants.loc[self.data.plants.plant_type.isin(es_plant_types), ["node", "plant_type"]]
         es_plants["zone"] = self.data.nodes.loc[es_plants.node, "zone"].values
 
@@ -663,7 +663,9 @@ class Results():
         """
         flows = self.n_0_flow()
         timesteps = self.model_horizon
-        rel_load_array = np.vstack([(abs(flows[t]))/self.data.lines.capacity for t in timesteps]).T
+
+        lt_linerating = self.data.lines.capacity * self.result_attributes["grid"]["long_term_rating_factor"]
+        rel_load_array = np.vstack([(abs(flows[t]))/lt_linerating for t in timesteps]).T
         rel_load = pd.DataFrame(index=flows.index, columns=flows.columns,
                                 data=rel_load_array)
 
@@ -718,7 +720,8 @@ class Results():
         self.logger.info("Processing Flows")
 
         timesteps = self.model_horizon
-        capacity_values = self.grid.lines.capacity[n_1_load.cb].values
+
+        capacity_values = self.grid.lines.capacity[n_1_load.cb].values * self.result_attributes["grid"]["short_term_rating_factor"]
         n_1_load.loc[:, timesteps] = n_1_flow.loc[:, timesteps].div(capacity_values, axis=0).abs()
 
         # 1% overload as tolerance

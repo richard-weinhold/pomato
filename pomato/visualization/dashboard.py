@@ -513,7 +513,8 @@ class Dashboard():
         self.pomato_instance.data.ntc = self.pomato_instance.grid_model.create_ntc(ntc_value)
         if isinstance(timestep, int):
             timestep = basecase.model_horizon[timestep]
-        self.pomato_instance.options["grid"]["capacity_multiplier"] = 1 - frm/100
+        self.pomato_instance.options["grid"]["short_short_rating_factor"] = 1 - frm/100
+        self.pomato_instance.options["grid"]["long_term_rating_factor"] = 1 - frm/100
         self.pomato_instance.options["fbmc"]["minram"] = minram/100
         self.pomato_instance.options["fbmc"]["cne_sensitivity"] = cne_sensitivity/100
         self.pomato_instance.options["fbmc"]["lodf_sensitivity"] = cnec_sensitivity/100

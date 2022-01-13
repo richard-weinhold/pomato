@@ -175,7 +175,7 @@ class GridModel():
             
         grid_option = self.options["grid"]
         nodal_network = pd.DataFrame(columns=self.grid.nodes.index, data=self.grid.ptdf)
-        nodal_network["ram"] = self.grid.lines.capacity.values*self.options["grid"]["capacity_multiplier"]
+        nodal_network["ram"] = self.grid.lines.capacity.values*self.options["grid"]["long_term_rating_factor"]
         nodal_network["cb"] = list(self.grid.lines.index)
         nodal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
         nodal_network = nodal_network[["cb", "co", "ram"] + list(self.grid.nodes.index)]
@@ -221,7 +221,7 @@ class GridModel():
                                      data=np.dot(self.grid.ptdf, self.create_gsk(gsk)))
         zonal_network["cb"] = list(self.grid.lines.index)
         zonal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
-        zonal_network["ram"] = self.grid.lines.capacity.values*self.options["grid"]["capacity_multiplier"]
+        zonal_network["ram"] = self.grid.lines.capacity.values*self.options["grid"]["long_term_rating_factor"]
         zonal_network = zonal_network[["cb", "co", "ram"] + list(self.data.zones.index)]
 
         if grid_option["redundancy_removal_option"] == "clarkson":
@@ -256,7 +256,6 @@ class GridModel():
         cbco_index = self.clarkson_algorithm(A=A, b=b)
 
         cbco_zonal_network = self.return_cbco(cbco_info, cbco_index)
-        cbco_zonal_network.loc[:, "ram"] *= grid_option["capacity_multiplier"]
         return cbco_zonal_network
 
     def create_cbco_nodal_grid_parameters(self):
@@ -323,7 +322,6 @@ class GridModel():
                 raise AttributeError("No valid redundancy_removal_option set!")
 
         cbco_nodal_network = self.return_cbco(cbco_info, cbco_index)
-        cbco_nodal_network.ram *= self.options["grid"]["capacity_multiplier"]
         return cbco_nodal_network
 
     def create_cbco_data(self, sensitivity=5e-2, preprocess=False, gsk=None):
@@ -358,7 +356,11 @@ class GridModel():
             row corresponds to.
 
         """
-        n_1_ptdf = self.grid.create_filtered_n_1_ptdf(sensitivity=sensitivity)
+        n_1_ptdf = self.grid.create_filtered_n_1_ptdf(
+            sensitivity=sensitivity, 
+            short_term_rating_factor=self.options["grid"]["short_term_rating_factor"],
+            long_term_rating_factor=self.options["grid"]["long_term_rating_factor"],
+            )
         # Processing: Rounding, remove duplicates and 0...0 rows
         if preprocess:
             self.logger.info("Preprocessing Ab...")

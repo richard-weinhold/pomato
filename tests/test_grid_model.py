@@ -68,7 +68,7 @@ class TestPomatoGridModel(unittest.TestCase):
         gr = self.grid_model.grid_representation
         np.testing.assert_equal(gr.redispatch_grid[self.data.nodes.index].values, self.grid.ptdf)
         np.testing.assert_equal(gr.redispatch_grid["ram"].values, 
-                                self.data.lines.capacity.values*self.options["grid"]["capacity_multiplier"])
+                                self.data.lines.capacity.values*self.options["grid"]["long_term_rating_factor"])
 
     def test_zonal(self):
         
@@ -94,7 +94,7 @@ class TestPomatoGridModel(unittest.TestCase):
         self.grid_model.create_grid_representation()
         gr = self.grid_model.grid_representation
         np.testing.assert_equal(gr.grid[self.data.nodes.index].values, self.grid.ptdf)
-        np.testing.assert_equal(gr.grid["ram"].values/self.grid_model.options["grid"]["capacity_multiplier"], self.data.lines.capacity.values)
+        np.testing.assert_equal(gr.grid["ram"].values/self.grid_model.options["grid"]["rating_factor"], self.data.lines.capacity.values)
         
 
     def test_cbco_nodal(self):
@@ -135,7 +135,7 @@ class TestPomatoGridModel(unittest.TestCase):
 
         self.grid_model.options["type"] = "cbco_nodal"
         self.grid_model.options["grid"]["precalc_filename"] = "cbco_nrel_118"
-        self.grid_model.options["grid"]["capacity_multiplier"] = 0.8
+        self.grid_model.options["grid"]["long_term_rating_factor"] = 0.8
         self.grid_model.create_cbco_nodal_grid_parameters()
 
     def test_cbco_nodal_precalc_table(self):

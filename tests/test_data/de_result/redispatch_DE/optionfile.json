@@ -62,7 +62,6 @@
     "redundancy_removal_option": "clarkson_base",
     "precalc_filename": "",
     "sensitivity": 0.05,
-    "capacity_multiplier": 1,
     "preprocess": true,
     "gsk": "gmax",
     "minram": 0.2,

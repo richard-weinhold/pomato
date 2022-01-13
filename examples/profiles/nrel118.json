@@ -30,7 +30,7 @@
         "redundancy_removal_option": "clarkson_base",
         "precalc_filename": "",
         "sensitivity": 5e-2,
-        "capacity_multiplier": 1,
+        "short_term_rating_factor": 1,
         "preprocess": true,
         "gsk": "gmax"
     },

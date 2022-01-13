@@ -12,6 +12,8 @@
         "redundancy_removal_option": "clarkson_base",
         "precalc_filename": "",
         "sensitivity": 5e-2,
-        "preprocess": true
+        "preprocess": true,
+        "short_term_rating_factor": 1,
+        "long_term_rating_factor": 1
     }
 }

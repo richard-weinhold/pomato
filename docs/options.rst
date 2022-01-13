@@ -122,7 +122,8 @@ The options are divided into three sections: Optimization, Grid, Data and are as
      set or in short cbco's. See the description of the method 
      :meth:`~pomato.grid.GridTopology.create_filtered_n_1_ptdf` 
      or the Section on `Impact Screening` in the publication for more information. 
-   - *capacity_multiplier* (float): Multiplies line capacities by a factor. 
+   - *short_term_rating_factor* (float): Multiplies line capacities by the given value for normal operation (N-0). 
+   - *long_term_rating_factor* (float): Multiplies line capacities by the given value for contingency cases.
    - *preprocess* (bool): Preprocessing the N-1 PTDF means removing duplicates. This can be omitted
      to obtain the true full N-1 PTDF. 
 
