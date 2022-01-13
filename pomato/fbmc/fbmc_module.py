@@ -8,7 +8,7 @@ import pomato
 from pomato.grid import GridModel
 
 class FBMCModule():
-    """The FBMC module calculates FB paramerters based on a suitable market result.
+    """The FBMC module calculates FB parameters based on a suitable market result.
 
     Flow based market coupling derives commercial exchange capacities for a day-ahead 
     market clearing from a forecasted market results. These day ahead capacities are 

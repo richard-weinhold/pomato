@@ -94,7 +94,7 @@ class TestPomatoGridModel(unittest.TestCase):
         self.grid_model.create_grid_representation()
         gr = self.grid_model.grid_representation
         np.testing.assert_equal(gr.grid[self.data.nodes.index].values, self.grid.ptdf)
-        np.testing.assert_equal(gr.grid["ram"].values/self.grid_model.options["grid"]["rating_factor"], self.data.lines.capacity.values)
+        np.testing.assert_equal(gr.grid["ram"].values/self.grid_model.options["grid"]["long_term_rating_factor"], self.data.lines.capacity.values)
         
 
     def test_cbco_nodal(self):
