@@ -11,8 +11,10 @@ plants,index,any,False
 plants,node,nodes.index,False
 plants,mc_el,float64,False
 plants,g_max,float64,False
+plants,d_max,float64,False
 plants,plant_type,any,False
 plants,fuel,any,False
+plants,storage_capacity,any,False
 lines,index,any,False
 lines,node_i,nodes.index,False
 lines,node_j,nodes.index,False
@@ -32,10 +34,6 @@ demand_el_da,index,any,False
 demand_el_da,timestep,any,False
 demand_el_da,node,nodes.index,False
 demand_el_da,demand_el,float,False
-net_export,index,any,False
-net_export,timestep,any,False
-net_export,node,nodes.index,False
-net_export,net_export,float,False
 availability_rt,index,any,False
 availability_rt,timestep,any,False
 availability_rt,plant,plants.index,False
