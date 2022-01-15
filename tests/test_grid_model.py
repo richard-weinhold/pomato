@@ -32,14 +32,14 @@ class TestPomatoGridModel(unittest.TestCase):
         cls.options = pomato.tools.add_default_options(loaded_options) 
 
         cls.data = pomato.data.DataManagement(cls.options, cls.wdir)
-        cls.data.logger.setLevel(logging.INFO)
+        cls.data.logger.setLevel(logging.ERROR)
         cls.data.load_data(r'data_input/nrel_118_original.zip')
         
     def setUp(self):
         self.grid = pomato.grid.GridTopology()
         self.grid.calculate_parameters(self.data.nodes, self.data.lines)
         self.grid_model = pomato.grid.GridModel(self.wdir, self.grid, self.data, self.options)
-        self.grid_model.logger.setLevel(logging.INFO)
+        self.grid_model.logger.setLevel(logging.ERROR)
 
     def tearDown(self):
         if self.grid_model.julia_instance:

@@ -38,7 +38,7 @@ class TestPomatoMarketModel(unittest.TestCase):
     def test_run_nrel(self):
         # What takes how long
         mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/nrel118.json",
-                                 logging_level=logging.INFO, file_logger=False)
+                                 logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/nrel_118_original.zip')
         
         mato.options["model_horizon"] = [0, 1]
