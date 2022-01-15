@@ -33,7 +33,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         pomato.tools.create_folder_structure(cls.wdir)
         cls.options = pomato.tools.default_options()
         cls.data = pomato.data.DataManagement(cls.options, cls.wdir)
-        cls.data.load_data('data_input/nrel_118.zip')
+        cls.data.load_data('data_input/nrel_118_original.zip')
         cls.grid = pomato.grid.GridTopology()
         cls.grid.calculate_parameters(cls.data.nodes, cls.data.lines)
         cls.grid_model = pomato.grid.GridModel(cls.wdir, cls.grid, cls.data, cls.options)

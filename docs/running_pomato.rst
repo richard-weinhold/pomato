@@ -90,10 +90,10 @@ line/contingency pairs.
 
 To also include contingencies, known as security constrained optimal power flow (SCOPF), the 
 optimization type has to be changed to "cbco_nodal". The "redundancy_removal_option" defines the reduction algorithm
-where the option "full" will perform no reduction and options "clarkson" and "clarkson_base" will 
+where the option "full" will perform no reduction and options "redundancy_removal" and "conditional_redundancy_removal" will 
 reduce the power flow constraints to a minimal set. 
 
-Therefore the option "clarkson_base" will invoke the RedundancyRemoval algorithm and yield a set
+Therefore the option "conditional_redundancy_removal" will invoke the RedundancyRemoval algorithm and yield a set
 of 540 constraints that guarantee SCOPF. In comparison, the full PTDF, without RedundancyRemoval or
 Impact Screening will have a length of approx. 26.000 lines/outages. Given the small network of 118 
 buses and a single timestep, this would still be solvable, but scaling the problem will quickly 
@@ -104,7 +104,7 @@ increase complexity prohibitively.
    mato.options["type"] = "cbco_nodal"
    mato.options["title"] = "SCOPF"
 
-   mato.options["grid"]["redundancy_removal_option"] = "clarkson_base"
+   mato.options["grid"]["redundancy_removal_option"] = "conditional_redundancy_removal"
 
    mato.create_grid_representation()
 

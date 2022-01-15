@@ -4,7 +4,8 @@
     "redispatch": {
         "include": false,
         "zonal_redispatch": false,
-        "cost": 1
+        "zones": ["R1", "R2", "R3"],
+        "cost": 10
         },
     "infeasibility": {
         "electricity": {
@@ -14,8 +15,8 @@
         }
     },
     "curtailment": {
-        "include": false,
-        "cost": 1E3
+        "include": true,
+        "cost": 1E2
     },
     "parameters": {
         "storage_start": 0.65
@@ -27,14 +28,12 @@
         "ph": []
     },
     "grid": {
-        "redundancy_removal_option": "clarkson_base",
+        "redundancy_removal_option": "conditional_redundancy_removal",
         "precalc_filename": "",
         "sensitivity": 5e-2,
         "short_term_rating_factor": 1,
+        "long_term_rating_factor": 0.8,
         "preprocess": true,
         "gsk": "gmax"
-    },
-    "data": {
-        "default_net_position": 0
     }
 }

@@ -16,6 +16,21 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import pomato
 from pomato.tools import copytree, create_folder_structure
 
+def system_balance(result):
+    model_horizon = result.result_attributes["model_horizon"]
+    condition = result.data.demand_el.timestep.isin(model_horizon)
+
+    return (result.G.G.sum() 
+            - result.data.demand_el.loc[condition, "demand_el"].sum()  
+            + result.INFEASIBILITY_EL_POS.INFEASIBILITY_EL_POS.sum() 
+            - result.INFEASIBILITY_EL_NEG.INFEASIBILITY_EL_NEG.sum())
+    
+def sum_costs(result):
+    model_horizon = result.result_attributes["model_horizon"]
+    condition = result.data.demand_el.timestep.isin(model_horizon)
+    costs = ["COST_G", "COST_INFEASIBILITY_EL", "COST_CURT", 
+                "COST_REDISPATCH", "COST_INFEASIBILITY_ES", "COST_EX"]
+    return sum([getattr(result, c).loc[:, c].sum() for c in costs])
 
 class TestPomatoData(unittest.TestCase):
     @classmethod
@@ -23,7 +38,7 @@ class TestPomatoData(unittest.TestCase):
         cls.temp_dir = tempfile.TemporaryDirectory()
         cls.wdir = Path(cls.temp_dir.name)
         copytree(Path.cwd().joinpath("examples"), cls.wdir)
-        copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), cls.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data/"), cls.wdir)
         create_folder_structure(cls.wdir)
         with open(cls.wdir.joinpath("profiles/nrel118.json")) as opt_file:
                 loaded_options = json.load(opt_file)
@@ -32,7 +47,7 @@ class TestPomatoData(unittest.TestCase):
 
         cls.data = pomato.data.DataManagement(cls.options, cls.wdir)
         cls.data.logger.setLevel(logging.ERROR)
-        cls.data.load_data('data_input/nrel_118.zip')
+        cls.data.load_data('data_input/nrel_118_original.zip')
 
     def setUp(self):
         pass
@@ -73,34 +88,28 @@ class TestPomatoData(unittest.TestCase):
         self.assertTrue(folder.joinpath("nrel_data").with_suffix(".xlsx").is_file())
         self.assertTrue(folder.joinpath("nrel_data").with_suffix(".zip").is_file())
 
-    def system_balance(self, result):
-        model_horizon = result.result_attributes["model_horizon"]
-        condition = result.data.demand_el.timestep.isin(model_horizon)
-
-        return (result.G.G.sum() 
-                - result.data.demand_el.loc[condition, "demand_el"].sum()  
-                + result.INFEASIBILITY_EL_POS.INFEASIBILITY_EL_POS.sum() 
-                - result.INFEASIBILITY_EL_NEG.INFEASIBILITY_EL_NEG.sum())
-
     def test_results_uniform_pricing(self):
         # obj 990129.5893227865
         # n-0 overloads = 15
         grid  = pomato.grid.GridTopology()
         grid.calculate_parameters(self.data.nodes, self.data.lines)
-        folder = self.wdir.joinpath("dispatch_market_results")
+        folder = self.wdir.joinpath("uniform_market")
         result = pomato.data.Results(self.data, grid, folder)
 
-        system_balance = self.system_balance(result)
-        self.assertAlmostEqual(system_balance, 0)
-
+        self.assertAlmostEqual(system_balance(result), 0)
         overload_n_0, _ = result.overloaded_lines_n_0()
-        self.assertEqual(len(overload_n_0), 15)
-        self.assertAlmostEqual(result.result_attributes["objective"]["Objective Value"], 
-                               990129.5893227865)
+        self.assertEqual(len(overload_n_0), 3)
 
+        # Sanity Check
+        self.assertAlmostEqual(
+            result.result_attributes["objective"]["Objective Value"], 5.984276534059089e6)
+        self.assertAlmostEqual(
+            result.result_attributes["objective"]["Objective Value"], sum_costs(result))
+
+        # Prices differences smaller than cost for exchange (=1)
         price = result.price()
         for t in result.model_horizon:
-            self.assertTrue(all(price[price.t == t].marginal - price[price.t == t].marginal.mean() < 0.1))
+            self.assertTrue(all(price[price.t == t].marginal - price[price.t == t].marginal.mean() < 1))
 
 
     def test_results_nodal(self):
@@ -108,19 +117,22 @@ class TestPomatoData(unittest.TestCase):
         # n-0 : 0 OL; n-1 : 23 OL
         grid  = pomato.grid.GridTopology()
         grid.calculate_parameters(self.data.nodes, self.data.lines)
-        folder = self.wdir.joinpath("nodal_market_results")
+        folder = self.wdir.joinpath("opf_market")
         result = pomato.data.Results(self.data, grid, folder)
 
-        system_balance = self.system_balance(result)
-        self.assertAlmostEqual(system_balance, 0)
+        self.assertAlmostEqual(system_balance(result), 0)
 
         overload_n_0, _ = result.overloaded_lines_n_0()
         overload_n_1, _ = result.overloaded_lines_n_1()
         
         self.assertEqual(len(overload_n_0), 0)
-        self.assertEqual(len(overload_n_1), 23)
-        self.assertAlmostEqual(result.result_attributes["objective"]["Objective Value"], 
-                               2805962.178313506)
+        self.assertEqual(len(overload_n_1), 13)
+        # Sanity Check
+        self.assertAlmostEqual(
+            result.result_attributes["objective"]["Objective Value"], 5.98544897498456e6)
+        self.assertAlmostEqual(
+            result.result_attributes["objective"]["Objective Value"], sum_costs(result))
+
         self.assertTrue(len(result.price().marginal.unique()) > 1)
 
     def test_results_scopf(self):
@@ -128,19 +140,18 @@ class TestPomatoData(unittest.TestCase):
         # n-0 : 0 OL; n-1 : 29 OL
         grid = pomato.grid.GridTopology()
         grid.calculate_parameters(self.data.nodes, self.data.lines)
-        folder = self.wdir.joinpath("scopf_market_results")
+        folder = self.wdir.joinpath("scopf_market")
         result = pomato.data.Results(self.data, grid, folder)
 
-        system_balance = self.system_balance(result)
-        self.assertAlmostEqual(system_balance, 0)
+        self.assertAlmostEqual(system_balance(result), 0)
 
         overload_n_0, _ = result.overloaded_lines_n_0()
         overload_n_1, _ = result.overloaded_lines_n_1()
         
         self.assertEqual(len(overload_n_0), 0)
         self.assertEqual(len(overload_n_1), 0)
-        self.assertAlmostEqual(result.result_attributes["objective"]["Objective Value"], 
-                               3899019.71757418)
+        self.assertAlmostEqual(
+            result.result_attributes["objective"]["Objective Value"], 6.119808394645618e6)
 
 class TestPomatoResults(unittest.TestCase):
     @classmethod
@@ -149,17 +160,15 @@ class TestPomatoResults(unittest.TestCase):
         wdir = Path(cls.temp_dir.name)
 
         copytree(Path.cwd().joinpath("examples"), wdir)
-        copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), wdir)
+        copytree(Path.cwd().joinpath("tests/test_data"), wdir)
         
         mato = pomato.POMATO(wdir=wdir, options_file="profiles/nrel118.json",
                                  logging_level=logging.ERROR, file_logger=False)
-        mato.load_data('data_input/nrel_118.zip')
-        R2_to_R3 = ["bus118", "bus076", "bus077", "bus078", "bus079", 
-                    "bus080", "bus081", "bus097", "bus098", "bus099"]
-        mato.data.nodes.loc[R2_to_R3, "zone"] = "R3"
+        mato.load_data('data_input/nrel_118_original.zip')
+
         mato.initialize_market_results(
-            [wdir.joinpath("ntc_redispatch"),
-             wdir.joinpath("ntc_market_results")])
+            [wdir.joinpath("uniform_market"),
+             wdir.joinpath("uniform_redispatch")])
         cls.market_result, cls.redispatch_result = mato.data.return_results()
 
     def setUp(self):
@@ -198,7 +207,7 @@ class TestPomatoResults(unittest.TestCase):
         gen = self.redispatch_result.redispatch()
         self.assertFalse(isinstance(gen, pd.DataFrame))
 
-        self.redispatch_result.result_attributes["corresponding_market_result_name"] = "ntc_market_results"
+        self.redispatch_result.result_attributes["corresponding_market_result_name"] = "uniform_market"
         gen = self.redispatch_result.redispatch()
         self.assertTrue(isinstance(gen, pd.DataFrame))
         self.assertTrue(gen.delta_abs.sum() > 0)

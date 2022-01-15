@@ -20,16 +20,14 @@ The options are divided into three sections: Optimization, Grid, Data and are as
    - *type* (string): Defines the with what kind of grid representation the market clearing is 
      represented. Options are:
 
-      - *dispatch*: Market clearing without any network representation. 
+      - *uniform*: Market clearing without any network representation. 
       - *ntc*: Commercial exchange capacities. Not physical network represented.
-      - *nodal*: Full N-0 transmission network representation. Corresponds to nodal pricing. Implemented
+      - *opf*: Full N-0 transmission network representation. Corresponds to nodal pricing. Implemented
         via standard PTDF formulation. 
-      - *zonal*: Using a zonal PTDF to clear the market. The linear mapping between the nodal injections 
-        and zonal net position is based on the *gsk* option, which can be *flat* or *gmax*.
-      - *cbco_nodal*: This option represents the nodal N-1 grid representation and it runs in conjunction
+      - *scopf*: This option represents the nodal N-1 grid representation and it runs in conjunction
         with the RedundancyRemoval algorithm to obtain the minimal set of critical branches under critical
         outages which guarantee N-1 secure optimal power flow when clearing the market. 
-      - *cbco_zonal*: Analogues to the *cbco_nodal* option, but based on a zonal N-1 PTDF.  
+      - *fbmc*: Analogues to the *scopf* option, but based on a zonal N-1 PTDF.  
 
    - *model_horizon* (2-element list): Defines over what (sub)-set of timesteps the market model is run. 
    
@@ -66,9 +64,6 @@ The options are divided into three sections: Optimization, Grid, Data and are as
       - *include* (bool): Include curtailment.
       - *cost* (float): Curtailment cost.
 
-   - *constrain_nex* (bool): Constrain the net position for each market area. This can be useful when
-     modeling Flow Based Market Coupling. Requires net_position data as specified in :ref:`model_data`.
-   
    - *chance_constrained*: The market model can be run with chance constraints on the line flow constraints
      endogenously co-optimizing uncertainty of renewable in-feed and capacity reserves of conventional 
      generation units. Including these constraints requires MOSEK solver and the resulting problems 
@@ -106,9 +101,9 @@ The options are divided into three sections: Optimization, Grid, Data and are as
       - *full*: Including all N-1 constraints. The number should correspond to L x L minus lines that 
         are either radial or disconnect the network (indicated by contingency = false) and duplicates
         which are removed by the *preprocess* options. 
-      - *clarkson*: Runs the RedundancyRemoval algorithm to find the minimal set of critical branches
+      - *redundancy_removal*: Runs the RedundancyRemoval algorithm to find the minimal set of critical branches
         under critical outages to guarantee SCOPF.
-      - *clarkson_base*: Analog to *clarkson* however including nodal injection limits into the 
+      - *conditional_redundancy_removal*: Analog to *redundancy_removal* however including nodal injection limits into the 
         algorithm, resulting in a smaller set of cbco's that guarantee SCOPF under the condition 
         nodal injections do not exceed these limits. 
       - *save*: Saves the necessary data to run the RedundancyRemoval. Used for debugging/testing the

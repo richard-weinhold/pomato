@@ -74,22 +74,26 @@ class GridModel():
         # Core attributes
         self.grid = grid
         self.data = data
-        self.grid_representation = types.SimpleNamespace(option=None,
-                                                         multiple_slack=None,
-                                                         slack_zones=None,
-                                                         grid=pd.DataFrame(),
-                                                         contingency_groups={},
-                                                         redispatch_grid=pd.DataFrame(),
-                                                         ntc=pd.DataFrame())
+        self.grid_representation = types.SimpleNamespace(
+                option=None,
+                multiple_slack=None,
+                slack_zones=None,
+                lines=pd.DataFrame(),
+                grid=pd.DataFrame(),
+                contingency_groups={},
+                redispatch_grid=pd.DataFrame(),
+                ntc=pd.DataFrame()
+            )
         self.julia_instance = None
-
+    
     def _start_julia_daemon(self):
-        self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
+        self.julia_instance = tools.JuliaDaemon(
+            self.logger, self.wdir, self.package_dir, "redundancy_removal", self.options["solver"]["name"])
 
     def create_grid_representation(self, flowbased_paramters=None):
         """Create grid representation based on model type.
 
-        Options are: dispatch, ntc, nodal, zonal, cbco_nodal, cbco_zonal.
+        Options are: uniform, ntc, opf, scopf, fbmc.
 
         *grid_representation* contains the following:
             - *option*: The chosen option of grid representation.
@@ -117,26 +121,26 @@ class GridModel():
         self.grid_representation.option = self.options["type"]
         self.grid_representation.multiple_slack = self.grid.multiple_slack
         self.grid_representation.slack_zones = self.grid.slack_zones()
+        self.grid_representation.lines = self.grid.lines.copy()
+        self.grid_representation.lines.loc[:, "capacity"] *= self.options["grid"]["long_term_rating_factor"]
 
         if isinstance(flowbased_paramters, pd.DataFrame):
             self.process_flowbased_grid_representation(flowbased_paramters)
         elif self.options["type"] == "ntc":
             self.process_ntc()
             self.grid_representation.grid = pd.DataFrame()
-        elif self.options["type"] == "nodal":
+            self.grid_representation.contingency_groups = {}
+        elif self.options["type"] == "opf":
             self.grid_representation.grid = self.create_nodal_grid_parameters()
-        elif self.options["type"] == "zonal":
-            self.grid_representation.grid = self.create_zonal_grid_parameters()
-            self.process_ntc()
-        elif self.options["type"] == "cbco_nodal":
+        elif self.options["type"] == "scopf":
             self.grid_representation.contingency_groups = self.grid.contingency_groups
-            self.grid_representation.grid = self.create_cbco_nodal_grid_parameters()
-        elif self.options["type"] == "cbco_zonal":
-            self.grid_representation.contingency_groups = self.grid.contingency_groups
-            self.grid_representation.grid = self.create_cbco_zonal_grid_parameters()
-            self.process_ntc()
+            self.grid_representation.grid = self.create_scopf_grid_parameters()
+        elif self.options["type"] == "uniform":
+            self.grid_representation.grid = pd.DataFrame()
+            self.grid_representation.ntc = pd.DataFrame()
+            self.grid_representation.contingency_groups = {}
         else:
-            self.logger.info("No grid representation needed for dispatch model")
+            raise AttributeError("Please Choose a valid type")
         
         if self.options["redispatch"]["include"]:
             self.add_redispatch_grid()
@@ -149,7 +153,7 @@ class GridModel():
         The flow based parameters reflect a zonal ptdf, including contingencies,
         for a preselected set of critical branches under critical outages (cbco)
         and available capacities (RAM) depending on the chosen basecase. 
-        Therefore the optimization type has to be cbco_zonal, for the model to 
+        Therefore the optimization type has to be *fbmc*, for the model to 
         account for a zonal, timedependant ptdf.
 
         Parameters
@@ -158,8 +162,8 @@ class GridModel():
             Flowbased parameters, derived using :class:`~pomato.fbmc.FBMCModule`
 
         """
-        self.options["type"] = "cbco_zonal"
-        self.grid_representation.option = "cbco_zonal"
+        self.options["type"] = "fbmc"
+        self.grid_representation.option = "fbmc"
         self.grid_representation.grid = flowbased_paramters
         self.grid_representation.contingency_groups = self.grid.contingency_groups
         self.process_ntc()
@@ -176,11 +180,12 @@ class GridModel():
         grid_option = self.options["grid"]
         nodal_network = pd.DataFrame(columns=self.grid.nodes.index, data=self.grid.ptdf)
         nodal_network["ram"] = self.grid.lines.capacity.values*self.options["grid"]["long_term_rating_factor"]
+        
         nodal_network["cb"] = list(self.grid.lines.index)
         nodal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
         nodal_network = nodal_network[["cb", "co", "ram"] + list(self.grid.nodes.index)]
 
-        if grid_option["redundancy_removal_option"] == "nodal_clarkson":
+        if grid_option["redundancy_removal_option"] == "nodal_redundancy_removal":
             nodal_injection_limits = self.create_nodal_injection_limits()
 
             cbco_index = self.clarkson_algorithm(A=nodal_network.loc[:, self.grid.nodes.index].values, 
@@ -197,72 +202,15 @@ class GridModel():
         will reflect N-0 or N-1, i.e. including contingencies, grid representation.
         """
         if self.options["grid"]["include_contingencies_redispatch"]:
-            self.grid_representation.redispatch_grid = self.create_cbco_nodal_grid_parameters()
+            self.grid_representation.redispatch_grid = self.create_scopf_grid_parameters()
         else:
             self.grid_representation.redispatch_grid = self.create_nodal_grid_parameters()
 
-    def create_zonal_grid_parameters(self):
-        """Process grid information for zonal N-0 representation.
-
-        Calculates the zonal N-0 ptdf, based on the nodal N-0 ptdf with a
-        generation shift key.
-
-        There is the option to try to reduce this ptdf, however the number of
-        redundant constraints is expected to be small.
-
-        Since the zonal ptdf constraints the commercial exchange, a dummy ntc
-        table is added to not allow unintuitive commercial flows.
-
-        """
-        gsk = self.options["fbmc"]["gsk"]
-        grid_option = self.options["grid"]
-        zonal_network = pd.DataFrame(index=self.grid.lines.index,
-                                     columns=self.data.zones.index,
-                                     data=np.dot(self.grid.ptdf, self.create_gsk(gsk)))
-        zonal_network["cb"] = list(self.grid.lines.index)
-        zonal_network["co"] = ["basecase" for i in range(0, len(self.grid.lines.index))]
-        zonal_network["ram"] = self.grid.lines.capacity.values*self.options["grid"]["long_term_rating_factor"]
-        zonal_network = zonal_network[["cb", "co", "ram"] + list(self.data.zones.index)]
-
-        if grid_option["redundancy_removal_option"] == "clarkson":
-            cbco_index = self.clarkson_algorithm(A=zonal_network.loc[:, self.data.zones.index].values, 
-                                                 b=zonal_network.loc[:, "ram"].values)
-            zonal_network = self.return_cbco(zonal_network, cbco_index)
-
-        return zonal_network
-
-
-    def create_cbco_zonal_grid_parameters(self):
-        """Process grid information for zonal N-1 representation.
-
-        Based on chosen sensitivity and GSK the return of
-        :meth:`~pomato.grid.create_cbco_data` runs the redundancy removal
-        algorithm to reduce the number of constraints to a minimal set.
-
-        The redundancy removal is very efficient for this type of grid
-        representation as the dimensionality of the ptdf is the number of zones
-        and therefore low.
-
-        Since the zonal ptdf constraints the commercial exchange, a dummy ntc
-        table is added to not allow unintuitive commercial flows.
-
-        """
-        grid_option = self.options["grid"]
-        gsk = self.create_gsk(grid_option["gsk"])
-        A, b, cbco_info = self.create_cbco_data(grid_option["sensitivity"],
-                                                preprocess=True,
-                                                gsk=gsk)
-
-        cbco_index = self.clarkson_algorithm(A=A, b=b)
-
-        cbco_zonal_network = self.return_cbco(cbco_info, cbco_index)
-        return cbco_zonal_network
-
-    def create_cbco_nodal_grid_parameters(self):
+    def create_scopf_grid_parameters(self):
         """Process grid information for nodal N-1 representation.
 
         Based on chosen sensitivity and GSK the return of
-        :meth:`~pomato.grid.create_cbco_data` runs the redundancy removal
+        :meth:`~pomato.grid.create_cnec_data` runs the redundancy removal
         algorithm to reduce the number of constraints to a minimal set. The
         redundancy removal algorithm can take long to conclude, e.g. about
         2 hours for the DE case study which comprises of ~450 nodes and ~1000
@@ -272,15 +220,15 @@ class GridModel():
         cbco fil in *options["grid"]["precalc_filename"]*.
 
         There are multiple options to pick, where one is the obvious best
-        *clarkson_base*. This runs the redundancy removal algorithm including
+        *conditional_redundancy_removal*. This runs the redundancy removal algorithm including
         bounds on the nodal injections, which are calculated based on
         installed capacity and availability/load timeseries. The other options
-        are: *clarkson* redundancy removal without bounds on nodal injections
+        are: *redundancy_removal* redundancy removal without bounds on nodal injections
         and "save" saving the relevant files for the RedundancyRemoval
         algorithm so that it can be run separately from the python POMATO.
 
         """
-        A, b, cbco_info = self.create_cbco_data(self.options["grid"]["sensitivity"],
+        A, b, cbco_info = self.create_cnec_data(self.options["grid"]["sensitivity"],
                                                 self.options["grid"]["preprocess"])
 
         if self.options["grid"]["precalc_filename"]:
@@ -305,13 +253,13 @@ class GridModel():
 
         else:
             # 3 valid args supported for redundancy_removal_option:
-            # clarkson, clarkson_base, full (default)
+            # clarkson, conditional_redundancy_removal, full (default)
             if self.options["grid"]["redundancy_removal_option"] == "full":
                 cbco_index = list(range(len(b)))
-            elif self.options["grid"]["redundancy_removal_option"] == "clarkson_base":
+            elif self.options["grid"]["redundancy_removal_option"] == "conditional_redundancy_removal":
                 cbco_index = self.clarkson_algorithm(
                     A=A, b=b, x_bounds=self.create_nodal_injection_limits())
-            elif self.options["grid"]["redundancy_removal_option"] == "clarkson":
+            elif self.options["grid"]["redundancy_removal_option"] == "redundancy_removal":
                 cbco_index = self.clarkson_algorithm(A=A, b=b)
             elif self.options["grid"]["redundancy_removal_option"] == "save":
                 cbco_index = list(range(len(b)))
@@ -324,7 +272,7 @@ class GridModel():
         cbco_nodal_network = self.return_cbco(cbco_info, cbco_index)
         return cbco_nodal_network
 
-    def create_cbco_data(self, sensitivity=5e-2, preprocess=False, gsk=None):
+    def create_cnec_data(self, sensitivity=5e-2, preprocess=False, gsk=None):
         """Create all relevant N-1 PTDFs in the form of Ax<b (PTDF x < ram).
 
         This uses the method :meth:`~pomato.grid.create_filtered_n_1_ptdf` to
@@ -485,25 +433,24 @@ class GridModel():
         self.write_cbco_info(self.julia_dir.joinpath("cbco_data"), "py", **kwargs)
 
         if not self.julia_instance:
-            self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
+            self.julia_instance = tools.JuliaDaemon(
+                self.logger, self.wdir, self.package_dir, "redundancy_removal", self.options["solver"]["name"]
+            )
         if not self.julia_instance.is_alive:
-            self.julia_instance = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "redundancy_removal")
-
-        # if self.options["type"] in ["zonal"]:
-        #     self.julia_instance.disable_multi_threading()
+            self.julia_instance = tools.JuliaDaemon(
+                self.logger, self.wdir, self.package_dir, "redundancy_removal", self.options["solver"]["name"]
+            )
 
         t_start = dt.datetime.now()
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
-
         self.julia_instance.run(args=args)
-
         t_end = dt.datetime.now()
         self.logger.info("End-Time: %s", t_end.strftime("%H:%M:%S"))
         self.logger.info("Total Time: %s", str((t_end-t_start).total_seconds()) + " sec")
 
         if self.julia_instance.solved:
             file = tools.newest_file_folder(self.julia_dir.joinpath("cbco_data"), keyword="cbco")
-            self.logger.info("cbco list save for later use to: \n%s", file.stem + ".csv")
+            self.logger.info("cbco list save for later use to data_output: \n%s", file.stem + ".csv")
             cbco = list(pd.read_csv(file, delimiter=',').constraints.values)
         else:
             self.logger.critical("Error in Julia code")
@@ -524,49 +471,6 @@ class GridModel():
         cbco_info.loc[:, "index"] = cbco_info.cb + "_" + cbco_info.co
         cbco_info = cbco_info.set_index("index")
         return cbco_info
-
-    def create_gsk(self, option="flat"):
-        """Create generation shift key (gsk).
-
-        The gsk represents a node to zone mapping or the assumption on how nodal injections
-        within a zone are distributed if you only know the zonal net position.
-
-        Based on the argument this method creates a gsk either *flat*, all nodes weighted
-        equally or *gmax* with nodes weighted according to the installed conventional capacity.
-
-        Parameters
-        ----------
-        option : str, optional
-            Deciding how nodal injections are weighted. Currently *flat* or *gmax*.
-
-        Returns
-        -------
-        gsk : np.ndarray
-            gsk in the form of a NxZ matrix (Nodes, Zones). With each column representing
-            the weighting of nodes within a zone. The product ptdf * gsk yields the zonal
-            ptdf matrix.
-
-        """
-        self.logger.info("Creating gsk with option: %s", option)
-        gsk = pd.DataFrame(index=self.data.nodes.index)
-        condition = (self.data.plants.plant_type.isin(self.options["plant_types"]["ts"]) 
-                        & (~self.data.plants.plant_type.isin(self.options["plant_types"]["es"])))
-        gmax_per_node = self.data.plants.loc[condition, ["g_max", "node"]].groupby("node").sum()
-
-        for zone in self.data.zones.index:
-            nodes_in_zone = self.data.nodes.index[self.data.nodes.zone == zone]
-            gsk[zone] = 0
-            gmax_in_zone = gmax_per_node[gmax_per_node.index.isin(nodes_in_zone)]
-            if option == "gmax":
-                if not gmax_in_zone.empty:
-                    gsk_value = gmax_in_zone.g_max/gmax_in_zone.values.sum()
-                    gsk.loc[gsk.index.isin(gmax_in_zone.index), zone] = gsk_value
-
-            elif option == "flat":
-                # if not gmax_in_zone.empty:
-                gsk.loc[gsk.index.isin(nodes_in_zone), zone] = 1/len(nodes_in_zone)
-
-        return gsk.values
 
     def process_ntc(self):
         """Process grid information for NTC representation.

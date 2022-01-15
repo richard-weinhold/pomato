@@ -54,7 +54,7 @@ mato.visualization.create_geo_plot(nodal_result,
 
 # %% Rerun the model as SCOPF
 mato.options["type"] = "cbco_nodal"
-mato.options["grid"]["redundancy_removal_option"] = "clarkson_base"
+mato.options["grid"]["redundancy_removal_option"] = "conditional_redundancy_removal"
 # Optionally set a line rating factors
 # mato.options["grid"]["short_term_rating_factor"] = 1
 # mato.options["grid"]["long_term_rating_factor"] = 0.75

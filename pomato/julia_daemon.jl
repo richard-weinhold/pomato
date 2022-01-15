@@ -41,10 +41,10 @@ function run_redundancy_removal(file_suffix::String, multi_threaded::Bool)
 
     if multi_threaded & (Threads.nthreads() >= 2)
         @info("Run case $(file_suffix) on $(Threads.nthreads()) threads")
-        RedundancyRemoval.run_redundancy_removal(cbco_dir, file_suffix, optimizer.Optimizer, filter_only=true)
+        RedundancyRemoval.run_redundancy_removal(cbco_dir, file_suffix, optimizer, filter_only=true)
     else
         @info("Run case $(file_suffix) single threaded")
-        RedundancyRemoval.run_redundancy_removal(cbco_dir, file_suffix, optimizer.Optimizer, parallel=false)
+        RedundancyRemoval.run_redundancy_removal(cbco_dir, file_suffix, optimizer, parallel=false)
     end
 end
 
@@ -55,10 +55,10 @@ function run_redundancy_removal_fbmc_domain(multi_threaded::Bool)
 
     if multi_threaded & (Threads.nthreads() >= 2)
         @info("Run FBMC Domain Reduction on $(Threads.nthreads()) threads")
-        RedundancyRemoval.run_redundancy_removal_fbmc_domain(cbco_dir, optimizer.Optimizer, parallel=true)
+        RedundancyRemoval.run_redundancy_removal_fbmc_domain(cbco_dir, optimizer, parallel=true)
     else
         @info("Run case single threaded")
-        RedundancyRemoval.run_redundancy_removal_fbmc_domain(cbco_dir, optimizer.Optimizer, parallel=false)
+        RedundancyRemoval.run_redundancy_removal_fbmc_domain(cbco_dir, optimizer, parallel=false)
     end
 end
 
@@ -81,8 +81,12 @@ function set_optimizer(file)
     global gurobi_installed 
     if file["chance_constrained"]
         @info("Loading Mosek for Chance Constrained Market Model...")
-        global optimizer = Mosek
-    elseif gurobi_installed
+        if !(gurobi_installed)
+            @error("Gurobi is needed for chance constrained fomulation")
+        else
+            global optimizer = Gurobi
+        end
+    elseif solver == "Gurobi" && gurobi_installed
         @info("Loading Gurobi...")
         global optimizer = Gurobi
     else
@@ -95,26 +99,20 @@ end
 ######################
 global julia_package_type = ARGS[1]
 global pdir = ARGS[2]
+global solver = ARGS[3]
 global wdir = pwd()
 global daemon_file = pdir*"/daemon_"*julia_package_type*".json"
 
 global gurobi_installed 
-global mosek_installed
 
 if VERSION >= v"1.4"
     isinstalled(pkg::String) = any(x -> x.name == pkg && x.is_direct_dep, values(Pkg.dependencies()))
-    mosek_installed = isinstalled("Mosek") 
     gurobi_installed = isinstalled("Gurobi") 
 else
-   mosek_installed = "Mosek" in keys(Pkg.installed()) ? true : false
    gurobi_installed = "Gurobi" in keys(Pkg.installed()) ? true : false
 end
 
-if mosek_installed
-    @info("Loading Mosek...")
-    using Mosek, MosekTools
-end
-if gurobi_installed
+if solver == "Gurobi" && gurobi_installed
     @info("Loading Gurobi...")
     using Gurobi
 else

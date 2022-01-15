@@ -23,7 +23,7 @@ class TestPomato(unittest.TestCase):
         cls.temp_dir = tempfile.TemporaryDirectory()
         cls.wdir = Path(cls.temp_dir.name)
         copytree(Path.cwd().joinpath("examples"), cls.wdir)
-        copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), cls.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data"), cls.wdir)
 
         shutil.copyfile(Path.cwd().joinpath("tests/test_data/unsupported_inputformat.xyz"), 
                         cls.wdir.joinpath("data_input/unsupported_inputformat.xyz"))
@@ -67,20 +67,20 @@ class TestPomato(unittest.TestCase):
 
     def test_init_nrel_direct_filepath(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
-        filepath = self.wdir.joinpath('data_input/nrel_118.zip')
+        filepath = self.wdir.joinpath('data_input/nrel_118_original.zip')
         mato.load_data(filepath)
 
     def test_init_nrel_xlsx(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
-        mato.load_data('data_input/nrel_118.xlsx')
+        mato.load_data('data_input/nrel_118_original.xlsx')
     
     def test_init_nrel_zip(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
-        mato.load_data('data_input/nrel_118.zip')
+        mato.load_data('data_input/nrel_118_original.zip')
 
     def test_init_nrel_folder(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
-        mato.load_data('data_input/nrel_118/')
+        mato.load_data('data_input/nrel_118_original/')
 
     def test_save_model_data_to_folder(self):
         mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False,

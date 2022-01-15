@@ -75,7 +75,7 @@ class MarketModel():
 
     def _start_julia_daemon(self):
         """Start julia subprocess."""
-        self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model")
+        self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model", self.options["solver"]["name"])
 
     @property
     def model_horizon(self):
@@ -106,7 +106,7 @@ class MarketModel():
         t_start = datetime.datetime.now()
 
         if not self.julia_model:
-            self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model")
+            self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model", self.options["solver"]["name"])
 
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
 
@@ -258,6 +258,12 @@ class MarketModel():
             self.grid_representation.redispatch_grid \
                 .to_csv(str(self.data_dir.joinpath('redispatch_grid.csv')), index_label='index')
 
+        if not self.grid_representation.lines.empty:
+            self.grid_representation.lines.to_csv(
+                str(self.data_dir.joinpath('lines.csv')), index_label='index'
+            )
+ 
+        
         with open(self.data_dir.joinpath('contingency_groups.json'), 'w') as file:
             json.dump(self.grid_representation.contingency_groups, file, indent=2)
 

@@ -79,7 +79,7 @@ class JuliaDaemon():
         Workingdirectory, should be pomato root directory.
    
     """
-    def __init__(self, logger, wdir, package_dir, julia_module):
+    def __init__(self, logger, wdir, package_dir, julia_module, solver):
         if not julia_module in ["market_model", "redundancy_removal"]:
             raise TypeError("The JuliaDaemon has to be initialized with market_model or redundancy_removal")
 
@@ -91,6 +91,7 @@ class JuliaDaemon():
         logger.addHandler(self._last_log)
 
         self.wdir = wdir
+        self.solver = solver
         self.package_dir = package_dir
         self.daemon_file = package_dir.joinpath(f"daemon_{julia_module}.json")
         self.julia_daemon_path = package_dir.joinpath("julia_daemon.jl")
@@ -108,7 +109,7 @@ class JuliaDaemon():
     def start_julia_daemon(self):
         """Stat julia daemon"""
         args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
-                str(self.julia_daemon_path), self.julia_module, str(self.package_dir)]
+                str(self.julia_daemon_path), self.julia_module, str(self.package_dir), str(self.solver)]
         process = subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT, cwd=str(self.wdir))
         while process.returncode is None:    
@@ -361,13 +362,12 @@ def default_options():
         "type": "ntc",
         "model_horizon": [0, 2],
         "heat_model": False,
-        "constrain_nex": False,
         "timeseries": {
             "split": True,
             "market_horizon": 1000,
             "redispatch_horizon": 24,
             "smooth_storage_level": False,
-            "type": "da"},
+            "type": "rt"},
         "redispatch": {
             "include": False,
             "zonal_redispatch": False,
@@ -424,10 +424,9 @@ def default_options():
             "enforce_ntc_domain": False,  
             "precalc_filename": None, 
         },
-        "data": {
-            "result_copy": False,
-        },
-        "solver_options": {
+        "solver": {
+            "name": "Clp", 
+            "solver_options": {}
         }
     }
     return options

@@ -48,6 +48,9 @@ class Results():
 
     def __init__(self, data, grid, result_folder):
         self.logger = logging.getLogger('log.pomato.data.Results')
+        if not result_folder.is_dir():
+            raise FileNotFoundError("result_folder argument is not a folder")
+
         self.grid = grid
         self.data = data
         self.wdir = self.data.wdir
@@ -62,9 +65,12 @@ class Results():
 
         dual_variables = {variable: False for variable in ["EB_nodal", "EB_zonal", "EB_heat"]}
 
-        infeasibility_variables = {variable: False
-                                   for variable in ["INFEASIBILITY_H_POS", "INFEASIBILITY_H_NEG",
-                                                    "INFEASIBILITY_EL_POS", "INFEASIBILITY_EL_NEG"]}
+        infeasibility_variables = {
+            variable: False for variable in [
+                "COST_INFEASIBILITY_ES", "INFEASIBILITY_H_POS", "INFEASIBILITY_H_NEG",
+                "INFEASIBILITY_EL_POS", "INFEASIBILITY_EL_NEG"
+            ]
+        }
 
         self.result_attributes = {"variables": variables,
                                   "dual_variables": dual_variables,

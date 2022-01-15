@@ -304,7 +304,7 @@ class FBMCModule():
         nodal_fbmc_ptdf, fbmc_data = self.create_base_fbmc_parameters(critical_branches, lodf_sensitivity)
 
         if (self.options["grid"]["precalc_filename"]) and (not self.options["fbmc"]["precalc_filename"]):
-            cbco = self.grid_model.create_cbco_nodal_grid_parameters()
+            cbco = self.grid_model.create_scopf_grid_parameters()
             condition = fbmc_data[["cb", "co"]].apply(tuple, axis=1).isin(cbco[["cb", "co"]].apply(tuple, axis=1).values).values
             nodal_fbmc_ptdf, fbmc_data = nodal_fbmc_ptdf[condition | (fbmc_data.co == "basecase") , :], \
                                                          fbmc_data.loc[condition | (fbmc_data.co == "basecase") , :]
