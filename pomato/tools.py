@@ -316,26 +316,6 @@ def create_folder_structure(base_path, logger=None):
         else:
             print("Could not create folder structure!")
        
-def split_length_in_ranges(step_size, length):
-    """Split a range 1:N in a list of ranges with specified length."""
-    ranges = []
-    if step_size > length:
-        ranges.append(range(0, length))
-    else:
-        ranges = []
-        step_size = int(step_size)
-        for i in range(0, int(length/step_size)):
-            ranges.append(range(i*step_size, (i+1)*step_size))
-        ranges.append(range((i+1)*step_size, length))
-    return ranges
-
-def _delete_empty_subfolders(folder):
-    """Delete all empty subfolders to input folder."""
-    non_empty_subfolders = {f.parent for f in folder.rglob("*") if f.is_file()}
-    for subfolder in folder.iterdir():
-        if subfolder not in non_empty_subfolders:
-            subfolder.rmdir()
-
 def reduce_df_size(df):
     """Reduce size of DataFrame by assigning adequate data types."""
     for col, dtype in zip(df.dtypes.index, [i.name for i in df.dtypes.values]):
@@ -345,14 +325,6 @@ def reduce_df_size(df):
         #     df[col] = pd.to_numeric(df[col], downcast="integer")
         # elif "float" in dtype:
         #     df[col] = pd.to_numeric(df[col], downcast="float")
-    return df
-
-def fillna_numeric_columns(df, value):
-    """Fill NaN with value in numeric columns."""
-    df = df.copy()
-    for col in df:
-        if df[col].dtype in ("int", "float"):
-            df[col] = df[col].fillna(value)
     return df
 
 def default_options():

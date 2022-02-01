@@ -272,12 +272,13 @@ class Visualization():
                     # line=dict(width=2),
                     # symbol="pentagon-open"
                 ),
-                customdata=nodes[["zone", "name"]].reset_index(),
+                customdata=nodes[["zone", "name", "voltage"]].reset_index(),
                 hovertemplate=
                 "<br>".join([
                     "Node: %{customdata[0]}",
                     "Zone: %{customdata[1]}",
                     "Name: %{customdata[2]}",
+                    "Voltage: %{customdata[3]}"
                 ]) + "<extra></extra>"
             ))
         # Plot all nodes at least as a blued dot. 
@@ -290,12 +291,13 @@ class Visualization():
                 opacity=0.8,
                 size=3
                 ), 
-            customdata=nodes[["zone", "name"]].reset_index(),
+            customdata=nodes[["zone", "name", "voltage"]].reset_index(),
             hovertemplate=
             "<br>".join([
                 "Node: %{customdata[0]}",
                 "Zone: %{customdata[1]}",
                 "Name: %{customdata[2]}",
+                "Voltage: %{customdata[3]}"
             ]) + "<extra></extra>"
         ))
         
@@ -508,7 +510,7 @@ class Visualization():
             return fig
 
     def create_available_intermittent_capacity_plot(self, data, zones=None, show_plot=True, filepath=None):
-        """Visualize available intermittet generation capacities over time.
+        """Visualize available intermittent generation capacities over time.
 
         Parameters
         ----------
@@ -1026,7 +1028,7 @@ class Visualization():
         if show_plot:
             plot(fig)
         else:
-            return fig
+            return fig, gen
 
     def create_merit_order(self, data=None, zones=None, timestep=None, show_plot=True, filepath=None):
         """Create merit order of the input data. 

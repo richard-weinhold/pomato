@@ -2,6 +2,8 @@ import logging
 import os
 import random
 import shutil
+import datetime
+import time
 import sys
 import tempfile
 import unittest
@@ -97,3 +99,8 @@ class TestPomato(unittest.TestCase):
         mato.rename_market_result("result", "newname")
         self.assertTrue(all([r in mato.data.results for r in ["newname_a", "newname_b"]]))
 
+    def test_tools_timestep(self):
+        start = datetime.datetime.now()
+        mato = pomato.POMATO(wdir=self.wdir, logging_level=logging.ERROR, file_logger=False)
+        time.sleep(1)
+        pomato.tools.print_timestep(start, mato.logger)
