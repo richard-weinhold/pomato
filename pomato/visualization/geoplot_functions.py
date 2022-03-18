@@ -281,7 +281,7 @@ def create_curtailment_trace(nodes, plotly_function):
         "<br>".join([
             "Node: %{customdata[0]}",
             "Zone: %{customdata[1]}",
-            "Curtailment: %{customdata[2]:.2f} MW",
+            "Curtailment: %{customdata[2]:.2f} GW",
         ]) + "<extra></extra>"
     )
     return trace
@@ -306,7 +306,7 @@ def create_infeasibilities_trace(nodes, plotly_function):
             "<br>".join([
                 "Node: %{customdata[0]}",
                 "Zone: %{customdata[1]}",
-                "Infeasibilities: + %{customdata[2]:.2f}, - %{customdata[3]:.2f} MW",
+                "Infeasibilities: + %{customdata[2]:.2f}, - %{customdata[3]:.2f} GWh",
             ]) + "<extra></extra>"
         ))
     return trace

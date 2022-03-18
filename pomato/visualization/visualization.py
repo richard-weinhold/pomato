@@ -75,7 +75,8 @@ class Visualization():
         self.wdir = wdir
 
     def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, show_infeasibility=False,
-                        show_curtailment=False, timestep=None, threshold=0, highlight_nodes=None, redispatch_input=None,
+                        show_curtailment=False, timestep=None, threshold=0, highlight_nodes=None, 
+                        redispatch_input=None, highlight_zones=None,
                         redispatch_size_reference=None, loading_range=(0,100), highlight_lines=None, 
                         line_color_option=0, show_plot=True, filepath=None, vector_plot=False):
         """Creates Geoplot of market result.
@@ -119,6 +120,7 @@ class Visualization():
         nodes = market_result.data.nodes.copy()
         nodes["name"] = nodes.name.astype(object)
         nodes.loc[nodes.name.isna(), "name"] = " "
+
         if isinstance(timestep, int):
             timestep = market_result.model_horizon[timestep]
         
@@ -143,6 +145,7 @@ class Visualization():
         
         if show_curtailment: 
             curtailment = market_result.curtailment()
+            curtailment.loc[:, "CURT"] *= 1e-3
             if isinstance(timestep, str):
                 curtailment = curtailment.loc[curtailment.t == timestep, ["node", "CURT"]].groupby("node").sum()
                 curtailment = pd.merge(nodes["zone"], curtailment, how="left", left_index=True, right_index=True)
@@ -154,6 +157,7 @@ class Visualization():
         
         if show_infeasibility: 
             infeasibility = market_result.infeasibility()
+            infeasibility.loc[:, ["pos", "neg"]] = infeasibility[["pos", "neg"]]*1e-3
             if isinstance(timestep, str):
                 infeasibility = infeasibility.loc[infeasibility.t == timestep, ["n", "pos", "neg"]].groupby("n").sum()
                 infeasibility = pd.merge(nodes["zone"], infeasibility, how="left", left_index=True, right_index=True)
@@ -165,17 +169,30 @@ class Visualization():
 
         if isinstance(timestep, str):
             result_data = market_result.create_result_data()
-            dcline_flow = result_data.dc_flow.loc[result_data.dc_flow.t == timestep].set_index("dc").F_DC.reindex(dclines.index)
-            dclines = pd.merge(dclines, dcline_flow.rename("dc_flow"), left_index=True, right_index=True)
-            prices = result_data.prices[result_data.prices.t == timestep].groupby("n").mean()
+
+            f_dc = market_result.F_DC.loc[market_result.F_DC.t == timestep]
+            f_dc.set_index("dc").F_DC.reindex(dclines.index).rename("dc_flow")
+            dclines = pd.merge(dclines, f_dc, left_index=True, right_index=True)
+            prices = market_result.price()
+            prices = prices[prices.t == timestep].groupby("n").mean()
+            n_0_flow = market_result.n_0_flow()
+            n_1_flow = market_result.absolute_max_n_1_flow(sensitivity=0.2)
+
             lines = pd.merge(lines, result_data.n_0_flow[timestep].rename("n_0_flow"), left_index=True, right_index=True)
             lines = pd.merge(lines, result_data.n_1_flow[timestep].rename("n_1_flow"), left_index=True, right_index=True)
         else:
-            result_data = market_result.create_averaged_result_data()
-            dclines = pd.merge(dclines, result_data.dc_flow.rename("dc_flow"), left_index=True, right_index=True)
-            prices = result_data.prices
-            lines = pd.merge(lines, result_data.n_0_flow.rename("n_0_flow"), left_index=True, right_index=True)
-            lines = pd.merge(lines, result_data.n_1_flow.rename("n_1_flow"), left_index=True, right_index=True)
+            # result_data = market_result.create_averaged_result_data()
+            f_dc = market_result.F_DC.pivot(
+                index="dc", columns="t", values="F_DC").abs().mean(axis=1)
+            f_dc = f_dc.reindex(market_result.data.dclines.index).fillna(0).rename("dc_flow")
+            
+            dclines = pd.merge(dclines, f_dc, left_index=True, right_index=True)
+            prices = market_result.price()[["n", "marginal"]].groupby("n").mean()
+            n_0_flow = market_result.n_0_flow().abs().mean(axis=1).rename("n_0_flow").to_frame()
+            n_1_flow = market_result.absolute_max_n_1_flow(sensitivity=0.2).mean(axis=1).rename("n_1_flow").to_frame()
+            lines = pd.merge(lines, n_0_flow, left_index=True, right_index=True)
+            lines = pd.merge(lines, n_1_flow, left_index=True, right_index=True)
+
 
         fig = go.Figure()
         if show_redispatch and any(nodes.delta_abs > 0):
@@ -191,7 +208,8 @@ class Visualization():
                 fig.add_trace(tr)
 
         # DC Lines  
-        dcline_coords = np.array(result_data.dcline_coordinates)
+        dcline_coords = line_coordinates(market_result.data.dclines, market_result.data.nodes)
+        dcline_coords = np.array(dcline_coords)
         lons, lats, customdata = create_custom_data_lines(dclines, dclines[["capacity", "dc_flow"]], dcline_coords)
         hovertemplate_dclines = "<br>".join(
             ["Line: %{customdata[0]}", "Capcity: %{customdata[1]:.2f} MW",
@@ -238,10 +256,17 @@ class Visualization():
             hovertemplate_lines.replace("<br>N-0 Flow %{customdata[2]:.2f} MW<br>N-1 Flow %{customdata[3]:.2f} MW", "")
         
         if isinstance(highlight_lines, list) and len(highlight_lines) > 0:
-            lines["alpha"] = [1 if l in highlight_lines else 0.2 for l in lines.index]
-    
+            lines["alpha"] = [1 if l in highlight_lines else 0.2 for l in lines.index]        
+        
+        if isinstance(highlight_zones, list):
+            nodes_in_zone = nodes[nodes.zone.isin(highlight_zones)].index
+            lines_in_zone = lines[(lines.node_i.isin(nodes_in_zone))&(lines.node_i.isin(nodes_in_zone))].index
+            lines["alpha"] = [1 if l in lines_in_zone else 0.2 for l in lines.index]
+            lines["colors"] = [lines.loc[l, "colors"] if l in lines_in_zone else "#737373" for l in lines.index]        
+
         # Add Lines for each color
-        line_coords = np.array(result_data.line_coordinates)
+        line_coords = line_coordinates(market_result.data.lines, market_result.data.nodes)
+        line_coords = np.array(line_coords)
         for color, alpha in (lines[["colors", "alpha"]].apply(tuple, axis=1).unique()):
             tmp_lines = list(lines[(lines.colors == color)&(lines.alpha == alpha)].index)
             lons, lats, customdata = create_custom_data_lines( 
@@ -373,9 +398,9 @@ class Visualization():
         else:
             return fig
 
-    def create_zonal_geoplot(self, market_result, timestep=None, highlight_lines=None, show_plot=True, filepath=None):
+    def create_zonal_geoplot(self, market_result, timestep=None, highlight_nodes=None, highlight_lines=None, show_plot=True, filepath=None):
         
-        fig = self.create_geo_plot(market_result, timestep=timestep, 
+        fig = self.create_geo_plot(market_result, timestep=timestep, highlight_nodes=highlight_nodes,
                                    highlight_lines=highlight_lines, show_plot=False)
         fig.update_traces(marker_showscale=False)
 
@@ -456,7 +481,7 @@ class Visualization():
         """
         gen = market_result.generation()
         demand = market_result.demand()
-        inf = market_result.infeasibility(drop_zero=False)
+        inf = market_result.infeasibility()
         net_export = market_result.data.net_export
 
         if isinstance(nodes, list):
@@ -569,24 +594,33 @@ class Visualization():
         """
         gen = market_result.generation()
         flh = market_result.full_load_hours()
-            
-        gen = gen[["fuel", "technology", "G", "g_max"]].groupby(["fuel", "technology"], observed=True).sum().reset_index()
-        flh = flh.groupby(["fuel", "technology"], observed=True).mean().reset_index()
-        gen = pd.merge(gen, flh, on=["fuel", "technology"])
+        
+        cols = ["fuel", "technology", "G", "g_max"]
+        gen = gen[cols].groupby(cols[:2], observed=True).sum().reset_index()
+        flh = flh.groupby(cols[:2], observed=True).mean().reset_index()
+        gen = pd.merge(gen, flh, on=cols[:2])
         gen.loc[:, "G"] *= 1/1000
         gen.loc[:, "flh"] *= 100
         gen.loc[:, "utilization"] *= 100
 
         gen_colors = color_map(gen)
-        gen = pd.merge(gen, gen_colors, on=["fuel", "technology"])
+        gen = pd.merge(gen, gen_colors, on=cols[:2])
         gen.rename(columns={"G": "Generation"}, inplace=True)
-        fig = px.pie(gen, values='Generation', color='name', custom_data=gen[["name", "flh", "utilization"]],
-                    color_discrete_map=gen_colors[["color", "name"]].set_index("name").color.to_dict())
-        fig.update_traces(hovertemplate='<b>%{customdata[0][0]}</b> \
-                                         <br>Generation = %{value:.2f} GWh \
-                                         <br>Full Load Hours=%{customdata[0][1]:.2f} [% of capacity]\
-                                         <br>Utilization=%{customdata[0][2]:.2f} [% of available capacity]\
-                                         <extra></extra>')
+        fig = px.pie(
+            gen, 
+            values='Generation', 
+            color='name', 
+            custom_data=gen[["name", "flh", "utilization"]],
+            color_discrete_map=gen_colors[["color", "name"]].set_index("name").color.to_dict()
+        )
+        fig.update_traces(
+            hovertemplate=
+                '<b>%{customdata[0][0]}</b> \
+                <br>Generation = %{value:.2f} GWh \
+                <br>Full Load Hours=%{customdata[0][1]:.2f} [% of capacity]\
+                <br>Utilization=%{customdata[0][2]:.2f} [% of available capacity]\
+                <extra></extra>'
+        )
        
         if filepath:
             fig.write_html(str(filepath))
@@ -922,7 +956,7 @@ class Visualization():
         else:
             return fig
 
-    def create_generation_overview(self, market_results, zones=None, show_plot=True, filepath=None):
+    def create_generation_overview(self, market_results, zones=None, show_plot=True, filepath=None, return_data=False):
         """Create generation overview of multiple model results. 
 
         Parameters
@@ -949,10 +983,10 @@ class Visualization():
         for result_name, result in market_result_dict.items(): 
             if (result.result_attributes["is_redispatch_result"] and 
                 result.result_attributes["corresponding_market_result_name"]):
-                tmp = result.redispatch()
+                tmp = result.zonal_redispatch()
                 tmp = tmp.rename(columns={"G_redispatch": "G"})
             else:
-                tmp = result.generation()
+                tmp = result.zonal_generation()
                 tmp[['delta', 'delta_abs', 'delta_pos', 'delta_neg']] = 0
             tmp["result"] = result_name
             if isinstance(zones, list):
@@ -1027,8 +1061,10 @@ class Visualization():
             fig.write_html(str(filepath))
         if show_plot:
             plot(fig)
-        else:
+        if return_data:
             return fig, gen
+        else:
+            return fig
 
     def create_merit_order(self, data=None, zones=None, timestep=None, show_plot=True, filepath=None):
         """Create merit order of the input data. 
@@ -1061,9 +1097,14 @@ class Visualization():
 
         if timestep:
             ava = data.availability[data.availability.timestep == timestep].copy()
+            # ava = data.availability[data.availability.timestep.isin(timestep)].copy()
+            # ava.groupy("t").mean()
             ava = ava.drop("timestep", axis=1).set_index("plant")
             ava = ava.loc[ava.index.isin(plants.index)]
             plants.loc[ava.index, "g_max"] *= ava.availability
+            xaxis_title = 'Available Capacity [MW] at timestep ' + timestep
+        else:
+            xaxis_title = 'Installed Capacity [MW]'
 
 
 
@@ -1096,7 +1137,7 @@ class Visualization():
             bargap=0,
             legend=dict(x=1.1),
             yaxis=dict(title='Costs [$ per MWh]'),
-            xaxis=dict(title='Installed Capacity [MW]'),
+            xaxis=dict(title=xaxis_title),
 
         )
         fig = go.Figure(data=data, layout=layout)
