@@ -56,28 +56,32 @@ class Results():
         self.wdir = self.data.wdir
         self.output_folder = self.wdir.joinpath("data_output").joinpath(result_folder.name)
 
-        variables = {variable: False for variable in ["G", "H", "D_es", "L_es", "D_hs", "L_hs",
-                                                      "INJ", "EX", "D_ph", "F_DC", "CURT", "Alpha",
-                                                      "CC_LINE_MARGIN",
-                                                      "COST_G", "COST_H", "COST_EX", "COST_CURT", 
-                                                      "COST_REDISPATCH", "COST_INFEASIBILITY_EL",
-                                                      "COST_INFEASIBILITY_H"]}
+        variables = {
+            variable: False for variable in [
+                "G", "H", "D_es", "L_es", "D_hs", "L_hs",
+                "INJ", "EX", "D_ph", "F_DC", "CURT", "Alpha", "CC_LINE_MARGIN", "Dump_Water",
+                "COST_G", "COST_H", "COST_EX", "COST_CURT", 
+                "COST_REDISPATCH", "COST_INFEASIBILITY_EL", "COST_INFEASIBILITY_H", "COST_INFEASIBILITY_ES"
+            ]
+        }
 
         dual_variables = {variable: False for variable in ["EB_nodal", "EB_zonal", "EB_heat"]}
 
         infeasibility_variables = {
             variable: False for variable in [
-                "COST_INFEASIBILITY_ES", "INFEASIBILITY_H_POS", "INFEASIBILITY_H_NEG",
+                "INFEASIBILITY_ES", "INFEASIBILITY_H_POS", "INFEASIBILITY_H_NEG",
                 "INFEASIBILITY_EL_POS", "INFEASIBILITY_EL_NEG"
             ]
         }
 
-        self.result_attributes = {"variables": variables,
-                                  "dual_variables": dual_variables,
-                                  "infeasibility_variables": infeasibility_variables,
-                                  "model_horizon": None, "source_folder": None, "objective": None,
-                                  "is_redispatch_result": False, 
-                                  "corresponding_market_result_name": None}
+        self.result_attributes = {
+            "variables": variables,
+            "dual_variables": dual_variables,
+            "infeasibility_variables": infeasibility_variables,
+            "model_horizon": None, "source_folder": None, "objective": None,
+            "is_redispatch_result": False, 
+            "corresponding_market_result_name": None
+        }
 
         self.model_horizon = self.result_attributes["model_horizon"]
 
@@ -87,12 +91,12 @@ class Results():
             averaged_result_data=None,
         )
 
-        for var in self.result_attributes["variables"]:
-            setattr(self, var, pd.DataFrame())
-        for var in self.result_attributes["dual_variables"]:
-            setattr(self, var, pd.DataFrame())
-        for var in self.result_attributes["infeasibility_variables"]:
-            setattr(self, var, pd.DataFrame())
+     # for var in self.result_attributes["variables"]:
+        #     setattr(self, var, self.read_cached_result(var))
+        # for var in self.result_attributes["dual_variables"]:
+        #     setattr(self, var, self.read_cached_result(var))
+        # for var in self.result_attributes["infeasibility_variables"]:
+        #     setattr(self, var, self.read_cached_result(var))
 
         # Add opt Set-Up to the results attributes
         self.load_results_from_folder(result_folder)
@@ -115,8 +119,99 @@ class Results():
                 self.logger.warning("Multiple market results to %s found, using %s", 
                                     self.result_attributes["name"], result)
             else:
-                self.logger.warning("Corresponding market result to %s not or with new name instantiated", self.result_attributes["name"])
+                self.logger.warning(
+                    "Corresponding market result to %s not or with new name instantiated", 
+                    self.result_attributes["name"]
+                )
                 self.logger.warning("Manually set market result name in result attributes.")
+
+    @property
+    def G(self):
+        return self.read_cached_result("G")
+    @property
+    def H(self):
+        return self.read_cached_result("H")
+    @property
+    def D_es(self):
+        return self.read_cached_result("D_es")
+    @property
+    def L_es(self):
+        return self.read_cached_result("L_es")
+    @property
+    def D_hs(self):
+        return self.read_cached_result("D_hs")
+    @property
+    def L_hs(self):
+        return self.read_cached_result("L_hs")    
+    @property
+    def Dump_Water(self):
+        return self.read_cached_result("Dump_Water")
+    @property
+    def INJ(self):
+        return self.read_cached_result("INJ")
+    @property
+    def EX(self):
+        return self.read_cached_result("EX")
+    @property
+    def D_ph(self):
+        return self.read_cached_result("D_ph")
+    @property
+    def F_DC(self):
+        return self.read_cached_result("F_DC")
+    @property
+    def CURT(self):
+        return self.read_cached_result("CURT")
+    @property
+    def Alpha(self):
+        return self.read_cached_result("Alpha")
+    @property
+    def CC_LINE_MARGIN(self):
+        return self.read_cached_result("CC_LINE_MARGIN")
+    @property
+    def COST_G(self):
+        return self.read_cached_result("COST_G")
+    @property
+    def COST_H(self):
+        return self.read_cached_result("COST_H")
+    @property
+    def COST_EX(self):
+        return self.read_cached_result("COST_EX")
+    @property
+    def COST_CURT(self):
+        return self.read_cached_result("COST_CURT")
+    @property
+    def COST_REDISPATCH(self):
+        return self.read_cached_result("COST_REDISPATCH")
+    @property
+    def COST_INFEASIBILITY_EL(self):
+        return self.read_cached_result("COST_INFEASIBILITY_EL")
+    @property
+    def COST_INFEASIBILITY_H(self):
+        return self.read_cached_result("COST_INFEASIBILITY_H")   
+    @property
+    def COST_INFEASIBILITY_ES(self):
+        return self.read_cached_result("COST_INFEASIBILITY_ES")  
+    @property
+    def INFEASIBILITY_H_POS(self):
+        return self.read_cached_result("INFEASIBILITY_H_POS")
+    @property
+    def INFEASIBILITY_H_NEG(self):
+        return self.read_cached_result("INFEASIBILITY_H_NEG")  
+    @property
+    def INFEASIBILITY_EL_POS(self):
+        return self.read_cached_result("INFEASIBILITY_EL_POS")  
+    @property
+    def INFEASIBILITY_EL_NEG(self):
+        return self.read_cached_result("INFEASIBILITY_EL_NEG")  
+    @property
+    def INFEASIBILITY_ES(self):
+        return self.read_cached_result("INFEASIBILITY_ES")  
+    @property
+    def EB_nodal(self):
+        return self.read_cached_result("EB_nodal")  
+    @property
+    def EB_zonal(self):
+        return self.read_cached_result("EB_zonal")  
 
     def delete_temporary_files(self):
         """Delete temporary files."""
@@ -149,7 +244,12 @@ class Results():
         for variable_type in ["variables", "dual_variables", "infeasibility_variables"]:
             for var in self.result_attributes[variable_type]:
                 try:
-                    setattr(self, var, tools.reduce_df_size(pd.read_csv(str(folder.joinpath(f"{var}.csv")))))
+                    # setattr(self, var, tools.reduce_df_size(pd.read_csv(str(folder.joinpath(f"{var}.csv")))))
+                    self.cache_to_disk(
+                        tools.reduce_df_size(pd.read_csv(str(folder.joinpath(f"{var}.csv")))),
+                        var
+                    )
+                    # setattr(self, var, tools.reduce_df_size(pd.read_csv(str(folder.joinpath(f"{var}.csv")))))
                     # setattr(self, var, (pd.read_csv(str(folder.joinpath(f"{var}.csv")))))
                     self.result_attributes[variable_type][var] = True
                 except FileNotFoundError:
@@ -165,12 +265,14 @@ class Results():
         try:
             if folder.joinpath("optionfile.json").is_file():
                 with open(str(folder.joinpath("optionfile.json")), "r") as jsonfile:
-                    self.result_attributes = {**self.result_attributes,
-                                            **json.load(jsonfile)}
+                    self.result_attributes = {
+                        **self.result_attributes, **json.load(jsonfile)
+                    }
             else:
                 with open(str(folder.joinpath("options.json")), "r") as jsonfile:
-                    self.result_attributes = {**self.result_attributes,
-                                            **json.load(jsonfile)}
+                    self.result_attributes = {
+                        **self.result_attributes, **json.load(jsonfile)
+                    }
         except FileNotFoundError:
             self.logger.warning("No option file found in result folder, using data.options")
             self.result_attributes = {**self.result_attributes,
@@ -195,7 +297,7 @@ class Results():
 
         folder = self.wdir.joinpath("data_temp/results_cache").joinpath(str(id(self)))
         if not folder.is_dir():
-            folder.mkdir()
+            folder.mkdir() 
         file = folder.joinpath(name)
         df.reset_index().to_feather(file)
         self._cached_results[name] = file
@@ -218,86 +320,62 @@ class Results():
         )
         folder = self.wdir.joinpath("data_temp/results_cache").joinpath(str(id(self)))
         shutil.rmtree(folder, ignore_errors=True)
+   
+    # def create_result_data(self, force_recalc=False):
+    #     """Creates result data struct from result instance.
 
-    def result_data_struct(self):
-        """Data struct, as a standart template for result processing.
+    #     Based on :meth:`~result_data_struct`this method fills the data struct with data and results
+    #     from the market result specified which is an instance of :class:`~pomato.data.Results`.
+    #     This data struct is intended for the generation of visualizations of result in e.g. the
+    #     dynamic geoplot.
+
+    #     Parameters
+    #     ----------
+    #     market_result : :class:`~pomato.data.Results`
+    #         Market result which gets subsumed into the predefined data struct.
+    #     """
+    #     if not (not isinstance(self._cached_result_structs.result_data, types.SimpleNamespace) or force_recalc):
+    #         self.logger.debug("Returning cached result for result_data.")
+    #         return deepcopy(self._cached_result_structs.result_data)
         
-        Returns
-        -------
-        result_data, types.SimpleNamespace
-            Returns empty data struct, with predefined data structure. 
-        """        
-
-        return types.SimpleNamespace(
-            nodes=self.data.nodes,
-            lines=self.data.lines,
-            line_coordinates=line_coordinates(self.data.lines.copy(), self.data.nodes.copy()),
-            dclines=self.data.dclines,
-            dcline_coordinates=line_coordinates(self.data.dclines, self.data.nodes),
-            inj=pd.Series(index=self.data.nodes.index, data=0),
-            dc_flow= pd.Series(index=self.data.dclines.index, data=0),
-            generation=pd.DataFrame(),
-            demand=pd.DataFrame(),
-            prices=pd.DataFrame(),
-            n_0_flow=pd.Series(index=self.data.lines.index, data=0),
-            n_1_flow=pd.Series(index=self.data.lines.index, data=0)
-            )
-    
-    def create_result_data(self, force_recalc=False):
-        """Creates result data struct from result instance.
-
-        Based on :meth:`~result_data_struct`this method fills the data struct with data and results
-        from the market result specified which is an instance of :class:`~pomato.data.Results`.
-        This data struct is intended for the generation of visualizations of result in e.g. the
-        dynamic geoplot.
-
-        Parameters
-        ----------
-        market_result : :class:`~pomato.data.Results`
-            Market result which gets subsumed into the predefined data struct.
-        """
-        if not (not isinstance(self._cached_result_structs.result_data, types.SimpleNamespace) or force_recalc):
-            self.logger.debug("Returning cached result for result_data.")
-            return deepcopy(self._cached_result_structs.result_data)
+    #     self.logger.info("Precalculating and caching common results..")
+    #     data_struct = self.result_data_struct()
+    #     data_struct.inj = self.INJ
+    #     data_struct.dc_flow = self.F_DC
+    #     data_struct.generation = self.generation()
+    #     data_struct.demand = self.demand()
+    #     data_struct.n_0_flow = self.n_0_flow()
+    #     data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.2)
+    #     data_struct.prices = self.price()
         
-        self.logger.info("Precalculating and caching common results..")
-        data_struct = self.result_data_struct()
-        data_struct.inj = self.INJ
-        data_struct.dc_flow = self.F_DC
-        data_struct.generation = self.generation()
-        data_struct.demand = self.demand()
-        data_struct.n_0_flow = self.n_0_flow()
-        data_struct.n_1_flow = self.absolute_max_n_1_flow(sensitivity=0.2)
-        data_struct.prices = self.price()
-        
-        self._cached_result_structs.result_data = deepcopy(data_struct)
-        self.logger.info("Done calculating common results.")
+    #     self._cached_result_structs.result_data = deepcopy(data_struct)
+    #     self.logger.info("Done calculating common results.")
 
-        return data_struct
+    #     return data_struct
 
-    def create_averaged_result_data(self, force_recalc=False):
-        """Creates averaged result data struct.
+    # def create_averaged_result_data(self, force_recalc=False):
+    #     """Creates averaged result data struct.
 
-        Based on :meth:`~result_data_struct` and  :meth:`~create_result_data` this method fills 
-        the data struct with data and results from the market result specified which is an 
-        instance of :class:`~pomato.data.Results`. All results are averaged in useful ways. This 
-        data struct is intended for the static geoplot, which visualizes the results in 
-        average flows, injections, generation and prices. 
-        """
-        if not (not isinstance(self._cached_result_structs.averaged_result_data, types.SimpleNamespace) or force_recalc):
-            self.logger.debug("Returning cached result for averaged_result_data.")
-            return deepcopy(self._cached_result_structs.averaged_result_data)
+    #     Based on :meth:`~result_data_struct` and  :meth:`~create_result_data` this method fills 
+    #     the data struct with data and results from the market result specified which is an 
+    #     instance of :class:`~pomato.data.Results`. All results are averaged in useful ways. This 
+    #     data struct is intended for the static geoplot, which visualizes the results in 
+    #     average flows, injections, generation and prices. 
+    #     """
+    #     if not (not isinstance(self._cached_result_structs.averaged_result_data, types.SimpleNamespace) or force_recalc):
+    #         self.logger.debug("Returning cached result for averaged_result_data.")
+    #         return deepcopy(self._cached_result_structs.averaged_result_data)
 
-        data_struct = self.create_result_data()
+    #     data_struct = self.create_result_data()
 
-        data_struct.inj = data_struct.inj.groupby("n").mean().reindex(self.grid.nodes.index).INJ
-        data_struct.n_0_flow = data_struct.n_0_flow.abs().mean(axis=1)
-        data_struct.n_1_flow = data_struct.n_1_flow.abs().mean(axis=1)
-        data_struct.dc_flow = data_struct.dc_flow.pivot(index="dc", columns="t", values="F_DC") \
-                                .abs().mean(axis=1).reindex(self.data.dclines.index).fillna(0)
-        data_struct.prices = data_struct.prices[["n", "marginal"]].groupby("n").mean()
-        self._cached_result_structs.averaged_result_data = deepcopy(data_struct)
-        return data_struct
+    #     data_struct.inj = data_struct.inj.groupby("n").mean().reindex(self.grid.nodes.index).INJ
+    #     data_struct.n_0_flow = data_struct.n_0_flow.abs().mean(axis=1)
+    #     data_struct.n_1_flow = data_struct.n_1_flow.abs().mean(axis=1)
+    #     data_struct.dc_flow = data_struct.dc_flow.pivot(index="dc", columns="t", values="F_DC") \
+    #                             .abs().mean(axis=1).reindex(self.data.dclines.index).fillna(0)
+    #     data_struct.prices = data_struct.prices[["n", "marginal"]].groupby("n").mean()
+    #     self._cached_result_structs.averaged_result_data = deepcopy(data_struct)
+    #     return data_struct
 
     def redispatch(self, force_recalc=False):
         """Return Redispatch.
@@ -342,7 +420,38 @@ class Results():
         self.cache_to_disk(gen, "redispatch")
         return gen
 
-    def infeasibility(self, drop_zero=True):
+    def zonal_redispatch(self, force_recalc=False):
+        """Return Redispatch.
+        Calculates a delta between redispatch,- and market result. 
+        Positive delta represents a higher generation after redispatch i.e. positive and negative 
+        vice versa. 
+
+        Parameters
+        ----------
+        force_recalc : bool, optional
+            Price is cached automatically. To enforce recalc, e.g. when explicitly changing
+            data set this force_recalc to True. Defaults to False. 
+
+        Returns
+        -------
+        redispatch : DataFrame
+            Returns DataFrame with columns [zone, plant_type, g_max, zone, t, G, delta, delta_abs]
+        """
+        # Find corresponding Market Result
+        corresponding_market_result = self.result_attributes["corresponding_market_result_name"]
+        if not (self.result_attributes["is_redispatch_result"] and bool(corresponding_market_result)):
+            self.logger.warning("Corresponding market result not initialized or found")
+            return None
+        if not ((not "zonal_redispatch" in self._cached_results) or force_recalc):
+            self.logger.debug("Returning cached result for zonal redispatch.")
+            return self.read_cached_result("zonal_redispatch")
+        gen = self.redispatch()
+        cols = ['zone', 'fuel','technology', 't', 'G_redispatch', "G_market", 'delta', 'delta_abs', "delta_pos", "delta_neg"]
+        gen_agg = gen[cols].groupby(cols[:-6], observed=True).sum().reset_index()
+        self.cache_to_disk(gen_agg, "zonal_redispatch")
+        return gen_agg
+    
+    def infeasibility(self, force_recalc=False):
         """Return electricity infeasibilities.
         
         Infeasibilities occur when the electricity energy balances cannot be satisfied in the 
@@ -351,22 +460,25 @@ class Results():
 
         Parameters
         ----------
-        drop_zero : bool, optional
-            If True drop all infeasibility entries with value 0, by default True
+        force_recalc : bool, optional
+            Infeasibility is cached automatically. To enforce recalc, e.g. when explicitly changing
+            data set this force_recalc to True. Defaults to False. 
 
         Returns
         -------
         DataFrame
             DataFrame of nodal infeasibilities with columns [t, n, pos, neg].
         """        
-        infeasibility = pd.merge(self.data.nodes, self.INFEASIBILITY_EL_POS, left_index=True, right_on="n")
+        if not ((not "infeasibility" in self._cached_results) or force_recalc):
+            self.logger.debug("Returning cached result for infeasibility.")
+            return self.read_cached_result("infeasibility")
+
+        infeasibility = pd.merge(self.data.nodes[["zone"]], self.INFEASIBILITY_EL_POS, left_index=True, right_on="n")
         infeasibility = pd.merge(infeasibility, self.INFEASIBILITY_EL_NEG, on=["t", "n"])
         infeasibility = infeasibility.rename(columns={"INFEASIBILITY_EL_POS": "pos", "INFEASIBILITY_EL_NEG": "neg"})
-        
-        if drop_zero:
-            return infeasibility[(infeasibility.pos > 0) | (infeasibility.neg > 0)]
-        else:
-            return infeasibility
+        infeasibility = infeasibility[(infeasibility.pos > 0) | (infeasibility.neg > 0)]
+        self.cache_to_disk(infeasibility, "infeasibility")
+        return infeasibility
 
     def price(self, force_recalc=False):
         """Return electricity prices.
@@ -442,7 +554,8 @@ class Results():
             self.logger.debug("Returning cached result for generation.")
             return self.read_cached_result("generation")
         
-        gen = pd.merge(self.data.plants[["plant_type", "fuel", "node", "g_max"]],
+        cols = ["plant_type", "fuel", "availability", "g_max", "node"]
+        gen = pd.merge(self.data.plants[cols],
                         self.G, left_index=True, right_on="p", how="right")
         
         gen["zone"] = self.data.nodes.loc[gen.node, "zone"].values
@@ -454,6 +567,31 @@ class Results():
         gen = tools.reduce_df_size(gen)
         self.cache_to_disk(gen, "generation")
         return gen
+
+    def zonal_generation(self, force_recalc=False):
+        """Return generation variable merged to input data.
+        
+        Parameters
+        ----------
+        force_recalc : bool, optional
+            Generation is cached automatically. To enforce recalc, e.g. when explicitly changing
+            data set this force_recalc to True. Defaults to False. 
+
+        Returns
+        -------
+        generation : DataFrame
+            Returns DataFrame with columns ['zone', 'fuel','technology', 'node', 'G']
+
+        """
+        if not ((not "zonal_generation" in self._cached_results) or force_recalc):
+            self.logger.debug("Returning cached result for zonal generation.")
+            return self.read_cached_result("zonal_generation")
+        
+        gen = self.generation()
+        cols = ['zone', 'fuel','technology', 't', 'G']
+        gen_agg = gen[cols].groupby(cols[:-1], observed=True).sum().reset_index()
+        self.cache_to_disk(gen_agg, "zonal_generation")
+        return gen_agg  
 
     def curtailment(self, force_recalc=False):
         """Return Curtailment merge to input data.
@@ -476,6 +614,8 @@ class Results():
         curtailment = pd.merge(self.data.plants[["plant_type", "node", "g_max"]],
                                self.CURT, left_index=True, right_on="p", how="right")
         curtailment["zone"] = self.data.nodes.loc[curtailment.node, "zone"].values
+
+        curtailment = curtailment[curtailment.CURT > 0]
         curtailment = tools.reduce_df_size(curtailment)
         self.cache_to_disk(curtailment, "curtailment")
         return curtailment
@@ -493,12 +633,14 @@ class Results():
         flh["flh"] = flh.G/(gen.g_max)
         return flh.groupby([ "p", "fuel", "technology"], observed=True).mean()[["flh", "utilization"]].reset_index()
 
-    def storage_generation(self):
+    def storage_generation(self, force_recalc=False):
         """Return storage generation schedules.
 
         Returns DataFrame with columns [node, plant_type, zone, t, p, G, D_es, L_es]
         """
-
+        if not ((not "storage_generation" in self._cached_results) or force_recalc):
+            self.logger.debug("Returning cached result for storage_generation.")
+            return self.read_cached_result("storage_generation")
         es_plant_types = self.result_attributes["plant_types"]["es"]
         es_plants = self.data.plants.loc[self.data.plants.plant_type.isin(es_plant_types), ["node", "plant_type"]]
         es_plants["zone"] = self.data.nodes.loc[es_plants.node, "zone"].values
@@ -506,6 +648,8 @@ class Results():
         es_gen = pd.merge(es_plants, self.G, left_index=True, right_on="p")
         es_gen = pd.merge(es_gen, self.D_es, on=["p", "t"])
         es_gen = pd.merge(es_gen, self.L_es, on=["p", "t"])
+        es_gen = tools.reduce_df_size(es_gen)
+        self.cache_to_disk(es_gen, "storage_generation")
         return es_gen
 
     def _sort_timesteps(self, column):
@@ -527,17 +671,17 @@ class Results():
         if not self.D_ph.empty:
             demand_ph = pd.merge(self.D_ph, map_pn[["p", "n"]], 
                                  how="left", on="p").groupby(["n", "t"], as_index=False, observed=True).sum()
-            demand = pd.merge(demand, demand_ph[["D_ph", "n", "t"]], how="outer", on=["n", "t"])
+            demand = pd.merge(demand, demand_ph[["D_ph", "n", "t"]], how="left", on=["n", "t"])
+            demand.loc[:, "D_ph"].fillna(0, inplace=True)
         else:
             demand["D_ph"] = 0
         if not self.D_es.empty:
             demand_es = pd.merge(self.D_es, map_pn[["p", "n"]], 
                                  how="left", on="p").groupby(["n", "t"], as_index=False, observed=True).sum()
-            demand = pd.merge(demand, demand_es[["D_es", "n", "t"]], how="outer", on=["n", "t"])
+            demand = pd.merge(demand, demand_es[["D_es", "n", "t"]], how="left", on=["n", "t"])
+            demand.loc[:, "D_es"].fillna(0, inplace=True)
         else:
             demand["D_es"] = 0
-        
-        demand.loc[:, ["demand_el", "D_ph", "D_es"]].fillna(value=0, inplace=True)
         demand["demand"] = demand.demand_el + demand.D_ph + demand.D_es
         demand = demand.sort_values(by='t', key=self._sort_timesteps)
         demand = tools.reduce_df_size(demand)
@@ -619,7 +763,7 @@ class Results():
         self.cache_to_disk(n_1_flows, "n_1_flows")
         return n_1_flows
 
-    def absolute_max_n_1_flow(self, sensitivity=0.05):
+    def absolute_max_n_1_flow(self, sensitivity=0.05, force_recalc=False):
         """Calculate the absolute max of N-1 Flows.
 
         This method essentially proviedes a n_1_flow.groupby("cb") yielding the 
@@ -635,6 +779,9 @@ class Results():
             considered critical. Defaults to 5%.
 
         """
+        if not ((not "abs_max_n_1_flows" in self._cached_results) or force_recalc):
+            self.logger.debug("Returning cached result for redispatch.")
+            return self.read_cached_result("abs_max_n_1_flows")
 
         n_1_flows = self.n_1_flow(sensitivity=sensitivity)
         n_1_flows = n_1_flows.drop("co", axis=1)
@@ -643,9 +790,11 @@ class Results():
         n_1_flows = pd.DataFrame(np.where(n_1_flow_max > -n_1_flow_min, n_1_flow_max, n_1_flow_min),
                                  index=n_1_flow_min.index, columns=n_1_flow_min.columns)
 
-        return n_1_flows.reindex(self.grid.lines.index)
+        n_1_flows = n_1_flows.reindex(self.grid.lines.index)
+        self.cache_to_disk(n_1_flows, "abs_max_n_1_flows")
+        return n_1_flows
 
-    def overloaded_lines_n_0(self):
+    def overloaded_lines_n_0(self, force_recalc=False):
         """Calculate overloaded lines (N-0) power.
 
         Calculates what lines are overloaded, without taking into account
@@ -667,6 +816,11 @@ class Results():
         n_0_load : DataFrame
             Line loadings for the overloaded lines and considered timesteps.
         """
+
+        if not ((not "overloaded_n_0" in self._cached_results) or force_recalc):
+            self.logger.debug("Returning cached results.")
+            return (self.read_cached_result("n_0_info"), self.read_cached_result("n_0_overload"))
+
         flows = self.n_0_flow()
         timesteps = self.model_horizon
 
@@ -678,7 +832,7 @@ class Results():
         # Only those with overloads (with 1% tolerance)
         n_0_load = rel_load[np.any(rel_load.values > 1.01, axis=1)]
 
-        agg_info = pd.DataFrame(index=n_0_load.index)
+        n_0_info = pd.DataFrame(index=n_0_load.index)
         condition = np.any(rel_load.values > 1.01, axis=1)
 
         overloaded_energy = (n_0_load - 1)
@@ -686,12 +840,15 @@ class Results():
         line_capacities = self.data.lines.loc[condition, "capacity"]
         overloaded_energy = overloaded_energy.multiply(line_capacities, axis=0).sum(axis=1)
 
-        agg_info["# of overloads"] = np.sum(rel_load.values > 1.01, axis=1)[condition]
-        agg_info["avg load [%]"] = n_0_load.mean(axis=1)
-        agg_info["overloaded energy [GWh]"] = overloaded_energy/1000
-        return agg_info, n_0_load
+        n_0_info["# of overloads"] = np.sum(rel_load.values > 1.01, axis=1)[condition]
+        n_0_info["avg load [%]"] = n_0_load.mean(axis=1)
+        n_0_info["overloaded energy [GWh]"] = overloaded_energy/1000
+        
+        self.cache_to_disk(n_0_load, "n_0_overload")
+        self.cache_to_disk(n_0_info, "n_0_info")
+        return n_0_info, n_0_load
 
-    def overloaded_lines_n_1(self, sensitivity=5e-2):
+    def overloaded_lines_n_1(self, sensitivity=5e-2, force_recalc=False):
         """Overloaded lines under contingencies (N-1).
 
         Uses method :meth:`~n_1_flow()` to obtain N-1 power flows under
@@ -720,6 +877,10 @@ class Results():
         n_1_overload : DataFrame
             Line loadings for the overloaded cbco's and considered timesteps.
         """
+        if not ((not "overloaded_n_0" in self._cached_results) or force_recalc):
+            self.logger.debug("Returning cached results.")
+            return (self.read_cached_result("n_1_info"), self.read_cached_result("n_1_overload"))
+
         n_1_flow = self.n_1_flow(sensitivity=sensitivity)
         n_1_load = n_1_flow.copy()
 
@@ -732,15 +893,17 @@ class Results():
 
         # 1% overload as tolerance
         n_1_overload = n_1_load[~(n_1_load[timesteps] <= 1.01).all(axis=1)]
-        agg_info = n_1_overload[["cb", "co"]].copy()
-        agg_info["# of overloads"] = np.sum(n_1_overload[timesteps] > 1, axis=1).values
-        agg_info["# of COs"] = 1
-        agg_info = agg_info.groupby("cb").sum()
-        agg_info["avg load"] = n_1_overload.groupby(by=["cb"]).mean().mean(axis=1).values
+        n_1_info = n_1_overload[["cb", "co"]].copy()
+        n_1_info["# of overloads"] = np.sum(n_1_overload[timesteps] > 1, axis=1).values
+        n_1_info["# of COs"] = 1
+        n_1_info = n_1_info.groupby("cb").sum()
+        n_1_info["avg load"] = n_1_overload.groupby(by=["cb"]).mean().mean(axis=1).values
 
         condition = n_1_overload.co == "basecase"
-        bool_values = [line in n_1_overload.cb[condition].values for line in agg_info.index]
-        agg_info["basecase overload"] = bool_values
+        bool_values = [line in n_1_overload.cb[condition].values for line in n_1_info.index]
+        n_1_info["basecase overload"] = bool_values
         self.logger.info("Done")
 
-        return agg_info, n_1_overload
+        self.cache_to_disk(n_0_load, "n_1_overload")
+        self.cache_to_disk(n_0_info, "n_1_info")
+        return n_1_info, n_1_overload
