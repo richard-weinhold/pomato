@@ -90,7 +90,7 @@ class GridModel():
         self.julia_instance = tools.JuliaDaemon(
             self.logger, self.wdir, self.package_dir, "redundancy_removal", self.options["solver"]["name"])
 
-    def create_grid_representation(self, flowbased_paramters=None):
+    def create_grid_representation(self, flowbased_parameters=None):
         """Create grid representation based on model type.
 
         Options are: uniform, ntc, opf, scopf, fbmc.
@@ -113,7 +113,7 @@ class GridModel():
 
         Parameters
         ----------
-        flowbased_paramters : optional, pandas.DataFrame
+        flowbased_parameters : optional, pandas.DataFrame
             Flowbased parameters, derived using :class:`~pomato.fbmc.FBMCModule`
 
         """
@@ -124,8 +124,8 @@ class GridModel():
         self.grid_representation.lines = self.grid.lines.copy()
         self.grid_representation.lines.loc[:, "capacity"] *= self.options["grid"]["long_term_rating_factor"]
 
-        if isinstance(flowbased_paramters, pd.DataFrame):
-            self.process_flowbased_grid_representation(flowbased_paramters)
+        if isinstance(flowbased_parameters, pd.DataFrame):
+            self.process_flowbased_grid_representation(flowbased_parameters)
         elif self.options["type"] == "ntc":
             self.process_ntc()
             self.grid_representation.grid = pd.DataFrame()
@@ -147,7 +147,7 @@ class GridModel():
         else:
             self.grid.redispatch_grid = pd.DataFrame()
     
-    def process_flowbased_grid_representation(self, flowbased_paramters):
+    def process_flowbased_grid_representation(self, flowbased_parameters):
         """Process grid information for flow based grid representation.
         
         The flow based parameters reflect a zonal ptdf, including contingencies,
@@ -158,13 +158,13 @@ class GridModel():
 
         Parameters
         ----------
-        flowbased_paramters : pandas.DataFrame
+        flowbased_parameters : pandas.DataFrame
             Flowbased parameters, derived using :class:`~pomato.fbmc.FBMCModule`
 
         """
         self.options["type"] = "fbmc"
         self.grid_representation.option = "fbmc"
-        self.grid_representation.grid = flowbased_paramters
+        self.grid_representation.grid = flowbased_parameters
         self.grid_representation.contingency_groups = self.grid.contingency_groups
         self.process_ntc()
 

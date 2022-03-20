@@ -79,7 +79,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         # %% FBMC market clearing
         mato.options["redispatch"]["include"] = True
         mato.options["redispatch"]["zones"] = list(mato.data.zones.index)
-        mato.create_grid_representation(flowbased_paramters=fb_parameters)
+        mato.create_grid_representation(flowbased_parameters=fb_parameters)
         mato.update_market_model_data()
         mato.run_market_model()
         mato.visualization.create_generation_overview(list(mato.data.results.values()), show_plot=False)
