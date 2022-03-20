@@ -378,7 +378,7 @@ class Dashboard():
 
         self.add_overview_callbacks()
         self.add_generation_callbacks()
-        self.add_tranmission_callbacks()
+        self.add_transmission_callbacks()
         if include_fbmc:
             self.add_flowbased_callbacks()
         
@@ -452,7 +452,7 @@ class Dashboard():
                           [Input('results-dropdown-generation', 'value'),
                            Input('geo-figure-generation', 'clickData')])(self.display_plant_data)
 
-    def add_tranmission_callbacks(self):
+    def add_transmission_callbacks(self):
         ### Page 3: Lines 
         # Update All components that have options based on the result
         self.app.callback([Output('line-selector', 'options'),

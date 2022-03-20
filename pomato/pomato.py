@@ -32,7 +32,7 @@ The recommended way to install POMATO with python and pip:
   - Install `python <https://www.python.org/downloads>`_ for your operating system. On linux based
     operating systems python is often already installed and available under the python3 command. For
     Windows install python into a folder of your choice. POMATO is written and tested in python 3.7
-    by any version >= 3.6 should be compadible. 
+    by any version >= 3.6 should be compatible. 
 
   - Install `julia <https://julialang.org/downloads/>`_ for your operating system. POMATO is written
     and tested with 1.5, but the newest version 1.6 works as well, but throws some warnings.  
@@ -368,9 +368,9 @@ class POMATO():
 
         Additionally, this method create the appropriate grid representation. 
         """
-        flowbased_paramters = self.fbmc.create_flowbased_parameters(basecase, **kwargs)
-        self.create_grid_representation(flowbased_paramters=flowbased_paramters)
-        return flowbased_paramters
+        flowbased_parameters = self.fbmc.create_flowbased_parameters(basecase, **kwargs)
+        self.create_grid_representation(flowbased_parameters=flowbased_parameters)
+        return flowbased_parameters
 
     def create_grid_representation(self, **kwargs):
         """Grid Representation as property.
@@ -379,7 +379,7 @@ class POMATO():
         
         Parameters
         ----------
-        flowbased_paramters : optional, pandas.DataFrame
+        flowbased_parameters : optional, pandas.DataFrame
             Flowbased parameters, derived using :class:`~pomato.fbmc.FBMCModule`
         """
         self.grid_model.create_grid_representation(**kwargs)

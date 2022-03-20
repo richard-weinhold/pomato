@@ -312,15 +312,24 @@ class Results():
             df = pd.read_feather(file).set_index("index")
             return df
 
-    def _clear_cached_results(self):
-        self._cached_results = {}
-        self._cached_result_structs = types.SimpleNamespace(
-            result_data=None,
-            averaged_result_data=None,
-        )
-        folder = self.wdir.joinpath("data_temp/results_cache").joinpath(str(id(self)))
-        shutil.rmtree(folder, ignore_errors=True)
+    # def _clear_cached_results(self):
+    #     self._cached_results = {}
+    #     self._cached_result_structs = types.SimpleNamespace(
+    #         result_data=None,
+    #         averaged_result_data=None,
+    #     )
+    #     folder = self.wdir.joinpath("data_temp/results_cache").joinpath(str(id(self)))
+    #     shutil.rmtree(folder, ignore_errors=True)
    
+    def create_result_data(self):
+        self.generation()
+        self.redispatch()
+        self.generation()
+        self.demand()
+        self.n_0_flow()
+        self.absolute_max_n_1_flow(sensitivity=0.2)
+        self.price()
+
     # def create_result_data(self, force_recalc=False):
     #     """Creates result data struct from result instance.
 
@@ -700,7 +709,7 @@ class Results():
         ----------
         force_recalc : bool, optional
             Power flow results are automatically cached to avoid recalculation.
-            This argument forces recalculation e.g. when paramters have been altered. 
+            This argument forces recalculation e.g. when parameters have been altered. 
 
         Returns
         -------
@@ -730,7 +739,7 @@ class Results():
         ----------
         force_recalc : bool, optional
             Power flow results are automatically cached to avoid recalculation.
-            This argument forces recalculation e.g. when paramters have been altered. 
+            This argument forces recalculation e.g. when parameters have been altered. 
 
         sensitivity : float, optional
             The sensitivity defines the threshold from which outages are
@@ -904,6 +913,6 @@ class Results():
         n_1_info["basecase overload"] = bool_values
         self.logger.info("Done")
 
-        self.cache_to_disk(n_0_load, "n_1_overload")
-        self.cache_to_disk(n_0_info, "n_1_info")
+        self.cache_to_disk(n_1_overload, "n_1_overload")
+        self.cache_to_disk(n_1_info, "n_1_info")
         return n_1_info, n_1_overload

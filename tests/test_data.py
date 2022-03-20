@@ -162,18 +162,19 @@ class TestPomatoResults(unittest.TestCase):
         copytree(Path.cwd().joinpath("examples"), wdir)
         copytree(Path.cwd().joinpath("tests/test_data"), wdir)
         
-        mato = pomato.POMATO(wdir=wdir, options_file="profiles/nrel118.json",
+        cls.mato = pomato.POMATO(wdir=wdir, options_file="profiles/nrel118.json",
                                  logging_level=logging.ERROR, file_logger=False)
-        mato.load_data('data_input/nrel_118_original.zip')
+        cls.mato.load_data('data_input/nrel_118_original.zip')
 
-        mato.initialize_market_results(
+        cls.mato.initialize_market_results(
             [wdir.joinpath("uniform_market"),
              wdir.joinpath("uniform_redispatch")])
-        cls.market_result, cls.redispatch_result = mato.data.return_results()
+        cls.market_result, cls.redispatch_result = cls.mato.data.return_results()
 
     def setUp(self):
-        self.market_result._clear_cached_results()
-        self.redispatch_result._clear_cached_results()
+        pass
+        # self.market_result._clear_cached_results()
+        # self.redispatch_result._clear_cached_results()
 
     @classmethod
     def tearDownClass(cls):
@@ -182,6 +183,7 @@ class TestPomatoResults(unittest.TestCase):
         cls.redispatch_result = None
 
     def test_n_0_flow_cache(self):
+        
         t0 = time.time()
         n_0 = self.market_result.n_0_flow()
         t1 = time.time()

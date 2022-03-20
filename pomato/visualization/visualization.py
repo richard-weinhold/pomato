@@ -70,7 +70,7 @@ class Visualization():
     into in it. The plotting functionality is implemented with the plotting library Plotly.    
     """
     def __init__(self, wdir, data):
-        # Impoort Logger
+        # Import Logger
         self.logger = logging.getLogger('Log.pomato.visualization.Visualization')
         self.wdir = wdir
 
@@ -98,7 +98,7 @@ class Visualization():
             timestep string identifier. If None, average values are presented. Defaults to None.
         line_color_option : int, optional
             Lines are colored based on N-0 flows (0), N-1 flows (1) and 
-            voltage levels (2), all grey (3). by default 0.
+            voltage levels (2), all gray (3). by default 0.
         loading_range : tuple(int), optional 
             Show line colors in range of percentage lineload, defaults to (0, 100).  
         show_plot : bool, optional
@@ -168,18 +168,18 @@ class Visualization():
                 nodes = pd.merge(nodes, infeasibility[["pos", "neg"]].fillna(0), left_index=True, right_index=True)
 
         if isinstance(timestep, str):
-            result_data = market_result.create_result_data()
-
+            # result_data = market_result.create_result_data()
             f_dc = market_result.F_DC.loc[market_result.F_DC.t == timestep]
-            f_dc.set_index("dc").F_DC.reindex(dclines.index).rename("dc_flow")
+            f_dc = f_dc.set_index("dc").F_DC.reindex(dclines.index).rename("dc_flow")
             dclines = pd.merge(dclines, f_dc, left_index=True, right_index=True)
             prices = market_result.price()
             prices = prices[prices.t == timestep].groupby("n").mean()
             n_0_flow = market_result.n_0_flow()
             n_1_flow = market_result.absolute_max_n_1_flow(sensitivity=0.2)
-
-            lines = pd.merge(lines, result_data.n_0_flow[timestep].rename("n_0_flow"), left_index=True, right_index=True)
-            lines = pd.merge(lines, result_data.n_1_flow[timestep].rename("n_1_flow"), left_index=True, right_index=True)
+            lines = pd.merge(
+                lines, n_0_flow[timestep].rename("n_0_flow"), left_index=True, right_index=True)
+            lines = pd.merge(
+                lines, n_1_flow[timestep].rename("n_1_flow"), left_index=True, right_index=True)
         else:
             # result_data = market_result.create_averaged_result_data()
             f_dc = market_result.F_DC.pivot(
@@ -248,7 +248,7 @@ class Visualization():
             datacols = []
             # Remove part of hovertemple related to lineflows
             hovertemplate_lines.replace("<br>N-0 Flow %{customdata[2]:.2f} MW<br>N-1 Flow %{customdata[3]:.2f} MW", "")
-        else: # all grey
+        else: # all gray
             lines["colors"] = ["#737373" for i in lines.index]
             lines["alpha"] = [.6 for i in lines.index]
             datacols = []
@@ -312,7 +312,7 @@ class Visualization():
             lat = nodes.lat,
             mode = 'markers',
             marker = plotly_function["marker"](
-                color = "grey", # "#3283FE" Blue
+                color = "gray", # "#3283FE" Blue
                 opacity=0.8,
                 size=3
                 ), 
@@ -849,7 +849,7 @@ class Visualization():
         if len(hover_data_n0) > 0:
             fig.add_trace(
                 go.Scatter(x=n0_lines_x, y=n0_lines_y, name='N-0 Constraints',
-                        line = dict(width = 1.5, color="dimgrey"),
+                        line = dict(width = 1.5, color="dimgray"),
                         customdata=np.vstack(hover_data_n0),
                         hovertemplate=hovertemplate
                         )
@@ -866,7 +866,7 @@ class Visualization():
             
         fig.add_trace(
             go.Scatter(x=n1_lines_x, y=n1_lines_y, name='N-1 Constraints',
-                    line = dict(width = 1, color="lightgrey"),
+                    line = dict(width = 1, color="lightgray"),
                     opacity=0.6,
                     customdata=np.vstack(hover_data_n1),
                     hovertemplate=hovertemplate
@@ -1098,7 +1098,7 @@ class Visualization():
         if timestep:
             ava = data.availability[data.availability.timestep == timestep].copy()
             # ava = data.availability[data.availability.timestep.isin(timestep)].copy()
-            # ava.groupy("t").mean()
+            # ava.groupby("t").mean()
             ava = ava.drop("timestep", axis=1).set_index("plant")
             ava = ava.loc[ava.index.isin(plants.index)]
             plants.loc[ava.index, "g_max"] *= ava.availability

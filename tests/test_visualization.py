@@ -41,8 +41,8 @@ class TestPomatoVisualization(unittest.TestCase):
         cls.mato.initialize_market_results([market_folder, redispatch_folder])
         cls.mato.data.results["uniform_redispatch"].result_attributes["corresponding_market_result_name"] = "uniform_market"
         
-        for r in cls.mato.data.results.values():
-            r.create_averaged_result_data()
+        # for r in cls.mato.data.results.values():
+        #     r.create_averaged_result_data()
 
     def setUp(self):
         pass
@@ -58,8 +58,9 @@ class TestPomatoVisualization(unittest.TestCase):
         result = self.mato.data.results["uniform_redispatch"]
         filepath = self.mato.wdir.joinpath("data_output/generation_plot.html")
         nodes = list(self.mato.data.nodes.index)
-        self.mato.visualization.create_generation_plot(result, nodes=nodes[:10], 
-                                                       show_plot=False, filepath=filepath)
+        self.mato.visualization.create_generation_plot(
+            result, nodes=nodes[:10], show_plot=False, filepath=filepath)
+
     def test_visualization_generation_pie(self):
         result = self.mato.data.results["uniform_redispatch"]
         filepath = self.mato.wdir.joinpath("data_output/generation_plot.html")
@@ -168,10 +169,11 @@ class TestPomatoDashboard(unittest.TestCase):
                                   logging_level=logging.ERROR, file_logger=False)
         mato.load_data('data_input/nrel_118_original.zip')
 
-        mato.initialize_market_results([mato.wdir.joinpath("uniform_market"), 
-                                        mato.wdir.joinpath("uniform_redispatch"),
-                                        mato.wdir.joinpath("opf_market")
-                                        ])
+        mato.initialize_market_results([
+            mato.wdir.joinpath("uniform_market"), 
+            mato.wdir.joinpath("uniform_redispatch"),
+            mato.wdir.joinpath("opf_market")])
+            
         mato.data.results["uniform_redispatch"].result_attributes["corresponding_market_result_name"] = "uniform_market"
 
         cls.dashboard = pomato.visualization.Dashboard(mato)
