@@ -36,13 +36,12 @@ class TestPomatoVisualization(unittest.TestCase):
         
         market_folder = cls.mato.wdir.joinpath("uniform_market")
         redispatch_folder = cls.mato.wdir.joinpath("uniform_redispatch")
-        scopf_folder = cls.mato.wdir.joinpath("scopf_market")
 
         cls.mato.initialize_market_results([market_folder, redispatch_folder])
         cls.mato.data.results["uniform_redispatch"].result_attributes["corresponding_market_result_name"] = "uniform_market"
         
-        # for r in cls.mato.data.results.values():
-        #     r.create_averaged_result_data()
+        for r in cls.mato.data.results.values():
+            r.create_result_data()
 
     def setUp(self):
         pass

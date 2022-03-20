@@ -510,7 +510,14 @@ class Visualization():
 
         inf["infeasibility"] = inf.pos - inf.neg
         inf = inf[["t", "infeasibility"]].groupby("t").sum()/1000
-        inf = inf.loc[market_result.model_horizon, :]
+        if inf.empty: 
+            inf = pd.DataFrame(
+                index=market_result.model_horizon,
+                columns=["infeasibility"],
+                data=0 
+            )
+        else:
+            inf = inf.loc[market_result.model_horizon, :]
         
         demand = pd.merge(demand, net_export, left_on=["t", "n"], 
                           right_on=["timestep", "node"], how="left")
@@ -519,7 +526,8 @@ class Visualization():
         demand = demand[["t", "demand_el", "D_ph", "D_es", "net_export"]].groupby("t").sum()/1000
         demand.loc[:, "demand_el"] -= (demand.net_export)
         demand = demand.loc[market_result.model_horizon, :]
-        
+        demand = pd.merge(demand, inf, right_index=True, left_index=True)
+
         fig.add_trace(
             go.Scatter(x=demand.index, y=demand.demand_el - inf.infeasibility, 
                        line=dict(color="#000000"), name="demand")) 
