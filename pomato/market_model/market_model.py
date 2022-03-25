@@ -4,7 +4,7 @@ This module creates the interface between the data, grid representation and
 the market model written in julia. This is done by saving the relevant data as csv,
 run the model in a threaded julia program which provides the results in folder as csv files.
 
-The Modes is initionaled empty and then filled with data seperately. This makes it
+The model is initialized empty and then filled with data separately. This makes it
 easy to change the data and rerun without re-initializing everything again.
 
 """
@@ -106,6 +106,10 @@ class MarketModel():
         t_start = datetime.datetime.now()
 
         if not self.julia_model:
+            self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model", self.options["solver"]["name"])
+        elif not self.julia_model.julia_daemon.isAlive():
+            self.logger.info("Joining previous market model thread.")
+            self.julia_model.join()
             self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model", self.options["solver"]["name"])
 
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
