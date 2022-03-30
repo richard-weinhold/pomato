@@ -300,6 +300,8 @@ class POMATO():
         
         if folder:
             self.market_model.data_dir = folder
+            if not folder.is_dir():
+                folder.mkdir()
             self.market_model.update_data()
             self.market_model.data_dir = self.wdir.joinpath("data_temp/julia_files/data")
         else:

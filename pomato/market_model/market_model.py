@@ -148,14 +148,13 @@ class MarketModel():
         """Set start/end storage levels for rolling horizon market clearing.
         
         This method alters the *storage_level* attribute of the :class:`~pomato.data.DataManagement`
-        instance, when market model horizon shorter than total model horizon. Per default storage levels 
-        are 65% of total capacity, however the storage_level attribute can be edited manually. 
-        
+        instance, when market model horizon shorter than total model horizon or values within the
+        supplied data does not exactly match the model segments. Default storage levels can be set as part of the options attribute. 
         """
         
         model_horizon = self.model_horizon
-        splits = round(len(model_horizon)/self.options["timeseries"]["market_horizon"])
         market_model_horizon = self.options["timeseries"]["market_horizon"]
+        splits = round(len(model_horizon)/market_model_horizon)
         splits_start = [model_horizon[t*market_model_horizon] for t in range(0, splits)]
 
         def add_to_timestep(t):
@@ -174,7 +173,10 @@ class MarketModel():
                     int_t = int(t[1:])
                     delta = [abs(int_t - int(t[1:])) for t in timesteps]
                     t_split_map[t] = timesteps[delta.index(min(delta))]
-                    
+        else:
+            for t in set(splits_start + splits_end):
+                t_split_map[t] = t
+            
         storage_level = self.data.storage_level.copy()
         storage_level = storage_level.set_index(["timestep", "plant"])
         data = []
@@ -185,14 +187,12 @@ class MarketModel():
                                 storage_level.loc[(t_split_map[t_start], plant), "storage_level"],
                                 storage_level.loc[(t_split_map[t_end], plant), "storage_level"]])
                 else:
-                    data.append([t_start, plant, self.options["parameters"]["storage_start"], 
-                                self.options["parameters"]["storage_start"]])
+                    data.append([t_start, plant, self.options["storages"]["storage_start"], 
+                                self.options["storages"]["storage_end"]])
                     
         tmp_storage_level = pd.DataFrame(columns=["timestep", "plant", "storage_start", "storage_end"], data=data)
-
-
         # Apply smoothing 
-        if self.options["timeseries"]["smooth_storage_level"]:
+        if self.options["storages"]["smooth_storage_level"]:
             self.logger.info("Smoothing storage levels for rolling horizon")
             timesteps = pd.DataFrame(index=tmp_storage_level["timestep"].unique())
             timesteps["group"] = 0
@@ -204,7 +204,7 @@ class MarketModel():
                     counter += 1
             timesteps.loc[timesteps.index[-1], "group"] = counter
             
-            for plant in tmp_storage_level[tmp_storage_level.storage_start != self.options["parameters"]["storage_start"]].plant.unique():   
+            for plant in tmp_storage_level[tmp_storage_level.storage_start != self.options["storages"]["storage_start"]].plant.unique():   
                 for group in timesteps.group.unique():  
                     condition = (tmp_storage_level.timestep.isin(timesteps[timesteps.group == group].index))&(tmp_storage_level.plant == plant)
                     window=int(168/market_model_horizon)
@@ -212,6 +212,8 @@ class MarketModel():
                     tmp_storage_level.loc[condition, "storage_end"] = tmp_storage_level.loc[condition, "storage_end"].rolling(window, min_periods=1).mean()
 
         return tmp_storage_level
+    
+    
         
     def data_to_csv(self):
         """Export input data to csv files in the data_dir sub-directory.
@@ -240,8 +242,12 @@ class MarketModel():
             else:
                 getattr(self.data, data)[cols].to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
 
-        storage_level = self.save_rolling_horizon_storage_levels()
-        storage_level.to_csv(str(self.data_dir.joinpath('storage_level.csv')), index_label='index')
+        if self.options["storages"]["storage_model"]:
+            storage_level = pd.DataFrame(columns=["timestep", "plant", "storage_start", "storage_end"])
+            storage_level.to_csv(str(self.data_dir.joinpath('storage_level.csv')), index_label='index')
+        else:
+            storage_level = self.save_rolling_horizon_storage_levels()
+            storage_level.to_csv(str(self.data_dir.joinpath('storage_level.csv')), index_label='index')
 
         plant_types = pd.DataFrame(index=self.data.plants.plant_type.unique())
         for ptype in self.options["plant_types"]:

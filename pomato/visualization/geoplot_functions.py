@@ -109,12 +109,12 @@ def add_prices_layer(nodes, prices, compress=True):
     return prices_layer, corners, plot_hight/plot_width
 
 
-def line_colors(line_data, flow_type="n_0_flow", threshold=0, loading_range=(0,100)):
+def line_colors(line_data, flow_type="n_0_flow", threshold=0, line_loading_range=(0,100)):
     """Line colors in 10 shades of RedYellowGreen palette"""
     ## 0: N-0 Flows, 1: N-1 Flows 2: Line voltage levels
     # timesteps = 't'+ "{0:0>4}".format(int(slider.value))
-    stepsize = round((loading_range[1] - loading_range[0])/10, 3)
-    steps = [loading_range[0] + i*stepsize for i in range(0, 10)]
+    stepsize = round((line_loading_range[1] - line_loading_range[0])/10, 3)
+    steps = [line_loading_range[0] + i*stepsize for i in range(0, 10)]
     RdYlGn = ('#006837', '#1a9850', '#66bd63', '#a6d96a', '#d9ef8b', 
               '#fee08b', '#fdae61', '#f46d43', '#d73027', '#a50026') 
     flows = line_data[flow_type].to_frame()
@@ -232,6 +232,7 @@ def create_redispatch_trace(nodes, reference_size, plotly_function):
         sizeref = 2*reference_size/20**2
     else:
         sizeref = 2*max(nodes['delta_abs'])/20**2
+        # sizeref = max(2*max(nodes['delta_abs'])/12**2, 1)
 
     trace = []
     for pos_neg, condition, color in zip(["delta_neg", "delta_pos"], [nodes["delta_neg"] < 0, nodes["delta_pos"] > 0], ["red", "green"]):

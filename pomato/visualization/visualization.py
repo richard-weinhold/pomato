@@ -34,6 +34,7 @@ BASIC_FUEL_COLOR_MAP = {
         "other": ["#87959E", "#CCDAE3", "#B6C9D0", "#235E58", "#013531"],
         "wind": ["#6699AA", "#00303E", "#326775"],
         "sun": ["#FFEB3C", "#F4E01D", "#EBD601"],
+        "infeasibility": ["#80DEF8", "#80DEF8"]
     }
 
 def color_map(gen):
@@ -74,11 +75,12 @@ class Visualization():
         self.logger = logging.getLogger('Log.pomato.visualization.Visualization')
         self.wdir = wdir
 
-    def create_geo_plot(self, market_result, show_redispatch=False, show_prices=False, show_infeasibility=False,
-                        show_curtailment=False, timestep=None, threshold=0, highlight_nodes=None, 
-                        redispatch_input=None, highlight_zones=None,
-                        redispatch_size_reference=None, loading_range=(0,100), highlight_lines=None, 
-                        line_color_option=0, show_plot=True, filepath=None, vector_plot=False):
+    def create_geo_plot(self, market_result, 
+        show_redispatch=False, show_prices=False, show_infeasibility=False, show_curtailment=False, 
+        timestep=None, highlight_nodes=None, highlight_zones=None,
+        line_color_threshold=0,   line_loading_range=(0,100), highlight_lines=None, line_color_option=0, 
+        redispatch_input=None, redispatch_size_reference=None, redispatch_threshold=0,
+        show_plot=True, filepath=None, vector_plot=False):
         """Creates Geoplot of market result.
 
         The geoplot is a interactive plotly figure showing lineloading, redispatch and prices 
@@ -99,7 +101,7 @@ class Visualization():
         line_color_option : int, optional
             Lines are colored based on N-0 flows (0), N-1 flows (1) and 
             voltage levels (2), all gray (3). by default 0.
-        loading_range : tuple(int), optional 
+        line_loading_range : tuple(int), optional 
             Show line colors in range of percentage lineload, defaults to (0, 100).  
         show_plot : bool, optional
             Shows plot after generation. If false, returns plotly figure instead. By default True.
@@ -128,16 +130,19 @@ class Visualization():
             gen = market_result.redispatch()  
             red_cols = ["delta", "delta_abs", "delta_pos", "delta_neg"]
             if isinstance(timestep, str) and isinstance(gen, pd.DataFrame):
+                self.logger.info("Showing redispatch for t = %s!", t)
+
                 gen = gen.loc[gen.t == timestep, ["node"] + red_cols].groupby("node").sum()
                 gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)
                 nodes = pd.merge(nodes, gen[red_cols].fillna(0), left_index=True, right_index=True)
             elif isinstance(nodes, pd.DataFrame):
+                self.logger.info("Showing redispatch.")
                 gen = gen.loc[:, ["node", "delta", "delta_abs", "delta_pos", "delta_neg"]].groupby("node").sum()
                 gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)
                 nodes = pd.merge(nodes, gen[red_cols].fillna(0), left_index=True, right_index=True)
             else:
+                self.logger.info("Cannot show redispatch!")
                 show_redispatch = False
-            redispatch_threshold = 1e5
             nodes.loc[nodes.delta_abs < redispatch_threshold, red_cols] = 0
 
         elif show_redispatch and isinstance(redispatch_input, pd.DataFrame):
@@ -234,12 +239,12 @@ class Visualization():
 
         if line_color_option == 0:
             lines["colors"], lines["alpha"] = line_colors(
-                lines, "n_0_flow", threshold=threshold, loading_range=loading_range
+                lines, "n_0_flow", threshold=line_color_threshold, line_loading_range=line_loading_range
             )
             datacols = ["n_0_flow", "n_1_flow"]
         elif line_color_option == 1:
             lines["colors"], lines["alpha"] = line_colors(
-                lines, "n_1_flow", threshold=threshold, loading_range=loading_range
+                lines, "n_1_flow", threshold=line_color_threshold, line_loading_range=line_loading_range
             )
             datacols = ["n_0_flow", "n_1_flow"]
         elif line_color_option == 2:
@@ -339,8 +344,8 @@ class Visualization():
                     colorscale="RdYlGn", 
                     reversescale=True, 
                     showscale=True, 
-                    cmin=loading_range[0]/100, 
-                    cmax=loading_range[1]/100, 
+                    cmin=line_loading_range[0]/100, 
+                    cmax=line_loading_range[1]/100, 
                     colorbar=dict(thickness=5)
                 ), 
             )
@@ -788,7 +793,7 @@ class Visualization():
             es_gen = es_gen[es_gen.p.isin(storages)]
 
         es_gen = es_gen[["t", "G", "D_es", "L_es"]].groupby(["t"]).sum().reset_index()
-
+        es_gen.loc[:, "D_es"] *= -1
         fig = px.line(pd.melt(es_gen, id_vars=["t"], value_vars=["G", "D_es"]), x="t", y="value", color='variable')
         fig2 = px.line(pd.melt(es_gen, id_vars=["t"], value_vars=["L_es"]), x="t", y="value", color='variable')
         fig2.update_traces(yaxis="y2")
@@ -985,7 +990,7 @@ class Visualization():
             raise TypeError("Submit list of market results")    
 
         gen = []
-        cols = ['fuel','G', 'technology', 'delta', 'delta_abs', 
+        cols = ['fuel','G', 'technology', 'delta_abs', 
                 'delta_pos', 'delta_neg', 'result']
 
         for result_name, result in market_result_dict.items(): 
@@ -993,19 +998,33 @@ class Visualization():
                 result.result_attributes["corresponding_market_result_name"]):
                 tmp = result.zonal_redispatch()
                 tmp = tmp.rename(columns={"G_redispatch": "G"})
+                market_result = result.data.results[result.result_attributes["corresponding_market_result_name"]]
+                infeas = pd.merge(
+                    market_result.infeasibility().groupby(["zone"]).sum(),
+                    result.infeasibility().groupby(["zone"]).sum(),
+                    left_index=True, right_index=True, suffixes=("_market", "_redispatch")
+                ).reset_index()
+
+                infeas["delta_pos"] = infeas.pos_redispatch - infeas.pos_market
+                infeas["delta_neg"] = -(infeas.neg_redispatch - infeas.neg_market )
+                infeas["delta_abs"] = -infeas.delta_neg + infeas.delta_pos
+                infeas[["fuel", "technology"]] = "infeasibility"
+                infeas["G"] = 0
+                tmp = pd.concat([tmp, infeas])
             else:
                 tmp = result.zonal_generation()
-                tmp[['delta', 'delta_abs', 'delta_pos', 'delta_neg']] = 0
+                tmp[['delta_abs', 'delta_pos', 'delta_neg']] = 0
             tmp["result"] = result_name
             if isinstance(zones, list):
-                tmp = tmp[tmp.zone.isin(zones)]
+                tmp = tmp[tmp.zone.isin(zones)|(tmp.fuel == "infeasibility")]
 
             tmp = tmp[cols].groupby(["fuel", "technology", "result"], observed=True).sum().reset_index()
             gen.append(tmp)
 
         gen = pd.concat(gen)    
         names = color_map(gen)
-        gen.loc[:, ["G", "delta", "delta_abs", "delta_pos", "delta_neg"]] /= 1000
+
+        gen.loc[:, ["G", "delta_abs", "delta_pos", "delta_neg"]] /= 1000
         gen = pd.merge(gen, names, on=["fuel", "technology"])
         gen["percentage_gen"] = 0
         gen["total_redispatch"] = 0

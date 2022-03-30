@@ -336,10 +336,8 @@ def default_options():
         "model_horizon": [0, 2],
         "heat_model": False,
         "timeseries": {
-            "split": True,
             "market_horizon": 1000,
             "redispatch_horizon": 24,
-            "smooth_storage_level": False,
             "type": "rt"},
         "redispatch": {
             "include": False,
@@ -355,8 +353,13 @@ def default_options():
             "cc_res_mw": 50,
             "alpha_plants_mw": 200,
             "alpha_plants_mc": 30},
-        "parameters": {
-            "storage_start": 0.65},
+        "storages": {
+            "storage_model": True,
+            "storage_model_resolution": 5, 
+            "storage_start": 0.5,
+            "storage_end": 0.5,
+            "smooth_storage_level": True,
+            },
         "infeasibility": {
             "heat": {
                 "include": False,
