@@ -334,51 +334,63 @@ def default_options():
         "title": "default", 
         "type": "ntc",
         "model_horizon": [0, 2],
-        "heat_model": False,
         "timeseries": {
             "market_horizon": 1000,
             "redispatch_horizon": 24,
-            "type": "rt"},
+            "type": "rt"
+        },
         "redispatch": {
             "include": False,
             "zonal_redispatch": False,
             "zones": [],
-            "cost": 1},
+            "cost": 1
+        },
         "curtailment": {
             "include": False,
-            "cost": 1E2},
+            "cost": 1E2
+        },
         "chance_constrained": {
             "include": False,
             "fixed_alpha": True,
             "cc_res_mw": 50,
             "alpha_plants_mw": 200,
-            "alpha_plants_mc": 30},
+            "alpha_plants_mc": 30
+        },
         "storages": {
             "storage_model": True,
             "storage_model_resolution": 5, 
             "storage_start": 0.5,
             "storage_end": 0.5,
             "smooth_storage_level": True,
-            },
+        },
+        "heat": {
+            "include": False,
+            "default_storage_level": 0.5, 
+            "chp_efficiency": 0.1
+        },
         "infeasibility": {
             "heat": {
                 "include": False,
                 "cost": 1E3,
-                "bound": 20},
+                "bound": 20
+            },
             "electricity": {
                 "include": True,
                 "cost": 1E3,
-                "bound": 20},
+                "bound": 20
+            },
             "storages": {
                 "include": True,
                 "cost": 1E2,
-                "bound": 20}},
+                "bound": 20
+            }
+        },
         "plant_types": {
             "es": [],
             "hs": [],
             "ts": [],
             "ph": [],
-            },
+        },
         "grid": {
             "redundancy_removal_option": "full",
             "precalc_filename": "",
@@ -387,7 +399,7 @@ def default_options():
             "short_term_rating_factor": 1,
             "long_term_rating_factor": 1,
             "preprocess": True,
-            },
+        },
         "fbmc": {
             "gsk": "gmax",
             "minram": 0,
