@@ -130,7 +130,7 @@ class Visualization():
             gen = market_result.redispatch()  
             red_cols = ["delta", "delta_abs", "delta_pos", "delta_neg"]
             if isinstance(timestep, str) and isinstance(gen, pd.DataFrame):
-                self.logger.info("Showing redispatch for t = %s!", t)
+                self.logger.info("Showing redispatch for t = %s!", timestep)
 
                 gen = gen.loc[gen.t == timestep, ["node"] + red_cols].groupby("node").sum()
                 gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)

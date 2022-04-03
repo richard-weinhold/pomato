@@ -26,7 +26,7 @@ class TestPomatoVisualization(unittest.TestCase):
         copytree(Path.cwd().joinpath("tests/test_data"), cls.wdir)
 
         cls.mato = pomato.POMATO(wdir=cls.wdir, options_file="profiles/nrel118.json",
-                                  logging_level=logging.ERROR, file_logger=False)
+                                  logging_level=logging.INFO, file_logger=False)
         cls.mato.load_data('data_input/nrel_118_original.zip')
         cls.mato.options["grid"]["precalc_filename"] = "nrel_cbco_indices"
 
@@ -143,8 +143,9 @@ class TestPomatoVisualization(unittest.TestCase):
     def test_geoplot_timestep(self):    
         result = self.mato.data.results["uniform_redispatch"]
         filepath = self.mato.wdir.joinpath("data_output/geoplot_timestep.html")                                     
-        self.mato.visualization.create_geo_plot(result, show_prices=True, show_redispatch=True, 
-                                                show_plot=False, timestep=0, filepath=filepath)
+        self.mato.visualization.create_geo_plot(
+            result, show_prices=True, show_redispatch=True, show_plot=False, 
+            timestep=0, filepath=filepath)
     
     def test_zonal_geoplot(self):
         result = self.mato.data.results["uniform_redispatch"]

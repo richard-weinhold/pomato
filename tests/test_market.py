@@ -14,10 +14,16 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 import pomato
 from pomato.tools import copytree
 
+class DaemonMockup():
+    def isAlive(self):
+        return True
 
 class JuliaMockup():
+
     def __init__(self):
         self.is_alive = True
+        self.julia_daemon = DaemonMockup()
+
         self.solved = True
     def run(self, args):
         pass
@@ -95,6 +101,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         )
 
         # print("asd")
+        self.options["storages"]["smooth_storage_level"] = False
         storage_level = self.market_model.save_rolling_horizon_storage_levels()
         self.assertEqual(
             len(storage_level), 
@@ -103,7 +110,7 @@ class TestPomatoMarketModel(unittest.TestCase):
         self.assertTrue(all([s in [0.5, 1] for s in storage_level.storage_start]))
         self.assertTrue(all([s in [0.5, 1] for s in storage_level.storage_end]))
 
-        self.options["timeseries"]["smooth_storage_level"] = True
+        self.options["storages"]["smooth_storage_level"] = True
         storage_level = self.market_model.save_rolling_horizon_storage_levels()
 
         self.assertFalse(all([s in [0.5, 1] for s in storage_level.storage_start]))

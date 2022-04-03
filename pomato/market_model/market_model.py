@@ -242,7 +242,11 @@ class MarketModel():
             else:
                 getattr(self.data, data)[cols].to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
 
-        if self.options["storages"]["storage_model"]:
+        storages = self.data.plants[self.data.plants.plant_type.isin(self.options["plant_types"]["es"])]
+        if self.options["storages"]["storage_model"] or storages.empty:
+            if storages.empty:
+                self.logger.warning("No Storage Plants, disabling storage model.")
+                self.options["storages"]["storage_model"] = False
             storage_level = pd.DataFrame(columns=["timestep", "plant", "storage_start", "storage_end"])
             storage_level.to_csv(str(self.data_dir.joinpath('storage_level.csv')), index_label='index')
         else:

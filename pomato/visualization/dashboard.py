@@ -726,7 +726,7 @@ class Dashboard():
                                    line_color_option=line_color_option,
                                    highlight_lines=lines, 
                                    timestep=timestep, 
-                                   threshold=threshold,
+                                   line_color_threshold=threshold,
                                    show_plot=False)
         fig.update_layout(uirevision = True)
         return fig
@@ -746,7 +746,7 @@ class Dashboard():
                                    line_color_option=0,
                                    timestep=None, 
                                    highlight_nodes=nodes,
-                                   threshold=threshold,
+                                   line_color_threshold=threshold,
                                    show_plot=False)
         fig.update_layout(uirevision = True)
         return fig
