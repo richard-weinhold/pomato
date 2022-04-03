@@ -343,9 +343,12 @@ class POMATO():
             The new name.
         """ 
         
-        for result in self.data.results:
-            self.data.results[result.replace(oldname, newname)] = self.data.results.pop(result)
-       
+        new_results = {}
+        results = self.data.results.keys()
+        for result in results:
+            new_results[result.replace(oldname, newname)] = self.data.results[result]
+        self.data.results = new_results
+
     def run_market_model(self, update_data=False):
         """Run the market model based on the current state of data and options. 
         

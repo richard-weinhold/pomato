@@ -72,7 +72,3 @@ mato.visualization.create_generation_plot(
 mato._join_julia_instances()
 
 
-# %%
-
-
-

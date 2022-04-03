@@ -128,18 +128,28 @@ class Visualization():
         
         if show_redispatch and not isinstance(redispatch_input, pd.DataFrame): 
             gen = market_result.redispatch()  
-            red_cols = ["delta", "delta_abs", "delta_pos", "delta_neg"]
+            red_cols = ["delta_abs", "delta_pos", "delta_neg"]
+            redispatch_infeasibility = market_result.redispatch_infeasibility()
+
             if isinstance(timestep, str) and isinstance(gen, pd.DataFrame):
                 self.logger.info("Showing redispatch for t = %s!", timestep)
-
                 gen = gen.loc[gen.t == timestep, ["node"] + red_cols].groupby("node").sum()
-                gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)
+                redispatch_infeasibility = redispatch_infeasibility.loc[
+                    redispatch_infeasibility.t == timestep, ["node"] + red_cols
+                ].groupby("node").sum().round()
                 nodes = pd.merge(nodes, gen[red_cols].fillna(0), left_index=True, right_index=True)
-            elif isinstance(nodes, pd.DataFrame):
+                add_cols = ["delta_abs", "delta_pos", "delta_neg"]
+                cond_nodes = nodes.index.isin(redispatch_infeasibility.index)
+                nodes.loc[cond_nodes, add_cols] += redispatch_infeasibility.loc[nodes[cond_nodes].index, add_cols]
+            elif isinstance(gen, pd.DataFrame):
                 self.logger.info("Showing redispatch.")
-                gen = gen.loc[:, ["node", "delta", "delta_abs", "delta_pos", "delta_neg"]].groupby("node").sum()
+                gen = gen.loc[:,["node"] + red_cols].groupby("node").sum()
                 gen = pd.merge(nodes["zone"], gen, how="left", left_index=True, right_index=True)
                 nodes = pd.merge(nodes, gen[red_cols].fillna(0), left_index=True, right_index=True)
+                redispatch_infeasibility = redispatch_infeasibility.loc[:, ["node"] + red_cols].groupby("node").sum().round()
+                add_cols = ["delta_abs", "delta_pos", "delta_neg"]
+                cond_nodes = nodes.index.isin(redispatch_infeasibility.index)
+                nodes.loc[cond_nodes, add_cols] += redispatch_infeasibility.loc[nodes[cond_nodes].index, add_cols]
             else:
                 self.logger.info("Cannot show redispatch!")
                 show_redispatch = False

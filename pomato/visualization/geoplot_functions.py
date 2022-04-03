@@ -229,10 +229,12 @@ def create_redispatch_trace(nodes, reference_size, plotly_function):
     nodes.loc[:, ["delta_abs", "delta_pos", "delta_neg"]] /= 1000
 
     if isinstance(reference_size, (int, float)):
-        sizeref = 2*reference_size/20**2
+        # sizeref = 2*reference_size/20**2
+        sizeref = reference_size / max_size ** 2
     else:
-        sizeref = 2*max(nodes['delta_abs'])/20**2
+        # sizeref = 2*max(nodes['delta_abs'])/20**2
         # sizeref = max(2*max(nodes['delta_abs'])/12**2, 1)
+        sizeref = nodes['delta_abs'].max() / 25 ** 2
 
     trace = []
     for pos_neg, condition, color in zip(["delta_neg", "delta_pos"], [nodes["delta_neg"] < 0, nodes["delta_pos"] > 0], ["red", "green"]):

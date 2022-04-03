@@ -429,6 +429,36 @@ class Results():
         self.cache_to_disk(gen, "redispatch")
         return gen
 
+    def redispatch_infeasibility(self, force_recalc=False):
+        """Chances in infeasibility variable usage between market and redispatch. 
+
+        """
+        # Find corresponding Market Result
+        corresponding_market_result = self.result_attributes["corresponding_market_result_name"]
+        if not (self.result_attributes["is_redispatch_result"] and bool(corresponding_market_result)):
+            self.logger.warning("Corresponding market result not initialized or found")
+            return None
+
+        if not ((not "redispatch_infeasibility" in self._cached_results) or force_recalc):
+            self.logger.debug("Returning cached result for redispatch_infeasibility.")
+            return self.read_cached_result("redispatch_infeasibility")
+
+        infeas = pd.merge(
+            self.data.results[corresponding_market_result].infeasibility(),
+            self.infeasibility(), how="right",
+            on=["t", "n", "zone"], suffixes=("_market", "_redispatch")
+        ).reset_index().rename(columns={"n": "node"})
+
+        infeas.loc[:, infeas.columns[4:]] = infeas.loc[:, infeas.columns[4:]].fillna(0)
+        infeas["delta_pos"] = infeas.pos_redispatch - infeas.pos_market
+        infeas["delta_neg"] = -(infeas.neg_redispatch - infeas.neg_market)
+        infeas["delta_abs"] = -infeas.delta_neg + infeas.delta_pos
+
+
+        infeas = tools.reduce_df_size(infeas)
+        self.cache_to_disk(infeas, "redispatch_infeasibility")
+        return infeas
+
     def zonal_redispatch(self, force_recalc=False):
         """Return Redispatch.
         Calculates a delta between redispatch,- and market result. 
