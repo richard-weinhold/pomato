@@ -716,16 +716,18 @@ class Dashboard():
         vis = self.pomato_instance.visualization
         if len(lines) == 0:
             lines = None
-        fig =  vis.create_geo_plot(result, 
-                                   show_redispatch=show_redispatch, 
-                                   show_prices=show_prices,
-                                   show_curtailment=show_curtailment,
-                                   show_infeasibility=show_infeasibility,
-                                   line_color_option=line_color_option,
-                                   highlight_lines=lines, 
-                                   timestep=timestep, 
-                                   line_color_threshold=threshold,
-                                   show_plot=False)
+        fig =  vis.create_geo_plot(
+            result, 
+           show_redispatch=show_redispatch, 
+           show_prices=show_prices,
+           show_curtailment=show_curtailment,
+           show_infeasibility=show_infeasibility,
+           line_color_option=line_color_option,
+           highlight_lines=lines, 
+           timestep=timestep, 
+           line_color_threshold=threshold,
+           show_plot=False
+        )
         fig.update_layout(uirevision = True)
         return fig
 
@@ -736,16 +738,17 @@ class Dashboard():
         show_infeasibility = True  if 4 in switches else False
         result = self.pomato_instance.data.results[result_name]
         vis = self.pomato_instance.visualization
-        fig =  vis.create_geo_plot(result, 
-                                   show_redispatch=show_redispatch, 
-                                   show_prices=show_prices,
-                                   show_curtailment=show_curtailment,
-                                   show_infeasibility=show_infeasibility,
-                                   line_color_option=0,
-                                   timestep=None, 
-                                   highlight_nodes=nodes,
-                                   line_color_threshold=threshold,
-                                   show_plot=False)
+        fig =  vis.create_geo_plot(
+            result, 
+            show_redispatch=show_redispatch, 
+            show_prices=show_prices,
+            show_curtailment=show_curtailment,
+            show_infeasibility=show_infeasibility,
+            line_color_option=0,
+            timestep=None, 
+            highlight_nodes=nodes,
+            line_color_threshold=threshold,
+            show_plot=False)
         fig.update_layout(uirevision = True)
         return fig
 

@@ -59,8 +59,8 @@ class Results():
         variables = {
             variable: False for variable in [
                 "G", "H", "D_es", "L_es", "D_hs", "L_hs",
-                "INJ", "EX", "D_ph", "F_DC", "CURT", "Alpha", "CC_LINE_MARGIN", "Dump_Water",
-                "COST_G", "COST_H", "COST_EX", "COST_CURT", 
+                "INJ", "EX", "D_ph", "F_DC", "CURT", "Alpha", "CC_LINE_MARGIN", 
+                "Dump_Water", "COST_G", "COST_H", "COST_EX", "COST_CURT", 
                 "COST_REDISPATCH", "COST_INFEASIBILITY_EL", "COST_INFEASIBILITY_H", "COST_INFEASIBILITY_ES"
             ]
         }
@@ -70,7 +70,7 @@ class Results():
         infeasibility_variables = {
             variable: False for variable in [
                 "INFEASIBILITY_ES", "INFEASIBILITY_H_POS", "INFEASIBILITY_H_NEG",
-                "INFEASIBILITY_EL_POS", "INFEASIBILITY_EL_NEG"
+                "INFEASIBILITY_EL_POS", "INFEASIBILITY_EL_NEG", "INFEASIBILITY_CC_LINES"
             ]
         }
 
@@ -211,7 +211,10 @@ class Results():
         return self.read_cached_result("EB_nodal")  
     @property
     def EB_zonal(self):
-        return self.read_cached_result("EB_zonal")  
+        return self.read_cached_result("EB_zonal")     
+    @property
+    def INFEASIBILITY_CC_LINES(self):
+        return self.read_cached_result("INFEASIBILITY_CC_LINES")  
 
     def delete_temporary_files(self):
         """Delete temporary files."""

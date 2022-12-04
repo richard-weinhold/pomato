@@ -154,7 +154,7 @@ class MarketModel():
         
         model_horizon = self.model_horizon
         market_model_horizon = self.options["timeseries"]["market_horizon"]
-        splits = round(len(model_horizon)/market_model_horizon)
+        splits = max(round(len(model_horizon)/market_model_horizon), 1)
         splits_start = [model_horizon[t*market_model_horizon] for t in range(0, splits)]
 
         def add_to_timestep(t):

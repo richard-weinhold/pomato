@@ -323,6 +323,7 @@ class POMATO():
             else:
                 sorted_list.insert(0, folder)
         for folder in sorted_list:
+            self.logger.info("Loading result from %s", str(folder))
             self.data.results[folder.name] = Results(self.data, self.grid, folder)
     
     def rename_market_result(self, oldname, newname):

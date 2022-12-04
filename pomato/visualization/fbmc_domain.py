@@ -240,7 +240,7 @@ class FBDomainPlots():
                     y_coordinates = [Ab[index][2]/ Ab[index][1] for x in x_coordinates]
                 elif Ab[index][1] == 0:
                     y_coordinates = [y for y in np.linspace(y_min, y_max, steps)]
-                    x_coordinates = [Ab[index][2]/ Ab[index][0] for x in x_coordinates]
+                    x_coordinates = [Ab[index][2]/ Ab[index][0] for x in y_coordinates]
                 
                 elif abs(Ab[index][1]/Ab[index][0]) > 1:
                     x_range_max = (Ab[index][2] - y_max*Ab[index][1])/Ab[index][0]
