@@ -75,7 +75,7 @@ class FBMCModule():
         for zone in self.data.zones.index:
             gsk[zone] = 0
             nodes_in_zone = self.grid.nodes.index[self.grid.nodes.zone == zone]
-            tmp = gen[gen.n.isin(nodes_in_zone)].groupby("n").sum().copy()
+            tmp = gen.loc[gen.n.isin(nodes_in_zone), ["G", "n"]].groupby("n").sum().copy()
             if tmp.G.sum() > 0:
                 tmp.loc[:, "G"] /= tmp.G.sum()
                 gsk.loc[tmp.index, zone] = tmp.G.values

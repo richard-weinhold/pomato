@@ -107,7 +107,7 @@ class MarketModel():
 
         if not self.julia_model:
             self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model", self.options["solver"]["name"])
-        elif not self.julia_model.julia_daemon.isAlive():
+        elif not self.julia_model.is_alive:
             self.logger.info("Joining previous market model thread.")
             self.julia_model.join()
             self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model", self.options["solver"]["name"])

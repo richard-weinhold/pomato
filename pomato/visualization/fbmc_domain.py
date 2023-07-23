@@ -1,5 +1,6 @@
 
 import logging
+import pomato 
 
 import cdd
 import numpy as np
@@ -9,6 +10,7 @@ from progress.bar import Bar
 # from pypoman import compute_polytope_vertices
 from scipy import spatial
 from scipy.spatial.qhull import QhullError
+from scipy.stats import norm
 
 progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
 
@@ -120,12 +122,14 @@ class FBDomain():
         self.timestep = domain_information["timestep"]
         self.domain_x = domain_information["domain_x"]
         self.domain_y = domain_information["domain_y"]
+        self.mcp = domain_information["mcp"]
+        strings = [
+            domain_information["title"], " (", self.timestep, "_", self.gsk_strategy, ")"
+        ]
         if domain_information["filename_suffix"]:
-            self.title = self.timestep + "_" + self.gsk_strategy \
-                         + "_" + domain_information["filename_suffix"]
-        else:
-            self.title = self.timestep + "_" + self.gsk_strategy
-
+            strings.append(domain_information["filename_suffix"])
+        self.title = "".join(strings)
+        
         self.domain_equations = domain_equations
         self.feasible_region_vertices = feasible_region_vertices
         self.x_max, self.x_min = domain_information["plot_limits"][0]
@@ -174,7 +178,6 @@ class FBDomainPlots():
         y_max = max([plot.y_max for plot in self.fbmc_plots])
 
         plot_limits = (x_max, x_min, y_max, y_min)
-
         for plot in self.fbmc_plots:
             plot.x_min = x_min
             plot.x_max = x_max
@@ -264,8 +267,9 @@ class FBDomainPlots():
     def create_feasible_region_vertices(self, A, b):
         """Calculate vertices of the FB domain feasible region.
 
-        To plot the feasible region of the domain, this method find all vertices linear inequalities
-        A x <= b that make up the domain and sorts them clockwise.
+        To plot the feasible region of the domain, this method find all vertices 
+        linear inequalities A x <= b that make up the domain and sorts them 
+        clockwise.
 
         Parameters
         ----------
@@ -326,8 +330,9 @@ class FBDomainPlots():
             bar.next()
         # bar.finish()
 
-    def generate_flowbased_domain(self, domain_x, domain_y, timestep, filename_suffix=None, 
-                                  commercial_exchange=None, plot_limits=None):
+    def generate_flowbased_domain(self, domain_x, domain_y, timestep, result=None, 
+                                  shift2MCP=True, include_cc_margin=True, title=None,
+                                  plot_limits=None, filename_suffix=None):
         """Create FB Domain for specified zones and timesteps. 
         
         Parameters
@@ -340,6 +345,13 @@ class FBDomainPlots():
             Analogue to *domain_x*, just for the y-axis of the 2 dimensional plot.
         timestep : string, 
             Timestep for which the domain is generated. 
+        result: :class:`~pomato.data.Results`, 
+            Market Result to include model result information, e.g. MCP in domain plot 
+            or CC Margin. 
+        shift2MCP: bool, 
+            Shift Domain to market clearing point. 
+        include_cc_margin: bool, 
+            Include Chance Constraints in Domain Plot as CC Margin on FB constraints.  
         filename_suffix : string, optional
             Optionally append to the resulting filename a suffix that makes it easier to 
             identify when domains for more scenarios are created, by default None.
@@ -347,9 +359,9 @@ class FBDomainPlots():
         domain_info = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep].copy()
         domain_info = domain_info[~(domain_info[self.data.zones.index] == 0).all(axis=1)].reset_index()
 
-        if isinstance(commercial_exchange, pd.DataFrame):
+        if isinstance(result, pomato.data.Results) and shift2MCP:
             self.logger.info("Correcting Domain for non-depicted commercial exchange")
-            exchange = commercial_exchange[commercial_exchange.t == timestep].copy()
+            exchange = result.EX[result.EX.t == timestep].copy()
             # Find Exchange that is not part of the domain plot
             domain_ex = [tuple(domain_x), tuple(domain_x[::-1]), tuple(domain_y), tuple(domain_y[::-1])]
             non_domain_ex = exchange[~exchange[["z", "zz"]].apply(tuple, axis=1).isin(domain_ex)&exchange.EX > 0]
@@ -361,6 +373,33 @@ class FBDomainPlots():
                 domain_info.loc[domain_info.ram < 0.1, "ram"] = 1
                 # domain_info[domain_info.ram>0.1].reset_index()
 
+        mcp = {}
+        if isinstance(result, pomato.data.Results):
+            commercial_exchange = result.EX[result.EX.t == timestep].copy()
+            commercial_exchange.set_index(["z", "zz"], inplace=True)
+            mcp["x"] = commercial_exchange.loc[domain_x, "EX"] - commercial_exchange.loc[domain_x[::-1], "EX"]
+            mcp["y"] = commercial_exchange.loc[domain_y, "EX"] - commercial_exchange.loc[domain_y[::-1], "EX"]
+            
+        if not isinstance(title, str): 
+            if isinstance(result, pomato.data.Results):
+                title = result.result_attributes["title"]
+            else:
+                title = ""
+        print("Title", title)
+        # type(result)
+        # isinstance(result, pomato.data.results.Results) 
+        if isinstance(result, pomato.data.Results) and include_cc_margin and not result.CC_LINE_MARGIN.empty:
+            self.logger.info("Adding CC line margins to FB domain.")
+            cc_margin = result.CC_LINE_MARGIN.copy()
+            cc_margin = cc_margin[cc_margin.t == timestep].rename(columns={"t": "timestep"})
+            cc_margin = pd.merge(domain_info, cc_margin, on=["cb", "co", "timestep"], how="right")
+            cc_margin["co"] = "CC Margin"
+            margin = norm.ppf(1 - result.data.options["chance_constrained"]["epsilon"])
+            cc_margin["ram"] = cc_margin["ram"] - cc_margin["CC_LINE_MARGIN"]*margin
+            cc_margin = cc_margin.drop("CC_LINE_MARGIN", axis=1)
+            domain_info = pd.concat([domain_info, cc_margin]).reset_index(drop=True)
+            # print(domain_info)
+        
         # Zonal PTDF with dimensionality number of zones x CBCOs and RAM
         A = domain_info.loc[:, list(self.data.zones.index)].values
         b = domain_info.loc[:, "ram"].values
@@ -414,14 +453,24 @@ class FBDomainPlots():
 
         self.logger.debug("Number of CBCOs defining the domain %d", len(feasible_region_vertices[:, 0]) - 1)
 
-        plot_information = {"gsk_strategy": gsk_strategy, "timestep": timestep,
-                            "domain_x": domain_x, "domain_y": domain_y,
-                            "filename_suffix": filename_suffix, 
-                            "plot_limits": plot_limits}
+        plot_information = {
+            "gsk_strategy": gsk_strategy, 
+            "timestep": timestep,
+            "domain_x": domain_x, 
+            "domain_y": domain_y, 
+            "mcp": mcp, 
+            "title": title, 
+            "filename_suffix": filename_suffix, 
+            "plot_limits": plot_limits}
         
         # FBDomain Class to store all relevant data. 
-        fbmc_plot = FBDomain(plot_information, plot_equations, feasible_region_vertices, 
-                             domain_info.copy(), feasible_region_volume)
+        fbmc_plot = FBDomain(
+            plot_information, 
+            plot_equations, 
+            feasible_region_vertices, 
+            domain_info.copy(), 
+            feasible_region_volume
+        )
 
         self.fbmc_plots.append(fbmc_plot)
         return fbmc_plot

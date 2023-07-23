@@ -90,10 +90,9 @@ class TestPomatoMarketModel(unittest.TestCase):
         model_horizon = self.market_model.model_horizon
         # Add Storage Plant 
         es = [["bus026", 0, 100, "es", "water", 0, 0, 100, 1, 1, None, 1000]]
-        self.data.plants = self.data.plants.append(
-            pd.DataFrame(index=["es1"], 
-            columns=self.data.plants.columns, 
-            data=es)
+        self.data.plants = pd.concat([
+            self.data.plants,
+            pd.DataFrame(index=["es1"], columns=self.data.plants.columns, data=es)]
         ) 
         self.data.storage_level = pd.DataFrame(
             columns=self.data.storage_level.columns,

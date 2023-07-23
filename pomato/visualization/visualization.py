@@ -78,7 +78,7 @@ class Visualization():
     def create_geo_plot(self, market_result, 
         show_redispatch=False, show_prices=False, show_infeasibility=False, show_curtailment=False, 
         timestep=None, highlight_nodes=None, highlight_zones=None,
-        line_color_threshold=0,   line_loading_range=(0,100), highlight_lines=None, line_color_option=0, 
+        line_color_threshold=0, line_loading_range=(0,100), highlight_lines=None, line_color_option=0, 
         redispatch_input=None, redispatch_size_reference=None, redispatch_threshold=0,
         show_plot=True, filepath=None, vector_plot=False):
         """Creates Geoplot of market result.
@@ -88,7 +88,7 @@ class Visualization():
 
         Parameters
         ----------
-        market_result : :class:`~pomato.data.DataManagement`
+        market_result : :class:`~pomato.data.Results`
             Market result which is plotted. 
         show_redispatch : bool, optional
             Include redispatch, this requires the *market_result* argument to be the redispatch 
@@ -188,7 +188,7 @@ class Visualization():
             f_dc = f_dc.set_index("dc").F_DC.reindex(dclines.index).rename("dc_flow")
             dclines = pd.merge(dclines, f_dc, left_index=True, right_index=True)
             prices = market_result.price()
-            prices = prices[prices.t == timestep].groupby("n").mean()
+            prices = prices.loc[prices.t == timestep, ["n", "marginal"]].groupby("n").mean()
             n_0_flow = market_result.n_0_flow()
             n_1_flow = market_result.absolute_max_n_1_flow(sensitivity=0.2)
             lines = pd.merge(
@@ -425,11 +425,11 @@ class Visualization():
         if isinstance(timestep, int):
             timestep = market_result.model_horizon[timestep]
         if isinstance(timestep, str):
-            commercial_exchange = commercial_exchange[commercial_exchange.t == timestep].groupby(["z", "zz"], observed=True).mean().reset_index()
+            commercial_exchange = commercial_exchange.loc[commercial_exchange.t == timestep, ["z", "zz", "EX"]].groupby(["z", "zz"], observed=True).mean().reset_index()
             net_position = net_position.loc[timestep]
         else:
             net_position = net_position.mean(axis=0)
-            commercial_exchange = commercial_exchange.groupby(["z", "zz"], observed=True).mean().reset_index()
+            commercial_exchange = commercial_exchange[["z", "zz", "EX"]].groupby(["z", "zz"], observed=True).mean().reset_index()
 
         custom_data = []
         for zone in market_result.data.zones.index:
@@ -588,7 +588,8 @@ class Visualization():
         ava = pd.merge(ava, capacity_colors, on=["fuel", "technology"])
 
         # Sort by variance
-        sort_names = ava.groupby("name", observed=True).var().sort_values(by="Available Capacity [GW]", ascending=True).index
+        sort_names = ava[["name", "Available Capacity [GW]"]].groupby("name", observed=True).var().sort_values(by="Available Capacity [GW]", ascending=True).index
+        
         fig = px.area(ava, x="timestep", y="Available Capacity [GW]", color="name", 
                     line_group="zone", 
                     color_discrete_map=capacity_colors[["color", "name"]].set_index("name").color.to_dict(),
@@ -620,7 +621,7 @@ class Visualization():
         
         cols = ["fuel", "technology", "G", "g_max"]
         gen = gen[cols].groupby(cols[:2], observed=True).sum().reset_index()
-        flh = flh.groupby(cols[:2], observed=True).mean().reset_index()
+        flh = flh[["fuel", "technology", "flh", "utilization"]].groupby(["fuel", "technology"], observed=True).mean().reset_index()
         gen = pd.merge(gen, flh, on=cols[:2])
         gen.loc[:, "G"] *= 1/1000
         gen.loc[:, "flh"] *= 100
@@ -850,7 +851,7 @@ class Visualization():
             data = [tmp.loc[i, "cb"], tmp.loc[i, "co"], tmp.loc[i, "ram"]]
             hover_data_n0.append(np.vstack([[data for n in range(0, hover_points)], [None, None, None]]))
         
-        for i in tmp[(tmp.co == "FRM")&(tmp.in_domain)].index:
+        for i in tmp[(tmp.co == "CC Margin")&(tmp.in_domain)].index:
             frm_x.extend(fb_domain.domain_equations[i][0])
             frm_y.extend(fb_domain.domain_equations[i][1])
             frm_x.append(None)
@@ -866,48 +867,72 @@ class Visualization():
             data = [tmp.loc[i, "cb"], tmp.loc[i, "co"], tmp.loc[i, "ram"]]
             hover_data_n1.append(np.vstack([[data for n in range(0, hover_points)], [None, None, None]]))
         
-        hovertemplate = "<br>".join(["cb: %{customdata[0]}", 
-                                     "co: %{customdata[1]}", 
-                                     "ram: %{customdata[2]:.2f}"]) + "<extra></extra>"
+        hovertemplate = "<br>".join([
+            "cb: %{customdata[0]}", "co: %{customdata[1]}", 
+            "ram: %{customdata[2]:.2f}"]) + "<extra></extra>"
+        
         if len(hover_data_n0) > 0:
             fig.add_trace(
-                go.Scatter(x=n0_lines_x, y=n0_lines_y, name='N-0 Constraints',
-                        line = dict(width = 1.5, color="dimgray"),
-                        customdata=np.vstack(hover_data_n0),
-                        hovertemplate=hovertemplate
-                        )
+                go.Scatter(
+                    x=n0_lines_x, 
+                    y=n0_lines_y, 
+                    name='N-0 Constraints',
+                    line = dict(width = 1.5, color="dimgray"),
+                    customdata=np.vstack(hover_data_n0),
+                    hovertemplate=hovertemplate
                 )
+            )
 
         if len(hover_data_frm) > 0:
             fig.add_trace(
-                go.Scatter(x=frm_x, y=frm_y, name='FRM',
-                        line = dict(dash='dash', width = 1.5, color="royalblue"),
-                        customdata=np.vstack(hover_data_frm),
-                        hovertemplate=hovertemplate
-                        )
+                go.Scatter(
+                    x=frm_x, 
+                    y=frm_y, 
+                    name='FRM',
+                    line = dict(dash='dash', width=1.5, color="royalblue"),
+                    customdata=np.vstack(hover_data_frm),
+                    hovertemplate=hovertemplate
                 )
+            )
             
         fig.add_trace(
-            go.Scatter(x=n1_lines_x, y=n1_lines_y, name='N-1 Constraints',
-                    line = dict(width = 1, color="lightgray"),
-                    opacity=0.6,
-                    customdata=np.vstack(hover_data_n1),
-                    hovertemplate=hovertemplate
-
-                        )
+            go.Scatter(
+                x=n1_lines_x, 
+                y=n1_lines_y, 
+                name='N-1 Constraints',
+                line = dict(width=1, color="lightgray"),
+                opacity=0.6,
+                customdata=np.vstack(hover_data_n1),
+                hovertemplate=hovertemplate
             )
+        )
         fig.add_trace(
-                go.Scatter(x=fb_domain.feasible_region_vertices[:, 0], 
-                            y=fb_domain.feasible_region_vertices[:, 1],
-                            line = dict(width = 1, color="red"),
-                            opacity=1, name=f"FB Domain<br>Volume: {int(fb_domain.volume)}",
-                            mode='lines', hoverinfo="none"
-                        )
+                go.Scatter(
+                    x=fb_domain.feasible_region_vertices[:, 0], 
+                    y=fb_domain.feasible_region_vertices[:, 1],
+                    line = dict(width = 1, color="red"),
+                    opacity=1, name=f"FB Domain<br>Volume: {int(fb_domain.volume)}",
+                    mode='lines', hoverinfo="none"
                 )
-        fig.update_layout(xaxis_range=[fb_domain.x_min, fb_domain.x_max],
-                          yaxis_range=[fb_domain.y_min, fb_domain.y_max],
-                          template='simple_white',
-                          hovermode="closest")
+            )
+
+        if len(fb_domain.mcp) > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=[fb_domain.mcp["x"]], 
+                    y=[fb_domain.mcp["y"]], 
+                    mode="markers", 
+                    marker_color="red", 
+                    name="Market Outcome"
+                )
+            )
+        fig.update_layout(
+            xaxis_range=[fb_domain.x_min, fb_domain.x_max],
+            yaxis_range=[fb_domain.y_min, fb_domain.y_max],
+            template='simple_white',
+            hovermode="closest",
+            title=fb_domain.title
+        )
 
         if filepath:
             fig.write_html(str(filepath))
@@ -1010,8 +1035,8 @@ class Visualization():
                 tmp = tmp.rename(columns={"G_redispatch": "G"})
                 market_result = result.data.results[result.result_attributes["corresponding_market_result_name"]]
                 infeas = pd.merge(
-                    market_result.infeasibility().groupby(["zone"]).sum(),
-                    result.infeasibility().groupby(["zone"]).sum(),
+                    market_result.infeasibility().loc[:, ["zone",  "pos", "neg"]].groupby(["zone"]).sum(),
+                    result.infeasibility().loc[:, ["zone",  "pos", "neg"]].groupby(["zone"]).sum(),
                     left_index=True, right_index=True, suffixes=("_market", "_redispatch")
                 ).reset_index()
 

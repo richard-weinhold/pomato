@@ -453,7 +453,7 @@ class DataWorker(object):
         
         self.data.lines.loc[condition_transformer, "technology"] = "transformer"
 
-        self.data.zones = pd.DataFrame(index=set(self.data.nodes.zone.values))
+        self.data.zones = pd.DataFrame(index=list(set(self.data.nodes.zone.values)))
         self.data.plants.node = ["n" + str(int(idx)) for idx in self.data.plants.node]
         
         tmp_demand = pd.DataFrame(index=["t0001", "t0002"], data=self.data.nodes.Pd.to_dict())

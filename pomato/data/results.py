@@ -60,7 +60,7 @@ class Results():
             variable: False for variable in [
                 "G", "H", "D_es", "L_es", "D_hs", "L_hs",
                 "INJ", "EX", "D_ph", "F_DC", "CURT", "Alpha", "CC_LINE_MARGIN", 
-                "Dump_Water", "COST_G", "COST_H", "COST_EX", "COST_CURT", 
+                "Dump_Water", "COST_G", "COST_H", "COST_EX", "COST_CURT", "COST_CC_LINE_MARGIN",
                 "COST_REDISPATCH", "COST_INFEASIBILITY_EL", "COST_INFEASIBILITY_H", "COST_INFEASIBILITY_ES"
             ]
         }
@@ -70,7 +70,7 @@ class Results():
         infeasibility_variables = {
             variable: False for variable in [
                 "INFEASIBILITY_ES", "INFEASIBILITY_H_POS", "INFEASIBILITY_H_NEG",
-                "INFEASIBILITY_EL_POS", "INFEASIBILITY_EL_NEG", "INFEASIBILITY_CC_LINES"
+                "INFEASIBILITY_EL_POS", "INFEASIBILITY_EL_NEG"
             ]
         }
 
@@ -213,8 +213,8 @@ class Results():
     def EB_zonal(self):
         return self.read_cached_result("EB_zonal")     
     @property
-    def INFEASIBILITY_CC_LINES(self):
-        return self.read_cached_result("INFEASIBILITY_CC_LINES")  
+    def COST_CC_LINE_MARGIN(self):
+        return self.read_cached_result("COST_CC_LINE_MARGIN")  
 
     def delete_temporary_files(self):
         """Delete temporary files."""
@@ -452,11 +452,13 @@ class Results():
             on=["t", "n", "zone"], suffixes=("_market", "_redispatch")
         ).reset_index().rename(columns={"n": "node"})
 
+        # sort columns
+        cols = ["index", "t", "node", "zone", "pos_market", "neg_market", "pos_redispatch", "neg_redispatch"]
+        infeas = infeas[cols]
         infeas.loc[:, infeas.columns[4:]] = infeas.loc[:, infeas.columns[4:]].fillna(0)
         infeas["delta_pos"] = infeas.pos_redispatch - infeas.pos_market
         infeas["delta_neg"] = -(infeas.neg_redispatch - infeas.neg_market)
         infeas["delta_abs"] = -infeas.delta_neg + infeas.delta_pos
-
 
         infeas = tools.reduce_df_size(infeas)
         self.cache_to_disk(infeas, "redispatch_infeasibility")
@@ -573,8 +575,8 @@ class Results():
         """
         net_position = pd.DataFrame(index=self.EX.t.unique())
         for zone in self.data.zones.index:
-            net_position[zone] = self.EX[self.EX.z == zone].groupby("t").sum() - \
-                                 self.EX[self.EX.zz == zone].groupby("t").sum()
+            net_position[zone] = self.EX.loc[self.EX.z == zone, ["t", "EX"]].groupby("t").sum() - \
+                                 self.EX.loc[self.EX.zz == zone, ["t", "EX"]].groupby("t").sum()
         return net_position
     
     def generation(self, force_recalc=False):
@@ -673,7 +675,9 @@ class Results():
         flh.loc[:, "availability"] = flh.loc[:, "availability"].fillna(1)
         flh["utilization"] = flh.G/(flh.g_max * flh.availability)
         flh["flh"] = flh.G/(gen.g_max)
-        return flh.groupby([ "p", "fuel", "technology"], observed=True).mean()[["flh", "utilization"]].reset_index()
+        cols = ["p", "fuel", "technology", "flh", "utilization"]
+        flh = flh[cols].groupby([ "p", "fuel", "technology"], observed=True).mean()[["flh", "utilization"]].reset_index()
+        return flh
 
     def storage_generation(self, force_recalc=False):
         """Return storage generation schedules.
@@ -938,8 +942,8 @@ class Results():
         n_1_info = n_1_overload[["cb", "co"]].copy()
         n_1_info["# of overloads"] = np.sum(n_1_overload[timesteps] > 1, axis=1).values
         n_1_info["# of COs"] = 1
-        n_1_info = n_1_info.groupby("cb").sum()
-        n_1_info["avg load"] = n_1_overload.groupby(by=["cb"]).mean().mean(axis=1).values
+        n_1_info = n_1_info[["cb", "# of COs"]].groupby("cb").sum()
+        n_1_info["avg load"] = n_1_overload.loc[:, ~n_1_overload.columns.isin(['co'])].groupby(by=["cb"]).mean().mean(axis=1).values
 
         condition = n_1_overload.co == "basecase"
         bool_values = [line in n_1_overload.cb[condition].values for line in n_1_info.index]

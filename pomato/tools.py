@@ -354,7 +354,9 @@ def default_options():
             "fixed_alpha": True,
             "cc_res_mw": 50,
             "alpha_plants_mw": 200,
-            "alpha_plants_mc": 30
+            "alpha_plants_mc": 30,
+            "epsilon": 0.05,
+            "percent_std": 0.1
         },
         "storages": {
             "storage_model": True,
