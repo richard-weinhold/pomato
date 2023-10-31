@@ -32,7 +32,7 @@ jobs:
         julia --version
         julia pomato/_installation/julia_install_from_git.jl main construction
         pip install pytest-cov 
-        pip install pytest==4.6
+        pip install pytest==7.4
         pip install -r requirements.txt
     - name: Test with pytest
       run: |
