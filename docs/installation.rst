@@ -85,12 +85,12 @@ Currently one of three solvers is chosen by POMATO based on availability and mod
 
     - `Clp.jl <https://github.com/jump-dev/Clp.jl>`_ the default solver, which is always installed
       with POMATO. 
+    - `ECOS <https://github.com/jump-dev/ECOS.jl>`_. Solver available under GNU General Public
+      licence, that allows solving conic constraints that are used in the chance constrained
+      formulations in POMATO. 
     - `Gurobi.jl <https://github.com/JuliaOpt/Gurobi.jl>`_. Generally more performant than Clp, but 
       requires a valid licence and has to be seperately installed. If Gurobi is available it can be 
       used with POMATO and will automatically used. 
-    - `Mosek.jl <https://github.com/JuliaOpt/Mosek.jl>`_. Similarity to Gurobi, requires a valid 
-      licence and separate installation. Is required for the chance constrained formulation in the 
-      risk-aware dispatch option of POMATO. 
 
 Using other solvers is possible, however requires implementation through a few lines of code. If
 there is need/interest let me know. 

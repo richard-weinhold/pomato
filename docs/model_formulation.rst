@@ -209,6 +209,7 @@ behavior, where the absolute values of flows can be high when only condition is 
 balanced. Therefore there are small costs associated with both commercial flows and flows on dc
 lines that are captured as :math:`\mathit{COST\_EX}`.
 
+.. _sec-heat-constraints:
 
 Heat-Generation Constraints
 ***************************

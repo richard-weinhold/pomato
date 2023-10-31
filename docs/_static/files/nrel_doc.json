@@ -1,0 +1,26 @@
+{
+    "type": "opf",
+    "model_horizon": [0, 24],
+    "redispatch": {
+        "include": false,
+        "zones": ["R1", "R2", "R3"],
+        "cost": 20
+        },
+    "infeasibility": {
+        "electricity": {
+            "include": true,
+            "cost": 1000,
+            "bound": 200
+        }
+    },
+    "curtailment": {
+        "include": true,
+        "cost": 30
+    },
+    "plant_types": {
+        "ts": ["wind", "solar", "ror_ts"]
+    },
+    "solver": {
+    	"name": "ECOS"
+    }
+}

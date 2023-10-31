@@ -89,26 +89,32 @@ an interactive IPython Console (e.g. Spyder) to access POMATO objects and variab
 Release Status
 --------------
 
-POMATO is part of my PhD and actively developed by Robert and myself. This means it will keep 
-changing to include new functionality or to improve existing features. The existing examples, which
-are also part of the Getting Started guide in the documentation, are part of a testing suite to 
-ensure some robustness. However, we are not software engineers, thus the "program" is not written 
-with robustness in mind and our experience is limited when it comes to common best practices. 
-Expect errors, bug, funky behavior and code structures from the minds of two engineering economists.  
+POMATO was part of my PhD that has concluded in 2021. The dissertation is available from [TU-Berlin](https://depositonce.tu-berlin.de/items/d3b3a941-8c35-41b5-b404-f75034f971be) and the slides of the defence here in this repo [Link](https://depositonce.tu-berlin.de/items/d3b3a941-8c35-41b5-b404-f75034f971be). 
+
+This means the model is no longer actively developed, although I try to have an eye on things. So
+please feel free to contact me, but also know that POMATO is now a hobby that exists becide work. 
+
+I have tried to make everything robust by including a documentation and testing, but I am not a
+software engineer, thus the "program" is not written with robustness in mind and our experience is
+limited when it comes to common best practices. Expect errors, bug, funky behavior and code
+structures from the minds of two engineering economists.  
 
 Related Publications
 --------------------
-- (*preprint*) [Weinhold (2021), Evaluating Policy Implications on the Restrictiveness of Flow-based
-  Market Coupling with High Shares of Intermittent Generation: A Case Study for Central Western
-  Europe](https://arxiv.org/abs/2109.04940)
-- (*preprint*) [Weinhold and Mieth (2021), Uncertainty-Aware Capacity Allocation in Flow-Based
-  Market Coupling](https://arxiv.org/abs/2109.04968)
+
+- [Weinhold and Mieth (2023), Uncertainty-Aware Capacity Allocation in Flow-Based Market
+  Coupling](https://ieeexplore.ieee.org/abstract/document/10094020)
+- [Weinhold (2022), Dissertation, Open-source modeling of flow based market
+  coupling](https://depositonce.tu-berlin.de/items/d3b3a941-8c35-41b5-b404-f75034f971be) (Dissertation - Available from TU - Berlin). 
+- [Weinhold (2021), Dissertation, Open-source modeling of flow based market
+  coupling](https://depositonce.tu-berlin.de/items/d3b3a941-8c35-41b5-b404-f75034f971be) (Defence Slides). 
 - [Weinhold and Mieth (2021), Power Market Tool (POMATO) for the Analysis of Zonal 
    Electricity Markets](https://www.sciencedirect.com/science/article/pii/S2352711021001394)
 - [Weinhold and Mieth (2020), Fast Security-Constrained Optimal Power Flow through 
    Low-Impact and Redundancy Screening](https://ieeexplore.ieee.org/document/9094021)
 - [Schönheit, Weinhold, Dierstein (2020), The impact of different strategies for generation 
    shift keys (GSKs) on  the flow-based market coupling domain: A model-based analysis of Central Western Europe](https://www.sciencedirect.com/science/article/pii/S0306261919317544)
+
 
 POMATO was also presented as part of the 2021 JuliaCon JuMP-dev train. The talk is available on
 [JuliaCon2021 youtube channel](https://www.youtube.com/watch?v=n0wmYTm6Y64). 
