@@ -1,10 +1,10 @@
 <img  height="24" src="https://raw.githubusercontent.com/richard-weinhold/pomato/main/docs/_static/graphics/pomato_logo_small.png"> POMATO - Power Market Tool <img  height="24" src="https://raw.githubusercontent.com/richard-weinhold/pomato/main/docs/_static/graphics/pomato_logo_small.png">
 =========================================================================================================================================================
 
-Main Branch: ![Python package](https://github.com/richard-weinhold/pomato/workflows/Python%20package/badge.svg?branch=master) [![codecov](https://codecov.io/gh/richard-weinhold/pomato/branch/main/graph/badge.svg?token=1K2PHOjJmC)](https://codecov.io/gh/richard-weinhold/pomato)
+Main Branch: [![Python package](https://github.com/richard-weinhold/pomato/actions/workflows/pomato_testing.yml/badge.svg?branch=main)](https://github.com/richard-weinhold/pomato/actions/workflows/pomato_testing.yml) [![codecov](https://codecov.io/gh/richard-weinhold/pomato/branch/main/graph/badge.svg?token=1K2PHOjJmC)](https://codecov.io/gh/richard-weinhold/pomato)
 
 
-Construction Branch: ![Python package](https://github.com/richard-weinhold/pomato/workflows/Python%20package/badge.svg?branch=construction) [![codecov](https://codecov.io/gh/richard-weinhold/pomato/branch/construction/graph/badge.svg?token=1K2PHOjJmC)](https://codecov.io/gh/richard-weinhold/pomato)
+Construction Branch: [![Python package](https://github.com/richard-weinhold/pomato/actions/workflows/pomato_testing.yml/badge.svg?branch=construction)](https://github.com/richard-weinhold/pomato/actions/workflows/pomato_testing.yml) [![codecov](https://codecov.io/gh/richard-weinhold/pomato/branch/construction/graph/badge.svg?token=1K2PHOjJmC)](https://codecov.io/gh/richard-weinhold/pomato)
 
 
 Documentation Status: [![Documentation Status](https://readthedocs.org/projects/pomato/badge/?version=latest)](https://pomato.readthedocs.io/en/latest/?badge=latest)
@@ -69,7 +69,8 @@ further information on the installation process.
 
 Examples
 --------
-This release includes two examples in the *examples* folder. Including the contents of this folder into a pomato working directory will allow their execution:
+This release includes two examples in the *examples* folder. Including the contents of this folder
+into a pomato working directory will allow their execution:
 
   - The IEEE 118 bus network, which contains a singular timestep. The data is available under 
     open license at [https://power-grid-lib.github.io/](https://power-grid-lib.github.io/) and re-hosted in this repository.
@@ -80,8 +81,9 @@ This release includes two examples in the *examples* folder. Including the conte
 
         $ python /run_pomato_de.py
 
-See more in depth descriptions of this two case studies part of the [POMATO
-Documentation](file:///C:/Users/riw/Documents/repositories/pomato/docs/_build/html/running_pomato.html).
+See more in depth descriptions of this two case studies along with a FBMC and chance constrained
+examples, part of the [POMATO
+Documentation](https://pomato.readthedocs.io/en/latest/running_pomato.html).
 
 The *examples* folder also contains the two examples as Jupyter notebooks. Another possibility to
 access the functionality of POMATO with an online REPL/Console when running POMATO inside a IDE with
@@ -92,11 +94,11 @@ Release Status
 
 POMATO was part of my PhD that has concluded in 2021. The dissertation is available from
 [TU-Berlin](https://depositonce.tu-berlin.de/items/d3b3a941-8c35-41b5-b404-f75034f971be) and the
-slides of the defence here in this repo
-[Link](https://depositonce.tu-berlin.de/items/d3b3a941-8c35-41b5-b404-f75034f971be). 
+slides of the defence here in this repository
+[Link](https://github.com/richard-weinhold/pomato/blob/8f2da62856b84fa6b3132683b452e690b9cc4167/docs/_static/files/pomato_defence_plain_final.pdf). 
 
 This means the model is no longer actively developed, although I try to have an eye on things. So
-please feel free to contact me, but also know that POMATO is now a hobby that exists becide work. 
+please feel free to contact me, but also know that POMATO is now a hobby that exists beside work. 
 
 I have tried to make everything robust by including a documentation and testing, but I am not a
 software engineer, thus the "program" is not written with robustness in mind and our experience is
@@ -111,7 +113,8 @@ Related Publications
 - [Weinhold (2022), Dissertation, Open-source modeling of flow based market
   coupling](https://depositonce.tu-berlin.de/items/d3b3a941-8c35-41b5-b404-f75034f971be) (Dissertation - Available from TU - Berlin). 
 - [Weinhold (2021), Dissertation, Open-source modeling of flow based market
-  coupling](https://github.com/richard-weinhold/pomato/blob/8f2da62856b84fa6b3132683b452e690b9cc4167/docs/_static/files/pomato_defence_plain_final.pdf) (Defence Slides). 
+  coupling](https://github.com/richard-weinhold/pomato/blob/8f2da62856b84fa6b3132683b452e690b9cc4167/docs/_static/files/pomato_defence_plain_final.pdf)
+  (Defence Slides). 
 - [Weinhold (2020), Evaluating Policy Implications on the Restrictiveness of Flow-based Market
   Coupling with High Shares of Intermittent Generation: A Case Study for Central Western
   Europe](https://arxiv.org/abs/2109.04940)
@@ -131,11 +134,12 @@ Acknowledgments
 ---------------
 
 Richard and Robert would like to acknowledge the support of Reiner Lemoine-Foundation, the Danish
-Energy Agency and Federal Ministry for Economic Affairs and Energy (BMWi). Robert Mieth is funded by
-the Reiner Lemoine-Foundation scholarship. Richard Weinhold is funded by the Danish Energy Agency.
-The development of POMATO and its applications was funded by BMWi in the project “Long-term Planning
-and Short-term Optimization of the German Electricity System Within the European Context” (LKD-EU,
-03ET4028A) and the project “Modellierung (De-)Zentraler Energiewenden: Wechselwirkungen,
-Koordination und Lösungsansätze aus systemorientierter Perspektive” (MODEZEEN, 03EI1019B).
+Energy Agency and Federal Ministry for Economic Affairs and Energy (BMWi). Robert Mieth was funded
+by the Reiner Lemoine-Foundation scholarship. Richard Weinhold was funded by the Danish Energy
+Agency through parts of the project. The development of POMATO and its applications was also funded
+by BMWi in the project “Long-term Planning and Short-term Optimization of the German Electricity
+System Within the European Context” (LKD-EU, 03ET4028A) and the project “Modellierung (De-)Zentraler
+Energiewenden: Wechselwirkungen, Koordination und Lösungsansätze aus systemorientierter Perspektive”
+(MODEZEEN, 03EI1019B).
 
 
