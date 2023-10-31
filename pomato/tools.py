@@ -334,6 +334,12 @@ def default_options():
         "title": "default", 
         "type": "ntc",
         "model_horizon": [0, 2],
+        "plant_types": {
+            "es": [],
+            "hs": [],
+            "ts": [],
+            "ph": [],
+        },
         "timeseries": {
             "market_horizon": 1000,
             "redispatch_horizon": 24,
@@ -386,12 +392,6 @@ def default_options():
                 "cost": 1E2,
                 "bound": 20
             }
-        },
-        "plant_types": {
-            "es": [],
-            "hs": [],
-            "ts": [],
-            "ph": [],
         },
         "grid": {
             "redundancy_removal_option": "full",

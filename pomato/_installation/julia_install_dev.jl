@@ -13,6 +13,7 @@ Pkg.develop(PackageSpec(url=redundancyremoval_path))
 
 Pkg.add("JSON")
 Pkg.add("Clp")
+Pkg.add("ECOS")
 
 Pkg.instantiate()
 print("Precompiling...")

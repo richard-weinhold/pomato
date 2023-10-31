@@ -79,18 +79,20 @@ end
 
 function set_optimizer(file)
     global gurobi_installed 
-    if file["chance_constrained"]
-        @info("Loading Mosek for Chance Constrained Market Model...")
-        if !(gurobi_installed)
-            @error("Gurobi is needed for chance constrained fomulation")
-        else
-            global optimizer = Gurobi
-        end
-    elseif solver == "Gurobi" && gurobi_installed
-        @info("Loading Gurobi...")
+    if solver == "Gurobi" && file["chance_constrained"] && gurobi_installed
+        @info("Using Gurobi for Chance Constrained Market Model...")
         global optimizer = Gurobi
+    elseif  file["chance_constrained"] && !(gurobi_installed)
+        @info("Using ECOS for Chance Constrained Market Model...")  
+        global optimizer = ECOS
+    elseif solver == "Gurobi" && gurobi_installed
+        @info("Using Gurobi Solver...")
+        global optimizer = Gurobi    
+    elseif solver == "ECOS"
+        @info("Using ECOS Solver...")
+        global optimizer = ECOS
     else
-        @info("Loading Clp Solver...")
+        @info("Using Clp Solver...")
         global optimizer = Clp
     end
 end
@@ -114,7 +116,13 @@ end
 
 if solver == "Gurobi" && gurobi_installed
     @info("Loading Gurobi...")
-    using Gurobi
+    using Gurobi 
+elseif solver == "Gurobi" && file["chance_constrained"] && !(gurobi_installed)
+    @info("Gurobi not installed. Loading ECOS for CC Formulation...")
+    using ECOS
+elseif solver == "ECOS"  
+    @info("Loading ECOS...")
+    using ECOS
 else
     @info("Loading Clp...")
     using Clp

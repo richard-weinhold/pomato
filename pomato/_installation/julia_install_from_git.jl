@@ -14,6 +14,7 @@ Pkg.add(PackageSpec(url="https://github.com/richard-weinhold/MarketModel.git", r
 Pkg.add(PackageSpec(url="https://github.com/richard-weinhold/RedundancyRemoval.git", rev=redundancyremoval_branch)) 
 Pkg.add("JSON")
 Pkg.add("Clp")
+Pkg.add("ECOS")
 
 Pkg.instantiate()
 print("Precompiling...")

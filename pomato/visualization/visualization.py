@@ -833,13 +833,12 @@ class Visualization():
         Input argument remains an instance of :class:`~pomato.visualization.FBDomain` which can be
         created by utilizing :meth:`~pomato.visualization.FBDomainPlots` module. 
         """
-        # fb_domain = domain_plot
         fig = go.Figure()
-        scale = 2
         n0_lines_x, n0_lines_y = [], []
         n1_lines_x, n1_lines_y = [], []
+        frm_x_presolved, frm_y_presolved = [], []
         frm_x, frm_y = [], []
-        hover_data_n0, hover_data_n1, hover_data_frm = [], [], []
+        hover_data_n0, hover_data_n1, hover_data_frm_presolved, hover_data_frm = [], [], [], []
 
         hover_points = len(fb_domain.domain_equations[0][1])
         tmp = fb_domain.domain_data.reset_index(drop=True)
@@ -851,7 +850,15 @@ class Visualization():
             data = [tmp.loc[i, "cb"], tmp.loc[i, "co"], tmp.loc[i, "ram"]]
             hover_data_n0.append(np.vstack([[data for n in range(0, hover_points)], [None, None, None]]))
         
-        for i in tmp[(tmp.co == "CC Margin")&(tmp.in_domain)].index:
+        for i in tmp[(tmp.cc_margin)&(tmp.in_domain)].index:
+            frm_x_presolved.extend(fb_domain.domain_equations[i][0])
+            frm_y_presolved.extend(fb_domain.domain_equations[i][1])
+            frm_x_presolved.append(None)
+            frm_y_presolved.append(None)
+            data = [tmp.loc[i, "cb"], tmp.loc[i, "co"], tmp.loc[i, "ram"]]
+            hover_data_frm_presolved.append(np.vstack([[data for n in range(0, hover_points)], [None, None, None]]))
+        
+        for i in tmp[(tmp.cc_margin)&(~tmp.in_domain)].index:
             frm_x.extend(fb_domain.domain_equations[i][0])
             frm_y.extend(fb_domain.domain_equations[i][1])
             frm_x.append(None)
@@ -859,7 +866,7 @@ class Visualization():
             data = [tmp.loc[i, "cb"], tmp.loc[i, "co"], tmp.loc[i, "ram"]]
             hover_data_frm.append(np.vstack([[data for n in range(0, hover_points)], [None, None, None]]))
         
-        for i in tmp[(tmp.co != "basecase")&(tmp.co != "FRM")].index:
+        for i in tmp[(tmp.co != "basecase")&(~tmp.cc_margin)].index:
             n1_lines_x.extend(fb_domain.domain_equations[i][0])
             n1_lines_y.extend(fb_domain.domain_equations[i][1])
             n1_lines_x.append(None)
@@ -877,7 +884,7 @@ class Visualization():
                     x=n0_lines_x, 
                     y=n0_lines_y, 
                     name='N-0 Constraints',
-                    line = dict(width = 1.5, color="dimgray"),
+                    line=dict(width = 1.5, color="dimgray"),
                     customdata=np.vstack(hover_data_n0),
                     hovertemplate=hovertemplate
                 )
@@ -889,9 +896,23 @@ class Visualization():
                     x=frm_x, 
                     y=frm_y, 
                     name='FRM',
-                    line = dict(dash='dash', width=1.5, color="royalblue"),
+                    opacity=.4, 
+                    line=dict(width=1, color="lightskyblue"),
                     customdata=np.vstack(hover_data_frm),
-                    hovertemplate=hovertemplate
+                    hovertemplate=hovertemplate,
+                    legendgroup="FRM"
+                )
+            )
+        if len(hover_data_frm_presolved) > 0:
+            fig.add_trace(
+                go.Scatter(
+                    x=frm_x_presolved, 
+                    y=frm_y_presolved, 
+                    name='FRM-Presolved',
+                    line=dict(dash='dash', width=1.5, color="royalblue"),
+                    customdata=np.vstack(hover_data_frm_presolved),
+                    hovertemplate=hovertemplate,
+                    legendgroup="FRM"
                 )
             )
             

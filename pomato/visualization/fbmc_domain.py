@@ -34,9 +34,16 @@ def compute_polytope_vertices(A, b):
 
     """
     b = b.reshape((b.shape[0], 1))
-    mat = cdd.Matrix(np.hstack([b, -A]), number_type='float')
-    mat.rep_type = cdd.RepType.INEQUALITY
-    P = cdd.Polyhedron(mat)
+    try:
+        mat = cdd.Matrix(np.hstack([b, -A]), number_type='float')
+        mat.rep_type = cdd.RepType.INEQUALITY
+        P = cdd.Polyhedron(mat)
+    except RuntimeError:
+        mean, sigma = 0, 0.0001
+        A = A + np.random.normal(mean, sigma, size=A.shape) 
+        mat = cdd.Matrix(np.hstack([b, -A]), number_type='float')
+        mat.rep_type = cdd.RepType.INEQUALITY
+        P = cdd.Polyhedron(mat)
     g = P.get_generators()
     V = np.array(g)
     vertices = []
@@ -358,7 +365,7 @@ class FBDomainPlots():
         """
         domain_info = self.flowbased_parameters.loc[self.flowbased_parameters.timestep == timestep].copy()
         domain_info = domain_info[~(domain_info[self.data.zones.index] == 0).all(axis=1)].reset_index()
-
+        
         if isinstance(result, pomato.data.Results) and shift2MCP:
             self.logger.info("Correcting Domain for non-depicted commercial exchange")
             exchange = result.EX[result.EX.t == timestep].copy()
@@ -388,12 +395,13 @@ class FBDomainPlots():
         print("Title", title)
         # type(result)
         # isinstance(result, pomato.data.results.Results) 
+        domain_info["cc_margin"] = False
         if isinstance(result, pomato.data.Results) and include_cc_margin and not result.CC_LINE_MARGIN.empty:
             self.logger.info("Adding CC line margins to FB domain.")
             cc_margin = result.CC_LINE_MARGIN.copy()
             cc_margin = cc_margin[cc_margin.t == timestep].rename(columns={"t": "timestep"})
             cc_margin = pd.merge(domain_info, cc_margin, on=["cb", "co", "timestep"], how="right")
-            cc_margin["co"] = "CC Margin"
+            cc_margin["cc_margin"] = True
             margin = norm.ppf(1 - result.data.options["chance_constrained"]["epsilon"])
             cc_margin["ram"] = cc_margin["ram"] - cc_margin["CC_LINE_MARGIN"]*margin
             cc_margin = cc_margin.drop("CC_LINE_MARGIN", axis=1)
