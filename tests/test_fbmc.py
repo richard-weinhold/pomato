@@ -23,7 +23,7 @@ class TestFBMCModule(unittest.TestCase):
         cls.temp_dir = tempfile.TemporaryDirectory()
         cls.wdir = Path(cls.temp_dir.name)
         copytree(Path.cwd().joinpath("examples"), cls.wdir)
-        copytree(Path.cwd().joinpath("tests/test_data/nrel_result"), cls.wdir)
+        copytree(Path.cwd().joinpath("tests/test_data"), cls.wdir)
 
     def setUp(self):
         pass
@@ -37,15 +37,12 @@ class TestFBMCModule(unittest.TestCase):
     def test_domain(self):
         mato = pomato.POMATO(wdir=self.wdir, options_file="profiles/nrel118.json",
                                  logging_level=logging.ERROR, file_logger=False)
-        mato.load_data('data_input/nrel_118.zip')
+        mato.load_data('data_input/nrel_118_original.zip')
         
-        R2_to_R3 = ["bus118", "bus076", "bus077", "bus078", "bus079", 
-                    "bus080", "bus081", "bus097", "bus098", "bus099"]
-        mato.data.nodes.loc[R2_to_R3, "zone"] = "R3"
-        folder = self.wdir.joinpath("scopf_market_results")
+        folder = self.wdir.joinpath("opf_market")
         mato.data.process_results(folder, mato.grid)
 
-        basecase = mato.data.results["scopf_market_results"]
+        basecase = mato.data.results["opf_market"]
         mato.options["fbmc"]["minram"] = 0.1
         mato.options["fbmc"]["gsk"] = "gmax"
         mato.fbmc.create_flowbased_parameters(basecase)

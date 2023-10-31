@@ -13,8 +13,8 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.7']
-        julia-version: ['1.5']
+        python-version: ['3.10']
+        julia-version: ['1.9']
 
     steps:
     - uses: actions/checkout@v2
@@ -32,7 +32,7 @@ jobs:
         julia --version
         julia pomato/_installation/julia_install_from_git.jl main main
         pip install pytest-cov 
-        pip install pytest==4.6
+        pip install pytest==7.4
         pip install -r requirements.txt
     - name: Test with pytest
       run: |

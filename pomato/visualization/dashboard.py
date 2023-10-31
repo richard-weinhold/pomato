@@ -5,10 +5,8 @@ import threading
 
 import dash
 import dash_bootstrap_components as dbc
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dcc
 import dash_daq as daq
-import dash_table
 import numpy as np
 import pandas as pd
 import itertools
@@ -16,7 +14,7 @@ import requests
 from dash.dependencies import Input, Output, State
 from flask import request
 from pomato.tools import add_default_values_to_dict
-from pomato.visualization import FBDomainPlots
+from pomato.visualization import FBDomainPlots, fbmc_domain
 from dash.exceptions import PreventUpdate
 import plotly.graph_objects as go
 
@@ -44,7 +42,7 @@ def shutdown():
 def basic_layout(naming_suffix, multi=False):
     return dbc.Row(
         [
-            dbc.Col(html.Button('Update Results', id=f'results-botton-{naming_suffix}', n_clicks=0), style={"padding": "15px"}),
+            dbc.Col(dash.html.Button('Update Results', id=f'results-botton-{naming_suffix}', n_clicks=0), style={"padding": "15px"}),
             dbc.Col(dcc.Dropdown(id=f'results-dropdown-{naming_suffix}', multi=multi), style={"padding": "15px"})
         ])
 
@@ -66,7 +64,7 @@ def page_generation():
         [
             basic_layout("generation"),
             dbc.Row(
-                [   dbc.Col(html.P("Click or select nodes to see plants and generation.", className="control_label"),
+                [   dbc.Col(dash.html.P("Click or select nodes to see plants and generation.", className="control_label"),
                             width={"size": 2, "offset": 0}, style={"padding": "15px"}),
                     dbc.Col(dcc.Dropdown(id="generation-node-dropdown", multi=True),
                             width={"size": 2, "offset": 0}, style={"padding": "15px"}),
@@ -78,8 +76,8 @@ def page_generation():
                             dbc.CardBody(
                                 dbc.Form(
                                     [
-                                        html.P("Display Options:", className="control_label"),
-                                        html.Div(id='lineloading-display-generation',
+                                        dash.html.P("Display Options:", className="control_label"),
+                                        dash.html.Div(id='lineloading-display-generation',
                                                 style={"font-size": "small", "margin-top": "10px"}),
                                         dbc.Input(
                                             id="input-lineloading-generation", type="number", 
@@ -106,8 +104,8 @@ def page_generation():
             dbc.Row(
                 [
                     dbc.Col(
-                        html.Div([html.P("Click nodes to see plants"),
-                        dash_table.DataTable(id='plant-table')]), width=4),
+                        dash.html.Div([dash.html.P("Click nodes to see plants"),
+                        dash.dash_table.DataTable(id='plant-table')]), width=4),
                 ]),
             ], style={"height": "100vh"}, fluid=True)
                                     
@@ -119,7 +117,7 @@ def page_transmission():
             basic_layout("transmission"),
             dbc.Row(
                 [
-                    dbc.Col([html.Div(id='timestep-display-transmission'),
+                    dbc.Col([dash.html.Div(id='timestep-display-transmission'),
                              dcc.Slider(id='timestep-selector-transmission', min=0, step=1)],
                              width={"size": 4, "offset": 2}, style={"padding": "15px"}),
                     dbc.Col([dcc.Markdown("""**Lines** (use clicks or dropdown for selection) """),
@@ -132,14 +130,14 @@ def page_transmission():
                             dbc.CardBody(
                                 dbc.Form(
                                     [
-                                        html.P("Display Options:", className="control_label"),
+                                        dash.html.P("Display Options:", className="control_label"),
                                         dbc.RadioItems(id='flow-option',
                                             options=[
                                                 {'label': 'N-0 Flows', 'value': 0},
                                                 {'label': 'N-1 Flows', 'value': 1},
                                                 {'label': 'Voltage Levels', 'value': 2}],
                                             value=0),
-                                        html.Div(id='lineloading-display-transmission',
+                                        dash.html.Div(id='lineloading-display-transmission',
                                                 style={"font-size": "small", "margin-top": "10px"}),
                                         dbc.Input(
                                             id="input-lineloading-transmission", type="number", 
@@ -165,8 +163,8 @@ def page_transmission():
             dbc.Row(
                 [
                     dbc.Col(
-                        html.Div([dcc.Markdown("""**Click Data**"""),
-                                    dash_table.DataTable(id='node-table')]), width=4),
+                        dash.html.Div([dcc.Markdown("""**Click Data**"""),
+                                    dash.dash_table.DataTable(id='node-table')]), width=4),
                 ]),
         ], style={"height": "100vh"}, fluid=True)
     return layout
@@ -176,15 +174,15 @@ def page_fbmc():
         [
             dbc.Row([
                 dbc.Col([
-                    html.Br(),
-                    html.Button('Update Results', id='results-botton-fbmc', n_clicks=0),
+                    dash.html.Br(),
+                    dash.html.Button('Update Results', id='results-botton-fbmc', n_clicks=0),
                     ], width={"size": 2}, style={"padding": "15px"}),
                 dbc.Col([
-                    html.Div("Select Basecase:"),
+                    dash.html.Div("Select Basecase:"),
                     dcc.Dropdown(id='results-dropdown-fbmc')
                     ], style={"padding": "15px"}),
                 dbc.Col([
-                    html.Div("Select GSK"),
+                    dash.html.Div("Select GSK"),
                     dcc.Dropdown(id='gsk-dropdown',
                     options=[
                         {'label': 'gmax', 'value': "gmax"},
@@ -193,25 +191,25 @@ def page_fbmc():
                         value="gmax"),
                     ], style={"padding": "15px"}),
                 dbc.Col([
-                    html.Div("minRAM [%]:"),
+                    dash.html.Div("minRAM [%]:"),
                     dbc.Input(
                         id="input-minram", type="number", 
                         value=40, min=0, max=100, step=1),
                     ], style={"padding": "15px"}),
                 dbc.Col([
-                    html.Div("FRM/FAV [%]:"),
+                    dash.html.Div("FRM/FAV [%]:"),
                     dbc.Input(
                         id="input-frm", type="number", 
                         value=0, min=0, max=100, step=1),
                     ], style={"padding": "15px"}),
                 dbc.Col([
-                    html.Div("CNE sensitivity [%]:"),
+                    dash.html.Div("CNE sensitivity [%]:"),
                     dbc.Input(
                         id="input-cne-sensitivity", type="number", 
                         value=5, min=0, max=100, step=0.1),
                     ], style={"padding": "15px"}),
                 dbc.Col([
-                    html.Div("Contingency sensitivity [%]:"),
+                    dash.html.Div("Contingency sensitivity [%]:"),
                     dbc.Input(
                         id="input-cnec-sensitivity", type="number", 
                         value=20, min=0, max=100, step=0.1),
@@ -219,37 +217,37 @@ def page_fbmc():
                 ], className="h-10"),
             dbc.Row([
                 dbc.Col([
-                    html.Div(id='timestep-display-fbmc-market'),
+                    dash.html.Div(id='timestep-display-fbmc-market'),
                     dcc.Slider(id='timestep-selector-fbmc-market', min=0, step=1, persistence=True),
                 ],  width={"size": 4}, style={"padding": "15px"}),
                 dbc.Col([
-                    html.Div("Select Domain X:"),
+                    dash.html.Div("Select Domain X:"),
                     dcc.Dropdown(id='domain-x-dropdown')
                 ], style={"padding": "15px"}),
                 dbc.Col([
-                    html.Div("Select Domain Y"),
+                    dash.html.Div("Select Domain Y"),
                     dcc.Dropdown(id='domain-y-dropdown'),
                 ], style={"padding": "15px"}),
                 dbc.Col([
-                    html.Br(),
-                    html.Button('Calculate FB Domain', id='botton-fb-domains', n_clicks=0)
+                    dash.html.Br(),
+                    dash.html.Button('Calculate FB Domain', id='botton-fb-domains', n_clicks=0)
                 ], style={"padding": "15px"}),
                 ], className="h-10"),
             dbc.Row([
                 dbc.Col([
-                    html.Div("Select Market Result:"),
+                    dash.html.Div("Select Market Result:"),
                     dcc.Dropdown(id='results-dropdown-fbmc-market'),
                     ], style={"padding": "15px"}, width={"size": 3}),
                 dbc.Col([
-                    html.Div("Correct FB Domain for NEX in Market Result:"),
+                    dash.html.Div("Correct FB Domain for NEX in Market Result:"),
                     daq.BooleanSwitch(id='switch-fb-domain-nex-correction', on=True),
                     ], style={"padding": "15px"}, width={"size": 3}),
                 dbc.Col([
-                    html.Div("Enforce FB Domain to include NTCs with value:"),
+                    dash.html.Div("Enforce FB Domain to include NTCs with value:"),
                     daq.BooleanSwitch(id='switch-fb-domain-ntc', on=False),
                     ], style={"padding": "15px"}, width={"size": 3}),
                 dbc.Col([
-                    html.Br(),
+                    dash.html.Br(),
                     dbc.Input(id="input-fb-domain-ntc", type="number", value=500), 
                     ], style={"padding": "15px"}, width={"size": 1}),                                        
                 ], className="h-10"),
@@ -283,13 +281,13 @@ class Dashboard():
     pomato_instance : :class:`~pomato.POMATO` Pomato instance that contains data and results. 
 
     """
-    def __init__(self, pomato_instance, **kwargs):
+    def __init__(self, pomato_instance, include_fbmc=False, **kwargs):
 
         self.pomato_instance = pomato_instance
         for result in self.pomato_instance.data.results:
             self.pomato_instance.data.results[result].create_result_data()
         self.app = None
-        self.init_app()      
+        self.init_app(include_fbmc)      
         self.dash_thread = threading.Thread(target=self.run, kwargs=kwargs)
         self._fb_domain = None
         
@@ -314,21 +312,24 @@ class Dashboard():
             self.dash_thread.join()
         self.dash_thread = self.dash_thread = threading.Thread(target=self.run, args=())
     
-    def init_app(self):
+    def init_app(self, include_fbmc=False):
         self.app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
         # self.app.config['suppress_callback_exceptions'] = True
-        self.app.layout = html.Div([
+
+        tabs = [dcc.Tab(label='Overview', children=[page_overview()]),
+                dcc.Tab(label='Generation', children=[page_generation()]),
+                dcc.Tab(label='Transmission', children=[page_transmission()])]
+
+        if include_fbmc: 
+            tabs.append(dcc.Tab(label='FBMC', children=[page_fbmc()]))
+
+        self.app.layout = dash.html.Div([
             dcc.Location(id='url'),
             dcc.Store(id='viewport-container'),
-            dcc.Tabs(id='pomato-tabs', children=[
-                dcc.Tab(label='Overview', children=[page_overview()]),
-                dcc.Tab(label='Generation', children=[page_generation()]),
-                dcc.Tab(label='Transmission', children=[page_transmission()]),
-                dcc.Tab(label='FBMC', children=[page_fbmc()]),
-            ]),
+            dcc.Tabs(id='pomato-tabs', children=tabs)
         ])
         self.app.server.route('/shutdown', methods=['POST'])(shutdown)
-        
+
         self.app.clientside_callback(
             """
             function(href) {
@@ -341,18 +342,27 @@ class Dashboard():
             Input('url', 'href')
         )
 
-        for page in ["overview", "generation", "transmission", "fbmc"]:
+
+        for page in ["overview", "generation", "transmission"]:
             self.app.callback(
                 [Output(f'results-dropdown-{page}', 'options'),
                  Output(f'results-dropdown-{page}', 'value')],
-                Input(f'results-botton-{page}', 'n_clicks'))(self.update_result_selection)
+                 Input(f'results-botton-{page}', 'n_clicks'))(self.update_result_selection)
         
-        self.app.callback(
-            [Output('results-dropdown-fbmc-market', 'options'),
-            Output('results-dropdown-fbmc-market', 'value')],
-            Input('results-botton-fbmc', 'n_clicks'))(self.update_result_selection)
+        if include_fbmc:
+            self.app.callback(
+                [Output('results-dropdown-fbmc', 'options'),
+                Output('results-dropdown-fbmc', 'value')],
+                Input('results-botton-fbmc', 'n_clicks'))(self.update_result_selection)
+            self.app.callback(
+                [Output('results-dropdown-fbmc-market', 'options'),
+                Output('results-dropdown-fbmc-market', 'value')],
+                Input('results-botton-fbmc', 'n_clicks'))(self.update_result_selection)
         
-        for page in ["transmission", "fbmc-market"]:
+        pages = ["transmission"]
+        if include_fbmc:
+            pages.append("fbmc-market")
+        for page in pages:
             self.app.callback([Output(f'timestep-selector-{page}', 'max'),
                                Output(f'timestep-selector-{page}', 'marks'),
                                Output(f'timestep-selector-{page}', 'value')],
@@ -366,8 +376,9 @@ class Dashboard():
 
         self.add_overview_callbacks()
         self.add_generation_callbacks()
-        self.add_tranmission_callbacks()
-        self.add_flowbased_callbacks()
+        self.add_transmission_callbacks()
+        if include_fbmc:
+            self.add_flowbased_callbacks()
         
     def add_flowbased_callbacks(self):
         # FB Parameters
@@ -439,7 +450,7 @@ class Dashboard():
                           [Input('results-dropdown-generation', 'value'),
                            Input('geo-figure-generation', 'clickData')])(self.display_plant_data)
 
-    def add_tranmission_callbacks(self):
+    def add_transmission_callbacks(self):
         ### Page 3: Lines 
         # Update All components that have options based on the result
         self.app.callback([Output('line-selector', 'options'),
@@ -500,7 +511,8 @@ class Dashboard():
         self.pomato_instance.data.ntc = self.pomato_instance.grid_model.create_ntc(ntc_value)
         if isinstance(timestep, int):
             timestep = basecase.model_horizon[timestep]
-        self.pomato_instance.options["grid"]["capacity_multiplier"] = 1 - frm/100
+        self.pomato_instance.options["grid"]["short_short_rating_factor"] = 1 - frm/100
+        self.pomato_instance.options["grid"]["long_term_rating_factor"] = 1 - frm/100
         self.pomato_instance.options["fbmc"]["minram"] = minram/100
         self.pomato_instance.options["fbmc"]["cne_sensitivity"] = cne_sensitivity/100
         self.pomato_instance.options["fbmc"]["lodf_sensitivity"] = cnec_sensitivity/100
@@ -508,12 +520,12 @@ class Dashboard():
         self.pomato_instance.options["fbmc"]["gsk"] = gsk
         self.pomato_instance.options["fbmc"]["reduce"] = False
         fb_parameter_function = self.pomato_instance.fbmc.create_flowbased_parameters
-        fb_parameters = fb_parameter_function(basecase, enforce_ntc_domain=include_ntc)
+        fb_parameters = fb_parameter_function(basecase, timesteps=[timestep])
         fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
         domain_x, domain_y = domain_x.split("-"), domain_y.split("-")
         if correct_for_nex:
-            domain_plot = fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep, 
-                                                              commercial_exchange=result.EX)
+            domain_plot = fb_domain.generate_flowbased_domain(
+                domain_x, domain_y, timestep=timestep, shift2MCP=correct_for_nex)
         else: 
             domain_plot = fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep)
        
@@ -704,16 +716,18 @@ class Dashboard():
         vis = self.pomato_instance.visualization
         if len(lines) == 0:
             lines = None
-        fig =  vis.create_geo_plot(result, 
-                                   show_redispatch=show_redispatch, 
-                                   show_prices=show_prices,
-                                   show_curtailment=show_curtailment,
-                                   show_infeasibility=show_infeasibility,
-                                   line_color_option=line_color_option,
-                                   highlight_lines=lines, 
-                                   timestep=timestep, 
-                                   threshold=threshold,
-                                   show_plot=False)
+        fig =  vis.create_geo_plot(
+            result, 
+           show_redispatch=show_redispatch, 
+           show_prices=show_prices,
+           show_curtailment=show_curtailment,
+           show_infeasibility=show_infeasibility,
+           line_color_option=line_color_option,
+           highlight_lines=lines, 
+           timestep=timestep, 
+           line_color_threshold=threshold,
+           show_plot=False
+        )
         fig.update_layout(uirevision = True)
         return fig
 
@@ -724,16 +738,17 @@ class Dashboard():
         show_infeasibility = True  if 4 in switches else False
         result = self.pomato_instance.data.results[result_name]
         vis = self.pomato_instance.visualization
-        fig =  vis.create_geo_plot(result, 
-                                   show_redispatch=show_redispatch, 
-                                   show_prices=show_prices,
-                                   show_curtailment=show_curtailment,
-                                   show_infeasibility=show_infeasibility,
-                                   line_color_option=0,
-                                   timestep=None, 
-                                   highlight_nodes=nodes,
-                                   threshold=threshold,
-                                   show_plot=False)
+        fig =  vis.create_geo_plot(
+            result, 
+            show_redispatch=show_redispatch, 
+            show_prices=show_prices,
+            show_curtailment=show_curtailment,
+            show_infeasibility=show_infeasibility,
+            line_color_option=0,
+            timestep=None, 
+            highlight_nodes=nodes,
+            line_color_threshold=threshold,
+            show_plot=False)
         fig.update_layout(uirevision = True)
         return fig
 

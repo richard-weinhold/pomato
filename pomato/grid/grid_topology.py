@@ -513,7 +513,7 @@ class GridTopology():
         n_1_ptdf_cbco = self.ptdf[lines, :] + np.dot(self.create_lodf(lines, outages), self.ptdf[outages, :])
         return n_1_ptdf_cbco
 
-    def create_filtered_n_1_ptdf(self, sensitivity=5e-2):
+    def create_filtered_n_1_ptdf(self, sensitivity=5e-2, short_term_rating_factor=1, long_term_rating_factor=1):
         """Create a N-1 ptdf/info containing all lines under outages with significant impact.
 
         Create a ptdf that covers the N-0 ptdf (with the outage indicated as
@@ -570,12 +570,13 @@ class GridTopology():
             data = pd.DataFrame(index=new_index, data=ptdf, columns=self.nodes.index)
             data = data.loc[cbco].reset_index(drop=True)
             data[["cb", "co"]] = cbco
-            data["ram"] = self.lines.capacity[data.cb].values
+            data["ram"] = self.lines.capacity[data.cb].values * short_term_rating_factor
+
             # Add N-0 PTDF at the beginning of the return dataframe
             base_data = pd.DataFrame(columns=self.nodes.index, data=self.ptdf )
             base_data["cb"] = self.lines.index
             base_data["co"] = "basecase"
-            base_data["ram"] =  self.lines.capacity.values.reshape(len(self.lines.index), 1)
+            base_data["ram"] = self.lines.capacity.values.reshape(len(self.lines.index), 1) * long_term_rating_factor
             data = pd.concat([base_data, data]).reset_index(drop=True)
             data = data[["cb", "co", "ram"] + list(list(self.nodes.index))]
             return data

@@ -1,0 +1,93 @@
+{
+  "title": "Opf",
+  "type": "opf",
+  "model_horizon": [
+    0,
+    24
+  ],
+  "heat_model": false,
+  "timeseries": {
+    "split": true,
+    "market_horizon": 1000,
+    "redispatch_horizon": 24,
+    "smooth_storage_level": false,
+    "type": "rt"
+  },
+  "redispatch": {
+    "include": true,
+    "zonal_redispatch": false,
+    "zones": [
+      "R1",
+      "R2",
+      "R3"
+    ],
+    "cost": 10
+  },
+  "curtailment": {
+    "include": true,
+    "cost": 100.0
+  },
+  "chance_constrained": {
+    "include": false,
+    "fixed_alpha": true,
+    "cc_res_mw": 50,
+    "alpha_plants_mw": 200,
+    "alpha_plants_mc": 30
+  },
+  "parameters": {
+    "storage_start": 0.65
+  },
+  "infeasibility": {
+    "heat": {
+      "include": false,
+      "cost": 1000.0,
+      "bound": 20
+    },
+    "electricity": {
+      "include": true,
+      "cost": 100.0,
+      "bound": 200
+    },
+    "storages": {
+      "include": true,
+      "cost": 100.0,
+      "bound": 20
+    }
+  },
+  "plant_types": {
+    "es": [],
+    "hs": [],
+    "ts": [
+      "wind",
+      "solar",
+      "ror_ts"
+    ],
+    "ph": []
+  },
+  "grid": {
+    "redundancy_removal_option": "conditional_redundancy_removal",
+    "precalc_filename": "",
+    "include_contingencies_redispatch": false,
+    "sensitivity": 0.05,
+    "short_term_rating_factor": 1,
+    "long_term_rating_factor": 0.8,
+    "preprocess": true,
+    "gsk": "gmax"
+  },
+  "fbmc": {
+    "gsk": "gmax",
+    "minram": 0,
+    "only_crossborder": false,
+    "flowbased_region": [],
+    "cne_sensitivity": 0.05,
+    "lodf_sensitivity": 0.05,
+    "frm": 0,
+    "reduce": false,
+    "enforce_ntc_domain": false,
+    "precalc_filename": null
+  },
+  "solver": {
+    "name": "Clp",
+    "solver_options": {}
+  }
+}

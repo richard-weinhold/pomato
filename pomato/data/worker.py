@@ -440,19 +440,20 @@ class DataWorker(object):
         ### Make ieee case ready for the market model
         self.data.nodes["name"] = ["n" + str(int(idx)) for idx in self.data.nodes.index]
         self.data.nodes.rename(columns={"baseKV": "voltage"}, inplace=True)
-        self.data.nodes.set_index("name", drop=False, inplace=True)
+        self.data.nodes = self.data.nodes.set_index("name", drop=False).rename_axis(index="index")
+
         self.data.nodes.zone = ["z" + str(int(idx)) for idx in self.data.nodes.zone]
 
         self.data.lines.node_i = ["n" + str(int(idx)) for idx in self.data.lines.node_i]
         self.data.lines.node_j = ["n" + str(int(idx)) for idx in self.data.lines.node_j]
         self.data.lines["voltage"] = self.data.nodes.loc[self.data.lines.node_i, "voltage"].values
         self.data.lines["technology"] = "ac"
-        condition_tranformer = (self.data.nodes.loc[self.data.lines.node_i, "voltage"].values 
+        condition_transformer = (self.data.nodes.loc[self.data.lines.node_i, "voltage"].values 
                                 != self.data.nodes.loc[self.data.lines.node_j, "voltage"].values)
         
-        self.data.lines.loc[condition_tranformer, "technology"] = "transformer"
+        self.data.lines.loc[condition_transformer, "technology"] = "transformer"
 
-        self.data.zones = pd.DataFrame(index=set(self.data.nodes.zone.values))
+        self.data.zones = pd.DataFrame(index=list(set(self.data.nodes.zone.values)))
         self.data.plants.node = ["n" + str(int(idx)) for idx in self.data.plants.node]
         
         tmp_demand = pd.DataFrame(index=["t0001", "t0002"], data=self.data.nodes.Pd.to_dict())

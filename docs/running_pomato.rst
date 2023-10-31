@@ -90,10 +90,10 @@ line/contingency pairs.
 
 To also include contingencies, known as security constrained optimal power flow (SCOPF), the 
 optimization type has to be changed to "cbco_nodal". The "redundancy_removal_option" defines the reduction algorithm
-where the option "full" will perform no reduction and options "clarkson" and "clarkson_base" will 
+where the option "full" will perform no reduction and options "redundancy_removal" and "conditional_redundancy_removal" will 
 reduce the power flow constraints to a minimal set. 
 
-Therefore the option "clarkson_base" will invoke the RedundancyRemoval algorithm and yield a set
+Therefore the option "conditional_redundancy_removal" will invoke the RedundancyRemoval algorithm and yield a set
 of 540 constraints that guarantee SCOPF. In comparison, the full PTDF, without RedundancyRemoval or
 Impact Screening will have a length of approx. 26.000 lines/outages. Given the small network of 118 
 buses and a single timestep, this would still be solvable, but scaling the problem will quickly 
@@ -104,7 +104,7 @@ increase complexity prohibitively.
    mato.options["type"] = "cbco_nodal"
    mato.options["title"] = "SCOPF"
 
-   mato.options["grid"]["redundancy_removal_option"] = "clarkson_base"
+   mato.options["grid"]["redundancy_removal_option"] = "conditional_redundancy_removal"
 
    mato.create_grid_representation()
 
@@ -130,7 +130,9 @@ DE Case Study
 In this example the german system is modeled, first as a single market clearing based on the 
 options stored in a *.json* file and then in a second step including redispatch and altered options. 
 
-The data for the underlying data comes from multiple sources: 
+The data for the underlying data comes from multiple sources and is compiled using the `Pomato Data
+<https://github.com/richard-weinhold/PomatoData/>`_ repository: 
+
    - Conventional power plant data is taken from the 
      `Open Power System Data <https://open-power-system-data.org/>`_ Platform (OPSD).
    - Geographic information is used from the `ExtremOS <https://opendata.ffe.de/project/extremos/>`_
@@ -281,7 +283,7 @@ be done in a similar way to the result analysis above:
    gen = pd.merge(market_result.data.plants[relevant_cols],
                   market_result.G, left_index=True, right_on="p")
 
-   # Marge redispatch G
+   # Merge redispatch G
    gen = pd.merge(gen, redisp_result.G, on=["p", "t"], 
                   suffixes=("_market", "_redispatch"))
    # Calculate G_redispatch - G_market as delta 
@@ -299,3 +301,221 @@ we can, again generate the geo-plot, including the redispatch locations.
 
 .. raw:: html
    :file: _static/files/redispatch_geoplot.html
+
+
+Modeling Flow-based Market Coupling
+-----------------------------------
+
+This example follows the modeling approach that we have followed in our publications about the
+process. In particular `Uncertainty-Aware Capacity Allocation in Flow-Based Market Coupling
+<https://ieeexplore.ieee.org/abstract/document/10094020>`_ that is also available on `arXiv
+<https://arxiv.org/abs/2109.04968>`_. 
+
+This step-by-step guide is part of the ``/examples`` folder which can be copied as working folder
+and contains the code below as a script as well as the input data. 
+
+.. code-block:: python
+
+   from pomato import POMATO
+   from pathlib import Path()
+   wdir = Path("<your_path>") 
+   mato = pomato.POMATO(wdir=wdir, options_file="profiles/nrel118.json")
+   mato.load_data('data_input/nrel_118_high_res.zip')
+
+The model is initialized with the lines above. First an instance of pomato is created, then data 
+is loaded. The option file, part of the initialization looks like this:
+
+.. literalinclude:: _static/files/ieee_doc.json
+  :language: JSON
+
+Note, we use the solver ECOS, to enable the chance constrained formulation in the last step. 
+
+We model the flow-based market coupling process in three steps: 
+   - Basecase, a best estimate of the system state is at delivery. 
+   - Calculation of the flow-based parameters that represent the capacities for the market coupling. 
+   - Correcting the dispatch to be network-feasible with redispatch. 
+
+First we set up the basecase calculation:
+
+.. code-block:: python
+
+   mato.options["title"] = "Basecase"
+   mato.options["type"] = "opf"
+   mato.create_grid_representation()
+   mato.update_market_model_data()
+   mato.run_market_model()
+   result_name = next(r for r in list(mato.data.results))
+   basecase = mato.data.return_results("Basecase")
+
+We use the "opf" type, which means we calculate an N-0 dispatch or optimal power flow. 
+
+.. code-block:: python
+
+   mato.options["fbmc"]["minram"] = 0.4
+   mato.options["fbmc"]["frm"] = 0.1
+   mato.options["fbmc"]["cne_sensitivity"] = 0.05
+   mato.options["fbmc"]["gsk"] = "dynamic"
+   mato.options["fbmc"]["reduce"] = True
+   fb_parameters = mato.create_flowbased_parameters(basecase)
+
+   # FBMC market clearing
+   mato.options["title"] = "FB Market Coupling - 40%"
+   mato.options["redispatch"]["include"] = True
+   mato.options["redispatch"]["zones"] = list(mato.data.zones.index)
+   mato.create_grid_representation(flowbased_parameters=fb_parameters)
+   mato.update_market_model_data()
+   mato.run_market_model()
+   fb_market_result, _ = mato.data.return_results(mato.options["title"])
+
+Second we calculate the flow-based parameters based on the available settings. Here we want to
+ensure that at least 40% of physical capacity is available to the market coupling, a security margin
+of 10% is used, that only network elements are considered that have at least 5% zon-to-zone PTDF in
+the flow-based region and that the GSK is based on the running conventional units. We can use the
+options of the main class to set parameters for the calculation. The full list of possible settings
+can be found in the Options Section :ref:`sec-options`.
+
+After the flow-based parameters are calculated, the market model is run to calculate the market
+result as well as the necessary redispatch to ensure N-0 network constraints. 
+
+Lastly, we can run the same calculation with a chance constrained formulation that determines the
+security margin, i.e. FRM, based on the expected deviation from intermittend generators. 
+
+.. code-block:: python
+
+   mato.options["title"] = "FB CC Market Coupling - 40%"
+   mato.options["chance_constrained"]["include"] = True
+   mato.options["chance_constrained"]["fixed_alpha"] = True
+   mato.options["chance_constrained"]["cc_res_mw"] = 0
+   mato.options["chance_constrained"]["alpha_plants_mw"] = 30
+   mato.options["chance_constrained"]["epsilon"] = 0.05
+   mato.options["chance_constrained"]["percent_std"] = 0.05
+   mato.options["fbmc"]["frm"] = 0
+
+   mato.update_market_model_data()
+   mato.run_market_model()
+   fb_cc_market_result, _ = mato.data.return_results(mato.options["title"])
+
+Note, the FRM is set to zero, as the security margin is no longer fixed. The chance constrained
+formulation can be configured with additional parameters that are described in
+:ref:`Options <sec-options-cc>`. Here we enforce a fixed alpha, meaning all conventional generators cover the
+forecast error proportional to the installed capacity (*fixed_alpha*), we consider all renewable
+generators as uncertain (*cc_res_mw*), plants with more than 30MW are considered to cover forecast
+errors, the risk level is set to 5% and we assume a standard deviation for renewable generators of
+5% of the forecasted infeed.    
+
+After the model has run, the results can be analysed. The reserved capacity on flow-based
+constraints that is reserved for forecast errors can be obtained from the *CC_LINE_MARGIN* variable.
+And the standard pomato visualization features can be used.  
+
+.. code-block:: python
+
+   print("Mean CC Margin:", fb_cc_market_result.CC_LINE_MARGIN["CC_LINE_MARGIN"].mean())
+   # Visualization of system costs 
+   mato.visualization.create_cost_overview(mato.data.results.values())
+
+Additionally we can visualize the flow-based parameters as a flow-based domain and see the impact of
+the chance constrained FRM values. 
+
+.. code-block:: python
+
+   domain_x, domain_y, timestep = ("R2", "R3"), ("R1", "R3"), "t0021"
+   fbmc_domains = pomato.visualization.FBDomainPlots(mato.data, fb_parameters)
+   fbmc_domains.generate_flowbased_domain(
+      domain_x, domain_y, timestep=timestep, 
+      shift2MCP=True, result=fb_market_result)
+      
+   fbmc_domains.generate_flowbased_domain(
+      domain_x, domain_y, timestep=timestep, 
+      shift2MCP=True, result=fb_cc_market_result)
+
+   for elm in fbmc_domains.fbmc_plots:
+      elm.x_max, elm.x_min = 1000, -1100
+      elm.y_max, elm.y_min = 500, -400
+      fig = mato.visualization.create_fb_domain_plot(elm)
+
+.. raw:: html
+   :file: _static/files/fbmc.html
+
+.. raw:: html
+   :file: _static/files/fbmc_cc.html
+
+
+Running a Chance-Constrained OPF
+--------------------------------
+
+This example highlights the chance constrained functionality for OPF. In this simple example we use
+the NREL 118 Bus network with extended capacities of intermittend renewables. 
+
+The files are included in the ``/examples`` folder which can be copied as working folder
+and contains the code below as a script as well as the input data. 
+
+.. code-block:: python
+
+   from pomato import POMATO
+   from pathlib import Path()
+   wdir = Path("<your_path>") 
+   mato = pomato.POMATO(wdir=wdir, options_file="profiles/nrel118.json")
+   mato.load_data('data_input/nrel_118_high_res.zip')
+
+The model is initialized with the lines above. First an instance of pomato is created, then data 
+is loaded. The option file, part of the initialization looks like this:
+
+.. literalinclude:: _static/files/ieee_doc.json
+  :language: JSON
+
+Note, we use the solver ECOS, to enable the chance constrained formulation in the last step. 
+
+Fist we calculate the OPF, meaning an economic dispatch that takes into account N-0 power flow
+constraints.
+
+.. code-block:: python
+
+   mato.options["title"] = "N-0"
+   mato.options["type"] = "opf"
+   mato.create_grid_representation()
+   mato.update_market_model_data()
+   mato.run_market_model()
+
+Second, we parameterise the chance constrained formulation that considers a distribution of forecast
+errors for intermittend renewable generators, the generator response and its impact on power flows.
+By reserving margin on network elements, the model can guarantee that overloads only occur up to an
+accepted risk level.  
+
+The model is configured as follows:
+
+.. code-block:: python
+
+   mato.options["title"] = "N-0 CC"
+   mato.options["chance_constrained"]["include"] = True
+   mato.options["chance_constrained"]["fixed_alpha"] = True
+   mato.options["chance_constrained"]["cc_res_mw"] = 0
+   mato.options["chance_constrained"]["alpha_plants_mw"] = 30
+   mato.options["chance_constrained"]["epsilon"] = 0.05
+   mato.options["chance_constrained"]["percent_std"] = 0.1
+   mato.create_grid_representation()
+   mato.update_market_model_data()
+   mato.run_market_model()
+
+The chance constrained formulation can be configured with additional parameters described in
+:ref:`Options <sec-options-cc>`. Here we model a fixed alpha first, meaning all conventional generators cover the
+forecast error proportional to the installed capacity (*fixed_alpha*), we consider all renewable
+generators as uncertain (*cc_res_mw*), plants with more than 30MW are considered to cover forecast
+errors, the risk level is set to 5% and we assume a standard deviation for renewable generators of
+10% of the forecasted infeed. 
+
+Third, we can recalculate the model with variable alpha. This allows the model to decide which
+generators are reserved to cover imbalances caused by forecast errors. Lastly, we can visualize the
+resulting system costs of the three runs. 
+
+.. code-block:: python
+
+   mato.options["title"] = "N-0 CC - Variable Alpha"
+   mato.options["chance_constrained"]["fixed_alpha"] = False
+   mato.create_grid_representation()
+   mato.update_market_model_data()
+   mato.run_market_model()
+
+   mato.visualization.create_cost_overview(mato.data.results.values())
+
+.. raw:: html
+   :file: _static/files/chance_constrained_costs.html

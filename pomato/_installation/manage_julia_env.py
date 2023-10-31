@@ -42,13 +42,3 @@ def add_gurobi():
                           stderr=subprocess.STDOUT, cwd=cwd) as program:
         for line in program.stdout:
             print(line.decode(errors="ignore").strip())
-
-def add_mosek():
-    """Add Mosek to Julia environment"""
-    cwd = str(Path(__file__).parent)
-    args = ["julia", "add_mosek.jl"] 
-    with subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
-                          stderr=subprocess.STDOUT, cwd=cwd) as program:
-        for line in program.stdout:
-            print(line.decode(errors="ignore").strip())
-

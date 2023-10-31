@@ -8,7 +8,7 @@ import pomato
 from pomato.grid import GridModel
 
 class FBMCModule():
-    """The FBMC module calculates FB paramerters based on a suitable market result.
+    """The FBMC module calculates FB parameters based on a suitable market result.
 
     Flow based market coupling derives commercial exchange capacities for a day-ahead 
     market clearing from a forecasted market results. These day ahead capacities are 
@@ -75,7 +75,7 @@ class FBMCModule():
         for zone in self.data.zones.index:
             gsk[zone] = 0
             nodes_in_zone = self.grid.nodes.index[self.grid.nodes.zone == zone]
-            tmp = gen[gen.n.isin(nodes_in_zone)].groupby("n").sum().copy()
+            tmp = gen.loc[gen.n.isin(nodes_in_zone), ["G", "n"]].groupby("n").sum().copy()
             if tmp.G.sum() > 0:
                 tmp.loc[:, "G"] /= tmp.G.sum()
                 gsk.loc[tmp.index, zone] = tmp.G.values
@@ -130,8 +130,7 @@ class FBMCModule():
         
         return gsk.values
 
-    def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax", 
-                                 only_crossborder=False, flowbased_region=None):
+    def return_critical_branches(self, threshold=5e-2, gsk_strategy="gmax", flowbased_region=None):
         """Returns Critical branches based on Zone-to-Zone ptdf.
         
         In the calculation of FB parameters it makes sense to use only lines
@@ -165,7 +164,7 @@ class FBMCModule():
         if not flowbased_region:
             flowbased_region = list(self.data.zones.index)
         
-        if not only_crossborder:
+        if not self.options["fbmc"]["only_crossborder"]:
             gsk = self.create_gsk(gsk_strategy)
             zonal_ptdf = np.dot(self.grid.ptdf, gsk)
             zonal_ptdf_df = pd.DataFrame(index=self.grid.lines.index,
@@ -252,7 +251,7 @@ class FBMCModule():
 
         return nodal_fbmc_ptdf, fbmc_data
    
-    def create_flowbased_parameters(self, basecase, timesteps=None, enforce_ntc_domain=False):
+    def create_flowbased_parameters(self, basecase, timesteps=None):
         """Create Flow-Based Paramters.
 
         Creates the FB Paramters for the supplied basecase. Optional arguments are 
@@ -295,7 +294,7 @@ class FBMCModule():
 
         if not self.options["fbmc"]["flowbased_region"]:
             flowbased_region = list(self.data.zones.index)
-            self.options["grid"]["flowbased_region"] = flowbased_region
+            self.options["fbmc"]["flowbased_region"] = flowbased_region
         else:
             flowbased_region = self.options["fbmc"]["flowbased_region"]
 
@@ -304,8 +303,8 @@ class FBMCModule():
         self.logger.info("COs are selected from nodal PTDFs with %d%% threshold", lodf_sensitivity*100)
         nodal_fbmc_ptdf, fbmc_data = self.create_base_fbmc_parameters(critical_branches, lodf_sensitivity)
 
-        if self.options["fbmc"]["reduce"] or self.options["grid"]["precalc_filename"]:
-            cbco = self.grid_model.create_cbco_nodal_grid_parameters()
+        if (self.options["grid"]["precalc_filename"]) and (not self.options["fbmc"]["precalc_filename"]):
+            cbco = self.grid_model.create_scopf_grid_parameters()
             condition = fbmc_data[["cb", "co"]].apply(tuple, axis=1).isin(cbco[["cb", "co"]].apply(tuple, axis=1).values).values
             nodal_fbmc_ptdf, fbmc_data = nodal_fbmc_ptdf[condition | (fbmc_data.co == "basecase") , :], \
                                                          fbmc_data.loc[condition | (fbmc_data.co == "basecase") , :]
@@ -314,7 +313,7 @@ class FBMCModule():
         inj = inj.loc[timesteps, basecase.data.nodes.index]
         f_ref_base_case = np.dot(nodal_fbmc_ptdf, inj.T)
 
-        frm_fav = self.grid.lines.capacity[fbmc_data.cb].values*(1 - self.options["grid"]["capacity_multiplier"])
+        frm_fav = self.grid.lines.capacity[fbmc_data.cb].values*self.options["fbmc"]["frm"]
         nex = basecase.net_position().loc[timesteps, :]
 
         self.logger.info("Calculating zonal ptdf using %s gsk strategy.", gsk_strategy)
@@ -326,8 +325,6 @@ class FBMCModule():
             zonal_fbmc_ptdf = {timestep: zonal_fbmc_ptdf_tmp for timestep in timesteps}
             f_da = np.dot(zonal_fbmc_ptdf_tmp, nex.values.T)
         
-        t = self.create_gsk(gsk_strategy)
-    
         f_ref_nonmarket = f_ref_base_case - f_da
         ram = (self.grid.lines.capacity[fbmc_data.cb].values - frm_fav - f_ref_nonmarket.T).T
         minram = (self.grid.lines.capacity[fbmc_data.cb] * self.options["fbmc"]["minram"]).values.reshape(len(f_ref_base_case), 1)
@@ -347,11 +344,24 @@ class FBMCModule():
 
         fb_parameters =  pd.concat([domain_data[timestep] for timestep in timesteps], ignore_index=True)
         
-        if enforce_ntc_domain:
+        if self.options["fbmc"]["enforce_ntc_domain"]:
             fb_parameters = self.enforce_ntc_domain(fb_parameters)
 
         if self.options["fbmc"]["reduce"]:
-            cbco_index = self.grid_model.clarkson_algorithm(args={"fbmc_domain": True}, 
+            if self.options["fbmc"]["precalc_filename"]:
+                name = self.options["fbmc"]["precalc_filename"]
+                if Path(name).is_file():
+                    filename = Path(name)
+                if Path(name).with_suffix('.csv').is_file():
+                    filename = Path(name).with_suffix('.csv')
+                elif self.grid_model.wdir.joinpath(f"data_temp/julia_files/cbco_data/{name}.csv").is_file():
+                    filename = self.wdir.joinpath(f"data_temp/julia_files/cbco_data/{name}.csv")
+                else:
+                    raise FileNotFoundError("No precalculated list of CNECs found")
+                precalc_cbco = pd.read_csv(filename, delimiter=',')
+                cbco_index = list(precalc_cbco.constraints.values)
+            else:
+                cbco_index = self.grid_model.clarkson_algorithm(args={"fbmc_domain": True}, 
                                                             Ab_info=fb_parameters)   
             fb_parameters = fb_parameters.loc[cbco_index, :]
             
@@ -364,20 +374,34 @@ class FBMCModule():
         if self.data.ntc.empty:
             self.logger.error("NTCs not in data.")
             return fb_parameters
+
+
         self.logger.info("Enforcing FB-parameters to include NTC domain.")
         A = fb_parameters.loc[:, self.data.zones.index].values
         b = fb_parameters.loc[:, "ram"].values.reshape(len(A), 1)
 
+        fb_region = self.options["fbmc"]["flowbased_region"]
         zones = list(self.data.zones.index)
-        ntc = self.data.ntc[self.data.ntc.ntc > 0].copy()
+
+        ntc = self.data.ntc[(self.data.ntc.ntc > 0)].copy()
+        condition_fb_region = (ntc.zone_i.isin(fb_region))&(ntc.zone_j.isin(fb_region))
         ntc.set_index(["zone_i", "zone_j"], inplace=True)
+
+        vertices_ntc_domain = int(np.math.factorial(len(ntc.index)) / np.math.factorial(len(fb_region))  / 
+            np.math.factorial(len(ntc.index) - len(fb_region))) 
+        self.logger.info("Including %s vertices of the NTC domains", vertices_ntc_domain)
+        if vertices_ntc_domain > 1e7:
+            self.logger.error("Too many dimension to consider (combination(ntc, FB Region).")
+            return fb_parameters
+
         points = []
-        for exchange in itertools.combinations(ntc.index, len(zones)):
+        for exchange in itertools.combinations(ntc.loc[condition_fb_region.values].index, len(fb_region)):
             tmp = np.zeros((len(zones), 1))
             for (f,t) in exchange:
                 tmp[zones.index(f)] += ntc.loc[(f,t), "ntc"]
                 tmp[zones.index(t)] -= ntc.loc[(f,t), "ntc"]
             points.append(tmp)
+        
         condition = []
         for p in points:
             condition.append(np.dot(A, p).reshape(len(A), 1) <= b)

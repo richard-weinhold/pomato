@@ -4,6 +4,14 @@
 
 # Required
 version: 2
+build:
+  os: "ubuntu-22.04"
+  tools:
+    python: "3.10"
+
+build:
+  apt_packages:
+    - libgmp-dev
 
 build:
   apt_packages:
@@ -22,7 +30,7 @@ sphinx:
 
 # Optionally set the version of Python and requirements required to build your docs
 python:
-  version: 3.7
+  version: 3.10
   install:
     - requirements: requirements.txt
     - requirements: docs/requirements.txt

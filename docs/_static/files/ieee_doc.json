@@ -1,6 +1,6 @@
 {    
     "optimization": {
-        "type": "dispatch",
+        "type": "uniform",
         "model_horizon": [0, 1],
         "infeasibility": {
             "electricity": {
@@ -11,7 +11,7 @@
         }
     },
     "grid": {
-        "redundancy_removal_option": "clarkson_base",
+        "redundancy_removal_option": "conditional_redundancy_removal",
         "precalc_filename": "",
         "sensitivity": 5e-2,
         "preprocess": true

@@ -4,7 +4,7 @@ This module creates the interface between the data, grid representation and
 the market model written in julia. This is done by saving the relevant data as csv,
 run the model in a threaded julia program which provides the results in folder as csv files.
 
-The Modes is initionaled empty and then filled with data seperately. This makes it
+The model is initialized empty and then filled with data separately. This makes it
 easy to change the data and rerun without re-initializing everything again.
 
 """
@@ -75,21 +75,23 @@ class MarketModel():
 
     def _start_julia_daemon(self):
         """Start julia subprocess."""
-        self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model")
+        self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model", self.options["solver"]["name"])
 
+    @property
+    def model_horizon(self):
+        model_horizon_range = range(self.options["model_horizon"][0],
+                                    self.options["model_horizon"][1])
+        timesteps = self.data.demand_el.timestep.unique()
+        model_horizon = [str(x) for x in timesteps[model_horizon_range]]
+        return model_horizon
+    
     def update_data(self):
         """Initialise or update the underlying data of the market model.
 
         Updates all data used to run the market model: input data, grid representation, options and
         model horizon by running :meth:`~data_to_csv`.
         """
-
-        model_horizon_range = range(self.options["model_horizon"][0],
-                                    self.options["model_horizon"][1])
-
-        timesteps = self.data.demand_el.timestep.unique()
-        model_horizon = [str(x) for x in timesteps[model_horizon_range]]
-        self.data_to_csv(model_horizon)
+        self.data_to_csv()
 
     def run(self):
         """Run the julia program via command Line.
@@ -104,7 +106,11 @@ class MarketModel():
         t_start = datetime.datetime.now()
 
         if not self.julia_model:
-            self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model")
+            self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model", self.options["solver"]["name"])
+        elif not self.julia_model.is_alive:
+            self.logger.info("Joining previous market model thread.")
+            self.julia_model.join()
+            self.julia_model = tools.JuliaDaemon(self.logger, self.wdir, self.package_dir, "market_model", self.options["solver"]["name"])
 
         self.logger.info("Start-Time: %s", t_start.strftime("%H:%M:%S"))
 
@@ -138,32 +144,78 @@ class MarketModel():
             self.logger.warning("Process not terminated successfully!")
             self.status = 'error'
     
-    def rolling_horizon_storage_levels(self, model_horizon):
+    def save_rolling_horizon_storage_levels(self):
         """Set start/end storage levels for rolling horizon market clearing.
         
         This method alters the *storage_level* attribute of the :class:`~pomato.data.DataManagement`
-        instance, when market model horizon shorter than total model horizon. Per default storage levels 
-        are 65% of total capacity, however the storage_level attribute can be edited manually. 
-        
-        Parameters
-        ----------
-        model_horizon : list
-            List of timesteps that are the model horizon
+        instance, when market model horizon shorter than total model horizon or values within the
+        supplied data does not exactly match the model segments. Default storage levels can be set as part of the options attribute. 
         """
-
-        splits = int(len(model_horizon)/self.options["timeseries"]["market_horizon"])
+        
+        model_horizon = self.model_horizon
         market_model_horizon = self.options["timeseries"]["market_horizon"]
+        splits = max(round(len(model_horizon)/market_model_horizon), 1)
+        splits_start = [model_horizon[t*market_model_horizon] for t in range(0, splits)]
 
-        splits = max(1, int(len(model_horizon)/self.options["timeseries"]["market_horizon"]))
-        splits = [model_horizon[t*market_model_horizon] for t in range(0, splits)]
-        if not all(t in self.data.storage_level.timestep for t in splits):
-            data = []
-            for plant in self.data.plants[self.data.plants.plant_type.isin(self.options["plant_types"]["es"])].index:
-                for t in splits:
-                    data.append([t, plant, self.options["parameters"]["storage_start"]])
-            self.data.storage_level = pd.DataFrame(columns=self.data.storage_level.columns, data=data)
+        def add_to_timestep(t):
+            int_t = int(t[1:]) + market_model_horizon
+            return 't' + "{0:0>4}".format(int_t)
 
-    def data_to_csv(self, model_horizon):
+        splits_end = [add_to_timestep(model_horizon[t*market_model_horizon]) for t in range(0, splits)]
+
+        t_split_map = {}
+        timesteps = list(self.data.storage_level.timestep.unique())
+        if len(timesteps) > 0:
+            for t in set(splits_start + splits_end):
+                if t in timesteps:
+                    t_split_map[t] = t
+                else:
+                    int_t = int(t[1:])
+                    delta = [abs(int_t - int(t[1:])) for t in timesteps]
+                    t_split_map[t] = timesteps[delta.index(min(delta))]
+        else:
+            for t in set(splits_start + splits_end):
+                t_split_map[t] = t
+            
+        storage_level = self.data.storage_level.copy()
+        storage_level = storage_level.set_index(["timestep", "plant"])
+        data = []
+        for plant in self.data.plants[self.data.plants.plant_type.isin(self.options["plant_types"]["es"])].index:
+            for t_start, t_end in zip(splits_start, splits_end):
+                if ((t_split_map[t_start], plant) in storage_level.index): # and (self.data.plants.loc[plant, "plant_type"] == "hydro_res"):
+                    data.append([t_start, plant, 
+                                storage_level.loc[(t_split_map[t_start], plant), "storage_level"],
+                                storage_level.loc[(t_split_map[t_end], plant), "storage_level"]])
+                else:
+                    data.append([t_start, plant, self.options["storages"]["storage_start"], 
+                                self.options["storages"]["storage_end"]])
+                    
+        tmp_storage_level = pd.DataFrame(columns=["timestep", "plant", "storage_start", "storage_end"], data=data)
+        # Apply smoothing 
+        if self.options["storages"]["smooth_storage_level"]:
+            self.logger.info("Smoothing storage levels for rolling horizon")
+            timesteps = pd.DataFrame(index=tmp_storage_level["timestep"].unique())
+            timesteps["group"] = 0
+            timesteps["t_int"] = [int(t[1:]) for t in timesteps.index]
+            counter = 1
+            for (i, t) in enumerate(timesteps.index[:-1]):
+                timesteps.loc[t, "group"] = counter
+                if timesteps.loc[timesteps.index[i + 1], "t_int"] - timesteps.loc[t, "t_int"] > market_model_horizon:
+                    counter += 1
+            timesteps.loc[timesteps.index[-1], "group"] = counter
+            
+            for plant in tmp_storage_level[tmp_storage_level.storage_start != self.options["storages"]["storage_start"]].plant.unique():   
+                for group in timesteps.group.unique():  
+                    condition = (tmp_storage_level.timestep.isin(timesteps[timesteps.group == group].index))&(tmp_storage_level.plant == plant)
+                    window=int(168/market_model_horizon)
+                    tmp_storage_level.loc[condition, "storage_start"] = tmp_storage_level.loc[condition, "storage_start"].rolling(window, min_periods=1).mean()
+                    tmp_storage_level.loc[condition, "storage_end"] = tmp_storage_level.loc[condition, "storage_end"].rolling(window, min_periods=1).mean()
+
+        return tmp_storage_level
+    
+    
+        
+    def data_to_csv(self):
         """Export input data to csv files in the data_dir sub-directory.
 
         Writes all data specified in the *model structure* attribute of DataManagement to csv.
@@ -176,11 +228,12 @@ class MarketModel():
         model_horizon : list
             List of timesteps that are the model horizon
         """
+        
         if not self.data_dir.is_dir():
             self.data_dir.mkdir()
-        
-        self.rolling_horizon_storage_levels(model_horizon)
-        
+
+        model_horizon = self.model_horizon
+
         for data in [d for d in self.data.model_structure]:
             cols = [col for col in self.data.model_structure[data].keys() if col != "index"]
             if "timestep" in cols:
@@ -188,6 +241,17 @@ class MarketModel():
                     .to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
             else:
                 getattr(self.data, data)[cols].to_csv(str(self.data_dir.joinpath(f'{data}.csv')), index_label='index')
+
+        storages = self.data.plants[self.data.plants.plant_type.isin(self.options["plant_types"]["es"])]
+        if self.options["storages"]["storage_model"] or storages.empty:
+            if storages.empty:
+                self.logger.warning("No Storage Plants, disabling storage model.")
+                self.options["storages"]["storage_model"] = False
+            storage_level = pd.DataFrame(columns=["timestep", "plant", "storage_start", "storage_end"])
+            storage_level.to_csv(str(self.data_dir.joinpath('storage_level.csv')), index_label='index')
+        else:
+            storage_level = self.save_rolling_horizon_storage_levels()
+            storage_level.to_csv(str(self.data_dir.joinpath('storage_level.csv')), index_label='index')
 
         plant_types = pd.DataFrame(index=self.data.plants.plant_type.unique())
         for ptype in self.options["plant_types"]:
@@ -208,6 +272,12 @@ class MarketModel():
             self.grid_representation.redispatch_grid \
                 .to_csv(str(self.data_dir.joinpath('redispatch_grid.csv')), index_label='index')
 
+        if not self.grid_representation.lines.empty:
+            self.grid_representation.lines.to_csv(
+                str(self.data_dir.joinpath('lines.csv')), index_label='index'
+            )
+ 
+        
         with open(self.data_dir.joinpath('contingency_groups.json'), 'w') as file:
             json.dump(self.grid_representation.contingency_groups, file, indent=2)
 

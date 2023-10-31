@@ -20,6 +20,7 @@ import logaugment
 import pandas as pd
 import progress
 from progress.spinner import Spinner
+import pomato._installation.manage_julia_env as julia_management
 
 progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
 
@@ -86,7 +87,7 @@ class JuliaDaemon():
         Workingdirectory, should be pomato root directory.
    
     """
-    def __init__(self, logger, wdir, package_dir, julia_module):
+    def __init__(self, logger, wdir, package_dir, julia_module, solver):
         if not julia_module in ["market_model", "redundancy_removal"]:
             raise TypeError("The JuliaDaemon has to be initialized with market_model or redundancy_removal")
 
@@ -98,6 +99,7 @@ class JuliaDaemon():
         logger.addHandler(self._last_log)
 
         self.wdir = wdir
+        self.solver = solver
         self.package_dir = package_dir
         self.daemon_file = package_dir.joinpath(f"daemon_{julia_module}.json")
         self.julia_daemon_path = package_dir.joinpath("julia_daemon.jl")
@@ -115,7 +117,7 @@ class JuliaDaemon():
     def start_julia_daemon(self):
         """Stat julia daemon"""
         args = ["julia", "--project=" + str(self.package_dir.joinpath("_installation/pomato")),
-                str(self.julia_daemon_path), self.julia_module, str(self.package_dir)]
+                str(self.julia_daemon_path), self.julia_module, str(self.package_dir), str(self.solver)]
         process = subprocess.Popen(args, shell=False, stdout=subprocess.PIPE,
                                    stderr=subprocess.STDOUT, cwd=str(self.wdir))
         while process.returncode is None:    
@@ -290,12 +292,13 @@ def create_folder_structure(base_path, logger=None):
         "data_input": {},
         "data_output": {},
         "data_temp": {
-                "julia_files": {
-                        "data": {},
-                        "results": {},
-                        "cbco_data": {},
-                        },
+            "results_cache": {},
+            "julia_files": {
+                    "data": {},
+                    "results": {},
+                    "cbco_data": {},
                     },
+                },
         "logs": {},
         "profiles": {},
     }
@@ -321,26 +324,6 @@ def create_folder_structure(base_path, logger=None):
         else:
             print("Could not create folder structure!")
        
-def split_length_in_ranges(step_size, length):
-    """Split a range 1:N in a list of ranges with specified length."""
-    ranges = []
-    if step_size > length:
-        ranges.append(range(0, length))
-    else:
-        ranges = []
-        step_size = int(step_size)
-        for i in range(0, int(length/step_size)):
-            ranges.append(range(i*step_size, (i+1)*step_size))
-        ranges.append(range((i+1)*step_size, length))
-    return ranges
-
-def _delete_empty_subfolders(folder):
-    """Delete all empty subfolders to input folder."""
-    non_empty_subfolders = {f.parent for f in folder.rglob("*") if f.is_file()}
-    for subfolder in folder.iterdir():
-        if subfolder not in non_empty_subfolders:
-            subfolder.rmdir()
-
 def reduce_df_size(df):
     """Reduce size of DataFrame by assigning adequate data types."""
     for col, dtype in zip(df.dtypes.index, [i.name for i in df.dtypes.values]):
@@ -348,16 +331,8 @@ def reduce_df_size(df):
             df[col] = df[col].astype("category")
         # elif "int" in dtype:
         #     df[col] = pd.to_numeric(df[col], downcast="integer")
-        # else:
+        # elif "float" in dtype:
         #     df[col] = pd.to_numeric(df[col], downcast="float")
-    return df
-
-def fillna_numeric_columns(df, value):
-    """Fill NaN with value in numeric columns."""
-    df = df.copy()
-    for col in df:
-        if df[col].dtype in ("int", "float"):
-            df[col] = df[col].fillna(value)
     return df
 
 def default_options():
@@ -366,61 +341,89 @@ def default_options():
         "title": "default", 
         "type": "ntc",
         "model_horizon": [0, 2],
-        "heat_model": False,
-        "constrain_nex": False,
-        "timeseries": {
-            "split": True,
-            "market_horizon": 1000,
-            "redispatch_horizon": 24},
-        "redispatch": {
-            "include": False,
-            "zonal_redispatch": False,
-            "zones": [],
-            "cost": 1},
-        "curtailment": {
-            "include": False,
-            "cost": 1E2},
-        "chance_constrained": {
-            "include": False,
-            "fixed_alpha": True,
-            "cc_res_mw": 50,
-            "alpha_plants_mw": 200},
-        "parameters": {
-            "storage_start": 0.65},
-        "infeasibility": {
-            "heat": {
-                "include": False,
-                "cost": 1E3,
-                "bound": 20},
-            "electricity": {
-                "include": True,
-                "cost": 1E3,
-                "bound": 20}},
         "plant_types": {
             "es": [],
             "hs": [],
             "ts": [],
             "ph": [],
+        },
+        "timeseries": {
+            "market_horizon": 1000,
+            "redispatch_horizon": 24,
+            "type": "rt"
+        },
+        "redispatch": {
+            "include": False,
+            "zonal_redispatch": False,
+            "zones": [],
+            "cost": 1
+        },
+        "curtailment": {
+            "include": False,
+            "cost": 1E2
+        },
+        "chance_constrained": {
+            "include": False,
+            "fixed_alpha": True,
+            "cc_res_mw": 50,
+            "alpha_plants_mw": 200,
+            "alpha_plants_mc": 30,
+            "epsilon": 0.05,
+            "percent_std": 0.1
+        },
+        "storages": {
+            "storage_model": True,
+            "storage_model_resolution": 5, 
+            "storage_start": 0.5,
+            "storage_end": 0.5,
+            "smooth_storage_level": True,
+        },
+        "heat": {
+            "include": False,
+            "default_storage_level": 0.5, 
+            "chp_efficiency": 0.1
+        },
+        "infeasibility": {
+            "heat": {
+                "include": False,
+                "cost": 1E3,
+                "bound": 20
             },
+            "electricity": {
+                "include": True,
+                "cost": 1E3,
+                "bound": 20
+            },
+            "storages": {
+                "include": True,
+                "cost": 1E2,
+                "bound": 20
+            }
+        },
         "grid": {
             "redundancy_removal_option": "full",
             "precalc_filename": "",
+            "include_contingencies_redispatch": False,
             "sensitivity": 5e-2,
-            "capacity_multiplier": 1,
+            "short_term_rating_factor": 1,
+            "long_term_rating_factor": 1,
             "preprocess": True,
-            },
+        },
         "fbmc": {
             "gsk": "gmax",
             "minram": 0,
+            "only_crossborder": False,
             "flowbased_region": [],
             "cne_sensitivity": 5e-2,
             "lodf_sensitivity": 5e-2,
             "frm": 0,
             "reduce": False,         
             "enforce_ntc_domain": False,  
+            "precalc_filename": None, 
         },
-        "data": {
-            "result_copy": False,
+        "solver": {
+            "name": "Clp", 
+            "solver_options": {}
         }
     }
     return options

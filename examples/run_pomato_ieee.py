@@ -6,9 +6,11 @@ import pandas as pd
 import pomato
 
 # Init POMATO with the options file and the dataset
-wdir = Path(__file__).parent # Path of this example folder
+wdir = Path("/examples/") # Change to local copy of examples folder
+
 mato = pomato.POMATO(wdir=wdir, options_file="profiles/ieee118.json")
 mato.load_data('data_input/pglib_opf_case118_ieee.m')
+
 
 # %% Access the data from the main pomato instance in the data object.
 nodes = mato.data.nodes
@@ -18,9 +20,9 @@ zones = mato.data.zones
 plants = mato.data.plants
 
 # %% Run uniform pricing
-mato.options["type"] = "dispatch"
+mato.options["type"] = "uniform"
 mato.create_grid_representation()
-mato.run_market_model()
+mato.run_market_model(update_data=True)
 
 # Obtain the market result by name and its instance
 dispatch_result_name = mato.market_model.result_folders[0].name
@@ -33,9 +35,9 @@ print("Number of overloaded lines (Dispatch): ", len(df1))
 print("Number of overloaded lines N-1 (Dispatch): ", len(df3))
 
 # %% Run nodal-prcing market clearing
-mato.options["type"] = "nodal"
+mato.options["type"] = "opf"
 mato.create_grid_representation()
-mato.run_market_model()
+mato.run_market_model(update_data=True)
 
 # Obtain the market result by name and its instance
 nodal_result_name = mato.market_model.result_folders[0].name
@@ -49,19 +51,19 @@ print("Number of overloaded lines (nodal): ", len(df1))
 print("Number of overloaded lines N-1 (nodal): ", len(df3))
 
 # Create geoplot for nodal result, including price layer and saving it as .html
-mato.visualization.create_geo_plot(nodal_result, 
-                                   show_prices=True,
-                                   filepath=mato.wdir.joinpath("geoplot_nodal.html"))
+mato.visualization.create_geo_plot(
+    nodal_result, show_prices=True, filepath=mato.wdir.joinpath("geoplot_nodal.html"))
 
 # %% Rerun the model as SCOPF
-mato.options["type"] = "cbco_nodal"
-mato.options["grid"]["redundancy_removal_option"] = "clarkson_base"
-# Requires to presolve the network with the RedundancyRemoval Algorithm
-mato.create_grid_representation()
+mato.options["type"] = "scopf"
+mato.options["grid"]["redundancy_removal_option"] = "conditional_redundancy_removal"
+# Optionally set a line rating factors
+# mato.options["grid"]["short_term_rating_factor"] = 1
+# mato.options["grid"]["long_term_rating_factor"] = 0.75
 
-# Update the model data
-mato.update_market_model_data()
-mato.run_market_model()
+# SCOPF requires to presolve the network with the RedundancyRemoval Algorithm
+mato.create_grid_representation()
+mato.run_market_model(update_data=True)
 
 # Check for overloaded lines (Should be none for N-0 and N-1)
 scopf_result_name = mato.market_model.result_folders[0].name
@@ -74,9 +76,11 @@ print("Number of overloaded lines (SCOPF): ", len(df1))
 print("Number of overloaded lines N-1 (SCOPF): ", len(df3))
 
 # Create geoplot for scopf result, including price layer and saving it as .html
-mato.visualization.create_geo_plot(scopf_result, 
-                                   show_prices=True,
-                                   filepath=mato.wdir.joinpath("geoplot_scopf.html"))
+mato.visualization.create_geo_plot(
+    scopf_result, show_prices=True,
+    filepath=mato.wdir.joinpath("geoplot_scopf.html")
+)
 
 # Join all subprocesses. 
 mato._join_julia_instances()
+

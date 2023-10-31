@@ -368,20 +368,22 @@ class DataManagement():
         """Initialize :class:`~pomato.data.Results` with `results_folder` and the own instance."""
         self.results[result_folder.name] = Results(self, grid, result_folder)
 
-    def return_results(self, redispatch=True):
+    def return_results(self, title=None):
         """Interface method to allow access to results from :class:`~pomato.data.Results`."""
 
-        if redispatch and len(self.results) > 1:
-            redispatch_results = [r for r in list(self.results) if "redispatch" in r]
-            market_result = [r for r in list(self.results) if "market_result" in r]
-            if len(redispatch_results) == 1 and len(market_result) == 1:
-                return self.results[market_result[0]], self.results[redispatch_results[0]]
-            else:
-                self.logger.error("Multiple results initialized that fit criteria")
-        elif len(self.results) == 1:
-            return next(iter(self.results.values()))
+        if isinstance(title, str):
+            results = [r for r in self.results.values() if title in r.result_attributes["title"]] 
         else:
-            self.logger.error("Multiple results initialized that fit criteria")
+            results = [r for r in self.results.values()]
+        if len(results) == 1:
+            return results[0]
+        elif len(results) == 2:
+            redispatch_results = [r for r in results if "redispatch" in r.result_attributes["title"]]
+            market_result = [r for r in results if not "redispatch" in r.result_attributes["title"]]
+            return market_result[0], redispatch_results[0]
+        else:
+            self.logger.warning("Returning all results that match title.")
+            return results
       
     def set_default_net_position(self, net_position):
         """Add default net position."""

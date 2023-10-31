@@ -4,22 +4,20 @@ from pathlib import Path
 import pandas as pd
 import pomato
 
-
 # %%
 # wdir = Path("/examples/") # Change to local copy of examples folder
-wdir = Path.cwd()
 mato = pomato.POMATO(wdir=wdir, options_file="profiles/de.json")
 mato.load_data('data_input/DE_2020.zip')
-
 
 # %%
 # Create the grid representation, the options are specified in the 
 # json file supplied in the instantiation. 
 # In this case the model runs a zonal pricing with NTC to neighboring countries
 # and subsequent redispatch.
-mato.create_grid_representation()
-mato.run_market_model()
 
+mato.create_grid_representation()
+mato.update_market_model_data()
+mato.run_market_model()
 
 # %%
 # Return the results, in this case two: 
@@ -27,13 +25,15 @@ mato.run_market_model()
 # and redispatch (to account for N-0 network feasibility)
 market_result, redisp_result = mato.data.return_results()
 
-
 # %%
 # Check for overloaded lines in the market and redispatch results
 n0_m, _ = market_result.overloaded_lines_n_0()
 print("Number of N-0 Overloads in market result: ", len(n0_m))
 n0_r, _  = redisp_result.overloaded_lines_n_0()
 print("Number of N-0 Overloads after redispatch: ", len(n0_r))
+
+# Note: Overloads can still occur on cross-border lines, as only DE internal 
+# lines are redispatched.
 
 
 # %%
@@ -55,22 +55,20 @@ print("Redispatched energy per hour (abs) [MWh] ", gen_2.delta_abs.sum()/len(gen
 # %%
 # Create Geo Plot. DISCLAiMER: The reported prices are the dual 
 # in the redispatch result, thus including costs for redispatch.
-mato.visualization.create_geo_plot(redisp_result, show_prices=False, show_plot=False, show_redispatch=True,
-                                   filepath=mato.wdir.joinpath("geoplot_DE.html"))
-
+mato.visualization.create_geo_plot(
+    redisp_result, show_redispatch=True, 
+    filepath=mato.wdir.joinpath("geoplot_DE.html")
+)
 
 # %%
 # Create visualization of the generation schedule in the market result. 
-mato.visualization.create_generation_plot(market_result, show_plot=False, 
-                                          filepath=mato.wdir.joinpath("generation_plot.html"))
-
+mato.visualization.create_generation_plot(
+    market_result,
+    filepath=mato.wdir.joinpath("generation_plot.html")
+)
 
 # %%
 # 
 mato._join_julia_instances()
-
-
-# %%
-
 
 
