@@ -524,8 +524,8 @@ class Dashboard():
         fb_domain = FBDomainPlots(self.pomato_instance.data, fb_parameters)
         domain_x, domain_y = domain_x.split("-"), domain_y.split("-")
         if correct_for_nex:
-            domain_plot = fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep, 
-                                                              commercial_exchange=result.EX)
+            domain_plot = fb_domain.generate_flowbased_domain(
+                domain_x, domain_y, timestep=timestep, shift2MCP=correct_for_nex)
         else: 
             domain_plot = fb_domain.generate_flowbased_domain(domain_x, domain_y, timestep=timestep)
        

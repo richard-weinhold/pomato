@@ -108,8 +108,9 @@ class TestPomatoVisualization(unittest.TestCase):
         fb_parameters = self.mato.fbmc.create_flowbased_parameters(basecase)
         fbmc_domain = pomato.visualization.FBDomainPlots(self.mato.data, fb_parameters)
 
-        fbmc_domain.generate_flowbased_domains(("R1", "R2"), ["R1", "R3"], timesteps=["t0001"],
-                                               commercial_exchange=market_result.EX)
+        fbmc_domain.generate_flowbased_domains(
+            ("R1", "R2"), ["R1", "R3"], timesteps=["t0001"]
+        )
 
         fbmc_domain.set_xy_limits_forall_plots()
         domain_plot = fbmc_domain.fbmc_plots[0]
