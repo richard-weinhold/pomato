@@ -9,3 +9,4 @@ pomato/_installation/pomato
 examples/notepad.py
 pomato/daemon_market_model.json
 pomato/daemon_redundancy_removal.json
+data_temp

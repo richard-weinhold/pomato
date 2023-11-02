@@ -10,7 +10,7 @@ import plotly.io as pio
 pio.renderers.default = "browser"
 
 # %%
-wdir = Path(r"C:\Users\riw\Documents\environments\pomato_310_testing") # Change to local copy of examples folder
+wdir = Path("./examples") # Change to local copy of examples folder
 
 mato = pomato.POMATO(wdir=wdir, options_file="profiles/nrel118.json")
 mato.load_data('data_input/nrel_118_high_res.zip')
@@ -21,7 +21,7 @@ mato.options["title"] = "N-0"
 mato.options["type"] = "opf"
 mato.create_grid_representation()
 mato.update_market_model_data()
-mato.run_market_model()
+mato.run_market_model(update_data=True)
 
 # %% Calculate N-0 Chance Constrained
 mato.options["title"] = "N-0 CC"
