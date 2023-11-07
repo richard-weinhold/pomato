@@ -5,7 +5,7 @@ import pandas as pd
 import pomato
 
 # %%
-# wdir = Path("/examples/") # Change to local copy of examples folder
+wdir = Path("./examples/") # Change to local copy of examples folder
 mato = pomato.POMATO(wdir=wdir, options_file="profiles/de.json")
 mato.load_data('data_input/DE_2020.zip')
 

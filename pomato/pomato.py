@@ -215,8 +215,7 @@ class POMATO():
     Parameters
     ----------
     wdir : pathlib.Path, optional
-        Working directory, defaulting to Path.cwd() if not specified, should
-        be the root of the POMATO folder.
+        Working directory, should be the root of the POMATO folder.
     options_file : str, optional
         Providing the name of an option file, usually located in the
         ``/profiles`` folder. If not provided, using default options as
@@ -356,7 +355,7 @@ class POMATO():
         Parameters
         ----------
         update_data : bool, optional
-            Update data before model run. Default: True.
+            Update data before model run. Default: False.
         """
         if update_data:
             self.update_market_model_data()
