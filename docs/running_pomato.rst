@@ -4,16 +4,19 @@
 Running POMATO
 ==============
 
-The intention is to run the model from a self-made script that includes data read-in, model run 
-and result analysis using the provided functionality from pomato which can be run from console or 
-within any IDE. To illustrate the core functionality of pomato this guide comprises of two case 
-studies illustrating different aspects. First, we use the IEEE 118 bus network to run different 
-grid representations, including SCOPF utilizing the RedundancyRemoval. In the second case study, we
-look into a more to-live model of the German electricity system. Modeling the process of market 
-clearing with redispatch. 
+The intention is to run the model from a self-made script that includes data read-in, model run and
+result analysis using the provided functionality from pomato which can be run from console or within
+any IDE. To illustrate the core functionality of pomato this guide comprises of two case studies
+illustrating different aspects. First, we use the IEEE 118 bus network to run different grid
+representations, including SCOPF utilizing the RedundancyRemoval. In the second case study, we look
+into a more to-live model of the German electricity system. Modeling the process of market clearing
+with redispatch. Additionally, two examples are included to illustate how pomato can be used to model
+flow-based market coupling as well as a chance constrained power flow
 
-Both guides go through the code step-by-step. Having an IDE like Spyder can make this process quite 
-intuitive, but running the full script from console does also work. 
+Both guides go through the code step-by-step. Having an IDE like Spyder can make this process quite
+intuitive, but running the full script from console does also work. The *examples* folder also
+contains two jupyter notebooks for the DE and IEEE example. Note that you need to install the
+requirements to run a jupyter notebook manually to run these examples. 
 
 IEEE Case Study
 ---------------

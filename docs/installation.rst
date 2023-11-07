@@ -74,6 +74,10 @@ Notes on the Installation:
     alongside a python/pip installation does cause problems. Therefore it is difficult for me to
     provide extensive support for anaconda/pomato. One shortcut that has worked was to use pip/git
     from within anaconda to install Pomato (See `here <https://stackoverflow.com/a/50141879>`_).
+  - The *example* folder also constains two jupyter notebooks with the IEEE and DE examples. Note
+    that you need to install the requirements to run a jupyter notebook manually to run these
+    examples. 
+
 
 Solvers
 *******
@@ -88,9 +92,11 @@ Currently one of three solvers is chosen by POMATO based on availability and mod
     - `ECOS <https://github.com/jump-dev/ECOS.jl>`_. Solver available under GNU General Public
       licence, that allows solving conic constraints that are used in the chance constrained
       formulations in POMATO. 
-    - `Gurobi.jl <https://github.com/JuliaOpt/Gurobi.jl>`_. Generally more performant than Clp, but 
-      requires a valid licence and has to be seperately installed. If Gurobi is available it can be 
-      used with POMATO and will automatically used. 
+    - `Gurobi.jl <https://github.com/JuliaOpt/Gurobi.jl>`_. Generally more performant than Clp, but
+      requires a valid licence and has to be seperately installed. If Gurobi is available it can be
+      used with POMATO and will automatically used. If Gurobi is installed on your system you can
+      add the Gurobi.jl package to pomato by running
+      :code:`pomato.tools.julia_management.add_gurobi()` as described below.  
 
 Using other solvers is possible, however requires implementation through a few lines of code. If
 there is need/interest let me know. 
@@ -113,11 +119,11 @@ Managing the Julia environment
 
 The two julia packages are installed together with POMATO. More specifically, within the
 ``_installation`` folder of the POMATO package directory (meaning the folder where the package
-resides  e.g. in the Lib\site-packages folder within the python environment for python 3.7
-installation, or accessible via :code:`pomato.__path__[0]`.) POMATO will create a julia environment consisting of MarketModel and
-RedundancyRemoval, and subsequently all their dependencies. While manually changing this environment
-is possible, POMATO provides some means to manage the julia environment via a functions available in
-:code:`pomato.tools.julia_management`. 
+resides  e.g. in the Lib\site-packages folder within the python environment for python installation,
+or accessible via :code:`pomato.__path__[0]`.) POMATO will create a julia environment consisting of
+MarketModel and RedundancyRemoval, and subsequently all their dependencies. While manually changing
+this environment is possible, POMATO provides some means to manage the julia environment via a
+functions available in :code:`pomato.tools.julia_management`. 
 
   - :code:`pomato.tools.julia_management.instantiate_julia(redundancyremoval_branch="master", marketmodel_branch="master")` 
     will re-install the julia packages MarketModel and RedundancyRemoval from their git
@@ -126,7 +132,6 @@ is possible, POMATO provides some means to manage the julia environment via a fu
     will instantiate the julia environment from local repositories. This is useful when actively
     changing the code.
   - :code:`pomato.tools.julia_management.add_gurobi()` adds the gurobi solver to the julia environment. 
-  - :code:`pomato.tools.julia_management.add_mosek()` adds the mosek solver to the julia environment. 
 
 Developping POMATO
 ******************
