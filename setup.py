@@ -66,7 +66,7 @@ setup(name='pomato',
         'dash',
         'dash_bootstrap_components',
         'dash_daq',
-        'pycddlib',
+        'pycddlib-standalone',
         'requests',
         'pyarrow'
         # 'pypoman'
