@@ -11,7 +11,7 @@ import plotly.graph_objects as go
 import pomato
 import pomato.tools as tools
 from matplotlib import cm
-from numpy.lib.arraysetops import isin
+# from numpy.lib.arraysetops import isin
 from plotly.offline import plot
 from plotly.subplots import make_subplots
 from pomato.visualization.geoplot_functions import (
