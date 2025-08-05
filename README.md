@@ -41,7 +41,7 @@ The recommended way to install POMATO with python and pip:
     in python 3.10. 
   
   - Install [julia](https://julialang.org/downloads/) for your operating system. POMATO is
-    written and tested with 1.9. 
+    written and tested with 1.10. 
 
   - Add *python* and *julia* to the system Path, this allows you to start  *python* and *julia*
     directly for the command line without typing out the full path of the installation. PLattform
