@@ -35,15 +35,14 @@ def compute_polytope_vertices(A, b):
     """
     b = b.reshape((b.shape[0], 1))
     try:
-        mat = cdd.Matrix(np.hstack([b, -A]), number_type='float')
-        mat.rep_type = cdd.RepType.INEQUALITY
-        P = cdd.Polyhedron(mat)
+        mat = cdd.matrix_from_array(np.hstack([b, -A_hat]), rep_type=cdd.RepType.INEQUALITY)
+        P = cdd.polyhedron_from_matrix(mat)
     except RuntimeError:
         mean, sigma = 0, 0.0001
-        A = A + np.random.normal(mean, sigma, size=A.shape) 
-        mat = cdd.Matrix(np.hstack([b, -A]), number_type='float')
-        mat.rep_type = cdd.RepType.INEQUALITY
-        P = cdd.Polyhedron(mat)
+        A_hat = A_hat + np.random.normal(mean, sigma, size=A_hat.shape) 
+        mat = cdd.matrix_from_array(np.hstack([b, -A_hat]), rep_type=cdd.RepType.INEQUALITY)
+        P = cdd.polyhedron_from_matrix(mat)
+        
     g = P.get_generators()
     V = np.array(g)
     vertices = []
