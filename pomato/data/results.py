@@ -424,7 +424,7 @@ class Results():
                        suffixes=("_market", "_redispatch"))
         gen["delta"] = gen["G_redispatch"] - gen["G_market"]
         gen["delta_abs"] = gen["delta"].abs()
-        gen[["delta_pos", "delta_neg"]] = 0
+        gen[["delta_pos", "delta_neg"]] = 0.0
         gen.loc[gen.delta > 0, "delta_pos"] = gen.loc[gen.delta > 0, "delta"]
         gen.loc[gen.delta < 0, "delta_neg"] = gen.loc[gen.delta < 0, "delta"]
 
