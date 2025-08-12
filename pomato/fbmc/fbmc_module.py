@@ -64,7 +64,7 @@ class FBMCModule():
             with the nodal ptdf. 
         """
         
-        gsk = pd.DataFrame(index=self.grid.nodes.index, data=0.0)
+        gsk = pd.DataFrame(index=self.grid.nodes.index)
         plant_types = self.data.options["plant_types"]
         condition = (~self.data.plants.plant_type.isin(plant_types["ts"])) & \
                     (~self.data.plants.plant_type.isin(plant_types["es"]))
@@ -73,7 +73,7 @@ class FBMCModule():
         gen = gen[(gen.t == timestep)&(gen.p.isin(self.data.plants.index[condition]))]
         gen.loc[:, "n"] = self.data.plants.loc[gen.p, "node"].values
         for zone in self.data.zones.index:
-            gsk[zone] = 0
+            gsk[zone] = 0.0
             nodes_in_zone = self.grid.nodes.index[self.grid.nodes.zone == zone]
             tmp = gen.loc[gen.n.isin(nodes_in_zone), ["G", "n"]].groupby("n").sum().copy()
             if tmp.G.sum() > 0:
@@ -105,7 +105,7 @@ class FBMCModule():
             A Zone X Node array that will yield a zonal ptdf when multiplied
             with the nodal ptdf. 
         """        
-        gsk = pd.DataFrame(index=self.grid.nodes.index, data=0.0)
+        gsk = pd.DataFrame(index=self.grid.nodes.index)
 
         plant_types = self.data.options["plant_types"]
         condition = (~self.data.plants.plant_type.isin(plant_types["ts"])) & \
@@ -116,7 +116,7 @@ class FBMCModule():
     
         for zone in self.data.zones.index:
             nodes_in_zone = self.grid.nodes.index[self.grid.nodes.zone == zone]
-            gsk[zone] = 0
+            gsk[zone] = 0.0
             gmax_in_zone = gmax_per_node[gmax_per_node.index.isin(nodes_in_zone)]
             if option == "gmax":
                 if not (gmax_in_zone.empty or gmax_in_zone.g_max.sum() == 0):
