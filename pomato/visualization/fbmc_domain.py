@@ -9,7 +9,7 @@ import progress
 from progress.bar import Bar
 # from pypoman import compute_polytope_vertices
 from scipy import spatial
-from scipy.spatial.qhull import QhullError
+from scipy.spatial import QhullError
 from scipy.stats import norm
 
 progress.HIDE_CURSOR, progress.SHOW_CURSOR = '', ''
@@ -43,8 +43,8 @@ def compute_polytope_vertices(A, b):
         mat = cdd.matrix_from_array(np.hstack([b, -A_hat]), rep_type=cdd.RepType.INEQUALITY)
         P = cdd.polyhedron_from_matrix(mat)
         
-    g = P.get_generators()
-    V = np.array(g)
+    g = cdd.copy_generators(P)
+    V = np.array(g.array)
     vertices = []
     for i in range(V.shape[0]):
         if V[i, 0] != 1:  # 1 = vertex, 0 = ray
