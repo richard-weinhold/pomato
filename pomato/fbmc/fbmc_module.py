@@ -1,5 +1,6 @@
 import itertools
 import logging
+import math
 from pathlib import Path
 
 import numpy as np
@@ -387,8 +388,8 @@ class FBMCModule():
         condition_fb_region = (ntc.zone_i.isin(fb_region))&(ntc.zone_j.isin(fb_region))
         ntc.set_index(["zone_i", "zone_j"], inplace=True)
 
-        vertices_ntc_domain = int(np.math.factorial(len(ntc.index)) / np.math.factorial(len(fb_region))  / 
-            np.math.factorial(len(ntc.index) - len(fb_region))) 
+        vertices_ntc_domain = int(math.factorial(len(ntc.index)) / math.factorial(len(fb_region))  / 
+            math.factorial(len(ntc.index) - len(fb_region))) 
         self.logger.info("Including %s vertices of the NTC domains", vertices_ntc_domain)
         if vertices_ntc_domain > 1e7:
             self.logger.error("Too many dimension to consider (combination(ntc, FB Region).")
