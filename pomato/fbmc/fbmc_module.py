@@ -64,7 +64,7 @@ class FBMCModule():
             with the nodal ptdf. 
         """
         
-        gsk = pd.DataFrame(index=self.grid.nodes.index)
+        gsk = pd.DataFrame(index=self.grid.nodes.index, data=0.0)
         plant_types = self.data.options["plant_types"]
         condition = (~self.data.plants.plant_type.isin(plant_types["ts"])) & \
                     (~self.data.plants.plant_type.isin(plant_types["es"]))
@@ -105,7 +105,7 @@ class FBMCModule():
             A Zone X Node array that will yield a zonal ptdf when multiplied
             with the nodal ptdf. 
         """        
-        gsk = pd.DataFrame(index=self.grid.nodes.index)
+        gsk = pd.DataFrame(index=self.grid.nodes.index, data=0.0)
 
         plant_types = self.data.options["plant_types"]
         condition = (~self.data.plants.plant_type.isin(plant_types["ts"])) & \
